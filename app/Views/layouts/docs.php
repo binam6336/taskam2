@@ -9,7 +9,7 @@ $isActive = static fn(string $k): string => $current === $k ? ' active' : '';
 <body class="docs">
 <header class="dx-nav">
     <button class="btn btn-ghost btn-icon dx-burger" data-dx-menu aria-label="منو"><i class="fa-solid fa-bars"></i></button>
-    <a class="dx-brand" href="<?= e(url('/docs')) ?>"><span class="logo"><i class="fa-solid fa-check"></i></span><b>تسکام</b><span class="dx-tag">API v1</span></a>
+    <a class="dx-brand" href="<?= e(url('/docs')) ?>"><span class="logo"><?= logo_svg() ?></span><b>تسکام</b><span class="dx-tag">API v1</span></a>
     <nav class="dx-links">
         <a href="<?= e(url('/docs')) ?>" class="<?= $current === 'home' ? 'on' : '' ?>"><i class="fa-solid fa-house"></i> خانه</a>
         <a href="<?= e(url('/docs/authentication')) ?>" class="<?= $current === 'auth' ? 'on' : '' ?>"><i class="fa-solid fa-key"></i> ارسال توکن</a>

@@ -219,3 +219,28 @@ function duration_fa(float $hours): string
     $h = (int) floor($hours - $d * 24);
     return fa_num($d) . ' روز' . ($h > 0 ? ' و ' . fa_num($h) . ' ساعت' : '');
 }
+
+/** SVG لوگوی تسکام. $uid شناسه‌ها را یکتا می‌کند تا چند لوگو در یک صفحه تداخل نداشته باشند. */
+function logo_svg(string $uid = ''): string
+{
+    static $n = 0;
+    $u = $uid !== '' ? $uid : 'lg' . (++$n);
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" aria-hidden="true" focusable="false">'
+        . '<defs>'
+        . '<linearGradient id="' . $u . 'g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#10b981"/></linearGradient>'
+        . '<linearGradient id="' . $u . 'b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#121816"/><stop offset="100%" stop-color="#0a0f0d"/></linearGradient>'
+        . '<filter id="' . $u . 'f" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>'
+        . '</defs>'
+        . '<rect width="400" height="400" rx="90" fill="url(#' . $u . 'b)"/>'
+        . '<path d="M 200 75 A 125 125 0 1 1 85 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" opacity="0.35"/>'
+        . '<path d="M 85 160 L 85 200 L 125 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>'
+        . '<rect x="125" y="125" width="150" height="150" rx="40" fill="#111c16" stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
+        . '<path d="M 160 200 L 195 235 L 245 170" fill="none" stroke="url(#' . $u . 'g)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>'
+        . '</svg>';
+}
+
+/** فاو‌آیکن به‌صورت data URI (بدون درخواست جداگانه به سرور). */
+function favicon_uri(): string
+{
+    return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav')));
+}

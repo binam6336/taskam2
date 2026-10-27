@@ -30,7 +30,7 @@ $badgeAs = ['admin-support' => 'support'];
 <body class="<?= e($this->bodyClass) ?>">
 <div class="app">
     <aside class="sidebar" id="sidebar">
-        <a href="<?= e(url('/admin')) ?>" class="brand"><span class="logo"><i class="fa-solid fa-shield-halved"></i></span><span>پنل مدیریت<small>تسکام</small></span></a>
+        <a href="<?= e(url('/admin')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>پنل مدیریت<small>تسکام</small></span></a>
         <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
         <div class="sidebar-foot">
             <div class="flex items-center gap-2 mb-1">

@@ -51,7 +51,7 @@ $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => 
 <?php endif; ?>
 <div class="app">
     <aside class="sidebar" id="sidebar">
-        <a href="<?= e(url('/')) ?>" class="brand"><span class="logo"><i class="fa-solid fa-check"></i></span><span>تسکام<small>مدیریت وظایف و تیم</small></span></a>
+        <a href="<?= e(url('/')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>تسکام<small>مدیریت وظایف و تیم</small></span></a>
         <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
         <div class="sidebar-foot">
             <div class="flex items-center gap-2 mb-1">
