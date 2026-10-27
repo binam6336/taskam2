@@ -102,7 +102,12 @@ final class ChatModel
             $row['attachment_size'] = $file['attachment_size'];
             $row['attachment_type'] = $file['attachment_type'];
         }
-        return DB::insert('chat_messages', $row);
+        $id = DB::insert('chat_messages', $row);
+        if (!$saved) {
+            // اعلان PWA برای گیرنده (بعد از پایان درخواست ارسال می‌شود)
+            \App\Services\Push::chatMessage($id, $sender, $receiver, $message, $file['attachment_name'] ?? null, $sender === \App\Models\UserModel::botId());
+        }
+        return $id;
     }
 
     public static function normalize(array $m): array

@@ -20,6 +20,7 @@ use App\Controllers\FileController;
 use App\Controllers\LiveController;
 use App\Controllers\ProfileController;
 use App\Controllers\ProjectController;
+use App\Controllers\PwaController;
 use App\Controllers\SubjectController;
 use App\Controllers\SupportController;
 use App\Controllers\TaskController;
@@ -36,6 +37,10 @@ $router->group(['guest'], function ($r) {
 $router->post('/logout', [AuthController::class, 'logout'], ['authany']);
 $router->get('/pending', [AuthController::class, 'pending'], ['authany']);
 $router->get('/pending/status', [AuthController::class, 'pendingStatus'], ['authany']);
+// نسخه‌ی PWA (مسیرها عمداً بدون پسوند فایل‌اند تا وب‌سرور آن‌ها را فایل ایستا فرض نکند)
+$router->get('/manifest', [PwaController::class, 'manifest']);
+$router->get('/service-worker', [PwaController::class, 'serviceWorker']);
+$router->get('/offline', [PwaController::class, 'offline']);
 $router->get('/docs', [DocsController::class, 'index']);
 $router->get('/docs/authentication', [DocsController::class, 'auth']);
 $router->get('/docs/errors', [DocsController::class, 'errors']);
@@ -160,6 +165,11 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
+    $r->get('/install', [PwaController::class, 'install']);
+    $r->get('/push/key', [PwaController::class, 'pushKey']);
+    $r->post('/push/subscribe', [PwaController::class, 'subscribe']);
+    $r->post('/push/unsubscribe', [PwaController::class, 'unsubscribe']);
+    $r->post('/push/test', [PwaController::class, 'test']);
 });
 
 // ───────────────────────── مدیریت ─────────────────────────

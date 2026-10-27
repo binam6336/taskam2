@@ -314,21 +314,89 @@
      • پیام جدید و یادآوری تسک به‌صورت Notification مرورگر نمایش داده می‌شود (روی هر صفحه‌ی پنل) */
   TK.state = TK.state || {};
   const boot = TK.boot();
-  const ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2322c55e'/%3E%3Cpath d='M18 33l9 9 19-21' stroke='%2304210f' stroke-width='6.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
   const mem = {};
   const ls = {
     get(k) { try { return localStorage.getItem(k); } catch { return mem[k] ?? null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch { mem[k] = v; } },
   };
 
-  TK.notify = ({ title, body = '', url = '', tag = '' }) => {
+  /* ═════════ PWA: service worker، نصب و Web Push ═════════ */
+  const swUrl = TK.qs('meta[name="sw-url"]')?.content;
+  TK.pwa = {
+    reg: null, installEvt: null,
+    standalone: () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+    ios: () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+    pushSupported: () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window,
+    async ready() { if (!('serviceWorker' in navigator) || !swUrl) return null; try { return TK.pwa.reg || (TK.pwa.reg = await navigator.serviceWorker.ready); } catch { return null; } },
+    async subscription() { const r = await TK.pwa.ready(); return r?.pushManager ? r.pushManager.getSubscription() : null; },
+    /** اجازه‌ی اعلان + اشتراک push + ثبت در سرور */
+    async enablePush() {
+      if (!TK.pwa.pushSupported()) return { ok: false, msg: TK.pwa.ios() && !TK.pwa.standalone() ? 'در آیفون ابتدا تسکام را به صفحه‌ی اصلی اضافه کنید و از همان‌جا باز کنید.' : 'این مرورگر از اعلان‌های PWA پشتیبانی نمی‌کند.' };
+      const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+      if (perm !== 'granted') return { ok: false, msg: perm === 'denied' ? 'اعلان‌ها مسدود است؛ از تنظیمات سایت در مرورگر (آیکن قفل کنار آدرس) آن را «مجاز» کنید.' : 'اجازه‌ی اعلان داده نشد.' };
+      const reg = await TK.pwa.ready(); if (!reg) return { ok: false, msg: 'service worker فعال نشد (سایت باید HTTPS باشد).' };
+      const k = await TK.get('/push/key'); if (!TK.ok(k)) return { ok: false, msg: k.message || 'کلید اعلان دریافت نشد.' };
+      const key = Uint8Array.from(atob(k.key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((k.key.length + 3) % 4)), (c) => c.charCodeAt(0));
+      let sub = await reg.pushManager.getSubscription();
+      const cur = sub?.options?.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+      if (sub && cur && cur.join() !== key.join()) { await sub.unsubscribe(); sub = null; }   // کلید سرور عوض شده
+      try { sub = sub || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }); } catch (e) { return { ok: false, msg: 'ثبت اعلان در مرورگر ناموفق بود: ' + (e.message || e) }; }
+      const j = sub.toJSON();
+      const r = await TK.post('/push/subscribe', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+      if (TK.ok(r)) ls.set('tk_push_sync', j.endpoint + '|' + Date.now());
+      return { ok: TK.ok(r), msg: r.message, devices: r.devices };
+    },
+    async disablePush() {
+      const sub = await TK.pwa.subscription(); if (!sub) return { ok: true, msg: 'اعلان‌های این دستگاه از قبل غیرفعال بود.' };
+      const r = await TK.post('/push/unsubscribe', { endpoint: sub.endpoint }); await sub.unsubscribe(); ls.set('tk_push_sync', '');
+      return { ok: true, msg: r.message || 'غیرفعال شد.' };
+    },
+    /** همگام‌سازی روزانه‌ی اشتراک با سرور (اگر مرورگر اشتراک را عوض کرده باشد) */
+    async sync() {
+      if (!boot.live || !TK.pwa.pushSupported() || Notification.permission !== 'granted') return;
+      const sub = await TK.pwa.subscription(); if (!sub) return;
+      const [ep, at] = String(ls.get('tk_push_sync') || '').split('|');
+      if (ep === sub.endpoint && Date.now() - Number(at || 0) < 864e5) return;
+      const j = sub.toJSON();
+      const r = await TK.post('/push/subscribe', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+      if (TK.ok(r)) ls.set('tk_push_sync', j.endpoint + '|' + Date.now());
+    },
+    async install() {
+      const e = TK.pwa.installEvt; if (!e) return 'unavailable';
+      e.prompt(); const { outcome } = await e.userChoice; TK.pwa.installEvt = null;
+      document.dispatchEvent(new CustomEvent('tk:installable', { detail: false }));
+      return outcome;
+    },
+  };
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); TK.pwa.installEvt = e; document.dispatchEvent(new CustomEvent('tk:installable', { detail: true })); });
+  window.addEventListener('appinstalled', () => { TK.pwa.installEvt = null; TK.toast('تسکام نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید. 🎉', 'success', 6000); document.dispatchEvent(new CustomEvent('tk:installed')); });
+  if ('serviceWorker' in navigator && swUrl && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
+    navigator.serviceWorker.register(swUrl, { scope: TK.base + '/' }).then((r) => { TK.pwa.reg = r; TK.pwa.sync(); }).catch(() => { /* بدون PWA ادامه */ });
+    // پیام service worker: اعلانی که وقتی برنامه جلوی چشم است رسیده → toast داخل صفحه
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      const m = e.data || {};
+      if (m.type === 'tk-open' && m.url) location.href = m.url;
+      if (m.type === 'tk-push' && m.payload) {
+        const d = m.payload, url = d.url ? new URL(d.url, location.origin + TK.base + '/').href : '';
+        if (d.kind === 'chat' && TK.state.chatUser && url.includes('user=' + TK.state.chatUser)) return;   // همین گفتگو باز است
+        const el = TK.toast(d.title + (d.body ? ' — ' + String(d.body).slice(0, 90) : ''), 'info', 9000);
+        if (el && url) { el.style.cursor = 'pointer'; el.addEventListener('click', () => (location.href = url)); }
+      }
+    });
+  }
+
+  /** اعلان از داخل صفحه: از طریق service worker (الزامی در کروم اندروید)، وگرنه Notification ساده، وگرنه toast */
+  TK.notify = async ({ title, body = '', url = '', tag = '' }) => {
     const go = () => { window.focus(); if (url) location.href = url; };
     if ('Notification' in window && Notification.permission === 'granted') {
+      const reg = await TK.pwa.ready();
+      const opts = { body, tag: tag || undefined, renotify: !!tag, icon: TK.url('assets/img/icon-192.png'), badge: TK.url('assets/img/badge-96.png'), dir: 'rtl', lang: 'fa', vibrate: [120, 60, 120], data: { url: url ? new URL(url, location.href).href : location.href } };
       try {
-        const n = new Notification(title, { body, tag: tag || undefined, icon: ICON, dir: 'rtl', lang: 'fa' });
+        if (reg) { await reg.showNotification(title, opts); return; }
+        const n = new Notification(title, opts);
         n.onclick = () => { n.close(); go(); };
         return;
-      } catch { /* برخی مرورگرهای موبایل: ادامه با toast */ }
+      } catch { /* ادامه با toast */ }
     }
     const el = TK.toast(title + (body ? ' — ' + body.slice(0, 90) : ''), 'info', 9000);
     if (el && url) { el.style.cursor = 'pointer'; el.addEventListener('click', go); }
@@ -371,6 +439,7 @@
         const v = keys.reduce((s, k) => s + Number(r.counts[k] || 0), 0);
         b.textContent = TK.fa(v); b.classList.toggle('zero', !v);
       });
+      if (navigator.setAppBadge && r.counts && 'chat' in r.counts) { try { r.counts.chat ? navigator.setAppBadge(r.counts.chat) : navigator.clearAppBadge(); } catch { /* */ } }
       if (r.msg_base !== null && r.msg_base !== undefined) ls.set(KEY, String(r.msg_base));
       (r.messages || []).forEach((m) => {
         if (m.id <= Number(ls.get(KEY) || 0)) return;                    // تب دیگری قبلاً اعلان داده
@@ -412,11 +481,16 @@
   paintBell();
   TK.on('click', '#notif-btn', async () => {
     if (!('Notification' in window)) return TK.toast('مرورگر شما از اعلان پشتیبانی نمی‌کند.', 'warning');
+    if (Notification.permission === 'denied') return TK.toast('اعلان‌ها در مرورگر مسدود است؛ از آیکن قفل کنار آدرس، اعلان‌ها را «مجاز» کنید.', 'warning', 7000);
+    if (TK.pwa.pushSupported()) {
+      const r = await TK.pwa.enablePush(); paintBell();
+      if (!r.ok) return TK.toast(r.msg, 'warning', 7000);
+      const t = await TK.post('/push/test'); return TK.toast(TK.ok(t) ? 'اعلان‌ها فعال است؛ یک اعلان آزمایشی ارسال شد.' : r.msg, 'success');
+    }
     if (Notification.permission === 'default') {
       const p = await Notification.requestPermission(); paintBell();
       return TK.toast(p === 'granted' ? 'اعلان‌های مرورگر فعال شد.' : 'اجازه‌ی اعلان داده نشد.', p === 'granted' ? 'success' : 'warning');
     }
-    if (Notification.permission === 'denied') return TK.toast('اعلان‌ها در مرورگر مسدود است؛ از آیکن قفل کنار آدرس، اعلان‌ها را «مجاز» کنید.', 'warning', 7000);
     TK.notify({ title: 'پیام جدید – تسکام', body: 'اعلان‌های مرورگر فعال است ✅', url: '' });
   });
   if (boot.live && 'Notification' in window && Notification.permission === 'default' && !sessionStorage.getItem('tk_notif_hint')) {

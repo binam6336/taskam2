@@ -14,6 +14,15 @@ final class App
         if (!($req->isApi() && $req->bearerToken() !== null)) {
             Session::start();
         }
+        // یادآوری تسک‌ها برای اعلان PWA: حداکثر دقیقه‌ای یک‌بار، بعد از پاسخ (جایگزین کران‌جاب روی هاست اشتراکی)
+        register_shutdown_function(static function (): void {
+            try {
+                \App\Services\Push::sweepDue();
+                \App\Services\Push::flush();
+            } catch (\Throwable $e) {
+                ErrorHandler::log($e);
+            }
+        });
         $router = new Router();
         require BASE_PATH . '/config/routes.php';
         $router->dispatch($req);
