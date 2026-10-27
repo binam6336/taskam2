@@ -1,0 +1,221 @@
+<?php
+declare(strict_types=1);
+
+use App\Core\Auth;
+use App\Core\Csrf;
+use App\Core\Env;
+use App\Core\Jalali;
+use App\Core\Session;
+
+/* ───── polyfill برای PHP 7.4 ───── */
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+
+/** مقدار متغیر محیطی. */
+function env(string $key, $default = null)
+{
+    return Env::get($key, $default);
+}
+
+/** escape برای HTML. */
+function e($v): string
+{
+    return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+/** APP_URL نرمال‌شده: اگر کاربر بدون http(s):// نوشته بود، https:// اضافه می‌شود. */
+function app_url_config(): string
+{
+    $cfg = trim((string) env('APP_URL', ''));
+    if ($cfg === '') {
+        return '';
+    }
+    if (!preg_match('#^https?://#i', $cfg)) {
+        $cfg = 'https://' . ltrim($cfg, '/');
+    }
+    return rtrim($cfg, '/');
+}
+
+/** مسیر پایه‌ی اپلیکیشن (بدون اسلش انتهایی)؛ مثل /tapin/task یا خالی. */
+function base_url(): string
+{
+    static $base = null;
+    if ($base !== null) {
+        return $base;
+    }
+    $cfg = app_url_config();
+    if ($cfg !== '') {
+        $p = parse_url($cfg, PHP_URL_PATH);
+        return $base = rtrim(is_string($p) ? $p : '', '/');
+    }
+    $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php')), '/');
+    if (str_ends_with($dir, '/public')) {
+        $dir = substr($dir, 0, -7);
+    }
+    return $base = $dir;
+}
+
+function url(string $path = ''): string
+{
+    return base_url() . '/' . ltrim($path, '/');
+}
+
+/** URL کامل با دامنه (برای لینک‌های اشتراکی). */
+function full_url(string $path = ''): string
+{
+    $cfg = app_url_config();
+    if ($cfg !== '') {
+        $p = parse_url($cfg);
+        $origin = ($p['scheme'] ?? 'https') . '://' . ($p['host'] ?? 'localhost') . (isset($p['port']) ? ':' . $p['port'] : '');
+        return $origin . url($path);
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' && env('TRUSTED_PROXY', false));
+    return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . url($path);
+}
+
+function asset(string $path): string
+{
+    $file = BASE_PATH . '/public/assets/' . ltrim($path, '/');
+    $v = is_file($file) ? (string) filemtime($file) : '1';
+    return url('assets/' . ltrim($path, '/')) . '?v=' . $v;
+}
+
+function csrf_token(): string
+{
+    return Csrf::token();
+}
+
+function csrf_field(): string
+{
+    return '<input type="hidden" name="_csrf" value="' . e(Csrf::token()) . '">';
+}
+
+function old(string $key, $default = '')
+{
+    $old = Session::get('_old', []);
+    return $old[$key] ?? $default;
+}
+
+function auth_user(): ?array
+{
+    return Auth::user();
+}
+
+function jdate(?string $dt, bool $time = true, bool $weekday = false): string
+{
+    return Jalali::format($dt, $time, $weekday);
+}
+
+function time_ago(?string $dt): string
+{
+    return Jalali::ago($dt);
+}
+
+/** تبدیل ارقام لاتین به فارسی (برای نمایش). */
+function fa_num($v): string
+{
+    return strtr((string) $v, ['0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
+}
+
+/** JSON امن برای قرار دادن در HTML (data-attribute یا script type=application/json). */
+function json_html($data): string
+{
+    $j = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_PARTIAL_OUTPUT_ON_ERROR);
+    return str_replace(["\xe2\x80\xa8", "\xe2\x80\xa9"], ['\u2028', '\u2029'], (string) $j);
+}
+
+function avatar_url(?string $file): ?string
+{
+    if ($file === null || $file === '' || !preg_match('/^[A-Za-z0-9_.\-]+$/', basename($file))) {
+        return null;
+    }
+    return url('files/avatars/' . rawurlencode(basename($file)));
+}
+
+function project_image_url(?string $file): ?string
+{
+    if ($file === null || $file === '' || !preg_match('/^[A-Za-z0-9_.\-]+$/', basename($file))) {
+        return null;
+    }
+    return url('files/projects/' . rawurlencode(basename($file)));
+}
+
+function full_name(array $u, string $prefix = ''): string
+{
+    $n = trim(((string) ($u[$prefix . 'first_name'] ?? '')) . ' ' . ((string) ($u[$prefix . 'last_name'] ?? '')));
+    return $n !== '' ? $n : (string) ($u[$prefix . 'mobile'] ?? 'کاربر');
+}
+
+function initial(string $name): string
+{
+    $name = trim($name);
+    return $name === '' ? '؟' : mb_substr($name, 0, 1, 'UTF-8');
+}
+
+function human_size($b): string
+{
+    $b = (int) $b;
+    if ($b < 1024) {
+        return fa_num($b) . ' بایت';
+    }
+    if ($b < 1048576) {
+        return fa_num(round($b / 1024, 1)) . ' کیلوبایت';
+    }
+    return fa_num(round($b / 1048576, 2)) . ' مگابایت';
+}
+
+function file_icon(?string $ext): string
+{
+    $e = strtolower((string) $ext);
+    if ($e === 'pdf') {
+        return 'fa-file-pdf';
+    }
+    if (in_array($e, ['xls', 'xlsx', 'csv'], true)) {
+        return 'fa-file-excel';
+    }
+    if (in_array($e, ['doc', 'docx', 'rtf', 'txt'], true)) {
+        return 'fa-file-word';
+    }
+    if (in_array($e, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
+        return 'fa-file-image';
+    }
+    if (in_array($e, ['zip', 'rar', '7z'], true)) {
+        return 'fa-file-zipper';
+    }
+    return 'fa-file';
+}
+
+function duration_fa(float $hours): string
+{
+    if ($hours <= 0) {
+        return '—';
+    }
+    if ($hours < 1) {
+        $m = (int) round($hours * 60);
+        return $m < 1 ? 'کمتر از ۱ دقیقه' : fa_num($m) . ' دقیقه';
+    }
+    if ($hours < 24) {
+        $h = (int) floor($hours);
+        $m = (int) round(($hours - $h) * 60);
+        return $m === 0 ? fa_num($h) . ' ساعت' : fa_num($h) . ' ساعت و ' . fa_num($m) . ' دقیقه';
+    }
+    $d = (int) floor($hours / 24);
+    $h = (int) floor($hours - $d * 24);
+    return fa_num($d) . ' روز' . ($h > 0 ? ' و ' . fa_num($h) . ' ساعت' : '');
+}

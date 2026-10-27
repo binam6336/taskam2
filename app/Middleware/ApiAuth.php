@@ -1,0 +1,75 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Core\Auth;
+use App\Core\Csrf;
+use App\Core\DB;
+use App\Core\HttpException;
+use App\Core\Request;
+use App\Core\Response;
+
+/**
+ * احراز هویت API:
+ *  1) Bearer / X-API-Key  (توکن ذخیره‌شده به‌صورت SHA-256)
+ *  2) نشست مرورگر (کوکی) — در این حالت برای درخواست‌های تغییردهنده، هدر X-CSRF-Token الزامی است.
+ * کاربر احراز‌شده در Request::$params['_api_user'] قرار می‌گیرد.
+ */
+final class ApiAuth
+{
+    public static function cors(): void
+    {
+        header('Access-Control-Allow-Origin: ' . (string) env('API_CORS_ORIGIN', '*'));
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Authorization, X-API-Key, Content-Type, Accept, X-CSRF-Token');
+        header('Access-Control-Max-Age: 600');
+        header('Vary: Origin');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-store');
+    }
+
+    public static function handle(Request $r): void
+    {
+        self::cors();
+        if ($r->method() === 'OPTIONS') {
+            Response::noContent();
+        }
+
+        $token = $r->bearerToken();
+        if ($token !== null) {
+            if (strlen($token) < 20 || strlen($token) > 128) {
+                throw new HttpException(401, 'فرمت توکن نامعتبر است.', 'TOKEN_INVALID_FORMAT');
+            }
+            $row = DB::one(
+                'SELECT t.id AS token_id, t.user_id, t.expires_at, u.status
+                   FROM api_tokens t INNER JOIN users u ON u.id = t.user_id
+                  WHERE t.token_hash = ? AND t.is_active = 1 AND u.is_bot = 0 LIMIT 1',
+                [hash('sha256', $token)]
+            );
+            if ($row === null || ($row['expires_at'] !== null && strtotime((string) $row['expires_at']) < time())) {
+                throw new HttpException(401, 'توکن نامعتبر یا غیرفعال است.', 'TOKEN_INVALID');
+            }
+            if ($row['status'] !== 'active') {
+                throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
+            }
+            DB::run('UPDATE api_tokens SET last_used_at = NOW(), last_ip = ? WHERE id = ?', [$r->ip(), (int) $row['token_id']]);
+            $r->params['_api_user'] = (int) $row['user_id'];
+            $r->params['_api_method'] = 'token';
+            return;
+        }
+
+        $u = Auth::user();
+        if ($u === null) {
+            throw new HttpException(401, 'دسترسی غیرمجاز. توکن ارسال کنید یا وارد شوید.', 'UNAUTHORIZED');
+        }
+        if ($u['status'] !== 'active') {
+            throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
+        }
+        if (!$r->isSafe() && !Csrf::verify($r)) {
+            throw new HttpException(419, 'توکن CSRF نامعتبر است (برای نشست مرورگر هدر X-CSRF-Token لازم است).', 'CSRF_MISMATCH');
+        }
+        $r->params['_api_user'] = (int) $u['id'];
+        $r->params['_api_method'] = 'session';
+    }
+}

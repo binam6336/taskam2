@@ -1,0 +1,91 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * مشخصات API v1 — تنها منبع حقیقت برای صفحه‌ی /docs و پاسخ GET /api/v1/
+ * هر endpoint: method, path, summary, params[], example (محتوای data)
+ */
+$q = static fn(string $n, string $t, string $d, bool $r = false, $def = null): array => ['name' => $n, 'in' => 'query', 'type' => $t, 'required' => $r, 'desc' => $d, 'default' => $def];
+$b = static fn(string $n, string $t, string $d, bool $r = false, $def = null): array => ['name' => $n, 'in' => 'body', 'type' => $t, 'required' => $r, 'desc' => $d, 'default' => $def];
+$id = $q('id', 'integer', 'شناسه‌ی رکورد', true);
+$paging = [$q('limit', 'integer', 'حداکثر تعداد نتیجه (۱ تا ۲۰۰)', false, 100), $q('offset', 'integer', 'تعداد رکورد رد‌شده', false, 0)];
+
+$task = ['id' => 42, 'title' => 'ارسال گزارش هفتگی', 'description' => 'گزارش را برای مدیر ارسال کن', 'priority' => 'high', 'is_completed' => false, 'due_date' => '2026-11-05', 'due_time' => '14:30', 'created_at' => '2026-10-20 09:12:00', 'completed_at' => null, 'user_id' => 7, 'assignee_id' => 7, 'subject_id' => 3, 'project_id' => null, 'project_title' => null, 'subject_title' => 'گزارش‌ها', 'assignee_first_name' => 'علی', 'assignee_last_name' => 'رضایی', 'assignee_mobile' => '09121234567', 'creator_first_name' => 'علی', 'creator_last_name' => 'رضایی', 'creator_mobile' => '09121234567', 'notes_count' => 2, 'attachments_count' => 0];
+$call = ['id' => 15, 'user_id' => 7, 'assignee_id' => 9, 'first_name' => 'سارا', 'last_name' => 'محمدی', 'mobile' => '09351112233', 'email' => null, 'store' => 'فروشگاه نمونه', 'website' => null, 'description' => 'تماس برای پیگیری سفارش', 'status' => 0, 'is_done' => false, 'created_at' => '2026-10-22 11:00:00', 'completed_at' => null];
+$text = ['id' => 'a1b2c3d4e5f6_9f8e7d6c', 'title' => 'سلام و احوالپرسی', 'content' => 'سلام وقت بخیر، چطور می‌توانم کمک کنم؟', 'sort_order' => -1, 'created_at' => '2026-10-10 08:00:00', 'updated_at' => '2026-10-10 08:00:00'];
+$person = ['user_id' => 9, 'first_name' => 'مریم', 'last_name' => 'احمدی', 'full_name' => 'مریم احمدی', 'mobile' => '09129998877', 'email' => null, 'avatar_url' => null];
+$project = ['id' => 2, 'title' => 'بازطراحی وب‌سایت', 'description' => null, 'max_members' => 10, 'profile_image' => null, 'status' => 1, 'is_creator' => true, 'my_permissions' => ['edit_project', 'add_member', 'remove_member', 'manage_permissions', 'view_analytics'], 'created_at' => '2026-09-01 12:00:00', 'members_count' => 4];
+
+return [
+    'meta' => ['title' => 'Taskam API', 'version' => 'v1', 'updated' => '2026-10'],
+    'errors' => [
+        ['code' => 'UNAUTHORIZED / TOKEN_INVALID', 'http' => 401, 'desc' => 'توکن ارسال نشده، نامعتبر، غیرفعال یا منقضی است.'],
+        ['code' => 'ACCOUNT_INACTIVE', 'http' => 403, 'desc' => 'حساب صاحب توکن فعال نیست.'],
+        ['code' => 'FORBIDDEN', 'http' => 403, 'desc' => 'دسترسی لازم برای این عملیات را ندارید.'],
+        ['code' => 'INVALID_ID', 'http' => 400, 'desc' => 'شناسه ارسال نشده یا نامعتبر است.'],
+        ['code' => '*_NOT_FOUND', 'http' => 404, 'desc' => 'رکورد پیدا نشد یا به شما تعلق ندارد (مثلاً TASK_NOT_FOUND).'],
+        ['code' => 'METHOD_NOT_ALLOWED', 'http' => 405, 'desc' => 'متد HTTP برای این آدرس مجاز نیست.'],
+        ['code' => 'CSRF_MISMATCH', 'http' => 419, 'desc' => 'فقط در نشست مرورگر: هدر X-CSRF-Token لازم است (با Bearer نیاز نیست).'],
+        ['code' => 'SERVER_ERROR', 'http' => 500, 'desc' => 'خطای داخلی؛ جزئیات فقط در لاگ سرور ثبت می‌شود.'],
+    ],
+    'groups' => [
+        ['id' => 'general', 'title' => 'عمومی', 'icon' => 'fa-compass', 'desc' => 'اطلاعات API، هویت توکن و زمان سرور.', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/', 'summary' => 'معرفی API و فهرست endpointها', 'params' => [], 'example' => ['name' => 'Taskam API', 'version' => 'v1', 'base_url' => 'https://example.com/api/v1', 'auth' => ['type' => 'Bearer Token', 'header' => 'Authorization: Bearer <token>']]],
+            ['method' => 'GET', 'path' => '/me', 'summary' => 'اطلاعات کاربر صاحب توکن', 'params' => [], 'example' => ['id' => 7, 'first_name' => 'علی', 'last_name' => 'رضایی', 'full_name' => 'علی رضایی', 'mobile' => '09121234567', 'email' => null, 'avatar_url' => null, 'auth_method' => 'token']],
+            ['method' => 'GET', 'path' => '/time', 'summary' => 'زمان سرور (تهران) به میلادی و شمسی', 'params' => [], 'example' => ['timezone' => 'Asia/Tehran', 'iso' => '2026-10-23T10:15:00+03:30', 'persian' => ['formatted' => '1405/08/01', 'weekday' => 'جمعه']]],
+        ]],
+        ['id' => 'tasks', 'title' => 'تسک‌ها', 'icon' => 'fa-list-check', 'desc' => 'تسک‌هایی که شما سازنده یا مسئول آن‌ها هستید (یا همکار با دسترسی مناسب).', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/tasks/list', 'summary' => 'فهرست تسک‌ها', 'params' => array_merge([$q('status', 'string', 'all | pending | completed', false, 'all')], $paging), 'example' => ['count' => 1, 'limit' => 100, 'offset' => 0, 'status' => 'all', 'tasks' => [$task]]],
+            ['method' => 'GET', 'path' => '/tasks/show', 'summary' => 'جزئیات تسک به‌همراه یادداشت‌ها', 'params' => [$id], 'example' => $task + ['notes' => [['id' => 1, 'user_id' => 7, 'note' => 'شروع شد', 'created_at' => '2026-10-21 10:00:00', 'first_name' => 'علی', 'last_name' => 'رضایی', 'mobile' => '09121234567']]]],
+            ['method' => 'GET', 'path' => '/tasks/stats', 'summary' => 'آمار تسک‌های من', 'params' => [], 'example' => ['total' => 20, 'completed' => 12, 'pending' => 8, 'high' => 3, 'medium' => 10, 'low' => 7]],
+            ['method' => 'POST', 'path' => '/tasks/create', 'summary' => 'ایجاد تسک (موضوع و پروژه اجباری‌اند)', 'params' => [$b('title', 'string', 'عنوان (حداکثر ۲۵۵ نویسه)', true), $b('description', 'string', 'توضیحات'), $b('priority', 'string', 'low | medium | high', false, 'medium'), $b('due_date', 'string', 'سررسید YYYY-MM-DD'), $b('due_time', 'string', 'ساعت سررسید HH:MM (فقط با due_date)'), $b('subject_id', 'integer', 'شناسه‌ی موضوع (متعلق به شما)', true), $b('project_id', 'integer', 'شناسه‌ی پروژه (باید عضو باشید)', true), $b('assignee_id', 'integer', 'مسئول؛ پیش‌فرض خودتان. فقط همکار یا هم‌پروژه', false, 'خودم')], 'example' => $task],
+            ['method' => 'POST', 'path' => '/tasks/update', 'summary' => 'ویرایش تسک (جزئی — فقط فیلدهای ارسالی تغییر می‌کند)', 'params' => [$id, $b('title', 'string', 'عنوان جدید'), $b('description', 'string', 'توضیحات'), $b('priority', 'string', 'low | medium | high'), $b('due_date', 'string', 'خالی = حذف سررسید'), $b('due_time', 'string', 'ساعت'), $b('subject_id', 'integer', 'موضوع جدید (الزامی است؛ حذف موضوع ممکن نیست)'), $b('project_id', 'integer', 'پروژه‌ی جدید؛ نیازمند دسترسی change_project (حذف پروژه ممکن نیست)'), $b('assignee_id', 'integer', 'نیازمند دسترسی reassign')], 'example' => $task],
+            ['method' => 'POST', 'path' => '/tasks/toggle', 'summary' => 'تغییر وضعیت انجام‌شده ↔ انجام‌نشده', 'params' => [$id], 'example' => ['id' => 42, 'is_completed' => true]],
+            ['method' => 'POST', 'path' => '/tasks/delete', 'summary' => 'حذف تسک', 'params' => [$id], 'example' => ['id' => 42]],
+        ]],
+        ['id' => 'calls', 'title' => 'درخواست‌های تماس', 'icon' => 'fa-phone-volume', 'desc' => 'ثبت و پیگیری درخواست تماس مشتریان.', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/calls/list', 'summary' => 'فهرست درخواست‌ها', 'params' => array_merge([$q('status', 'string', 'all | new | done', false, 'all'), $q('assignee', 'string', 'all | me', false, 'all'), $q('q', 'string', 'جستجو در نام، موبایل، فروشگاه')], $paging), 'example' => ['count' => 1, 'limit' => 100, 'offset' => 0, 'status' => 'all', 'assignee' => 'all', 'calls' => [$call]]],
+            ['method' => 'GET', 'path' => '/calls/show', 'summary' => 'جزئیات درخواست', 'params' => [$id], 'example' => $call],
+            ['method' => 'GET', 'path' => '/calls/stats', 'summary' => 'آمار درخواست‌ها', 'params' => [], 'example' => ['total' => 30, 'new' => 4, 'done' => 26, 'today' => 2, 'unassigned' => 0]],
+            ['method' => 'POST', 'path' => '/calls/create', 'summary' => 'ثبت درخواست تماس', 'params' => [$b('first_name', 'string', 'نام', true), $b('last_name', 'string', 'نام خانوادگی', true), $b('mobile', 'string', 'موبایل ۰۹xxxxxxxxx', true), $b('email', 'string', 'ایمیل'), $b('store', 'string', 'فروشگاه'), $b('website', 'string', 'وب‌سایت'), $b('description', 'string', 'توضیحات'), $b('assignee_id', 'integer', 'مسئول پیگیری (خودتان یا همکار)')], 'example' => $call],
+            ['method' => 'POST', 'path' => '/calls/update', 'summary' => 'ویرایش (جزئی)', 'params' => [$id, $b('first_name', 'string', ''), $b('last_name', 'string', ''), $b('mobile', 'string', ''), $b('assignee_id', 'integer', 'نیازمند دسترسی reassign')], 'example' => $call],
+            ['method' => 'POST', 'path' => '/calls/status', 'summary' => 'تغییر وضعیت جدید ↔ انجام‌شده', 'params' => [$id, $b('status', 'integer', '۰ یا ۱؛ اگر ارسال نشود toggle می‌شود')], 'example' => ['id' => 15, 'status' => 1, 'is_done' => true, 'completed_at' => '2026-10-23 10:00:00']],
+            ['method' => 'POST', 'path' => '/calls/delete', 'summary' => 'حذف درخواست', 'params' => [$id], 'example' => ['id' => 15]],
+        ]],
+        ['id' => 'texts', 'title' => 'متن‌های آماده', 'icon' => 'fa-message', 'desc' => 'پاسخ‌های از پیش‌نوشته. توجه: id از نوع رشته است.', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/texts/list', 'summary' => 'فهرست متن‌ها', 'params' => array_merge([$q('q', 'string', 'جستجو در عنوان و متن')], $paging), 'example' => ['count' => 1, 'limit' => 100, 'offset' => 0, 'query' => '', 'texts' => [$text]]],
+            ['method' => 'GET', 'path' => '/texts/show', 'summary' => 'جزئیات متن', 'params' => [$q('id', 'string', 'شناسه‌ی رشته‌ای', true)], 'example' => $text],
+            ['method' => 'GET', 'path' => '/texts/stats', 'summary' => 'آمار', 'params' => [], 'example' => ['total' => 12, 'today' => 1, 'updated_today' => 2]],
+            ['method' => 'POST', 'path' => '/texts/create', 'summary' => 'ایجاد متن', 'params' => [$b('title', 'string', 'عنوان', true), $b('content', 'string', 'متن', true), $b('sort_order', 'integer', 'ترتیب نمایش')], 'example' => $text],
+            ['method' => 'POST', 'path' => '/texts/update', 'summary' => 'ویرایش متن', 'params' => [$q('id', 'string', 'شناسه', true), $b('title', 'string', ''), $b('content', 'string', ''), $b('sort_order', 'integer', '')], 'example' => $text],
+            ['method' => 'POST', 'path' => '/texts/delete', 'summary' => 'حذف متن', 'params' => [$q('id', 'string', 'شناسه', true)], 'example' => ['id' => 'a1b2c3d4e5f6_9f8e7d6c']],
+        ]],
+        ['id' => 'colleagues', 'title' => 'همکاران', 'icon' => 'fa-users', 'desc' => 'مدیریت لیست همکاران و مجوزهای آن‌ها روی تسک‌های شما. مجوزها: edit, delete, complete, reassign, notes, change_project.', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/colleagues/list', 'summary' => 'فهرست همکاران من', 'params' => array_merge([$q('q', 'string', 'جستجو'), $q('only_active', 'integer', '۱ = بدون مسدودشده‌ها')], $paging), 'example' => ['count' => 1, 'limit' => 100, 'offset' => 0, 'colleagues' => [['row_id' => 3] + $person + ['permissions' => ['complete', 'notes'], 'added_at' => '2026-09-12 10:00:00', 'is_blocked_by_me' => false, 'has_blocked_me' => false]]]],
+            ['method' => 'GET', 'path' => '/colleagues/followers', 'summary' => 'کسانی که من را همکار خود کرده‌اند', 'params' => $paging, 'example' => ['count' => 0, 'limit' => 100, 'offset' => 0, 'followers' => []]],
+            ['method' => 'GET', 'path' => '/colleagues/blocked', 'summary' => 'کاربران مسدودشده توسط من', 'params' => $paging, 'example' => ['count' => 0, 'limit' => 100, 'offset' => 0, 'blocked' => []]],
+            ['method' => 'GET', 'path' => '/colleagues/show', 'summary' => 'جزئیات یک همکار', 'params' => [$q('user_id', 'integer', 'شناسه‌ی کاربر همکار'), $q('row_id', 'integer', 'یا شناسه‌ی ردیف')], 'example' => ['row_id' => 3] + $person + ['permissions' => ['complete'], 'added_at' => '2026-09-12 10:00:00', 'is_blocked_by_me' => false, 'has_blocked_me' => false]],
+            ['method' => 'GET', 'path' => '/colleagues/stats', 'summary' => 'آمار همکاران', 'params' => [], 'example' => ['colleagues' => 4, 'followers' => 2, 'blocked' => 0, 'blocked_by' => 0]],
+            ['method' => 'GET', 'path' => '/colleagues/search', 'summary' => 'جستجوی کاربر با موبایل', 'params' => [$q('mobile', 'string', 'موبایل ۰۹xxxxxxxxx', true)], 'example' => ['user' => ['id' => 9, 'first_name' => 'مریم', 'last_name' => 'احمدی', 'full_name' => 'مریم احمدی', 'mobile' => '09129998877', 'email' => null, 'avatar_url' => null], 'already_added' => false, 'is_blocked' => false, 'is_blocked_by_me' => false, 'has_blocked_me' => false]],
+            ['method' => 'POST', 'path' => '/colleagues/create', 'summary' => 'افزودن همکار (اگر کاربر تأیید دستی بخواهد، درخواست ارسال می‌شود)', 'params' => [$b('mobile', 'string', 'موبایل (یا user_id)'), $b('user_id', 'integer', 'شناسه‌ی کاربر')], 'example' => ['row_id' => 8, 'user_id' => 9, 'permissions' => [], 'created_at' => '2026-10-23 10:00:00', 'state' => 'added', 'requires_approval' => false]],
+            ['method' => 'POST', 'path' => '/colleagues/delete', 'summary' => 'حذف همکار', 'params' => [$q('user_id', 'integer', 'شناسه‌ی همکار'), $q('row_id', 'integer', 'یا شناسه‌ی ردیف')], 'example' => ['deleted' => true]],
+            ['method' => 'POST', 'path' => '/colleagues/permissions', 'summary' => 'تنظیم مجوزهای همکار روی تسک‌های من', 'params' => [$b('user_id', 'integer', 'شناسه‌ی همکار', true), $b('permissions', 'array', 'آرایه‌ای از edit, delete, complete, reassign, notes, change_project')], 'example' => ['row_id' => 3, 'user_id' => 9, 'permissions' => ['complete', 'notes']]],
+            ['method' => 'POST', 'path' => '/colleagues/block', 'summary' => 'مسدودسازی کاربر', 'params' => [$b('user_id', 'integer', 'شناسه‌ی کاربر', true)], 'example' => ['blocked_user_id' => 9, 'blocked_at' => '2026-10-23 10:00:00']],
+            ['method' => 'POST', 'path' => '/colleagues/unblock', 'summary' => 'رفع مسدودی', 'params' => [$b('user_id', 'integer', 'شناسه‌ی کاربر', true)], 'example' => ['unblocked_user_id' => 9]],
+        ]],
+        ['id' => 'projects', 'title' => 'پروژه‌ها', 'icon' => 'fa-diagram-project', 'desc' => 'پروژه‌های تیمی. مجوزهای عضو: edit_project, add_member, remove_member, manage_permissions, view_analytics.', 'endpoints' => [
+            ['method' => 'GET', 'path' => '/projects/list', 'summary' => 'پروژه‌های من', 'params' => array_merge([$q('role', 'string', 'all | creator | member', false, 'all'), $q('q', 'string', 'جستجو در عنوان')], $paging), 'example' => ['count' => 1, 'limit' => 100, 'offset' => 0, 'role' => 'all', 'projects' => [$project + ['is_blocked_by_me' => false]]]],
+            ['method' => 'GET', 'path' => '/projects/show', 'summary' => 'جزئیات پروژه + اعضا', 'params' => [$id], 'example' => $project + ['members' => []]],
+            ['method' => 'GET', 'path' => '/projects/members', 'summary' => 'اعضای پروژه', 'params' => [$id], 'example' => ['project_id' => 2, 'count' => 1, 'members' => [['member_row_id' => 1, 'user_id' => 7, 'full_name' => 'علی رضایی', 'mobile' => '09121234567', 'permissions' => ['edit_project'], 'is_creator' => true, 'added_at' => '2026-09-01 12:00:00']]]],
+            ['method' => 'GET', 'path' => '/projects/stats', 'summary' => 'آمار پروژه‌ها', 'params' => [], 'example' => ['created' => 3, 'total_projects' => 5, 'total_members' => 5, 'blocked' => 0]],
+            ['method' => 'POST', 'path' => '/projects/create', 'summary' => 'ایجاد پروژه', 'params' => [$b('title', 'string', 'عنوان', true), $b('description', 'string', 'توضیحات'), $b('max_members', 'integer', 'حداکثر اعضا (۱ تا ۱۰۰)', false, 10), $b('members', 'array', 'شناسه‌ی همکارانی که باید اضافه شوند')], 'example' => $project],
+            ['method' => 'POST', 'path' => '/projects/update', 'summary' => 'ویرایش پروژه (نیازمند edit_project)', 'params' => [$id, $b('title', 'string', ''), $b('description', 'string', ''), $b('max_members', 'integer', '')], 'example' => $project],
+            ['method' => 'POST', 'path' => '/projects/delete', 'summary' => 'حذف پروژه (فقط سازنده)', 'params' => [$id], 'example' => ['id' => 2]],
+            ['method' => 'POST', 'path' => '/projects/leave', 'summary' => 'خروج از پروژه', 'params' => [$id], 'example' => ['project_id' => 2, 'left_at' => '2026-10-23 10:00:00']],
+            ['method' => 'POST', 'path' => '/projects/block', 'summary' => 'مسدودکردن پروژه (دیگر دعوت نمی‌گیرید)', 'params' => [$id], 'example' => ['project_id' => 2, 'blocked_at' => '2026-10-23 10:00:00']],
+            ['method' => 'POST', 'path' => '/projects/member-add', 'summary' => 'افزودن عضو (باید همکار شما باشد؛ نیازمند add_member)', 'params' => [$id, $b('user_id', 'integer', 'شناسه‌ی همکار', true)], 'example' => ['project_id' => 2, 'user_id' => 9, 'state' => 'added', 'requires_approval' => false]],
+            ['method' => 'POST', 'path' => '/projects/member-remove', 'summary' => 'حذف عضو (نیازمند remove_member)', 'params' => [$id, $b('user_id', 'integer', 'شناسه‌ی عضو', true)], 'example' => ['project_id' => 2, 'user_id' => 9]],
+            ['method' => 'POST', 'path' => '/projects/member-permissions', 'summary' => 'تنظیم مجوزهای عضو (نیازمند manage_permissions)', 'params' => [$id, $b('user_id', 'integer', 'شناسه‌ی عضو', true), $b('permissions', 'array', 'آرایه‌ی مجوزها')], 'example' => ['project_id' => 2, 'user_id' => 9, 'permissions' => ['add_member']]],
+        ]],
+    ],
+];

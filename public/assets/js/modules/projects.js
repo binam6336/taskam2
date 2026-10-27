@@ -1,0 +1,65 @@
+document.addEventListener('tk:ready', () => {
+  if (!TK.qs('#f-project')) return;
+  const data = () => { try { return JSON.parse(TK.qs('#proj-data').textContent); } catch { return { list: {}, colleagues: [], permDefs: {}, me: 0 }; } };
+  const E = TK.esc, form = TK.qs('#f-project'), list = TK.qs('#members-list');
+
+  /* لیست اعضا: سازنده و خودِ کاربر هرگز نمایش داده نمی‌شوند (همیشه عضوند) و نام اعضا از داده‌ی خود پروژه می‌آید */
+  const memberChecks = (members = [], pendingIds = []) => {
+    const hide = new Set([data().me, ...members.filter((m) => m.is_creator).map((m) => m.id)]);
+    const names = new Map(data().colleagues.map((c) => [c.id, c.name]));
+    members.forEach((m) => names.set(m.id, m.name));
+    pendingIds.forEach((id) => { if (!names.has(id)) names.set(id, 'کاربر در انتظار تأیید'); });
+    const selected = new Set(members.map((m) => m.id));
+    const rows = [...names].filter(([id]) => !hide.has(id));
+    const keep = members.filter((m) => hide.has(m.id)).map((m) => `<input type="hidden" name="members[]" value="${m.id}">`).join('');
+    list.innerHTML = keep + (rows.map(([id, name]) => `<label class="check"><input type="checkbox" name="members[]" value="${id}" ${selected.has(id) || pendingIds.includes(id) ? 'checked' : ''}><div><b>${E(name)}</b>${pendingIds.includes(id) ? '<span>در انتظار تأیید کاربر</span>' : ''}</div></label>`).join('') || '<div class="muted small">همکار دیگری برای افزودن وجود ندارد. از بخش «همکاران» همکار اضافه کنید.</div>');
+  };
+
+  TK.qs('#btn-new-project').addEventListener('click', () => {
+    TK.resetForm(form); form.setAttribute('action', TK.url('/projects')); form.max_members.value = 10;
+    TK.qs('#proj-title-h').textContent = 'پروژه جدید'; TK.qs('#members-field').classList.remove('hidden'); memberChecks(); TK.modal.open('m-project');
+  });
+
+  /* مدیریت پروژه */
+  const manage = (id) => {
+    const p = data().list[id]; const can = (k) => p.perms.includes(k);
+    TK.qs('#mem-title').textContent = p.title;
+    TK.qs('#mem-body').innerHTML = `
+      <div class="flex gap-1 wrap mb-2">${can('edit_project') || can('add_member') || can('remove_member') ? `<button class="btn btn-primary btn-sm" data-edit-proj="${id}"><i class="fa-solid fa-pen"></i> ویرایش اطلاعات و اعضا</button>` : ''}</div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>دسترسی‌ها</th><th></th></tr></thead><tbody>
+      ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)} ${m.is_creator ? '<span class="badge green">سازنده</span>' : ''}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
+        <td>${m.is_creator ? '<span class="faint small">همه‌ی دسترسی‌ها</span>' : (m.perms.map((k) => `<span class="chip" style="margin:2px">${E(data().permDefs[k]?.label || k)}</span>`).join('') || '<span class="faint small">بدون دسترسی ویژه</span>')}</td>
+        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}"><i class="fa-solid fa-key"></i></button>` : ''}
+          ${!m.is_creator && can('remove_member') ? `<button class="btn btn-xs btn-danger" data-post="${TK.url('/projects/' + id + '/members/' + m.id + '/remove')}" data-confirm="«${E(m.name)}» از پروژه حذف شود؟"><i class="fa-solid fa-user-minus"></i></button>` : ''}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    TK.modal.open('m-members');
+  };
+  TK.on('click', '[data-project]', (e, t) => manage(t.dataset.project));
+
+  TK.on('click', '[data-edit-proj]', (e, t) => {
+    const p = data().list[t.dataset.editProj]; TK.modal.close('m-members');
+    TK.resetForm(form); form.setAttribute('action', TK.url('/projects/' + p.id + '/update'));
+    TK.qs('#proj-title-h').textContent = 'ویرایش پروژه';
+    form.project_title.value = p.title; form.project_description.value = p.description || ''; form.max_members.value = p.max_members;
+    const canMem = p.perms.includes('add_member') || p.perms.includes('remove_member');
+    TK.qs('#members-field').classList.toggle('hidden', !canMem); TK.qs('#members-present').disabled = !canMem;
+    memberChecks(p.members, p.pending);
+    ['project_title', 'project_description', 'max_members', 'profile_image'].forEach((n) => (form[n].disabled = !p.perms.includes('edit_project')));
+    TK.modal.open('m-project');
+  });
+
+  /* مجوز عضو */
+  let target = null; const pf = TK.qs('#f-mperm');
+  TK.on('click', '[data-mperm]', (e, t) => {
+    const [pid, uid] = t.dataset.mperm.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
+    target = { pid, uid }; TK.qs('#mp-name').textContent = m.name;
+    TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => `<label class="check"><input type="checkbox" name="permissions[]" value="${k}" ${m.perms.includes(k) ? 'checked' : ''} ${p.perms.includes(k) ? '' : 'disabled'}><div><b><i class="fa-solid ${d.icon}"></i> ${E(d.label)}</b><span>${E(d.desc)}</span></div></label>`).join('');
+    TK.modal.open('m-mperm');
+  });
+  pf.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const perms = TK.qsa('[name="permissions[]"]:checked', pf).map((c) => c.value);
+    const r = await TK.post('/projects/' + target.pid + '/members/' + target.uid + '/permissions', { permissions: perms });
+    TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { TK.modal.close('m-mperm'); TK.modal.close('m-members'); TK.reload(); }
+  });
+});

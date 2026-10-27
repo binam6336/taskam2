@@ -1,0 +1,28 @@
+# ── Root .htaccess ──
+# برای وقتی که Document Root روی ریشه‌ی پروژه است (مثلاً http://localhost/taskam/).
+# ترجیحاً Document Root را روی پوشه‌ی public/ بگذارید.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+    # بخش‌های غیرعمومی: دسترسی مستقیم ممنوع
+    # توجه: «docs» عمداً در این فهرست نیست؛ چون /docs یک صفحه‌ی برنامه (مستندات API) است. فایل‌های .md پوشه‌ی docs با FilesMatch پایین بسته‌اند.
+    RewriteRule ^(app|config|database|storage|bin)(/|$) - [F,L]
+    RewriteRule (^|/)\.(env|git) - [F,L]
+
+    # همه‌چیز به public/
+    RewriteCond %{REQUEST_URI} !(^|/)public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<FilesMatch "\.(env|sql|md|log|lock|example)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

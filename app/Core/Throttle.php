@@ -1,0 +1,45 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Core;
+
+/** محدودسازی نرخ مبتنی بر دیتابیس (مقاوم در برابر پاک‌کردن کوکی/سشن). */
+final class Throttle
+{
+    /** تعداد تلاش‌های ثبت‌شده در پنجره‌ی زمانی. */
+    public static function count(string $bucket, string $key, int $windowSeconds): int
+    {
+        return (int) DB::value(
+            'SELECT COUNT(*) FROM rate_limits WHERE bucket = ? AND `key` = ? AND created_at >= (NOW() - INTERVAL ? SECOND)',
+            [$bucket, self::k($key), $windowSeconds]
+        );
+    }
+
+    public static function hit(string $bucket, string $key): void
+    {
+        DB::insert('rate_limits', ['bucket' => $bucket, 'key' => self::k($key)]);
+        if (random_int(1, 50) === 1) {
+            DB::run('DELETE FROM rate_limits WHERE created_at < (NOW() - INTERVAL 1 DAY)');
+        }
+    }
+
+    public static function clear(string $bucket, string $key): void
+    {
+        DB::run('DELETE FROM rate_limits WHERE bucket = ? AND `key` = ?', [$bucket, self::k($key)]);
+    }
+
+    /** ثبت تلاش و بررسی سقف؛ true یعنی مجاز است. */
+    public static function attempt(string $bucket, string $key, int $max, int $windowSeconds): bool
+    {
+        if (self::count($bucket, $key, $windowSeconds) >= $max) {
+            return false;
+        }
+        self::hit($bucket, $key);
+        return true;
+    }
+
+    private static function k(string $key): string
+    {
+        return hash('sha256', $key);
+    }
+}
