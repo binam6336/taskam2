@@ -3,7 +3,7 @@
 $boot = [];
 foreach ($projects as $p) {
     $boot[(int) $p['id']] = [
-        'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'],
+        'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
         'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'pending' => $p['pending_ids'],
         'members' => array_map(static fn($m) => [
             'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']),
@@ -79,6 +79,9 @@ $this->scripts[] = 'projects';
             <div class="field"><label>توضیحات</label><textarea class="input" name="project_description" rows="3"></textarea></div>
             <div class="row"><div class="field"><label>حداکثر اعضا</label><input class="input" type="number" name="max_members" min="1" max="100" value="10"></div>
                 <div class="field"><label>تصویر پروژه</label><input class="input" type="file" name="profile_image" accept="image/*"></div></div>
+            <div class="field"><label>نوع اولویت تسک‌ها</label>
+                <div class="seg-radio"><?php foreach (\App\Services\Priority::TYPES as $pk => $pl): ?><label><input type="radio" name="priority_type" value="<?= e($pk) ?>" <?= $pk === 'category' ? 'checked' : '' ?>><span><i class="fa-solid <?= $pk === 'percent' ? 'fa-percent' : 'fa-layer-group' ?>"></i> <?= e($pl) ?></span></label><?php endforeach; ?></div>
+                <div class="hint">در حالت درصدی، اولویت هنگام ثبت/ویرایش با نوار انتخاب می‌شود (مضرب ۵٪). با تغییر به درصدی: کم = ۲۵٪، متوسط = ۵۰٪، زیاد = ۷۵٪.</div></div>
             <div class="field" id="members-field"><label>اعضا (از همکاران شما)</label><div id="members-list" class="perm-grid" style="max-height:220px;overflow:auto"></div>
                 <div class="hint">اگر کاربری تأیید دستی عضویت را فعال کرده باشد، برایش درخواست ارسال می‌شود.</div></div>
         </div>

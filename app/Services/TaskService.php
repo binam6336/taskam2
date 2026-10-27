@@ -46,6 +46,15 @@ final class TaskService
             return self::err('توضیحات بیش از حد طولانی است.', 'DESCRIPTION_TOO_LONG');
         }
         $priority = Validate::enum($in['priority'] ?? null, ['low', 'medium', 'high'], 'medium');
+        $percent = Priority::percent($in['priority_percent'] ?? null);
+        if (isset($in['priority_percent']) && $in['priority_percent'] !== '' && $percent === null) {
+            return self::err('اولویت درصدی باید عددی بین ۰ تا ۱۰۰ باشد.', 'PRIORITY_INVALID');
+        }
+        if ($percent !== null) {
+            $priority = Priority::levelOf($percent);
+        } else {
+            $percent = Priority::PERCENT[$priority];
+        }
 
         $dueRaw = trim((string) ($in['due_date'] ?? ''));
         $due = Validate::date($dueRaw);
@@ -83,7 +92,7 @@ final class TaskService
 
         $id = TaskModel::create([
             'user_id' => $actor, 'assignee_id' => $assignee, 'subject_id' => $subjectId, 'project_id' => $projectId,
-            'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority,
+            'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
             'due_date' => $due, 'due_time' => $time,
         ]);
         $task = TaskModel::raw($id);
@@ -122,13 +131,24 @@ final class TaskService
                 $needEdit = true;
             }
         }
-        if ($has('priority')) {
+        if ($has('priority_percent') && trim((string) $in['priority_percent']) !== '') {
+            $pc = Priority::percent($in['priority_percent']);
+            if ($pc === null) {
+                return self::err('اولویت درصدی باید عددی بین ۰ تا ۱۰۰ باشد.', 'PRIORITY_INVALID');
+            }
+            if ($pc !== ($t['priority_percent'] === null ? null : (int) $t['priority_percent'])) {
+                $set['priority_percent'] = $pc;
+                $set['priority'] = Priority::levelOf($pc);
+                $needEdit = true;
+            }
+        } elseif ($has('priority')) {
             $p = Validate::enum($in['priority'], ['low', 'medium', 'high'], '');
             if ($p === '') {
                 return self::err('اولویت نامعتبر است.', 'PRIORITY_INVALID');
             }
             if ($p !== $t['priority']) {
                 $set['priority'] = $p;
+                $set['priority_percent'] = Priority::PERCENT[$p];
                 $needEdit = true;
             }
         }
@@ -246,7 +266,7 @@ final class TaskService
         return self::res(true, 'تسک حذف شد.', '', 200, ['id' => $id]);
     }
 
-    public static function addNote(int $actor, int $taskId, string $text, array $files = []): array
+    public static function addNote(int $actor, int $taskId, string $text, array $files = [], array $mentions = []): array
     {
         $t = TaskModel::raw($taskId);
         if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'notes')) {
@@ -266,12 +286,18 @@ final class TaskService
         [$saved, $errors] = $files ? NoteModel::storeAttachments('note', $nid, $actor, $files) : [[], []];
         $token = TaskModel::ensureShareToken($taskId);
         $t['share_token'] = $token;
+        // منشن: فقط اعضای پروژه‌ی همین تسک
+        $allowed = $t['project_id'] ? array_column(self::mentionable((int) $t['project_id'], $actor), 'id') : [];
+        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
+        foreach ($mentioned as $uid) {
+            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
+        }
         foreach (array_unique(array_filter([(int) $t['user_id'], (int) $t['assignee_id']])) as $uid) {
-            if ($uid !== $actor) {
+            if ($uid !== $actor && !in_array($uid, $mentioned, true)) {
                 Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid);
             }
         }
-        return self::res(true, 'یادداشت ثبت شد.', '', 201, ['id' => $nid, 'attachments' => $saved, 'upload_errors' => $errors]);
+        return self::res(true, 'یادداشت ثبت شد.' . ($mentioned ? ' ' . fa_num(count($mentioned)) . ' نفر منشن شدند.' : ''), '', 201, ['id' => $nid, 'attachments' => $saved, 'upload_errors' => $errors, 'mentioned' => $mentioned]);
     }
 
     public static function updateNote(int $actor, int $noteId, string $text): array
@@ -348,13 +374,42 @@ final class TaskService
         return self::res(true, 'فایل حذف شد.');
     }
 
-    /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ */
+    /** اعضای پروژه (سازنده + اعضا) به‌جز خود کاربر — برای منشن در یادداشت‌ها. */
+    public static function mentionable(int $projectId, int $exceptUid): array
+    {
+        $rows = DB::all("SELECT u.id, u.first_name, u.last_name, u.avatar FROM users u
+            WHERE u.status = 'active' AND u.is_bot = 0 AND u.id <> ?
+              AND (u.id = (SELECT user_id FROM projects WHERE id = ?) OR u.id IN (SELECT user_id FROM project_members WHERE project_id = ?))
+            ORDER BY u.first_name, u.last_name", [$exceptUid, $projectId, $projectId]);
+        return array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])], $rows);
+    }
+
+    /** گزینه‌های «امنیت تسک‌ها» در پروفایل: [عنوان، توضیح] */
+    public const LINK_ACCESS = [
+        'members'    => ['اعضای پروژه', 'اعضای پروژه‌ی همان تسک (پیش‌فرض)'],
+        'colleagues' => ['همکاران', 'افرادی که در فهرست همکاران شما هستند'],
+        'me'         => ['فقط من', 'فقط شما، مسئول تسک و همکارانی که مجوز دسترسی دارند'],
+        'all'        => ['همه', 'هر کاربر واردشده‌ای که لینک را داشته باشد'],
+    ];
+
+    /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ بر اساس تنظیم «امنیت تسک‌ها»ی سازنده‌ی تسک. */
     public static function canViewShared(array $task, int $uid): bool
     {
-        if (Access::can($task, $uid, 'view') || Access::isColleague((int) $task['user_id'], $uid)) {
-            return true;
+        if (Access::can($task, $uid, 'view')) {
+            return true;      // سازنده، مسئول، همکار دارای مجوز
         }
-        return $task['project_id'] !== null && Access::isProjectMember((int) $task['project_id'], $uid);
+        $owner = (int) $task['user_id'];
+        $mode = (string) (DB::value('SELECT task_link_access FROM users WHERE id = ?', [$owner]) ?: 'members');
+        switch ($mode) {
+            case 'all':
+                return true;
+            case 'colleagues':
+                return Access::isColleague($owner, $uid);
+            case 'me':
+                return false;
+            default:
+                return $task['project_id'] !== null && Access::isProjectMember((int) $task['project_id'], $uid);
+        }
     }
 
     /** مجوزهای مؤثر کاربر روی تسک (برای UI). */

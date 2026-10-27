@@ -57,6 +57,7 @@ return [
         // تسک
         'tasks' => 'آرایه‌ی تسک‌ها.',
         'priority' => 'اولویت: low (کم) | medium (متوسط) | high (زیاد).',
+        'priority_percent' => 'اولویت درصدی (۰ تا ۱۰۰، مضرب ۵)؛ همیشه با priority همگام است (کم ۲۵، متوسط ۵۰، زیاد ۷۵).',
         'is_completed' => 'آیا تسک انجام شده است؟',
         'due_date' => 'تاریخ سررسید (YYYY-MM-DD)؛ بدون سررسید null.',
         'due_time' => 'ساعت سررسید (HH:MM)؛ بدون ساعت null. یادآوری مرورگر در همین ساعت ارسال می‌شود.',
@@ -104,6 +105,7 @@ return [
         // پروژه
         'projects' => 'آرایه‌ی پروژه‌ها.',
         'max_members' => 'حداکثر تعداد اعضای پروژه.',
+        'priority_type' => 'نوع اولویت تسک‌های پروژه: category (کم/متوسط/زیاد) | percent (درصدی).',
         'profile_image' => 'نشانی تصویر/لوگوی پروژه؛ بدون تصویر null.',
         'is_creator' => 'آیا شما سازنده‌ی پروژه هستید؟',
         'my_permissions' => 'مجوزهای شما در پروژه: edit_project, add_member, remove_member, manage_permissions, view_analytics.',

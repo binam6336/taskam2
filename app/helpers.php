@@ -244,3 +244,23 @@ function favicon_uri(): string
 {
     return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav')));
 }
+
+/** رنگ اولویت درصدی: سبز (کم) ← زرد (متوسط) ← قرمز (زیاد) */
+function priority_color(int $percent): string
+{
+    $p = max(0, min(100, $percent));
+    $hue = $p <= 50 ? 142 - ($p / 50) * 97 : 45 - (($p - 50) / 50) * 45;
+    return 'hsl(' . (int) round($hue) . ', 85%, 60%)';
+}
+
+/** نشان اولویت تسک: درصدی (اگر نوع اولویت پروژه درصدی باشد) یا کم/متوسط/زیاد */
+function priority_badge(array $t): string
+{
+    if (($t['project_priority_type'] ?? 'category') === 'percent') {
+        $p = isset($t['priority_percent']) ? (int) $t['priority_percent'] : (\App\Services\Priority::PERCENT[$t['priority']] ?? 50);
+        return '<span class="badge prio-pct" style="--pc:' . priority_color($p) . '" title="اولویت ' . fa_num($p) . '٪"><i class="fa-solid fa-signal"></i> ' . fa_num($p) . '٪</span>';
+    }
+    $map = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
+    [$label, $tone] = $map[$t['priority']] ?? $map['medium'];
+    return '<span class="badge ' . $tone . '">' . $label . '</span>';
+}

@@ -16,7 +16,7 @@ document.addEventListener('tk:ready', () => {
   };
 
   TK.qs('#btn-new-project').addEventListener('click', () => {
-    TK.resetForm(form); form.setAttribute('action', TK.url('/projects')); form.max_members.value = 10;
+    TK.resetForm(form); form.setAttribute('action', TK.url('/projects')); form.max_members.value = 10; form.priority_type.value = 'category';
     TK.qs('#proj-title-h').textContent = 'پروژه جدید'; TK.qs('#members-field').classList.remove('hidden'); memberChecks(); TK.modal.open('m-project');
   });
 
@@ -40,11 +40,12 @@ document.addEventListener('tk:ready', () => {
     const p = data().list[t.dataset.editProj]; TK.modal.close('m-members');
     TK.resetForm(form); form.setAttribute('action', TK.url('/projects/' + p.id + '/update'));
     TK.qs('#proj-title-h').textContent = 'ویرایش پروژه';
-    form.project_title.value = p.title; form.project_description.value = p.description || ''; form.max_members.value = p.max_members;
+    form.project_title.value = p.title; form.project_description.value = p.description || ''; form.max_members.value = p.max_members; form.priority_type.value = p.priority_type || 'category';
     const canMem = p.perms.includes('add_member') || p.perms.includes('remove_member');
     TK.qs('#members-field').classList.toggle('hidden', !canMem); TK.qs('#members-present').disabled = !canMem;
     memberChecks(p.members, p.pending);
     ['project_title', 'project_description', 'max_members', 'profile_image'].forEach((n) => (form[n].disabled = !p.perms.includes('edit_project')));
+    TK.qsa('[name=priority_type]', form).forEach((r) => (r.disabled = !p.perms.includes('edit_project')));
     TK.modal.open('m-project');
   });
 

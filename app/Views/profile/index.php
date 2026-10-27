@@ -33,6 +33,17 @@ $this->scripts[] = 'profile';
             <label class="check mb-1"><input type="checkbox" name="allow_colleague_requests" value="1" <?= (int) $u['allow_colleague_requests'] === 1 ? 'checked' : '' ?>><div><b>دریافت درخواست همکاری</b><span>دیگران بتوانند شما را با شماره موبایل پیدا و اضافه کنند.</span></div></label>
             <label class="check mb-2"><input type="checkbox" name="project_join_requires_approval" value="1" <?= (int) $u['project_join_requires_approval'] === 1 ? 'checked' : '' ?>><div><b>تأیید دستی عضویت</b><span>افزودن به پروژه یا لیست همکاران فقط پس از تأیید شما انجام شود.</span></div></label>
             <button class="btn btn-primary">ذخیره</button></form></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> امنیت تسک‌ها</h3></div>
+        <form method="post" action="<?= e(url('/profile/task-security')) ?>" data-ajax data-keep-open><?= csrf_field() ?>
+            <div class="field"><label for="task-link-access">دسترسی به مشاهده‌ی تسک از طریق لینک برای</label>
+                <div class="flex items-center gap-1 wrap"><select class="input" id="task-link-access" name="task_link_access" style="max-width:240px">
+                    <?php foreach (\App\Services\TaskService::LINK_ACCESS as $k => [$label]): ?><option value="<?= e($k) ?>" <?= ($u['task_link_access'] ?? 'members') === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                </select><span class="muted">فعال است.</span></div></div>
+            <ul class="hint mb-2" style="padding-inline-start:1.1rem;line-height:2">
+                <?php foreach (\App\Services\TaskService::LINK_ACCESS as [$label, $desc]): ?><li><b><?= e($label) ?>:</b> <?= e($desc) ?></li><?php endforeach; ?>
+            </ul>
+            <p class="hint mb-2">سازنده، مسئول و همکارانی که به تسک‌هایتان دسترسی داده‌اید همیشه تسک را می‌بینند. اگر کسی بدون دسترسی لینک را باز کند، پیام خطا می‌گیرد و به صفحه‌ی تسک‌های خودش برمی‌گردد.</p>
+            <button class="btn btn-primary">ذخیره</button></form></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bolt"></i> دسترسی سریع</h3></div>
         <form method="post" action="<?= e(url('/profile/quick-links')) ?>" data-ajax data-keep-open><?= csrf_field() ?>
             <div class="perm-grid mb-2"><?php foreach ($links as $l): ?><label class="check"><input type="checkbox" name="links[]" value="<?= e($l['id']) ?>" <?= in_array($l['id'], $selected, true) ? 'checked' : '' ?>><div><b><i class="fa-solid <?= e($l['icon']) ?>"></i> <?= e($l['title']) ?></b></div></label><?php endforeach; ?></div>

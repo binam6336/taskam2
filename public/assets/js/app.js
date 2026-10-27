@@ -223,25 +223,55 @@
   const C = ['#4ade80', '#60a5fa', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'];
   TK.charts = {
     colors: C,
-    line(el, { labels, series, height = 220 }) {
+    /** نمودار خطی؛ مقدار null = بدون داده (خط قطع می‌شود). با هاور روی هر ستون، مقادیر آن نقطه نمایش داده می‌شود. */
+    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '' }) {
       if (!el) return;
       const W = 640, H = height, p = { l: 34, r: 12, t: 12, b: 26 };
-      const max = Math.max(1, ...series.flatMap((s) => s.data));
-      const step = Math.max(1, Math.ceil(max / 4)), top = step * Math.ceil(max / step);
-      const x = (i) => p.l + (i * (W - p.l - p.r)) / Math.max(1, labels.length - 1);
+      const vals = series.flatMap((s) => s.data).filter((v) => v !== null && v !== undefined);
+      const max = fixedMax || Math.max(1, ...vals);
+      const step = Math.max(1, Math.ceil(max / 4)), top = fixedMax || step * Math.ceil(max / step);
+      const n = labels.length;
+      const x = (i) => p.l + (i * (W - p.l - p.r)) / Math.max(1, n - 1);
       const y = (v) => H - p.b - (v / top) * (H - p.t - p.b);
+      const col = (s, k) => s.color || C[k % C.length];
+      const every = Math.max(1, Math.ceil(n / 8));
       let g = '';
       for (let v = 0; v <= top; v += step) g += `<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${y(v)}" y2="${y(v)}" stroke-dasharray="3 4"/><text x="${p.l - 8}" y="${y(v) + 3}" text-anchor="end">${TK.fa(v)}</text>`;
-      labels.forEach((l, i) => { if (labels.length <= 8 || i % 2 === 0) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${TK.esc(l)}</text>`; });
+      labels.forEach((l, i) => { if ((i % every === 0 && n - 1 - i >= every) || i === n - 1) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${TK.esc(l)}</text>`; });
       series.forEach((s, k) => {
-        const col = s.color || C[k % C.length];
-        const pts = s.data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
-        g += `<defs><linearGradient id="lg${k}${el.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".28"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>`;
-        g += `<polygon points="${x(0)},${y(0)} ${pts} ${x(s.data.length - 1)},${y(0)}" fill="url(#lg${k}${el.id})"/>`;
-        g += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
-        s.data.forEach((v, i) => (g += `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#060908" stroke="${col}" stroke-width="2"><title>${TK.esc(s.name)}: ${TK.fa(v)}</title></circle>`));
+        const c = col(s, k);
+        // تکه‌های پیوسته (بدون null)
+        const segs = []; let cur = [];
+        s.data.forEach((v, i) => { if (v === null || v === undefined) { if (cur.length) segs.push(cur); cur = []; } else cur.push(i); });
+        if (cur.length) segs.push(cur);
+        g += `<defs><linearGradient id="lg${k}${el.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="${series.length > 2 ? '.12' : '.24'}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>`;
+        segs.forEach((idx) => {
+          const pts = idx.map((i) => `${x(i)},${y(s.data[i])}`).join(' ');
+          if (idx.length > 1) g += `<polygon points="${x(idx[0])},${y(0)} ${pts} ${x(idx[idx.length - 1])},${y(0)}" fill="url(#lg${k}${el.id})"/>`;
+          g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+        });
+        s.data.forEach((v, i) => { if (v !== null && v !== undefined) g += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#060908" stroke="${c}" stroke-width="2"/>`; });
       });
-      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="legend">${series.map((s, k) => `<span><i style="background:${s.color || C[k % C.length]}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      // ناحیه‌های هاور (یک ستون برای هر برچسب)
+      const bw = (W - p.l - p.r) / Math.max(1, n - 1);
+      g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" style="display:none"/>`;
+      labels.forEach((l, i) => { g += `<rect class="hz" data-i="${i}" x="${x(i) - bw / 2}" y="0" width="${bw}" height="${H - p.b}" fill="transparent"/>`; });
+      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      const svg = el.querySelector('svg'), tip = el.querySelector('.chart-tip'), hl = el.querySelector('.hover-line'), box = el.querySelector('.chart-box');
+      const show = (i) => {
+        TK.qsa('.pt', svg).forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
+        hl.setAttribute('x1', x(i)); hl.setAttribute('x2', x(i)); hl.style.display = '';
+        tip.innerHTML = `<b>${TK.esc(labels[i])}</b>` + series.map((s, k) => `<div><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}: <b>${s.data[i] === null || s.data[i] === undefined ? '—' : TK.fa(s.data[i]) + suffix}</b></div>`).join('');
+        tip.hidden = false;
+        const r = svg.getBoundingClientRect(), bx = box.getBoundingClientRect();
+        const px = r.left - bx.left + (x(i) / W) * r.width;
+        tip.style.left = Math.min(Math.max(px - tip.offsetWidth / 2, 0), bx.width - tip.offsetWidth) + 'px';
+        tip.style.top = Math.max(0, (r.top - bx.top) + (p.t / H) * r.height - tip.offsetHeight - 6) + 'px';
+      };
+      const hide = () => { tip.hidden = true; hl.style.display = 'none'; TK.qsa('.pt.on', svg).forEach((c) => c.classList.remove('on')); };
+      svg.addEventListener('mousemove', (e) => { const z = e.target.closest('.hz, .pt'); if (z) show(+z.dataset.i); });
+      svg.addEventListener('mouseleave', hide);
+      svg.addEventListener('touchstart', (e) => { const z = e.target.closest('.hz, .pt'); if (z) show(+z.dataset.i); }, { passive: true });
     },
     bars(el, { items, height = 220 }) {
       if (!el) return;
@@ -257,16 +287,22 @@
       });
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
     },
-    donut(el, { items, center = '' }) {
+    donut(el, { items, center = '', showPct = false }) {
       if (!el) return;
       const total = items.reduce((s, i) => s + i.value, 0) || 1, R = 54, S = 18, CIRC = 2 * Math.PI * R;
       let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#1a2620" stroke-width="${S}"/>`;
       items.forEach((it, i) => {
         const len = (it.value / total) * CIRC;
-        if (it.value > 0) g += `<circle cx="70" cy="70" r="${R}" fill="none" stroke="${it.color || C[i % C.length]}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${TK.esc(it.label)}: ${TK.fa(it.value)}</title></circle>`;
+        if (it.value > 0) g += `<circle class="seg" data-i="${i}" cx="70" cy="70" r="${R}" fill="none" stroke="${it.color || C[i % C.length]}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;
         off += len;
       });
-      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140">${g}</svg><div class="center-txt">${center}</div></div><div class="legend" style="justify-content:center">${items.map((it, i) => `<span><i style="background:${it.color || C[i % C.length]}"></i>${TK.esc(it.label)} (${TK.fa(it.value)})</span>`).join('')}</div>`;
+      const pct = (v) => Math.round((v / total) * 100);
+      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140">${g}</svg><div class="center-txt">${center}</div></div><div class="legend" style="justify-content:center">${items.map((it, i) => `<span><i style="background:${it.color || C[i % C.length]}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
+      const ctr = el.querySelector('.center-txt'), base = ctr.innerHTML;
+      TK.qsa('.seg', el).forEach((c) => {
+        c.addEventListener('mouseenter', () => { const it = items[+c.dataset.i]; c.classList.add('on'); ctr.innerHTML = `<div><div class="donut-v">${TK.fa(it.value)}<small> (${TK.fa(pct(it.value))}٪)</small></div><div class="donut-l">${TK.esc(it.label)}</div></div>`; });
+        c.addEventListener('mouseleave', () => { c.classList.remove('on'); ctr.innerHTML = base; });
+      });
     },
   };
 

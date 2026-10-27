@@ -11,6 +11,7 @@ use App\Core\Throttle;
 use App\Core\Uploader;
 use App\Core\Validate;
 use App\Models\UserModel;
+use App\Services\TaskService;
 
 final class ProfileController extends Controller
 {
@@ -111,6 +112,18 @@ final class ProfileController extends Controller
             'project_join_requires_approval' => $r->input('project_join_requires_approval') ? 1 : 0,
         ], 'id = ?', [(int) $u['id']]);
         $this->respond(true, 'تنظیمات حریم خصوصی ذخیره شد.', '/profile');
+    }
+
+    /** «امنیت تسک‌ها»: چه کسانی تسک‌های من را با لینک اشتراکی ببینند. */
+    public function taskSecurity()
+    {
+        $u = $this->user();
+        $v = $this->request->str('task_link_access', 20);
+        if (!array_key_exists($v, TaskService::LINK_ACCESS)) {
+            $this->respond(false, 'گزینه‌ی انتخاب‌شده معتبر نیست.', '/profile');
+        }
+        DB::update('users', ['task_link_access' => $v], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تنظیمات امنیت تسک‌ها ذخیره شد.', '/profile');
     }
 
     public function quickLinks()

@@ -14,7 +14,7 @@ final class TaskApi extends ApiController
     public static function format(array $t): array
     {
         return [
-            'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
+            'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => isset($t['priority_percent']) ? (int) $t['priority_percent'] : null,
             'is_completed' => (bool) $t['is_completed'], 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'created_at' => $t['created_at'], 'completed_at' => $t['completed_at'],
             'user_id' => (int) $t['user_id'], 'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null,

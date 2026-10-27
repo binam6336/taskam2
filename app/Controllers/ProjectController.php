@@ -10,6 +10,7 @@ use App\Models\ProjectModel;
 use App\Services\Access;
 use App\Services\ColleagueService;
 use App\Services\ProjectService;
+use App\Services\TaskAnalytics;
 
 final class ProjectController extends Controller
 {
@@ -37,7 +38,7 @@ final class ProjectController extends Controller
     public function store()
     {
         $r = $this->request;
-        [$ok, $msg] = ProjectService::create($this->uid(), $r->str('project_title', 255), $r->str('project_description', 3000), $r->int('max_members', 10), array_map('intval', $r->arr('members')), $this->image());
+        [$ok, $msg] = ProjectService::create($this->uid(), $r->str('project_title', 255), $r->str('project_description', 3000), $r->int('max_members', 10), array_map('intval', $r->arr('members')), $this->image(), $r->str('priority_type', 20) ?: null);
         $this->respond($ok, $msg, '/projects');
     }
 
@@ -45,7 +46,7 @@ final class ProjectController extends Controller
     {
         $r = $this->request;
         $members = $r->has('members_present') ? array_map('intval', $r->arr('members')) : null;
-        [$ok, $msg] = ProjectService::update((int) $id, $this->uid(), $r->str('project_title', 255), $r->str('project_description', 3000), $r->int('max_members', 10), $members, $this->image());
+        [$ok, $msg] = ProjectService::update((int) $id, $this->uid(), $r->str('project_title', 255), $r->str('project_description', 3000), $r->int('max_members', 10), $members, $this->image(), $r->str('priority_type', 20) ?: null);
         $this->respond($ok, $msg, '/projects');
     }
 
@@ -116,6 +117,22 @@ final class ProjectController extends Controller
         if (!Access::projectCan((int) $id, $uid, 'view_analytics')) {
             $this->abort(403, 'دسترسی مشاهده‌ی تحلیل‌های این پروژه را ندارید.', 'FORBIDDEN');
         }
-        $this->view('projects/analytics', ['project' => $p, 'a' => ProjectModel::analytics((int) $id)], ['title' => 'تحلیل پروژه', 'page' => 'projects']);
+        $people = array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u)], TaskAnalytics::people((int) $id));
+        $this->view('projects/analytics', [
+            'project' => $p, 'a' => ProjectModel::analytics((int) $id), 'k' => TaskAnalytics::project((int) $id), 'people' => $people,
+            'speed' => TaskAnalytics::speedSeries((int) $id, array_slice(array_column($people, 'id'), 0, 5), '1m', 'score'),
+        ], ['title' => 'تحلیل پروژه', 'page' => 'projects']);
+    }
+
+    /** داده‌ی نمودار مقایسه‌ی سرعت انجام (AJAX). */
+    public function speed(string $id)
+    {
+        $uid = $this->uid();
+        if (ProjectModel::find((int) $id) === null || !Access::isProjectMember((int) $id, $uid) || !Access::projectCan((int) $id, $uid, 'view_analytics')) {
+            $this->fail('دسترسی مشاهده‌ی تحلیل‌های این پروژه را ندارید.', 403);
+        }
+        $q = $this->request->query;
+        $users = array_filter(array_map('intval', explode(',', (string) ($q['users'] ?? ''))));
+        $this->ok('', TaskAnalytics::speedSeries((int) $id, $users, (string) ($q['range'] ?? '1m'), (string) ($q['metric'] ?? 'score')));
     }
 }

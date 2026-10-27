@@ -101,6 +101,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/history/clear', [ProjectController::class, 'clearHistory']);
     $r->post('/projects/requests/{id}/respond', [ProjectController::class, 'respondRequest']);
     $r->get('/projects/{id}/analytics', [ProjectController::class, 'analytics']);
+    $r->get('/projects/{id}/analytics/speed', [ProjectController::class, 'speed']);
     $r->post('/projects/{id}/update', [ProjectController::class, 'update']);
     $r->post('/projects/{id}/delete', [ProjectController::class, 'destroy']);
     $r->post('/projects/{id}/leave', [ProjectController::class, 'leave']);
@@ -153,6 +154,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/avatar/delete', [ProfileController::class, 'removeAvatar']);
     $r->post('/profile/privacy', [ProfileController::class, 'privacy']);
     $r->post('/profile/quick-links', [ProfileController::class, 'quickLinks']);
+    $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
 });

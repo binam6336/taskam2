@@ -46,7 +46,7 @@ final class ProjectService
         return [true, 'کاربر به پروژه اضافه شد.', 'added'];
     }
 
-    public static function create(int $uid, string $title, string $desc, int $max, array $memberIds, ?array $image): array
+    public static function create(int $uid, string $title, string $desc, int $max, array $memberIds, ?array $image, ?string $priorityType = null): array
     {
         if ($title === '' || mb_strlen($title) > 255) {
             return [false, 'عنوان پروژه را (حداکثر ۲۵۵ نویسه) وارد کنید.', null];
@@ -62,8 +62,9 @@ final class ProjectService
             }
             $img = $r['name'];
         }
-        $id = DB::transaction(static function () use ($uid, $title, $desc, $max, $img): int {
-            $id = DB::insert('projects', ['user_id' => $uid, 'title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max, 'profile_image' => $img]);
+        $ptype = $priorityType === 'percent' ? 'percent' : 'category';
+        $id = DB::transaction(static function () use ($uid, $title, $desc, $max, $img, $ptype): int {
+            $id = DB::insert('projects', ['user_id' => $uid, 'title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max, 'profile_image' => $img, 'priority_type' => $ptype]);
             DB::insert('project_members', ['project_id' => $id, 'user_id' => $uid, 'permissions' => json_encode(array_keys(Access::PROJECT_PERMS))]);
             return $id;
         });
@@ -82,7 +83,7 @@ final class ProjectService
         return [true, $msg, $id];
     }
 
-    public static function update(int $projectId, int $uid, string $title, string $desc, int $max, ?array $memberIds, ?array $image): array
+    public static function update(int $projectId, int $uid, string $title, string $desc, int $max, ?array $memberIds, ?array $image, ?string $priorityType = null): array
     {
         $p = DB::one('SELECT * FROM projects WHERE id = ?', [$projectId]);
         if ($p === null) {
@@ -102,6 +103,10 @@ final class ProjectService
                 return [false, 'حداکثر اعضا نمی‌تواند کمتر از تعداد فعلی اعضا (' . fa_num($cur) . ') باشد.'];
             }
             $data = ['title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max];
+            if ($priorityType !== null && array_key_exists($priorityType, Priority::TYPES) && $priorityType !== $p['priority_type']) {
+                $data['priority_type'] = $priorityType;
+                Priority::switchProject($projectId, (string) $p['priority_type'], $priorityType);
+            }
             if ($image !== null) {
                 $r = Uploader::saveImage($image, 'projects', 'proj');
                 if (!$r['ok']) {

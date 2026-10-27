@@ -31,6 +31,9 @@ final class Notifier
         }
         $actor = UserModel::find($actorId);
         $pr = ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$task['priority']] ?? $task['priority'];
+        if (isset($task['priority_percent']) && Priority::projectType(isset($task['project_id']) ? (int) $task['project_id'] : null) === 'percent') {
+            $pr = fa_num((int) $task['priority_percent']) . '٪';
+        }
         $lines = ['📌 وظیفه جدیدی برای شما ایجاد شد', '', 'عنوان: ' . $task['title'], 'ایجاد کننده: ' . ($actor ? full_name($actor) : 'کاربر')];
         if ($projectTitle) {
             $lines[] = 'پروژه: ' . $projectTitle;
@@ -50,10 +53,10 @@ final class Notifier
         self::send($assignee, implode("\n", $lines) . "\n\n[[task:" . $task['share_token'] . ']]');
     }
 
-    public static function noteMention(array $task, int $actorId, string $noteText, int $mentionedId): void
+    public static function noteMention(array $task, int $actorId, string $noteText, int $mentionedId, bool $mentioned = false): void
     {
         $actor = UserModel::find($actorId);
-        $msg = '📝 یادداشت جدید در وظیفه «' . $task['title'] . "»\n\nاز طرف: " . ($actor ? full_name($actor) : 'کاربر')
+        $msg = ($mentioned ? '📣 شما در یادداشت وظیفه «' . $task['title'] . '» منشن شدید' : '📝 یادداشت جدید در وظیفه «' . $task['title'] . '»') . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'کاربر')
             . "\n\n" . mb_substr(trim($noteText), 0, 220, 'UTF-8') . "\n\n[[task:" . $task['share_token'] . ']]';
         self::send($mentionedId, $msg);
     }

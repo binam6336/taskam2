@@ -12,6 +12,7 @@ use App\Models\ProjectModel;
 use App\Models\SubjectModel;
 use App\Models\TaskModel;
 use App\Services\Access;
+use App\Services\Priority;
 use App\Services\TaskService;
 
 final class TaskController extends Controller
@@ -27,7 +28,14 @@ final class TaskController extends Controller
         $done = ($r->query['status'] ?? 'open') === 'done';
         $q = trim((string) ($r->query['q'] ?? ''));
         $page = max(1, (int) ($r->query['page'] ?? 1));
-        $res = TaskModel::paginate($uid, $scope, $done, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $q);
+        $sort = (string) ($r->query['sort'] ?? 'created');
+        $sort = isset(TaskModel::SORTS[$sort]) ? $sort : 'created';
+        $when = (string) ($r->query['when'] ?? '');
+        $when = in_array($when, ['overdue', 'today', 'tomorrow'], true) || Validate::date($when) !== null ? $when : '';
+        $prio = in_array($r->query['prio'] ?? '', ['high', 'low'], true) ? (string) $r->query['prio'] : '';
+        $proj = max(0, (int) ($r->query['project'] ?? 0));
+        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj];
+        $res = TaskModel::paginate($uid, $scope, $done, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
         $pages = max(1, (int) ceil($res['total'] / self::PER_PAGE));
         foreach ($res['rows'] as &$t) {
             $t['can'] = TaskService::effective($t, $uid);
@@ -49,13 +57,16 @@ final class TaskController extends Controller
             if ($t !== null && TaskService::canViewShared($t, $uid)) {
                 $shared = $this->detail($t, $uid);
             } else {
-                $this->flash('لینک تسک نامعتبر است یا اجازه‌ی مشاهده‌ی آن را ندارید.', 'error');
+                // خطای دسترسی و بازگشت به تسک‌های خود کاربر
+                $this->flash($t === null ? 'لینک تسک نامعتبر است.' : 'شما اجازه‌ی مشاهده‌ی این تسک را ندارید.', 'error');
+                $this->redirect('/tasks');
             }
         }
 
         $this->view('tasks/index', [
             'tasks' => $res['rows'], 'total' => $res['total'], 'page' => $page, 'pages' => $pages,
-            'scope' => $scope, 'done' => $done, 'q' => $q, 'counts' => $counts,
+            'scope' => $scope, 'done' => $done, 'q' => $q, 'counts' => $counts, 'filters' => $filters,
+            'dueDates' => TaskModel::dueDates($uid, $scope, $done),
             'subjects' => SubjectModel::forUser($uid),
             'projects' => ProjectModel::forUser($uid),
             'assignees' => $this->assigneeOptions($uid),
@@ -80,7 +91,7 @@ final class TaskController extends Controller
     private function detail(array $t, int $uid): array
     {
         $can = TaskService::effective($t, $uid);
-        $notes = NoteModel::forTask((int) $t['id']);
+        $notes = array_reverse(NoteModel::forTask((int) $t['id']));   // جدیدترین بالا
         foreach ($notes as &$n) {
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
@@ -105,6 +116,9 @@ final class TaskController extends Controller
         unset($f);
         return [
             'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
+            'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,
+            'priority_type' => $t['project_priority_type'] ?? 'category',
+            'mentionable' => $t['project_id'] ? TaskService::mentionable((int) $t['project_id'], $uid) : [],
             'is_completed' => (int) $t['is_completed'] === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'],
@@ -179,7 +193,7 @@ final class TaskController extends Controller
 
     public function addNote(string $id)
     {
-        $res = TaskService::addNote($this->uid(), (int) $id, $this->request->str('note', 5000), Uploader::normalize($this->request->files['attachments'] ?? null));
+        $res = TaskService::addNote($this->uid(), (int) $id, $this->request->str('note', 5000), Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
         $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
     }
 

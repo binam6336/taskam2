@@ -32,7 +32,7 @@ final class ProjectApi extends ApiController
     private function format(array $p, array $perms): array
     {
         return [
-            'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'],
+            'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
             'profile_image' => project_image_url($p['profile_image']), 'status' => (int) $p['status'],
             'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'created_at' => $p['created_at'],
         ];
@@ -89,7 +89,7 @@ final class ProjectApi extends ApiController
     public function create()
     {
         $in = $this->body();
-        [$ok, $msg, $id] = ProjectService::create($this->uid, trim((string) ($in['title'] ?? '')), trim((string) ($in['description'] ?? '')), (int) ($in['max_members'] ?? 10), is_array($in['members'] ?? null) ? array_map('intval', $in['members']) : [], null);
+        [$ok, $msg, $id] = ProjectService::create($this->uid, trim((string) ($in['title'] ?? '')), trim((string) ($in['description'] ?? '')), (int) ($in['max_members'] ?? 10), is_array($in['members'] ?? null) ? array_map('intval', $in['members']) : [], null, isset($in['priority_type']) ? (string) $in['priority_type'] : null);
         if (!$ok) {
             $this->err($msg, 400, 'PROJECT_CREATE_FAILED');
         }
@@ -102,7 +102,7 @@ final class ProjectApi extends ApiController
         $id = $this->pid();
         $p = $this->member($id);
         $in = $this->body();
-        [$ok, $msg] = ProjectService::update($id, $this->uid, trim((string) ($in['title'] ?? $p['title'])), trim((string) ($in['description'] ?? $p['description'] ?? '')), (int) ($in['max_members'] ?? $p['max_members']), null, null);
+        [$ok, $msg] = ProjectService::update($id, $this->uid, trim((string) ($in['title'] ?? $p['title'])), trim((string) ($in['description'] ?? $p['description'] ?? '')), (int) ($in['max_members'] ?? $p['max_members']), null, null, isset($in['priority_type']) ? (string) $in['priority_type'] : null);
         if (!$ok) {
             $this->err($msg, str_contains($msg, 'اجازه') ? 403 : 400, str_contains($msg, 'اجازه') ? 'FORBIDDEN' : 'PROJECT_UPDATE_FAILED');
         }

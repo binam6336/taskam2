@@ -9,7 +9,7 @@ use App\Core\Uploader;
 final class TaskModel
 {
     private const SELECT = "SELECT t.*, s.title AS subject_title, s.color AS subject_color,
-            p.title AS project_title, p.profile_image AS project_image,
+            p.title AS project_title, p.profile_image AS project_image, p.priority_type AS project_priority_type,
             ua.first_name AS assignee_first_name, ua.last_name AS assignee_last_name, ua.mobile AS assignee_mobile, ua.avatar AS assignee_avatar,
             uc.first_name AS creator_first_name, uc.last_name AS creator_last_name, uc.mobile AS creator_mobile, uc.avatar AS creator_avatar,
             (SELECT COUNT(*) FROM task_notes tn WHERE tn.task_id = t.id) AS notes_count,
@@ -42,12 +42,16 @@ final class TaskModel
         return DB::one('SELECT * FROM tasks WHERE id = ? LIMIT 1', [$id]);
     }
 
-    /**
-     * فهرست صفحه‌بندی‌شده.
-     * @param string $scope mine = مسئول من | others = ساخته‌ی من برای دیگران
-     * @return array{rows:array,total:int}
-     */
-    public static function paginate(int $uid, string $scope, bool $completed, int $limit, int $offset, string $q = ''): array
+    public const SORTS = [
+        'created'  => 'تاریخ ایجاد',
+        'due'      => 'تاریخ انجام (سررسید)',
+        'priority' => 'اولویت',
+        'project'  => 'پروژه',
+        'subject'  => 'موضوع',
+    ];
+
+    /** شرط WHERE مشترک فهرست و فیلترها. */
+    private static function scopeWhere(int $uid, string $scope, bool $completed): array
     {
         $where = $scope === 'mine'
             ? 't.assignee_id = ?'
@@ -55,15 +59,70 @@ final class TaskModel
         $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
         $where .= ' AND t.is_completed = ?';
         $params[] = $completed ? 1 : 0;
+        return [$where, $params];
+    }
+
+    /**
+     * فهرست صفحه‌بندی‌شده.
+     * @param string $scope mine = مسئول من | others = ساخته‌ی من برای دیگران
+     * @param array  $f     فیلتر/مرتب‌سازی: q, sort, when (overdue|today|tomorrow|Y-m-d), prio (high|low), project
+     * @return array{rows:array,total:int}
+     */
+    public static function paginate(int $uid, string $scope, bool $completed, int $limit, int $offset, array $f = []): array
+    {
+        [$where, $params] = self::scopeWhere($uid, $scope, $completed);
+        $q = (string) ($f['q'] ?? '');
         if ($q !== '') {
             $where .= ' AND (t.title LIKE ? OR t.description LIKE ?)';
             $params[] = DB::like($q);
             $params[] = DB::like($q);
         }
+        $when = (string) ($f['when'] ?? '');
+        if ($when === 'overdue') {
+            $where .= " AND t.is_completed = 0 AND t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
+        } elseif ($when === 'today') {
+            $where .= ' AND t.due_date = CURDATE()';
+        } elseif ($when === 'tomorrow') {
+            $where .= ' AND t.due_date = CURDATE() + INTERVAL 1 DAY';
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $when)) {
+            $where .= ' AND t.due_date = ?';
+            $params[] = $when;
+        }
+        $prio = (string) ($f['prio'] ?? '');
+        if ($prio === 'high' || $prio === 'low') {
+            $where .= ' AND t.priority = ?';
+            $params[] = $prio;
+        }
+        if (!empty($f['project'])) {
+            $where .= ' AND t.project_id = ?';
+            $params[] = (int) $f['project'];
+        }
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where, $params);
-        $order = $completed ? 't.completed_at DESC, t.id DESC' : 't.created_at DESC, t.id DESC';
+        switch ($f['sort'] ?? 'created') {
+            case 'due':
+                $order = 't.due_date IS NULL, t.due_date ASC, t.due_time IS NULL, t.due_time ASC, t.id DESC';
+                break;
+            case 'priority':
+                $order = "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date IS NULL, t.due_date ASC, t.id DESC";
+                break;
+            case 'project':
+                $order = 'p.title IS NULL, p.title ASC, t.created_at DESC, t.id DESC';
+                break;
+            case 'subject':
+                $order = 's.title IS NULL, s.title ASC, t.created_at DESC, t.id DESC';
+                break;
+            default:
+                $order = $completed ? 't.completed_at DESC, t.id DESC' : 't.created_at DESC, t.id DESC';
+        }
         $rows = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge([$uid], $params, [$limit, $offset]));
         return ['rows' => $rows, 'total' => $total];
+    }
+
+    /** تاریخ‌های سررسید موجود در همین بخش (برای فیلتر «تسک‌های فلان روز»). */
+    public static function dueDates(int $uid, string $scope, bool $completed): array
+    {
+        [$where, $params] = self::scopeWhere($uid, $scope, $completed);
+        return DB::column('SELECT DISTINCT t.due_date FROM tasks t WHERE ' . $where . ' AND t.due_date IS NOT NULL ORDER BY t.due_date LIMIT 60', $params);
     }
 
     /** لیست API: تسک‌هایی که کاربر سازنده یا مسئول آن‌هاست. */
