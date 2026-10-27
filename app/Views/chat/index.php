@@ -1,4 +1,4 @@
-<?php /** @var int $me */ $this->boot['chat'] = ['me' => $me, 'open' => (int) ($_GET['user'] ?? 0)]; $this->scripts[] = 'chat'; ?>
+<?php /** @var int $me */ $this->boot['chat'] = ['me' => $me, 'open' => (int) ($_GET['user'] ?? 0), 'now' => time()]; $this->scripts[] = 'chat'; ?>
 <div class="chat" id="chat">
     <aside class="chat-side">
         <div class="chat-side-head">
@@ -26,3 +26,18 @@
     </section>
 </div>
 <div class="modal" id="m-results"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-magnifying-glass"></i> نتایج جستجو</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body" id="results-body"></div></div></div>
+<div class="modal" id="m-forward"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-share"></i> بازارسال پیام به…</h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="fwd-search" placeholder="جستجوی مخاطب…" autocomplete="off"></div><div class="fwd-list" id="fwd-list"></div></div></div></div>
+<div class="img-viewer" id="img-viewer" hidden role="dialog" aria-modal="true" aria-label="نمایش تصویر">
+    <div class="iv-bar">
+        <span class="iv-name truncate" id="iv-name"></span>
+        <div class="iv-tools">
+            <button type="button" class="btn btn-icon btn-sm" id="iv-out" title="کوچک‌نمایی (-)" aria-label="کوچک‌نمایی"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <button type="button" class="btn btn-sm iv-zoom" id="iv-reset" title="اندازه‌ی واقعی (0)"><span id="iv-zoom">۱۰۰٪</span></button>
+            <button type="button" class="btn btn-icon btn-sm" id="iv-in" title="بزرگ‌نمایی (+)" aria-label="بزرگ‌نمایی"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button type="button" class="btn btn-icon btn-sm" id="iv-dl" title="دانلود" aria-label="دانلود"><i class="fa-solid fa-download"></i></button>
+            <button type="button" class="btn btn-icon btn-sm" id="iv-close" title="بستن (Esc)" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>
+    <div class="iv-stage" id="iv-stage"><img id="iv-img" alt="" draggable="false"></div>
+</div>

@@ -299,6 +299,7 @@ CREATE TABLE `chat_messages` (
   `attachment_name` TEXT NULL DEFAULT NULL         COMMENT 'نام اصلی فایل؛ رمزشده (طولانی‌تر از متن اصلی)',
   `attachment_size` INT UNSIGNED NULL DEFAULT NULL,
   `attachment_type` VARCHAR(50) NULL DEFAULT NULL,
+  `forwarded_from`  INT UNSIGNED NULL DEFAULT NULL COMMENT 'فرستنده‌ی اصلی پیام بازارسال‌شده',
   `is_read`         TINYINT(1) NOT NULL DEFAULT 0,
   `read_at`         TIMESTAMP NULL DEFAULT NULL,
   `is_edited`       TINYINT(1) NOT NULL DEFAULT 0,
@@ -310,6 +311,16 @@ CREATE TABLE `chat_messages` (
   KEY `idx_chat_created` (`created_at`),
   CONSTRAINT `fk_chat_sender`   FOREIGN KEY (`sender_id`)   REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_chat_receiver` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chat_history_clears` (
+  `user_id`         INT UNSIGNED NOT NULL              COMMENT 'کسی که تاریخچه را پاک کرده',
+  `other_user_id`   INT UNSIGNED NOT NULL              COMMENT 'طرف گفتگو (برای پیام‌های ذخیره‌شده = خود کاربر)',
+  `cleared_upto_id` BIGINT UNSIGNED NOT NULL           COMMENT 'پیام‌های با شناسه‌ی کمتر/مساوی برای این کاربر نمایش داده نمی‌شوند',
+  `cleared_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`, `other_user_id`),
+  CONSTRAINT `fk_chc_user`  FOREIGN KEY (`user_id`)       REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_chc_other` FOREIGN KEY (`other_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ─────────────────────────────  تماس / متن‌های آماده  ─────────────────────────────

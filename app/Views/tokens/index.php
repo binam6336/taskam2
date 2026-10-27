@@ -20,9 +20,9 @@ $base = rtrim(full_url('api/v1'), '/');
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> ساخت توکن</button></form>
         <div class="callout warn mt-2 small"><i class="fa-solid fa-shield-halved"></i> توکن مانند رمز عبور است. فقط هش آن در سرور ذخیره می‌شود و بعد از ساخت قابل بازیابی نیست.</div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-terminal"></i> شروع سریع</h3></div>
-        <div class="codebox"><pre>curl -X GET \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  "<?= e($base) ?>/tasks/list?status=pending"</pre></div>
+        <?php $curl = "curl -X GET \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  \"" . $base . "/tasks/list?status=pending\""; ?>
+        <div class="codebox"><div class="code-bar"><span class="code-lang">bash</span><button type="button" class="btn btn-xs" data-copy="<?= e($curl) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>
+            <pre class="code"><?php foreach (explode("\n", $curl) as $line): ?><span class="l"><?= e($line) ?></span><?php endforeach; ?></pre></div>
         <p class="small muted">نشانی پایه: <code><?= e($base) ?></code></p></div>
 </div>
 

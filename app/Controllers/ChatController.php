@@ -57,7 +57,7 @@ final class ChatController extends Controller
         $this->touch($uid);
         $saved = $uid === $rid;
         $id = ChatModel::create($uid, $rid, $msg);
-        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => null, 'attachment_name' => null, 'attachment_size' => null, 'attachment_type' => null, 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s')]]);
+        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => null, 'attachment_name' => null, 'attachment_size' => null, 'attachment_type' => null, 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s'), 'ts' => time()]]);
     }
 
     public function sendFile()
@@ -77,7 +77,7 @@ final class ChatController extends Controller
         $this->touch($uid);
         $saved = $uid === $rid;
         $id = ChatModel::create($uid, $rid, $msg, ['attachment' => $r['name'], 'attachment_name' => $r['original'], 'attachment_size' => $r['size'], 'attachment_type' => $r['ext']]);
-        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => $r['name'], 'attachment_name' => $r['original'], 'attachment_size' => $r['size'], 'attachment_type' => $r['ext'], 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s')]]);
+        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => $r['name'], 'attachment_name' => $r['original'], 'attachment_size' => $r['size'], 'attachment_type' => $r['ext'], 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s'), 'ts' => time()]]);
     }
 
     public function fetch()
@@ -167,6 +167,9 @@ final class ChatController extends Controller
         if (!empty($m['attachment'])) {
             $this->fail('پیام‌های دارای فایل قابل ویرایش نیستند');
         }
+        if (!empty($m['forwarded_from'])) {
+            $this->fail('پیام بازارسال‌شده قابل ویرایش نیست');
+        }
         $current = (string) ChatModel::open($m['message'], (int) $m['sender_id'], (int) $m['receiver_id']);
         if (trim($current) === $text) {
             $this->json(['status' => 'success', 'message' => ['id' => $id, 'message' => $text, 'is_edited' => (int) $m['is_edited'], 'edited_at' => null, 'unchanged' => true]]);
@@ -187,6 +190,53 @@ final class ChatController extends Controller
         DB::run('DELETE FROM chat_messages WHERE id = ? AND sender_id = ?', [$id, $uid]);
         Uploader::delete('chat_files', $m['attachment']);
         $this->json(['status' => 'success', 'message' => 'پیام برای هر دو طرف حذف شد', 'deleted_id' => $id]);
+    }
+
+    /** بازارسال یک پیام (متن و فایل) به گفتگوی دیگر؛ فایل کپی می‌شود تا حذف پیام اصلی روی آن اثر نگذارد. */
+    public function forward()
+    {
+        $uid = $this->uid();
+        $id = $this->request->int('message_id');
+        $rid = $this->request->int('receiver_id');
+        $m = DB::one('SELECT * FROM chat_messages WHERE id = ? AND (sender_id = ? OR receiver_id = ?)', [$id, $uid, $uid]);
+        if ($m === null) {
+            $this->fail('پیام یافت نشد', 404);
+        }
+        $other = (int) $m['sender_id'] === $uid ? (int) $m['receiver_id'] : (int) $m['sender_id'];
+        if ($id <= ChatModel::clearedUpTo($uid, $other)) {
+            $this->fail('پیام یافت نشد', 404);
+        }
+        $this->assertReceiver($uid, $rid);
+        $m = ChatModel::normalize($m);
+        $file = ['forwarded_from' => $m['forwarded_from'] ?: $m['sender_id']];
+        if (!empty($m['attachment'])) {
+            $src = Uploader::path('chat_files', (string) $m['attachment']);
+            if ($src === null) {
+                $this->fail('فایل این پیام دیگر موجود نیست');
+            }
+            $name = 'chat' . $uid . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . strtolower((string) $m['attachment_type']);
+            if (!@copy($src, Uploader::dir('chat_files') . '/' . $name)) {
+                $this->fail('کپی فایل برای بازارسال ممکن نشد');
+            }
+            $file += ['attachment' => $name, 'attachment_name' => $m['attachment_name'], 'attachment_size' => $m['attachment_size'], 'attachment_type' => $m['attachment_type']];
+        }
+        $this->touch($uid);
+        $text = (string) $m['message'];
+        $newId = ChatModel::create($uid, $rid, $text, $file);
+        $row = DB::one('SELECT * FROM chat_messages WHERE id = ?', [$newId]);
+        $this->json(['status' => 'success', 'message' => ChatModel::normalize($row), 'info' => 'پیام بازارسال شد']);
+    }
+
+    /** «حذف تاریخچه»: گفتگو فقط برای همین کاربر خالی می‌شود؛ طرف مقابل پیام‌ها را می‌بیند. */
+    public function clearHistory()
+    {
+        $uid = $this->uid();
+        $other = $this->request->int('user_id');
+        if ($other <= 0 || !ChatModel::canChat($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
+            $this->fail('گفتگو یافت نشد', 404);
+        }
+        ChatModel::clearHistory($uid, $other);
+        $this->json(['status' => 'success', 'message' => 'تاریخچه‌ی این گفتگو برای شما پاک شد']);
     }
 
     public function heartbeat()

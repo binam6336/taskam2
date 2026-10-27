@@ -128,6 +128,8 @@ $router->group(['panel'], function ($r) {
     $r->post('/chat/api/mark_read', [ChatController::class, 'markRead']);
     $r->post('/chat/api/edit', [ChatController::class, 'edit']);
     $r->post('/chat/api/delete', [ChatController::class, 'delete']);
+    $r->post('/chat/api/forward', [ChatController::class, 'forward']);
+    $r->post('/chat/api/clear_history', [ChatController::class, 'clearHistory']);
 
     // توکن‌های API
     $r->get('/tokens', [TokenController::class, 'index']);

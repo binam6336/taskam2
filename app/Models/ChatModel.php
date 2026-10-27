@@ -10,7 +10,7 @@ final class ChatModel
 {
     public const ONLINE_THRESHOLD = 25;
     public const EDIT_WINDOW = 3600;
-    private const COLS = 'id, sender_id, receiver_id, message, attachment, attachment_name, attachment_size, attachment_type, is_read, is_edited, edited_at, created_at';
+    private const COLS = 'id, sender_id, receiver_id, message, attachment, attachment_name, attachment_size, attachment_type, forwarded_from, is_read, is_edited, edited_at, created_at';
 
     public static function canChat(int $a, int $b): bool
     {
@@ -24,6 +24,31 @@ final class ChatModel
             return true;
         }
         return (bool) DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$a, $b, $b, $a]);
+    }
+
+    // ───── «حذف تاریخچه» یک‌طرفه: پیام‌های تا cleared_upto_id فقط برای همان کاربر پنهان می‌شوند ─────
+
+    public static function clearedUpTo(int $me, int $other): int
+    {
+        return (int) DB::value('SELECT cleared_upto_id FROM chat_history_clears WHERE user_id = ? AND other_user_id = ?', [$me, $other]);
+    }
+
+    /** شرط SQL «پیام برای $me قابل مشاهده است»؛ $otherExpr = عبارت SQL شناسه‌ی طرف دیگر گفتگو */
+    private static function visibleSql(int $me, string $idCol, string $otherExpr): string
+    {
+        return "$idCol > COALESCE((SELECT h.cleared_upto_id FROM chat_history_clears h WHERE h.user_id = " . $me . " AND h.other_user_id = $otherExpr), 0)";
+    }
+
+    /** پاک کردن تاریخچه‌ی گفتگو فقط برای $me (طرف مقابل پیام‌ها را همچنان می‌بیند). */
+    public static function clearHistory(int $me, int $other): int
+    {
+        $pair = '((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))';
+        $max = (int) DB::value('SELECT MAX(id) FROM chat_messages WHERE ' . $pair, [$me, $other, $other, $me]);
+        if ($max > 0) {
+            DB::run('INSERT INTO chat_history_clears (user_id, other_user_id, cleared_upto_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE cleared_upto_id = VALUES(cleared_upto_id)', [$me, $other, $max]);
+            self::markRead($me, $other);
+        }
+        return $max;
     }
 
     // ───── رمزگذاری پیام‌ها (متن پیام + نام فایل) ─────
@@ -58,7 +83,7 @@ final class ChatModel
 
     /**
      * درج پیام (تنها مسیر نوشتن در chat_messages): متن و نام فایل به‌صورت رمزشده ذخیره می‌شوند.
-     * @param array $file ['attachment','attachment_name','attachment_size','attachment_type']
+     * @param array $file ['attachment','attachment_name','attachment_size','attachment_type'] و اختیاری 'forwarded_from'
      */
     public static function create(int $sender, int $receiver, string $message, array $file = []): int
     {
@@ -68,7 +93,10 @@ final class ChatModel
             'message' => (string) self::seal($message, $sender, $receiver),
             'is_read' => $saved ? 1 : 0, 'read_at' => $saved ? date('Y-m-d H:i:s') : null,
         ];
-        if ($file) {
+        if (!empty($file['forwarded_from'])) {
+            $row['forwarded_from'] = (int) $file['forwarded_from'];
+        }
+        if (!empty($file['attachment'])) {
             $row['attachment'] = $file['attachment'];
             $row['attachment_name'] = self::seal((string) $file['attachment_name'], $sender, $receiver);
             $row['attachment_size'] = $file['attachment_size'];
@@ -89,13 +117,28 @@ final class ChatModel
         $m['is_read'] = (int) $m['is_read'];
         $m['is_edited'] = (int) ($m['is_edited'] ?? 0);
         $m['attachment_size'] = !empty($m['attachment_size']) ? (int) $m['attachment_size'] : null;
+        $m['ts'] = isset($m['created_at']) ? (int) strtotime((string) $m['created_at']) : time();   // زمان مطلق (مستقل از منطقه‌ی زمانی مرورگر)
+        if (array_key_exists('forwarded_from', $m)) {
+            $m['forwarded_from'] = $m['forwarded_from'] !== null ? (int) $m['forwarded_from'] : null;
+            $m['forwarded_name'] = $m['forwarded_from'] ? self::userName($m['forwarded_from']) : null;
+        }
         return $m;
+    }
+
+    private static function userName(int $id): string
+    {
+        static $cache = [];
+        if (!isset($cache[$id])) {
+            $u = DB::one('SELECT first_name, last_name, mobile FROM users WHERE id = ?', [$id]);
+            $cache[$id] = $u ? full_name($u) : 'کاربر حذف‌شده';
+        }
+        return $cache[$id];
     }
 
     /** @return array{messages:array,has_more_before:bool,has_more_after:bool} */
     public static function fetch(int $me, int $other, string $mode, int $beforeId, int $afterId, int $targetId, int $limit): array
     {
-        $pair = '((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))';
+        $pair = '((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND id > ' . self::clearedUpTo($me, $other);
         $pp = [$me, $other, $other, $me];
         $sel = 'SELECT ' . self::COLS . ' FROM chat_messages WHERE ' . $pair;
         $before = false;
@@ -140,12 +183,12 @@ final class ChatModel
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = u.id AND cb.blocked_user_id = ?) AS has_blocked_me,
               (SELECT COUNT(*) FROM chat_messages cm WHERE cm.sender_id = u.id AND cm.receiver_id = ? AND cm.is_read = 0) AS unread_count,
-              (SELECT MAX(cm.created_at) FROM chat_messages cm WHERE (cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AS last_msg_time
+              (SELECT MAX(cm.created_at) FROM chat_messages cm WHERE ((cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm.id', 'u.id') . ") AS last_msg_time
             FROM users u
             WHERE u.id <> ? AND u.status = 'active' AND (
                 EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = u.id)
              OR EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = u.id AND c.colleague_user_id = ?)
-             OR EXISTS (SELECT 1 FROM chat_messages cm2 WHERE (cm2.sender_id = u.id AND cm2.receiver_id = ?) OR (cm2.sender_id = ? AND cm2.receiver_id = u.id)))
+             OR EXISTS (SELECT 1 FROM chat_messages cm2 WHERE ((cm2.sender_id = u.id AND cm2.receiver_id = ?) OR (cm2.sender_id = ? AND cm2.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm2.id', 'u.id') . "))
             ORDER BY (last_msg_time IS NULL) ASC, last_msg_time DESC, u.first_name ASC", [$me, $me, $me, $me, $me, $me, $me, $me, $me, $me]);
         foreach ($rows as &$r) {
             $r['user_id'] = (int) $r['user_id'];
@@ -180,7 +223,8 @@ final class ChatModel
     public static function search(int $me, string $q, string $scope, int $other, int $limit): array
     {
         $cols = 'cm.id, cm.sender_id, cm.receiver_id, cm.message, cm.attachment, cm.attachment_name, cm.attachment_type, cm.attachment_size, cm.is_read, cm.is_edited, cm.created_at, u.first_name, u.last_name, u.mobile';
-        $from = ' FROM chat_messages cm LEFT JOIN users u ON u.id = CASE WHEN cm.sender_id = ? THEN cm.receiver_id ELSE cm.sender_id END WHERE ';
+        $from = ' FROM chat_messages cm LEFT JOIN users u ON u.id = CASE WHEN cm.sender_id = ? THEN cm.receiver_id ELSE cm.sender_id END WHERE '
+            . self::visibleSql($me, 'cm.id', 'CASE WHEN cm.sender_id = ' . $me . ' THEN cm.receiver_id ELSE cm.sender_id END') . ' AND ';
         if ($scope === 'conversation' && $other > 0) {
             $where = '((cm.sender_id = ? AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = ?))';
             $wp = [$me, $other, $other, $me];

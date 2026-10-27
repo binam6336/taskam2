@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'dark' => ['title' => 'شب سبز', 'desc' => 'تیره — سبز و مشکی (پیش‌فرض)', 'meta' => '#060908', 'preview' => ['#060908', '#0b110e', '#141d18', '#22c55e']],
-    'sage' => ['title' => 'سبز مریم‌گلی', 'desc' => 'روشن — #7FB77E و #F7F6DC', 'meta' => '#F7F6DC', 'preview' => ['#F7F6DC', '#EFEECF', '#FBFAEA', '#7FB77E']],
+    'sage' => ['title' => 'سبز روشن', 'desc' => 'روشن — #7FB77E و #F7F6DC', 'meta' => '#E8E9D3', 'preview' => ['#E8E9D3', '#DCE1C5', '#F7F6DC', '#7FB77E']],
 ];

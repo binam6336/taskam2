@@ -2,7 +2,7 @@ document.addEventListener('tk:ready', () => {
   const a = TK.boot().analytics; if (!a) return;
   TK.charts.line(TK.qs('#ch-trend'), { labels: a.trend.labels, series: [{ name: 'ایجادشده', data: a.trend.created, color: '#60a5fa' }, { name: 'انجام‌شده', data: a.trend.done, color: TK.charts.colors[0] }] });
   TK.charts.donut(TK.qs('#ch-prio'), { items: [{ label: 'زیاد', value: a.totals.high, color: '#f87171' }, { label: 'متوسط', value: a.totals.medium, color: '#fbbf24' }, { label: 'کم', value: a.totals.low, color: TK.charts.colors[0] }], center: TK.fa(a.totals.total) });
-  if (a.subjects?.length) TK.charts.donut(TK.qs('#ch-subjects'), { items: a.subjects.map((s) => ({ label: s.label, value: s.value, color: s.color })), center: TK.fa(a.subjects.length) + '<div class="donut-l">موضوع</div>', showPct: true });
+  if (a.subjects?.length) TK.charts.donut(TK.qs('#ch-subjects'), { items: a.subjects.map((s) => ({ label: s.label, value: s.value, color: s.color })), center: '<div>' + TK.fa(a.subjects.length) + '<div class="donut-l">موضوع</div></div>', showPct: true });
 
   /* ───── مقایسه‌ی سرعت ───── */
   const SC = [TK.charts.colors[0], '#60a5fa', '#fbbf24', '#f87171', '#c084fc'];
