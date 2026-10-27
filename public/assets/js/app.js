@@ -152,7 +152,7 @@
     e.stopPropagation();
     const g = btn.closest('[data-nav-group]');
     const open = !g.classList.contains('open');
-    if (!navMobile.matches) navCloseAll(g);
+    navCloseAll(g);                     // فقط یک گروه باز بماند (دسکتاپ و موبایل)
     if (!open) { navClose(g); return; }
     if (!navMobile.matches) navPlace(g);
     g.classList.add('open');

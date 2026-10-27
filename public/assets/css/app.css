@@ -523,6 +523,8 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 /* ───────────── Chat ───────────── */
 body.page-chat .content { padding: 0; max-width: none; }
 .chat { display: grid; grid-template-columns: 330px minmax(0, 1fr); height: calc(100vh - var(--topbar-h)); }
+/* 100dvh: ارتفاع واقعی صفحه روی موبایل (نوار آدرس سافاری/کروم کم می‌شود) */
+@supports (height: 100dvh) { .chat { height: calc(100dvh - var(--topbar-h)); } }
 .chat-side { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-2); min-height: 0; }
 .chat-side-head { padding: .9rem; border-bottom: 1px solid var(--border); }
 .chat-contacts { flex: 1; overflow-y: auto; }
@@ -913,3 +915,14 @@ body.page-chat .qa { display: none; }
   #f-note .flex > .btn-primary { flex: 1 1 auto; }
   #f-task-upload { flex-wrap: wrap; } #f-task-upload input[type=file] { flex: 1 1 100%; }
 }
+/* گفتگو روی موبایل: جستجو تبدیل به آیکون ذره‌بین با پاپ‌آپ */
+.conv-search-btn { display: none; flex: none; }
+@media (max-width: 860px) {
+  .chat-head .search { display: none; }
+  .conv-search-btn { display: inline-flex; }
+  body.page-chat .main { min-height: 0; }
+  body.page-chat { overflow: hidden; height: 100dvh; }
+  .chat-input { padding-bottom: max(.6rem, env(safe-area-inset-bottom)); }
+}
+/* iOS روی فیلدهای با فونت کمتر از ۱۶px زوم می‌کند و صفحه از قاب بیرون می‌رود */
+@media (max-width: 860px) { .input, input.input, textarea.input, select.input { font-size: 16px; } }

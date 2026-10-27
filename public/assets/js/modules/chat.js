@@ -124,12 +124,17 @@ document.addEventListener('tk:ready', () => {
     if (r.status === 'success' && r.results.length) { TK.qs('#results-body').innerHTML = r.results.map((m) => `<div class="item" style="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow"><b class="small">${E(m.from_name)}</b><div class="small muted truncate">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div></div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join(''); TK.modal.open('m-results'); }
   }, 450);
   TK.qs('#chat-search').addEventListener('input', (e) => searchAll(e.target.value));
-  TK.qs('#conv-search').addEventListener('keydown', async (e) => {
-    if (e.key !== 'Enter' || !cur) return; e.preventDefault();
-    const r = await TK.get(API + 'search', { q: e.target.value.trim(), scope: 'conversation', user_id: cur.user_id });
+  const searchConv = async (q) => {
+    q = q.trim(); if (!cur) return;
+    if (q.length < 2) return TK.toast('حداقل ۲ نویسه وارد کنید', 'warning');
+    const r = await TK.get(API + 'search', { q, scope: 'conversation', user_id: cur.user_id });
     TK.qs('#results-body').innerHTML = r.status === 'success' && r.results.length ? r.results.map((m) => `<div class="item" style="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow small">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join('') : '<div class="empty small">نتیجه‌ای پیدا نشد.</div>';
-    TK.modal.open('m-results');
-  });
+    TK.modal.close('m-conv-search'); TK.modal.open('m-results');
+  };
+  TK.qs('#conv-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchConv(e.target.value); } });
+  // موبایل: آیکون ذره‌بین → پاپ‌آپ جستجو
+  TK.qs('#conv-search-btn').addEventListener('click', () => { TK.modal.open('m-conv-search'); setTimeout(() => TK.qs('#conv-search-m').focus(), 60); });
+  TK.qs('#f-conv-search').addEventListener('submit', (e) => { e.preventDefault(); searchConv(TK.qs('#conv-search-m').value); });
   TK.on('click', '[data-jump]', (e, t) => { const [u, id] = t.dataset.jump.split(':').map(Number); TK.modal.close('m-results'); open(u, id); });
 
   /* ───── منوی راست‌کلیک ───── */
