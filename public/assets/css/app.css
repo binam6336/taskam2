@@ -275,9 +275,11 @@ code { background: var(--surface-3); padding: .12em .45em; border-radius: 6px; f
 .card-head h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: .55rem; }
 .card-head h3 i { color: var(--g-400); }
 .grid { display: grid; gap: 1rem; }
-.grid-2 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(4, 1fr); }
-.grid-auto { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
-@media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+/* minmax(0, 1fr): ستون‌ها با محتوای پهن (کد، URL) بزرگ‌تر از صفحه نمی‌شوند */
+.grid > * { min-width: 0; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-auto { grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); }
+@media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
 
 .stat { display: flex; align-items: center; gap: 1rem; }
@@ -426,8 +428,8 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .progress.red > div { background: linear-gradient(90deg, #dc2626, var(--danger)); box-shadow: none; }
 .progress.blue > div { background: linear-gradient(90deg, #2563eb, var(--info)); box-shadow: none; }
 /* صفحه‌ی تحلیل پروژه */
-.an-row { grid-template-columns: 2fr 1fr; }
-@media (max-width: 1100px) { .an-row { grid-template-columns: 1fr; } }
+.an-row, .grid-wide { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { .an-row, .grid-wide { grid-template-columns: minmax(0, 1fr); } }
 .an-summary-text { font-size: 1rem; line-height: 2.1; margin: 0 0 .8rem; }
 .an-split { display: grid; gap: .45rem; max-width: 640px; }
 .an-split-row { display: grid; grid-template-columns: 80px 1fr 48px; align-items: center; gap: .8rem; font-size: .85rem; color: var(--muted); }
@@ -437,7 +439,7 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .an-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .8rem; }
 .an-kpi { padding: .9rem 1rem; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
 .an-kpi-v { font-size: 1.25rem; font-weight: 800; margin-top: .6rem; color: var(--g-300); }
-.an-std summary { cursor: pointer; color: var(--muted); font-size: .85rem; } .an-std .table { max-width: 420px; }
+.an-std summary { cursor: pointer; color: var(--muted); font-size: .85rem; } .an-std table.table { max-width: 420px; min-width: 0; }
 .an-controls { display: grid; gap: .6rem; margin-bottom: .8rem; }
 .an-people { display: flex; flex-wrap: wrap; gap: .4rem; }
 .an-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .7rem; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface-2); font-size: .8rem; cursor: pointer; user-select: none; }
@@ -466,7 +468,15 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .t-sort { position: relative; display: inline-flex; align-items: center; }
 .t-sort i { position: absolute; right: .8rem; color: var(--faint); pointer-events: none; font-size: .85rem; }
 .t-sort .input { padding-right: 2.2rem; min-width: 210px; }
-@media (max-width: 760px) { .t-toolbar { justify-content: stretch; } .t-toolbar .search { max-width: none; flex-basis: 100%; } .t-sort, .t-sort .input { flex: 1; min-width: 0; } }
+@media (max-width: 860px) {
+  .t-bar { flex-direction: column; align-items: stretch; }
+  .t-bar > .tabs { align-self: flex-start; }
+  .t-toolbar { justify-content: stretch; width: 100%; }
+  .t-toolbar .search { max-width: none; min-width: 0; flex: 1 1 100%; }
+  .t-filter { flex: 0 0 auto; }
+  .t-sort { flex: 1 1 0; min-width: 0; } .t-sort .input { min-width: 0; width: 100%; }
+  .t-filter-menu { width: min(300px, calc(100vw - 2rem)); left: auto; right: 0; }
+}
 .badge.prio-pct { color: var(--pc); background: color-mix(in srgb, var(--pc) 14%, transparent); border-color: color-mix(in srgb, var(--pc) 40%, transparent); font-family: var(--font); }
 .badge.prio-pct i { font-size: .7em; margin-inline-end: .2rem; }
 .prio-pct-val { margin-inline-start: .4rem; font-size: .95rem; }
@@ -512,7 +522,7 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 
 /* ───────────── Chat ───────────── */
 body.page-chat .content { padding: 0; max-width: none; }
-.chat { display: grid; grid-template-columns: 330px 1fr; height: calc(100vh - var(--topbar-h)); }
+.chat { display: grid; grid-template-columns: 330px minmax(0, 1fr); height: calc(100vh - var(--topbar-h)); }
 .chat-side { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-2); min-height: 0; }
 .chat-side-head { padding: .9rem; border-bottom: 1px solid var(--border); }
 .chat-contacts { flex: 1; overflow-y: auto; }
@@ -566,7 +576,7 @@ html[data-theme="sage"] .ctx-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 4
 .chat-input textarea { flex: 1; min-height: 44px; max-height: 140px; resize: none; }
 .chat-empty { margin: auto; text-align: center; color: var(--muted); }
 .day-sep { align-self: center; font-size: .72rem; color: var(--faint); background: var(--surface-2); padding: .1rem .8rem; border-radius: 99px; margin: .5rem 0; }
-@media (max-width: 860px) { .chat { grid-template-columns: 1fr; } .chat.in-conv .chat-side { display: none; } .chat:not(.in-conv) .chat-main { display: none; } }
+@media (max-width: 860px) { .chat { grid-template-columns: minmax(0, 1fr); } .chat.in-conv .chat-side { display: none; } .chat:not(.in-conv) .chat-main { display: none; } }
 
 /* ───────────── Docs (مستندات API) — چیدمان سه‌ستونه مثل مرجع ───────────── */
 body.docs { background: var(--bg); --muted: var(--docs-muted); --faint: var(--docs-faint); font-size: 15px; }
@@ -620,7 +630,7 @@ body.docs { background: var(--bg); --muted: var(--docs-muted); --faint: var(--do
 .dx-h { font-size: 1.2rem; margin: 2.2rem 0 .9rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
 .dx-h3 { font-size: .95rem; color: var(--text); margin: 1.4rem 0 .5rem; font-weight: 700; }
 .dx-crumb { font-size: .82rem; color: var(--faint); margin-bottom: .6rem; } .dx-crumb a { color: var(--muted); }
-.dx-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 540px); gap: 2.4rem; align-items: start; }
+.dx-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 540px); gap: 2.4rem; align-items: start; }
 /* ستون کد عمداً اسکرول جداگانه ندارد؛ وگرنه چرخ موس روی آن، صفحه را اسکرول نمی‌کند */
 .dx-code { min-width: 0; }
 .dx-url { display: flex; align-items: center; gap: .6rem; padding: .7rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
@@ -846,3 +856,60 @@ html[data-theme="sage"] .code-lang { color: #8FA89B; }
 .theme-meta b { font-size: .9rem; } .theme-meta span { font-size: .72rem; color: var(--muted); }
 .theme-check { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .7rem; border: 2px solid var(--border-2); color: transparent; flex: none; }
 .theme-opt input:checked + .theme-card .theme-check { background: var(--g-500); border-color: var(--g-500); color: #fff; }
+
+
+/* ═══════════════ واکنش‌گرایی (Responsive) — موبایل / تبلت ═══════════════ */
+.chat-head .search { width: 200px; flex: 0 1 200px; min-width: 0; }
+.chat-head .grow { min-width: 0; } .chat-head #ch-name, .chat-head #ch-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) {
+  .chat-head { gap: .5rem; padding: .6rem .7rem; }
+  .chat-head .search { flex-basis: 120px; }
+  .chat-msgs { padding: .8rem .6rem; }
+  .msg { max-width: 86%; }
+  .chat-input { padding: .6rem; gap: .4rem; }
+}
+/* جدول‌های مستندات روی صفحه‌ی باریک اسکرول افقی می‌گیرند */
+@media (max-width: 980px) {
+  .dx-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dx-article h1 { font-size: 1.35rem; }
+}
+@media (max-width: 600px) {
+  .dx-nav { gap: .5rem; padding: 0 .7rem; }
+  .dx-tag { display: none; }
+  .dx-brand b { display: none; }
+  .dx-panel { padding: .4rem .6rem; font-size: 0; gap: 0; } .dx-panel i { font-size: .9rem; }
+  .dx-search { max-width: none; }
+  .dx-url { flex-wrap: wrap; } .dx-url code { flex-basis: 100%; order: 3; }
+}
+@media (max-width: 680px) {
+  .page-head { align-items: stretch; }
+  .page-head > .tabs { max-width: 100%; }
+  .tabs { max-width: 100%; }
+  .content { padding: .85rem; }
+  .card { padding: 1rem; }
+  .modal { padding: 2vh .5rem; }
+  .kv { grid-template-columns: 90px 1fr; }
+  .stat .num { font-size: 1.35rem; }
+}
+/* ردیف‌های فرم «امتحان زنده» */
+.try-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: .6rem; margin-bottom: .4rem; }
+.try-row label { text-align: left; margin: 0; }
+@media (max-width: 600px) { .try-row { grid-template-columns: minmax(0, 1fr); gap: .2rem; } .try-row label { text-align: right; } }
+/* کدهای درون‌خطی طولانی (توکن نمونه، URL) روی موبایل می‌شکنند */
+@media (max-width: 680px) { p code, li code, .callout code, .hint code { overflow-wrap: anywhere; word-break: break-all; } }
+/* کارت‌های آمار روی موبایل دوتایی کنار هم */
+@media (max-width: 680px) { .grid-4:has(> .stat) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; } .stat { padding: .8rem; gap: .6rem; } .stat .ico { width: 38px; height: 38px; font-size: .95rem; } }
+@media (max-width: 340px) { .grid-4:has(> .stat) { grid-template-columns: minmax(0, 1fr); } }
+/* دکمه‌ی دسترسی سریع روی موبایل کوچک‌تر و بالاتر از نوار پایین؛ در گفتگو روی کادر پیام نمی‌افتد */
+@media (max-width: 860px) {
+  .qa { bottom: 1rem; } .qa-fab { width: 46px; height: 46px; border-radius: 14px; }
+  .content { padding-bottom: 5rem; }
+}
+/* در صفحه‌ی گفتگو دکمه‌ی دسترسی سریع روی فهرست مخاطبان/کادر پیام می‌افتد */
+body.page-chat .qa { display: none; }
+/* فرم یادداشت در جزئیات تسک: روی موبایل انتخاب فایل در یک ردیف و دکمه‌ها در ردیف بعد */
+@media (max-width: 600px) {
+  #f-note .flex > input[type=file] { flex: 1 1 100%; }
+  #f-note .flex > .btn-primary { flex: 1 1 auto; }
+  #f-task-upload { flex-wrap: wrap; } #f-task-upload input[type=file] { flex: 1 1 100%; }
+}

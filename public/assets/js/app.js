@@ -257,7 +257,7 @@
       // ناحیه‌های هاور (یک ستون برای هر برچسب)
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
       g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" style="display:none"/>`;
-      labels.forEach((l, i) => { g += `<rect class="hz" data-i="${i}" x="${x(i) - bw / 2}" y="0" width="${bw}" height="${H - p.b}" fill="transparent"/>`; });
+      labels.forEach((l, i) => { const x0 = Math.max(0, x(i) - bw / 2), x1 = Math.min(W, x(i) + bw / 2); g += `<rect class="hz" data-i="${i}" x="${x0}" y="0" width="${x1 - x0}" height="${H - p.b}" fill="transparent"/>`; });
       el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
       const svg = el.querySelector('svg'), tip = el.querySelector('.chart-tip'), hl = el.querySelector('.hover-line'), box = el.querySelector('.chart-box');
       const show = (i) => {

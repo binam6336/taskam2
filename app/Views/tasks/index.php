@@ -23,7 +23,7 @@ $this->scripts[] = 'tasks';
     <button class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button>
 </div>
 
-<div class="flex between items-center wrap gap-2 mb-2">
+<div class="flex between items-center wrap gap-2 mb-2 t-bar">
     <div class="tabs" data-live="t-status">
         <a class="tab <?= !$done ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'])) ?></span></a>
         <a class="tab <?= $done ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>

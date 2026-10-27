@@ -9,7 +9,7 @@ $card = static fn(string $ico, string $cls, $num, string $lbl) => '<div class="c
     <?= $card('fa-users', '', $u['total'], 'کاربران') ?><?= $card('fa-list-check', 'info', $t['total'], 'تسک‌ها') ?><?= $card('fa-headset', 'warn', $m['support_open'], 'تیکت پشتیبانی باز') ?><?= $card('fa-phone-volume', '', $c['total'], 'درخواست تماس') ?>
     <?= $card('fa-diagram-project', '', $m['projects'], 'پروژه‌ها') ?><?= $card('fa-comments', 'info', $m['messages'], 'پیام‌های چت') ?><?= $card('fa-message', '', $m['texts'], 'متن‌های آماده') ?><?= $card('fa-key', 'warn', $m['tokens'], 'توکن فعال') ?>
 </div>
-<div class="grid mb-2" style="grid-template-columns:2fr 1fr"><div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> فعالیت ۱۴ روز اخیر</h3></div><div class="chart" id="ch-days"></div></div>
+<div class="grid grid-wide mb-2"><div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> فعالیت ۱۴ روز اخیر</h3></div><div class="chart" id="ch-days"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> وضعیت تسک‌ها</h3></div><div id="ch-tasks"></div></div></div>
 <div class="grid grid-3 mb-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-trophy"></i> فعال‌ترین کاربران</h3></div><div class="list"><?php foreach ($topUsers as $x): ?><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($x), 'src' => avatar_url($x['avatar']), 'size' => 'sm']); ?><span class="grow truncate"><?= e(full_name($x)) ?></span><span class="badge green"><?= e(fa_num($x['done'])) ?>/<?= e(fa_num($x['cnt'])) ?></span></div><?php endforeach; ?></div></div>

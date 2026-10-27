@@ -42,7 +42,7 @@ $typeFa = ['integer' => 'int', 'string' => 'str', 'boolean' => 'bool', 'array' =
             <form class="card flat" data-try>
                 <div class="field"><label>توکن</label><input class="input ltr" type="password" data-token placeholder="tk_… (برای این تب ذخیره می‌شود)" autocomplete="off"></div>
                 <?php foreach ($ep['params'] as $pr): ?>
-                    <div class="row" style="grid-template-columns:150px 1fr;align-items:center;margin-bottom:.4rem"><label class="small ltr" style="text-align:left;margin:0"><?= e($pr['name']) ?><?= $pr['required'] ? ' *' : '' ?></label><input class="input ltr" data-in="<?= e($pr['in']) ?>" data-name="<?= e($pr['name']) ?>" data-type="<?= e($pr['type']) ?>" placeholder="<?= e($pr['type']) ?>"></div>
+                    <div class="try-row"><label class="small ltr"><?= e($pr['name']) ?><?= $pr['required'] ? ' *' : '' ?></label><input class="input ltr" data-in="<?= e($pr['in']) ?>" data-name="<?= e($pr['name']) ?>" data-type="<?= e($pr['type']) ?>" placeholder="<?= e($pr['type']) ?>"></div>
                 <?php endforeach; ?>
                 <button class="btn btn-primary btn-sm mt-1"><i class="fa-solid fa-paper-plane"></i> ارسال درخواست</button>
                 <div class="try-out hidden mt-1"><div class="small muted mb-1">پاسخ: <span data-status class="badge"></span></div><div class="codebox"><pre class="code" data-out></pre></div></div>

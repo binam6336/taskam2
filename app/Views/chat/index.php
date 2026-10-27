@@ -14,7 +14,7 @@
                 <button class="btn btn-ghost btn-icon btn-sm" id="chat-back" aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button>
                 <span class="avatar" id="ch-avatar"></span>
                 <div class="grow"><div class="bold" id="ch-name"></div><div class="xs muted" id="ch-status"></div></div>
-                <div class="search" style="width:200px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="conv-search" placeholder="جستجو در این گفتگو"></div>
+                <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="conv-search" placeholder="جستجو در این گفتگو"></div>
             </div>
             <div class="chat-msgs" id="msgs"></div>
             <form class="chat-input" id="chat-form" enctype="multipart/form-data">

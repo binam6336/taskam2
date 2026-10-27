@@ -12,7 +12,7 @@ $time = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['a']) : 
     <div class="card stat"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($s['high'])) ?></div><div class="lbl">اولویت زیاد</div></div></div>
 </div>
 
-<div class="grid grid-3 mb-2" style="grid-template-columns:2fr 1fr">
+<div class="grid grid-wide mb-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
         <div id="ch-ratio"></div>
