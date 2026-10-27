@@ -36,6 +36,9 @@ if ($envRaw !== '' && preg_match('/^\s*(?:ENCODE_PASSWORD|encode_password)\s*=\s
     }
 }
 foreach (array('storage/cache', 'storage/logs', 'storage/uploads') as $dir) {
+    if (!is_dir($root . '/' . $dir)) {
+        @mkdir($root . '/' . $dir, 0755, true);   // پوشه‌های خالی در گیت/آپلود جا می‌افتند؛ اول خودمان می‌سازیم
+    }
     if (!is_dir($root . '/' . $dir) || !is_writable($root . '/' . $dir)) {
         $problems[] = 'پوشه‌ی «' . $dir . '» وجود ندارد یا قابل نوشتن نیست (دسترسی 755 یا 775 بدهید).';
     }
