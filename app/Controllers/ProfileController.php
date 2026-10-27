@@ -114,6 +114,18 @@ final class ProfileController extends Controller
         $this->respond(true, 'تنظیمات حریم خصوصی ذخیره شد.', '/profile');
     }
 
+    /** «تنظیمات ظاهری»: تم انتخابی در دیتابیس ذخیره می‌شود تا روی همه‌ی دستگاه‌ها یکسان باشد. */
+    public function appearance()
+    {
+        $u = $this->user();
+        $theme = $this->request->str('theme', 20);
+        if (!isset(themes()[$theme])) {
+            $this->respond(false, 'تم انتخاب‌شده معتبر نیست.', '/profile');
+        }
+        DB::update('users', ['theme' => $theme], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تم «' . themes()[$theme]['title'] . '» اعمال شد.', '/profile', ['theme' => $theme]);
+    }
+
     /** «امنیت تسک‌ها»: چه کسانی تسک‌های من را با لینک اشتراکی ببینند. */
     public function taskSecurity()
     {

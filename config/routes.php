@@ -155,6 +155,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/privacy', [ProfileController::class, 'privacy']);
     $r->post('/profile/quick-links', [ProfileController::class, 'quickLinks']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
+    $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
 });

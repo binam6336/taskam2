@@ -40,7 +40,7 @@ $sel = json_decode((string) ($u['quick_links'] ?? ''), true);
 $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => in_array($l['id'], $sel, true))) : [];
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>">
 <?php if (Auth::isImpersonating()): ?>

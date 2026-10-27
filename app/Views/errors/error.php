@@ -4,7 +4,7 @@ $titles = [403 => 'دسترسی ممنوع', 404 => 'صفحه پیدا نشد', 
 $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 => 'fa-triangle-exclamation'];
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titles[$status] ?? 'خطا') ?></title>

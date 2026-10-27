@@ -264,3 +264,17 @@ function priority_badge(array $t): string
     [$label, $tone] = $map[$t['priority']] ?? $map['medium'];
     return '<span class="badge ' . $tone . '">' . $label . '</span>';
 }
+
+/** تم‌های تعریف‌شده (config/themes.php) */
+function themes(): array
+{
+    static $t = null;
+    return $t ?? ($t = require BASE_PATH . '/config/themes.php');
+}
+
+/** تم معتبر کاربر؛ اگر ستون theme هنوز با migration اضافه نشده باشد، تم پیش‌فرض. */
+function user_theme(?array $u): string
+{
+    $t = (string) ($u['theme'] ?? 'dark');
+    return isset(themes()[$t]) ? $t : 'dark';
+}

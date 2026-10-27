@@ -12,6 +12,23 @@ $this->scripts[] = 'profile';
         <?php if ($u['avatar']): ?><button type="button" class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/avatar/delete')) ?>" data-confirm="تصویر حذف شود؟">حذف</button><?php endif; ?></form>
 </div></div>
 
+<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" style="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
+    <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme"><?= csrf_field() ?>
+        <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
+        <?php $cur = user_theme($u); foreach (themes() as $key => $th): [$pBg, $pSide, $pCard, $pAcc] = $th['preview']; ?>
+            <label class="theme-opt"><input type="radio" name="theme" value="<?= e($key) ?>" <?= $cur === $key ? 'checked' : '' ?>>
+                <span class="theme-card">
+                    <span class="theme-prev" style="background:<?= e($pBg) ?>" aria-hidden="true">
+                        <span class="tp-main"><span class="tp-bar" style="background:<?= e($pAcc) ?>;width:55%"></span><span class="tp-cards"><i style="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i><i style="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i></span></span>
+                        <span class="tp-side" style="background:<?= e($pSide) ?>"><i style="background:<?= e($pAcc) ?>"></i><i style="background:rgba(127,127,127,.35)"></i><i style="background:rgba(127,127,127,.35)"></i></span>
+                    </span>
+                    <span class="theme-meta"><span><b><?= e($th['title']) ?></b><br><span><?= e($th['desc']) ?></span></span><span class="theme-check"><i class="fa-solid fa-check"></i></span></span>
+                </span></label>
+        <?php endforeach; ?>
+        </div>
+    </form>
+</div>
+
 <div class="grid grid-2 mb-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-id-card"></i> اطلاعات حساب</h3></div>
         <form method="post" action="<?= e(url('/profile/info')) ?>" data-ajax data-keep-open><?= csrf_field() ?>

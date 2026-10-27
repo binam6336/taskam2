@@ -220,7 +220,9 @@
   flash.forEach((f) => TK.toast(f.message, f.type));
 
   /* ───── Charts (SVG) ───── */
-  const C = ['#4ade80', '#60a5fa', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'];
+  // رنگ اول از تم فعال (--g-500) خوانده می‌شود تا نمودارها با تم روشن/تیره هماهنگ باشند
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--g-500').trim() || '#4ade80';
+  const C = [accent, '#60a5fa', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'];
   TK.charts = {
     colors: C,
     /** نمودار خطی؛ مقدار null = بدون داده (خط قطع می‌شود). با هاور روی هر ستون، مقادیر آن نقطه نمایش داده می‌شود. */
@@ -250,7 +252,7 @@
           if (idx.length > 1) g += `<polygon points="${x(idx[0])},${y(0)} ${pts} ${x(idx[idx.length - 1])},${y(0)}" fill="url(#lg${k}${el.id})"/>`;
           g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
         });
-        s.data.forEach((v, i) => { if (v !== null && v !== undefined) g += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#060908" stroke="${c}" stroke-width="2"/>`; });
+        s.data.forEach((v, i) => { if (v !== null && v !== undefined) g += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" style="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`; });
       });
       // ناحیه‌های هاور (یک ستون برای هر برچسب)
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
@@ -282,7 +284,7 @@
       items.forEach((it, i) => {
         const h = (it.value / max) * (H - p.t - p.b), x = p.l + i * bw + bw * 0.18, w = bw * 0.64, y = H - p.b - h, col = it.color || C[i % C.length];
         g += `<rect x="${x}" y="${y}" width="${w}" height="${Math.max(h, 2)}" rx="6" fill="${col}" opacity=".9"><title>${TK.esc(it.label)}: ${TK.fa(it.value)}</title></rect>`;
-        g += `<text x="${x + w / 2}" y="${y - 6}" text-anchor="middle" style="fill:#e9f3ee">${TK.fa(it.value)}</text>`;
+        g += `<text x="${x + w / 2}" y="${y - 6}" text-anchor="middle" style="fill:var(--text)">${TK.fa(it.value)}</text>`;
         g += `<text x="${x + w / 2}" y="${H - 18}" text-anchor="middle">${TK.esc(String(it.label).slice(0, 14))}</text>`;
       });
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
@@ -290,7 +292,7 @@
     donut(el, { items, center = '', showPct = false }) {
       if (!el) return;
       const total = items.reduce((s, i) => s + i.value, 0) || 1, R = 54, S = 18, CIRC = 2 * Math.PI * R;
-      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#1a2620" stroke-width="${S}"/>`;
+      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" style="stroke:var(--surface-3)" stroke-width="${S}"/>`;
       items.forEach((it, i) => {
         const len = (it.value / total) * CIRC;
         if (it.value > 0) g += `<circle class="seg" data-i="${i}" cx="70" cy="70" r="${R}" fill="none" stroke="${it.color || C[i % C.length]}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;

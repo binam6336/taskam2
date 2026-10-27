@@ -4,7 +4,7 @@ $this->scripts[] = 'docs';
 $isActive = static fn(string $k): string => $current === $k ? ' active' : '';
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="docs">
 <header class="dx-nav">

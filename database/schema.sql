@@ -36,6 +36,7 @@ CREATE TABLE `users` (
   `project_join_requires_approval`  TINYINT(1) NOT NULL DEFAULT 0        COMMENT '1 = عضویت/همکاری فقط با تأیید خود کاربر',
   `task_link_access`                ENUM('members','colleagues','me','all') NOT NULL DEFAULT 'members' COMMENT 'چه کسانی می‌توانند تسک‌های من را با لینک ببینند',
   `quick_links`                     TEXT NULL DEFAULT NULL               COMMENT 'JSON: شناسه‌ی لینک‌های دسترسی سریع',
+  `theme`                           VARCHAR(20) NOT NULL DEFAULT 'dark'  COMMENT 'تم ظاهری: config/themes.php',
   `last_seen`                       INT UNSIGNED NULL DEFAULT NULL       COMMENT 'Unix time آخرین فعالیت چت',
   `last_login_at`                   DATETIME NULL DEFAULT NULL,
   `last_login_ip`                   VARCHAR(45) NULL DEFAULT NULL,
