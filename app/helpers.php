@@ -93,7 +93,11 @@ function asset(string $path): string
 {
     $file = BASE_PATH . '/public/assets/' . ltrim($path, '/');
     $v = is_file($file) ? (string) filemtime($file) : '1';
-    return url('assets/' . ltrim($path, '/')) . '?v=' . $v;
+    // وقتی Document Root ریشه‌ی پروژه است (درخواست از public/index.php آمده)، آدرس واقعی public/assets را می‌دهیم؛
+    // چون روی خیلی از هاست‌ها فایل‌های ایستا را Nginx مستقیم سرو می‌کند و .htaccess ریشه اعمال نمی‌شود.
+    $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php')), '/');
+    $prefix = str_ends_with($dir, '/public') ? 'public/assets/' : 'assets/';
+    return url($prefix . ltrim($path, '/')) . '?v=' . $v;
 }
 
 function csrf_token(): string
