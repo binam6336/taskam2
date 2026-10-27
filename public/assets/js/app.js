@@ -137,6 +137,43 @@
   TK.on('click', '[data-sidebar]', () => { TK.qs('.sidebar')?.classList.toggle('open'); TK.qs('.overlay')?.classList.toggle('show'); });
   TK.on('click', '.overlay', () => { TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); });
 
+  // گروه‌های سایدبار: دسکتاپ = پنل شناور کنار سایدبار، موبایل = آکاردئون
+  const navMobile = window.matchMedia('(max-width: 960px)');
+  const navClose = (g) => { g.classList.remove('open'); g.querySelector('.nav-parent')?.setAttribute('aria-expanded', 'false'); };
+  const navCloseAll = (except) => TK.qsa('[data-nav-group].open').forEach((g) => { if (g !== except) navClose(g); });
+  const navPlace = (g) => {
+    const btn = g.querySelector('.nav-parent'), fly = g.querySelector('.nav-flyout');
+    const r = btn.getBoundingClientRect();
+    const top = Math.max(12, Math.min(r.top - 10, window.innerHeight - fly.offsetHeight - 12));
+    fly.style.setProperty('--fly-top', top + 'px');
+    fly.style.setProperty('--arrow-top', (r.top + r.height / 2 - top) + 'px');
+  };
+  TK.on('click', '.nav-parent', (e, btn) => {
+    e.stopPropagation();
+    const g = btn.closest('[data-nav-group]');
+    const open = !g.classList.contains('open');
+    if (!navMobile.matches) navCloseAll(g);
+    if (!open) { navClose(g); return; }
+    if (!navMobile.matches) navPlace(g);
+    g.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  });
+  TK.on('click', '[data-nav-close]', (e, t) => { e.stopPropagation(); const g = t.closest('[data-nav-group]'); navClose(g); g.querySelector('.nav-parent').focus(); });
+  document.addEventListener('click', (e) => { if (!navMobile.matches && !e.target.closest('[data-nav-group]')) navCloseAll(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const g = TK.qs('[data-nav-group].open');
+    if (g && !navMobile.matches) { navClose(g); g.querySelector('.nav-parent').focus(); }
+  });
+  TK.qs('.sidebar .nav')?.addEventListener('scroll', () => { if (!navMobile.matches) navCloseAll(); }, { passive: true });
+  window.addEventListener('resize', () => { if (!navMobile.matches) TK.qsa('[data-nav-group].open').forEach(navPlace); });
+  const navSync = () => {
+    navCloseAll();
+    if (navMobile.matches) TK.qsa('[data-nav-group].current').forEach((g) => { g.classList.add('open'); g.querySelector('.nav-parent').setAttribute('aria-expanded', 'true'); });
+  };
+  navMobile.addEventListener?.('change', navSync);
+  navSync();
+
   TK.on('submit', 'form[data-ajax]', async (e, form) => {
     e.preventDefault();
     if (form.dataset.confirm && !(await TK.confirm(form.dataset.confirm))) return;
@@ -290,6 +327,12 @@
       const r = await TK.get('/live/poll', params);
       if (!r || r.status !== 'success') return;
       Object.entries(r.counts || {}).forEach(([k, v]) => TK.qsa(`[data-badge="${k}"]`).forEach((b) => { b.textContent = TK.fa(v); b.classList.toggle('zero', !v); }));
+      TK.qsa('[data-badge-sum]').forEach((b) => {
+        const keys = b.dataset.badgeSum.split(',');
+        if (!keys.some((k) => k in (r.counts || {}))) return;
+        const v = keys.reduce((s, k) => s + Number(r.counts[k] || 0), 0);
+        b.textContent = TK.fa(v); b.classList.toggle('zero', !v);
+      });
       if (r.msg_base !== null && r.msg_base !== undefined) ls.set(KEY, String(r.msg_base));
       (r.messages || []).forEach((m) => {
         if (m.id <= Number(ls.get(KEY) || 0)) return;                    // تب دیگری قبلاً اعلان داده

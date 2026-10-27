@@ -10,6 +10,6 @@ final class DashboardController extends Controller
 {
     public function index()
     {
-        $this->view('tasks/dashboard', ['d' => TaskModel::dashboard($this->uid())], ['title' => 'داشبورد', 'page' => 'dashboard']);
+        $this->view('tasks/dashboard', ['d' => TaskModel::dashboard($this->uid())], ['title' => 'پیشخوان', 'page' => 'dashboard']);
     }
 }

@@ -5,38 +5,39 @@ use App\Core\Session;
 $u = $currentUser;
 $name = full_name($u);
 $active = $this->page;
-$nav = [
-    ['dashboard', '/dashboard', 'fa-gauge-high', 'داشبورد'],
-    ['tasks', '/tasks', 'fa-list-check', 'تسک‌ها'],
-    ['subjects', '/subjects', 'fa-tags', 'موضوعات'],
-    ['texts', '/texts', 'fa-message', 'متن‌های آماده'],
-    ['calls', '/calls', 'fa-phone-volume', 'درخواست تماس'],
+$menu = [
+    ['dashboard', '/dashboard', 'fa-gauge-high', 'پیشخوان'],
+    ['group' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
+        ['tasks', '/tasks', 'fa-list-check', 'تسک‌ها'],
+        ['soon' => true, 'icon' => 'fa-table-columns', 'label' => 'برد تیمی'],
+        ['subjects', '/subjects', 'fa-tags', 'موضوع‌ها'],
+    ]],
+    ['group' => 'requests', 'icon' => 'fa-inbox', 'label' => 'درخواست‌ها', 'items' => [
+        ['calls', '/calls', 'fa-phone-volume', 'درخواست تماس'],
+        ['texts', '/texts', 'fa-message', 'متن‌های آماده'],
+    ]],
+    ['group' => 'team', 'icon' => 'fa-people-group', 'label' => 'مدیریت تیم', 'items' => [
+        ['colleagues', '/colleagues', 'fa-users', 'همکاران'],
+        ['projects', '/projects', 'fa-diagram-project', 'پروژه‌ها'],
+        ['chat', '/chat', 'fa-comments', 'گفتگو'],
+    ]],
+    ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
+        ['tokens', '/tokens', 'fa-key', 'توکن API'],
+        ['docs', '/docs', 'fa-book', 'مستندات API'],
+    ]],
+    ['group' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
+        ['profile', '/profile', 'fa-user-gear', 'پروفایل'],
+    ]],
+    ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
+        ['support', '/support', 'fa-headset', 'تیکت'],
+    ]],
 ];
-$nav2 = [
-    ['colleagues', '/colleagues', 'fa-users', 'همکاران'],
-    ['projects', '/projects', 'fa-diagram-project', 'پروژه‌ها'],
-    ['chat', '/chat', 'fa-comments', 'گفتگو'],
-];
-$nav3 = [
-    ['support', '/support', 'fa-headset', 'پشتیبانی'],
-    ['tokens', '/tokens', 'fa-key', 'توکن‌های API'],
-    ['docs', '/docs', 'fa-book', 'مستندات API'],
-    ['profile', '/profile', 'fa-user-gear', 'پروفایل'],
-];
+$badges = array_fill_keys(['tasks', 'colleagues', 'projects', 'chat', 'support'], 0);
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
 $allLinks = require BASE_PATH . '/config/quick_links.php';
 $sel = json_decode((string) ($u['quick_links'] ?? ''), true);
 $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => in_array($l['id'], $sel, true))) : [];
-$renderNav = static function (array $items) use ($active): void {
-    foreach ($items as [$key, $path, $icon, $label]) {
-        echo '<a href="' . e(url($path)) . '" class="' . ($active === $key ? 'active' : '') . '"><i class="fa-solid ' . $icon . '"></i><span>' . e($label) . '</span>';
-        if (in_array($key, ['chat', 'support', 'colleagues', 'projects', 'tasks'], true)) {
-            echo '<span class="badge-count zero" data-badge="' . $key . '">0</span>';
-        }
-        echo '</a>';
-    }
-};
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -51,11 +52,7 @@ $renderNav = static function (array $items) use ($active): void {
 <div class="app">
     <aside class="sidebar" id="sidebar">
         <a href="<?= e(url('/')) ?>" class="brand"><span class="logo"><i class="fa-solid fa-check"></i></span><span>تسکام<small>مدیریت وظایف و تیم</small></span></a>
-        <nav class="nav">
-            <div class="nav-title">کار من</div><?php $renderNav($nav); ?>
-            <div class="nav-title">تیم</div><?php $renderNav($nav2); ?>
-            <div class="nav-title">حساب</div><?php $renderNav($nav3); ?>
-        </nav>
+        <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
         <div class="sidebar-foot">
             <div class="flex items-center gap-2 mb-1">
                 <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>

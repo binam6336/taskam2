@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /** لینک‌های «دسترسی سریع»؛ کاربر در پروفایل انتخاب می‌کند. مسیرها نسبی‌اند. */
 return [
-    ['id' => 'dashboard',  'title' => 'داشبورد',         'path' => '/dashboard',  'icon' => 'fa-gauge-high'],
+    ['id' => 'dashboard',  'title' => 'پیشخوان',         'path' => '/dashboard',  'icon' => 'fa-gauge-high'],
     ['id' => 'tasks',      'title' => 'وظایف',            'path' => '/tasks',      'icon' => 'fa-list-check'],
     ['id' => 'subjects',   'title' => 'موضوع‌های وظایف',  'path' => '/subjects',   'icon' => 'fa-tag'],
     ['id' => 'texts',      'title' => 'متن‌های آماده',    'path' => '/texts',      'icon' => 'fa-message'],

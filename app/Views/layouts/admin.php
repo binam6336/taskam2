@@ -6,13 +6,23 @@ $name = full_name($u);
 $active = $this->page;
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
-$items = [
-    ['admin-users', '/admin', 'fa-users-gear', 'مدیریت کاربران', 0],
-    ['admin-support', '/admin/support', 'fa-headset', 'پشتیبانی', (int) ($supportUnread ?? 0)],
-    ['admin-analysis', '/admin/analysis', 'fa-chart-pie', 'تحلیل سیستم', 0],
-    ['docs', '/docs', 'fa-book', 'مستندات API', 0],
-    ['profile', '/profile', 'fa-user-gear', 'پروفایل من', 0],
+$menu = [
+    ['admin-analysis', '/admin/analysis', 'fa-gauge-high', 'پیشخوان'],
+    ['group' => 'users', 'icon' => 'fa-user-shield', 'label' => 'مدیریت کاربران', 'items' => [
+        ['admin-users', '/admin', 'fa-users-gear', 'کاربران'],
+    ]],
+    ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
+        ['docs', '/docs', 'fa-book', 'مستندات API'],
+    ]],
+    ['group' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
+        ['profile', '/profile', 'fa-user-gear', 'پروفایل من'],
+    ]],
+    ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
+        ['admin-support', '/admin/support', 'fa-headset', 'تیکت‌ها'],
+    ]],
 ];
+$badges = ['admin-support' => (int) ($supportUnread ?? 0)];
+$badgeAs = ['admin-support' => 'support'];
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -21,12 +31,7 @@ $items = [
 <div class="app">
     <aside class="sidebar" id="sidebar">
         <a href="<?= e(url('/admin')) ?>" class="brand"><span class="logo"><i class="fa-solid fa-shield-halved"></i></span><span>پنل مدیریت<small>تسکام</small></span></a>
-        <nav class="nav">
-            <div class="nav-title">مدیریت</div>
-            <?php foreach ($items as [$key, $path, $icon, $label, $cnt]): ?>
-                <a href="<?= e(url($path)) ?>" class="<?= $active === $key ? 'active' : '' ?>"><i class="fa-solid <?= $icon ?>"></i><span><?= e($label) ?></span><?php if ($key === 'admin-support'): ?><span class="badge-count <?= $cnt > 0 ? '' : 'zero' ?>" data-badge="support"><?= e(fa_num($cnt)) ?></span><?php endif; ?></a>
-            <?php endforeach; ?>
-        </nav>
+        <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
         <div class="sidebar-foot">
             <div class="flex items-center gap-2 mb-1">
                 <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
