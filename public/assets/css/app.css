@@ -1103,8 +1103,8 @@ html[data-theme="sage"] .desk.in-conv.list-open .desk-scrim { background: rgba(6
   .desk-actions .btn-sm.btn-icon { width: 30px; height: 30px; }
   .dmsg .avatar { display: none; }
 }
-/* ───── دسترسی تسک‌ها در مودال اعضای پروژه ───── */
-.tperm-box { margin-top: 1.1rem; padding: .9rem; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
-.tperm-box .tperm-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
-.tperm-box h4 { margin: 0; font-size: .95rem; } .tperm-box h4 i { color: var(--g-400); margin-inline-end: .3rem; }
-.tperm-box > p { margin: 0 0 .7rem; }
+/* ───── دسترسی‌های عضو پروژه: ستون دوگروهی و تب‌های مودال ───── */
+.perm-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .2rem; }
+.perm-cell + .perm-cell { margin-top: .35rem; padding-top: .35rem; border-top: 1px dashed var(--border); }
+.perm-cell-l { font-size: .72rem; color: var(--faint); font-weight: 700; margin-inline-end: .3rem; min-width: 38px; }
+.perm-tabs { display: flex; width: 100%; margin-bottom: .9rem; } .perm-tabs .tab { flex: 1; justify-content: center; }

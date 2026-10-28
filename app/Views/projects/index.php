@@ -92,8 +92,13 @@ $this->scripts[] = 'projects';
 <!-- مدیریت اعضا -->
 <div class="modal" id="m-members"><div class="modal-box lg"><div class="modal-head"><h3><i class="fa-solid fa-users"></i> <span id="mem-title"></span></h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div id="mem-body"></div></div></div></div>
-<div class="modal" id="m-mperm"><div class="modal-box sm"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><div id="mp-list" class="list"></div></div><div class="modal-foot"><button class="btn btn-primary">ذخیره</button></div></form></div></div>
-<div class="modal" id="m-tperm"><div class="modal-box sm"><form id="f-tperm"><div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> دسترسی تسک‌ها — <span id="tp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="tp-project"></b> می‌تواند انجام دهد. تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="tp-list" class="list"></div></div>
+<div class="modal" id="m-mperm"><div class="modal-box sm"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی‌های <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+        <div class="tabs perm-tabs" role="tablist">
+            <button type="button" class="tab active" role="tab" data-ptab="task" aria-selected="true"><i class="fa-solid fa-list-check"></i> دسترسی‌های تسک</button>
+            <button type="button" class="tab" role="tab" data-ptab="project" aria-selected="false"><i class="fa-solid fa-diagram-project"></i> دسترسی‌های پروژه</button>
+        </div>
+        <div data-ppanel="task"><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="mp-project"></b> می‌تواند انجام دهد (پیش‌فرض: هیچ). تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="mp-task-list" class="list"></div></div>
+        <div data-ppanel="project" hidden><p class="xs muted mb-1">مدیریت خود پروژه: ویرایش، اعضا، اعطای دسترسی و تحلیل‌ها.</p><div id="mp-list" class="list"></div></div>
+    </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>
