@@ -104,13 +104,14 @@ final class TaskService
     public static function update(int $actor, int $id, array $in): array
     {
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'edit')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
         $set = [];
         $has = static fn(string $k): bool => array_key_exists($k, $in);
 
-        $needEdit = false;
+        // هر گروه فیلد مجوز خودش را دارد: عنوان/توضیحات = edit_info، سررسید = edit_due، اولویت/موضوع = فقط سازنده
+        $needInfo = $needDue = $needMeta = false;
         if ($has('title')) {
             $title = trim((string) $in['title']);
             if ($title === '' || mb_strlen($title) > 255) {
@@ -118,7 +119,7 @@ final class TaskService
             }
             if ($title !== $t['title']) {
                 $set['title'] = $title;
-                $needEdit = true;
+                $needInfo = true;
             }
         }
         if ($has('description')) {
@@ -128,7 +129,7 @@ final class TaskService
             }
             if (($d !== '' ? $d : null) !== $t['description']) {
                 $set['description'] = $d !== '' ? $d : null;
-                $needEdit = true;
+                $needInfo = true;
             }
         }
         if ($has('priority_percent') && trim((string) $in['priority_percent']) !== '') {
@@ -139,7 +140,7 @@ final class TaskService
             if ($pc !== ($t['priority_percent'] === null ? null : (int) $t['priority_percent'])) {
                 $set['priority_percent'] = $pc;
                 $set['priority'] = Priority::levelOf($pc);
-                $needEdit = true;
+                $needMeta = true;
             }
         } elseif ($has('priority')) {
             $p = Validate::enum($in['priority'], ['low', 'medium', 'high'], '');
@@ -149,7 +150,7 @@ final class TaskService
             if ($p !== $t['priority']) {
                 $set['priority'] = $p;
                 $set['priority_percent'] = Priority::PERCENT[$p];
-                $needEdit = true;
+                $needMeta = true;
             }
         }
         if ($has('due_date')) {
@@ -161,7 +162,7 @@ final class TaskService
             if ($d !== $t['due_date']) {
                 $set['due_date'] = $d;
                 $set['notified_at'] = null;
-                $needEdit = true;
+                $needDue = true;
             }
             if ($d === null) {
                 $set['due_time'] = null;
@@ -176,7 +177,7 @@ final class TaskService
             if ($tm !== $t['due_time']) {
                 $set['due_time'] = $tm;
                 $set['notified_at'] = null;
-                $needEdit = true;
+                $needDue = true;
             }
         }
         if ($has('subject_id')) {
@@ -189,11 +190,17 @@ final class TaskService
             }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
                 $set['subject_id'] = $sid;
-                $needEdit = true;
+                $needMeta = true;
             }
         }
-        if ($needEdit && !Access::can($t, $actor, 'edit')) {
-            return self::err('اجازه‌ی ویرایش این تسک را ندارید.', 'FORBIDDEN', 403);
+        if ($needInfo && !Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی ویرایش اطلاعات این تسک را ندارید.', 'FORBIDDEN', 403);
+        }
+        if ($needDue && !Access::canTask($t, $actor, 'edit_due')) {
+            return self::err('اجازه‌ی تغییر زمان انجام این تسک را ندارید.', 'FORBIDDEN', 403);
+        }
+        if ($needMeta && !Access::canTask($t, $actor, 'edit_meta')) {
+            return self::err('تغییر اولویت و موضوع فقط برای سازنده‌ی تسک یا مدیر پروژه ممکن است.', 'FORBIDDEN', 403);
         }
 
         $newProject = $t['project_id'] === null ? null : (int) $t['project_id'];
@@ -203,7 +210,7 @@ final class TaskService
                 return self::err('انتخاب پروژه الزامی است.', 'PROJECT_REQUIRED');
             }
             if ($pid !== $newProject) {
-                if (!Access::can($t, $actor, 'change_project')) {
+                if (!Access::canTask($t, $actor, 'change_project')) {
                     return self::err('اجازه‌ی تغییر پروژه‌ی این تسک را ندارید.', 'FORBIDDEN', 403);
                 }
                 if ($pid !== null && !Access::isProjectMember($pid, $actor)) {
@@ -217,7 +224,7 @@ final class TaskService
         if ($has('assignee_id')) {
             $aid = (int) $in['assignee_id'] ?: (int) $t['user_id'];
             if ($aid !== (int) $t['assignee_id']) {
-                if (!Access::can($t, $actor, 'reassign')) {
+                if (!Access::canTask($t, $actor, 'reassign')) {
                     return self::err('اجازه‌ی تغییر مسئول این تسک را ندارید.', 'FORBIDDEN', 403);
                 }
                 if (!self::assigneeAllowed((int) $t['user_id'], $actor, $aid, $newProject)) {
@@ -243,10 +250,10 @@ final class TaskService
     public static function toggle(int $actor, int $id): array
     {
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'complete')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'complete')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!Access::can($t, $actor, 'complete')) {
+        if (!Access::canTask($t, $actor, 'complete')) {
             return self::err('اجازه‌ی تغییر وضعیت این تسک را ندارید.', 'FORBIDDEN', 403);
         }
         $r = TaskModel::toggle($id);
@@ -256,10 +263,10 @@ final class TaskService
     public static function delete(int $actor, int $id): array
     {
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'delete')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'delete')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!Access::can($t, $actor, 'delete')) {
+        if (!Access::canTask($t, $actor, 'delete')) {
             return self::err('اجازه‌ی حذف این تسک را ندارید.', 'FORBIDDEN', 403);
         }
         TaskModel::delete($id);
@@ -269,10 +276,10 @@ final class TaskService
     public static function addNote(int $actor, int $taskId, string $text, array $files = [], array $mentions = []): array
     {
         $t = TaskModel::raw($taskId);
-        if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'notes')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'notes')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!Access::can($t, $actor, 'notes')) {
+        if (!Access::canTask($t, $actor, 'notes')) {
             return self::err('اجازه‌ی ثبت یادداشت ندارید.', 'FORBIDDEN', 403);
         }
         $text = trim($text);
@@ -324,7 +331,7 @@ final class TaskService
             return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
         }
         $task = TaskModel::raw((int) $n['task_id']);
-        if ((int) $n['user_id'] !== $actor && !Access::can($task, $actor, 'notes')) {
+        if ((int) $n['user_id'] !== $actor && !Access::canTask($task, $actor, 'edit_meta')) {
             return self::err('اجازه‌ی حذف این یادداشت را ندارید.', 'FORBIDDEN', 403);
         }
         NoteModel::deleteNote($noteId);
@@ -334,10 +341,10 @@ final class TaskService
     public static function addTaskFiles(int $actor, int $taskId, array $files): array
     {
         $t = TaskModel::raw($taskId);
-        if ($t === null || !Access::can($t, $actor, 'view') && !Access::can($t, $actor, 'notes')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'edit_info')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!Access::can($t, $actor, 'notes')) {
+        if (!Access::canTask($t, $actor, 'edit_info')) {
             return self::err('اجازه‌ی افزودن پیوست ندارید.', 'FORBIDDEN', 403);
         }
         if (!$files) {
@@ -353,19 +360,20 @@ final class TaskService
     public static function deleteFile(int $actor, string $kind, int $fileId): array
     {
         if ($kind === 'task') {
-            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.id = ?', [$fileId]);
+            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id, t.project_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.id = ?', [$fileId]);
             $type = 'task_attachments';
             $table = 'task_attachments';
         } else {
-            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.id = ?', [$fileId]);
+            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id, t.project_id FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.id = ?', [$fileId]);
             $type = 'note_attachments';
             $table = 'note_attachments';
         }
         if ($f === null) {
             return self::err('فایل یافت نشد.', 'FILE_NOT_FOUND', 404);
         }
-        $row = ['user_id' => $f['owner_id'], 'assignee_id' => $f['assignee_id']];
-        $allowed = (int) $f['user_id'] === $actor || (int) $f['owner_id'] === $actor || Access::can($row, $actor, 'notes');
+        $row = ['user_id' => $f['owner_id'], 'assignee_id' => $f['assignee_id'], 'project_id' => $f['project_id']];
+        // پیوست تسک: آپلودکننده یا دارنده‌ی «ویرایش اطلاعات تسک» — پیوست یادداشت: آپلودکننده یا سازنده‌ی تسک/پروژه
+        $allowed = (int) $f['user_id'] === $actor || Access::canTask($row, $actor, $kind === 'task' ? 'edit_info' : 'edit_meta');
         if (!$allowed) {
             return self::err('اجازه‌ی حذف این فایل را ندارید.', 'FORBIDDEN', 403);
         }
@@ -388,15 +396,15 @@ final class TaskService
     public const LINK_ACCESS = [
         'members'    => ['اعضای پروژه', 'اعضای پروژه‌ی همان تسک (پیش‌فرض)'],
         'colleagues' => ['همکاران', 'افرادی که در فهرست همکاران شما هستند'],
-        'me'         => ['فقط من', 'فقط شما، مسئول تسک و همکارانی که مجوز دسترسی دارند'],
+        'me'         => ['فقط من', 'فقط شما، مسئول تسک و اعضای پروژه که دسترسی تسک دارند'],
         'all'        => ['همه', 'هر کاربر واردشده‌ای که لینک را داشته باشد'],
     ];
 
     /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ بر اساس تنظیم «امنیت تسک‌ها»ی سازنده‌ی تسک. */
     public static function canViewShared(array $task, int $uid): bool
     {
-        if (Access::can($task, $uid, 'view')) {
-            return true;      // سازنده، مسئول، همکار دارای مجوز
+        if (Access::canTask($task, $uid, 'view')) {
+            return true;      // سازنده، مدیر پروژه، مسئول، عضو دارای دسترسی
         }
         $owner = (int) $task['user_id'];
         $mode = (string) (DB::value('SELECT task_link_access FROM users WHERE id = ?', [$owner]) ?: 'members');
@@ -415,10 +423,13 @@ final class TaskService
     /** مجوزهای مؤثر کاربر روی تسک (برای UI). */
     public static function effective(array $task, int $uid): array
     {
+        $have = Access::taskPerms($task, $uid);
         $out = [];
-        foreach (['edit', 'delete', 'complete', 'reassign', 'notes', 'change_project'] as $a) {
-            $out[$a] = Access::can($task, $uid, $a);
+        foreach (array_merge(array_keys(Access::TASK_PERMS), Access::TASK_OWNER_ONLY) as $a) {
+            $out[$a] = in_array($a, $have, true);
         }
+        // هر نوع ویرایشی که فرم ویرایش را لازم دارد
+        $out['edit'] = $out['edit_info'] || $out['edit_due'] || $out['edit_meta'] || $out['reassign'] || $out['change_project'];
         return $out;
     }
 }

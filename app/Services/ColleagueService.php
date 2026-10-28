@@ -21,7 +21,6 @@ final class ColleagueService
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = u.id AND cb.blocked_user_id = ?) AS has_blocked_me
             FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE $w ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid], $p, [$limit, $offset]));
         foreach ($rows as &$r) {
-            $r['perms'] = Access::decode($r['permissions'], array_keys(Access::COLLEAGUE_PERMS));
             $r['is_blocked_by_me'] = (int) $r['is_blocked_by_me'] > 0;
             $r['has_blocked_me'] = (int) $r['has_blocked_me'] > 0;
         }

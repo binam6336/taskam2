@@ -23,6 +23,7 @@ final class App
                 ErrorHandler::log($e);
             }
         });
+        Schema::ensure();
         $router = new Router();
         require BASE_PATH . '/config/routes.php';
         $router->dispatch($req);

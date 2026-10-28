@@ -14,14 +14,14 @@ final class TaskModel
             uc.first_name AS creator_first_name, uc.last_name AS creator_last_name, uc.mobile AS creator_mobile, uc.avatar AS creator_avatar,
             (SELECT COUNT(*) FROM task_notes tn WHERE tn.task_id = t.id) AS notes_count,
             (SELECT COUNT(*) FROM task_attachments ta WHERE ta.task_id = t.id) AS attachments_count,
-            (SELECT c.permissions FROM colleagues c WHERE c.user_id = t.user_id AND c.colleague_user_id = :me LIMIT 1) AS my_task_permissions
+            (SELECT pm.task_permissions FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = :me LIMIT 1) AS my_task_permissions
         FROM tasks t
         LEFT JOIN subjects s ON s.id = t.subject_id
         LEFT JOIN projects p ON p.id = t.project_id
         LEFT JOIN users ua ON ua.id = t.assignee_id
         LEFT JOIN users uc ON uc.id = t.user_id";
 
-    /** SELECT پایه با placeholder موقعیتی: اولین ? = شناسه‌ی کاربر برای مجوزهای همکار. */
+    /** SELECT پایه با placeholder موقعیتی: اولین ? = شناسه‌ی کاربر برای دسترسی تسک او در پروژه. */
     private static function base(): string
     {
         return str_replace(':me', '?', self::SELECT);

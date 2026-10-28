@@ -26,7 +26,7 @@ final class ProjectController extends Controller
         $colleagues = array_map(static fn($c) => ['id' => (int) $c['user_id'], 'name' => full_name($c), 'mobile' => $c['mobile'], 'avatar' => avatar_url($c['avatar'])], ColleagueService::listFor($uid));
         $this->view('projects/index', [
             'projects' => $projects, 'colleagues' => $colleagues, 'requests' => ProjectModel::pendingRequestsFor($uid),
-            'history' => ProjectModel::leaveHistory($uid), 'permDefs' => Access::PROJECT_PERMS,
+            'history' => ProjectModel::leaveHistory($uid), 'permDefs' => Access::PROJECT_PERMS, 'taskPermDefs' => Access::TASK_PERMS,
         ], ['title' => 'پروژه‌ها', 'page' => 'projects']);
     }
 
@@ -82,6 +82,12 @@ final class ProjectController extends Controller
     public function memberPermissions(string $id, string $userId)
     {
         [$ok, $msg] = ProjectService::setPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')));
+        $this->respond($ok, $msg, '/projects');
+    }
+
+    public function memberTaskPermissions(string $id, string $userId)
+    {
+        [$ok, $msg] = ProjectService::setTaskPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')));
         $this->respond($ok, $msg, '/projects');
     }
 

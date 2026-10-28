@@ -95,7 +95,6 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues', [ColleagueController::class, 'add']);
     $r->post('/colleagues/requests/{id}/accept', [ColleagueController::class, 'accept']);
     $r->post('/colleagues/requests/{id}/reject', [ColleagueController::class, 'reject']);
-    $r->post('/colleagues/{userId}/permissions', [ColleagueController::class, 'permissions']);
     $r->post('/colleagues/{userId}/remove', [ColleagueController::class, 'remove']);
     $r->post('/colleagues/{userId}/block', [ColleagueController::class, 'block']);
     $r->post('/colleagues/{userId}/unblock', [ColleagueController::class, 'unblock']);
@@ -113,6 +112,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/{id}/block', [ProjectController::class, 'block']);
     $r->post('/projects/{id}/unblock', [ProjectController::class, 'unblock']);
     $r->post('/projects/{id}/members/{userId}/permissions', [ProjectController::class, 'memberPermissions']);
+    $r->post('/projects/{id}/members/{userId}/task-permissions', [ProjectController::class, 'memberTaskPermissions']);
     $r->post('/projects/{id}/members/{userId}/remove', [ProjectController::class, 'removeMember']);
 
     // گفتگو (JSON)
@@ -244,4 +244,5 @@ $router->group(['api'], function ($r) {
     $r->post('/projects/member-add', [ProjectApi::class, 'memberAdd']);
     $r->post('/projects/member-remove', [ProjectApi::class, 'memberRemove']);
     $r->post('/projects/member-permissions', [ProjectApi::class, 'memberPermissions']);
+    $r->post('/projects/task-permissions', [ProjectApi::class, 'memberTaskPermissions']);
 }, '/api/v1');

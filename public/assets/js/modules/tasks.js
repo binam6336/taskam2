@@ -189,7 +189,10 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
-    if (!c.edit) lock(['title', 'description', 'priority', 'due_date', 'due_time', 'subject_id'], true);
+    // هر گروه فیلد با دسترسی خودش: اطلاعات (عنوان/توضیحات)، زمان انجام، اولویت/موضوع (فقط سازنده)
+    if (!c.edit_info) lock(['title', 'description'], true);
+    if (!c.edit_due) lock(['due_date', 'due_time'], true);
+    if (!c.edit_meta) lock(['priority', 'subject_id'], true);
     if (!c.reassign) lock(['assignee_id'], true);
     if (!c.change_project) lock(['project_id'], true);
     TK.modal.open(modal);
@@ -234,7 +237,7 @@ document.addEventListener('tk:ready', () => {
 
   const render = (t) => {
     currentId = t.id; current = t;
-    const canEdit = t.can.edit || t.can.reassign || t.can.change_project;
+    const canEdit = t.can.edit;
     detail.innerHTML = `
       <div class="flex between gap-2 items-center mb-2">
         <h3 class="grow" style="margin:0">${E(t.title)}</h3>
@@ -258,7 +261,7 @@ document.addEventListener('tk:ready', () => {
       </div>
       <h4><i class="fa-solid fa-paperclip" style="color:var(--g-400)"></i> پیوست‌های تسک</h4>
       <div id="task-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div>
-      ${t.can.notes ? `<form id="f-task-upload" class="flex gap-1 mt-1 mb-2" enctype="multipart/form-data"><input class="input" type="file" name="attachments[]" multiple required><button class="btn btn-sm"><i class="fa-solid fa-upload"></i> آپلود</button></form>` : ''}
+      ${t.can.edit_info ? `<form id="f-task-upload" class="flex gap-1 mt-1 mb-2" enctype="multipart/form-data"><input class="input" type="file" name="attachments[]" multiple required><button class="btn btn-sm"><i class="fa-solid fa-upload"></i> آپلود</button></form>` : ''}
       <hr>
       <h4><i class="fa-regular fa-comments" style="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
       ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)"></textarea>

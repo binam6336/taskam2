@@ -84,7 +84,7 @@ $this->scripts[] = 'tasks';
         </div>
         <div class="item-actions">
             <button class="btn btn-sm btn-icon" data-open-task="<?= (int) $t['id'] ?>" title="جزئیات"><i class="fa-regular fa-eye"></i></button>
-            <?php if ($can['edit'] || $can['reassign'] || $can['change_project']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
+            <?php if ($can['edit']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
             <?php if ($can['delete']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/tasks/' . $t['id'] . '/delete')) ?>" data-confirm="این تسک و تمام یادداشت‌ها و فایل‌های آن حذف شود؟" title="حذف"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
         </div>
     </div>

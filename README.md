@@ -61,6 +61,7 @@ mysql -u root -p taskam < database/migrations/005_user_theme.sql                
 mysql -u root -p taskam < database/migrations/006_chat_forward_and_clear.sql                  # v2.2: بازارسال و حذف تاریخچه‌ی چت
 mysql -u root -p taskam < database/migrations/007_push_subscriptions.sql                     # v2.3: اعلان‌های PWA
 mysql -u root -p taskam < database/migrations/008_support_desk.sql                          # v2.4: میز پشتیبانی (پیوست + در حال انجام)
+mysql -u root -p taskam < database/migrations/009_project_task_permissions.sql                 # v3.0: دسترسی تسک‌ها به ازای هر پروژه
 ```
 
 ## تسک‌ها و تحلیل پروژه

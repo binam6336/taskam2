@@ -6,7 +6,6 @@ namespace App\Controllers\Api\V1;
 use App\Core\ApiController;
 use App\Core\DB;
 use App\Core\Validate;
-use App\Services\Access;
 use App\Services\ColleagueService;
 
 final class ColleagueApi extends ApiController
@@ -44,7 +43,7 @@ final class ColleagueApi extends ApiController
             if ($only && ($c['is_blocked_by_me'] || $c['has_blocked_me'])) {
                 continue;
             }
-            $out[] = ['row_id' => (int) $c['row_id']] + self::person($c) + ['permissions' => $c['perms'], 'added_at' => $c['added_at'], 'is_blocked_by_me' => $c['is_blocked_by_me'], 'has_blocked_me' => $c['has_blocked_me']];
+            $out[] = ['row_id' => (int) $c['row_id']] + self::person($c) + ['added_at' => $c['added_at'], 'is_blocked_by_me' => $c['is_blocked_by_me'], 'has_blocked_me' => $c['has_blocked_me']];
         }
         $this->ok(['count' => count($out), 'limit' => $limit, 'offset' => $offset, 'query' => trim((string) ($q['q'] ?? '')), 'colleagues' => $out]);
     }
@@ -69,11 +68,11 @@ final class ColleagueApi extends ApiController
     public function show()
     {
         $r = $this->row();
-        $c = DB::one('SELECT c.id AS row_id, c.permissions, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar,
+        $c = DB::one('SELECT c.id AS row_id, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar,
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = u.id AND blocked_user_id = ?) AS has_blocked_me
             FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.id = ?', [$this->uid, $this->uid, (int) $r['id']]);
-        $this->ok(['row_id' => (int) $c['row_id']] + self::person($c) + ['permissions' => Access::decode($c['permissions'], array_keys(Access::COLLEAGUE_PERMS)), 'added_at' => $c['added_at'], 'is_blocked_by_me' => (int) $c['is_blocked_by_me'] > 0, 'has_blocked_me' => (int) $c['has_blocked_me'] > 0]);
+        $this->ok(['row_id' => (int) $c['row_id']] + self::person($c) + ['added_at' => $c['added_at'], 'is_blocked_by_me' => (int) $c['is_blocked_by_me'] > 0, 'has_blocked_me' => (int) $c['has_blocked_me'] > 0]);
     }
 
     public function stats()
@@ -122,7 +121,7 @@ final class ColleagueApi extends ApiController
             $this->err($msg, 400, 'COLLEAGUE_ADD_FAILED');
         }
         $row = DB::one('SELECT id, created_at FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$this->uid, $target]);
-        $this->ok(['row_id' => $row ? (int) $row['id'] : null, 'user_id' => $target, 'permissions' => [], 'created_at' => $row['created_at'] ?? null, 'state' => $state, 'requires_approval' => $state === 'pending'], $msg);
+        $this->ok(['row_id' => $row ? (int) $row['id'] : null, 'user_id' => $target, 'created_at' => $row['created_at'] ?? null, 'state' => $state, 'requires_approval' => $state === 'pending'], $msg);
     }
 
     public function delete()
@@ -132,14 +131,10 @@ final class ColleagueApi extends ApiController
         $this->ok(['deleted' => true], 'همکار از لیست حذف شد.');
     }
 
+    /** منسوخ از v3.0: دسترسی تسک‌ها به ازای هر پروژه با /projects/task-permissions تعیین می‌شود. */
     public function permissions()
     {
-        $r = $this->row();
-        $in = $this->body();
-        $perms = is_array($in['permissions'] ?? null) ? $in['permissions'] : [];
-        $clean = array_values(array_unique(array_intersect(array_map('strval', $perms), array_keys(Access::COLLEAGUE_PERMS))));
-        DB::run('UPDATE colleagues SET permissions = ? WHERE id = ? AND user_id = ?', [json_encode($clean), (int) $r['id'], $this->uid]);
-        $this->ok(['row_id' => (int) $r['id'], 'user_id' => (int) $r['colleague_user_id'], 'permissions' => $clean, 'updated_at' => date('Y-m-d H:i:s')], 'دسترسی‌های همکار با موفقیت بروزرسانی شد.');
+        $this->err('دسترسی همکار حذف شده است؛ دسترسی تسک‌ها را برای هر پروژه با POST /projects/task-permissions تعیین کنید.', 410, 'ENDPOINT_REMOVED');
     }
 
     public function block()

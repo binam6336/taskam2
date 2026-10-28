@@ -109,6 +109,8 @@ return [
         'profile_image' => 'نشانی تصویر/لوگوی پروژه؛ بدون تصویر null.',
         'is_creator' => 'آیا شما سازنده‌ی پروژه هستید؟',
         'my_permissions' => 'مجوزهای شما در پروژه: edit_project, add_member, remove_member, manage_permissions, view_analytics.',
+        'my_task_permissions' => 'دسترسی شما روی تسک‌های پروژه: edit_info, edit_due, reassign, notes, complete, delete (سازنده = همه).',
+        'task_permissions' => 'دسترسی عضو روی تسک‌های همین پروژه: edit_info, edit_due, reassign, notes, complete, delete (پیش‌فرض هیچ).',
         'members_count' => 'تعداد اعضای فعلی.',
         'members' => 'آرایه‌ی اعضای پروژه.',
         'member_row_id' => 'شناسه‌ی ردیف عضویت.',
@@ -141,7 +143,6 @@ return [
         'colleagues' => [
             'user_id' => 'شناسه‌ی کاربر همکار.',
             'id' => 'شناسه‌ی کاربر.',
-            'permissions' => 'مجوزهای همکار روی تسک‌ها و تماس‌های شما: edit, delete, complete, reassign, notes, change_project.',
             'colleagues' => 'در فهرست: آرایه‌ی همکاران؛ در آمار: تعداد همکاران شما.',
             'followers' => 'در فهرست: آرایه؛ در آمار: تعداد.',
         ],

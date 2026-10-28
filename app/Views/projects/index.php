@@ -1,18 +1,19 @@
 <?php
-/** @var array $projects @var array $colleagues @var array $requests @var array $history @var array $permDefs */
+/** @var array $projects @var array $colleagues @var array $requests @var array $history @var array $permDefs @var array $taskPermDefs */
 $boot = [];
 foreach ($projects as $p) {
     $boot[(int) $p['id']] = [
         'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
-        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'pending' => $p['pending_ids'],
+        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'pending' => $p['pending_ids'],
         'members' => array_map(static fn($m) => [
             'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']),
             'is_creator' => (int) $m['user_id'] === (int) $p['user_id'],
             'perms' => \App\Services\Access::decode($m['permissions'], array_keys($permDefs)),
+            'task_perms' => \App\Services\Access::decode($m['task_permissions'] ?? null, array_keys($taskPermDefs)),
         ], $p['members']),
     ];
 }
-$projData = ['list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'me' => (int) $currentUser['id']];
+$projData = ['list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
 <div class="page-head"><h2><i class="fa-solid fa-diagram-project" style="color:var(--g-400)"></i> پروژه‌ها</h2>
@@ -93,3 +94,6 @@ $this->scripts[] = 'projects';
     <div class="modal-body"><div id="mem-body"></div></div></div></div>
 <div class="modal" id="m-mperm"><div class="modal-box sm"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div id="mp-list" class="list"></div></div><div class="modal-foot"><button class="btn btn-primary">ذخیره</button></div></form></div></div>
+<div class="modal" id="m-tperm"><div class="modal-box sm"><form id="f-tperm"><div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> دسترسی تسک‌ها — <span id="tp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="tp-project"></b> می‌تواند انجام دهد. تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="tp-list" class="list"></div></div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>

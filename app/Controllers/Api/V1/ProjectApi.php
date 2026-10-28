@@ -34,7 +34,7 @@ final class ProjectApi extends ApiController
         return [
             'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
             'profile_image' => project_image_url($p['profile_image']), 'status' => (int) $p['status'],
-            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'created_at' => $p['created_at'],
+            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
         ];
     }
 
@@ -55,7 +55,8 @@ final class ProjectApi extends ApiController
         foreach (ProjectModel::members($id) as $m) {
             $isCreator = (int) $m['user_id'] === $creator;
             $out[] = ['member_row_id' => (int) $m['member_row_id'], 'user_id' => (int) $m['user_id'], 'full_name' => full_name($m), 'first_name' => $m['first_name'], 'last_name' => $m['last_name'], 'mobile' => $m['mobile'], 'email' => $m['email'], 'avatar_url' => avatar_url($m['avatar']),
-                'permissions' => $isCreator ? array_keys(Access::PROJECT_PERMS) : Access::decode($m['permissions'], array_keys(Access::PROJECT_PERMS)), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
+                'permissions' => $isCreator ? array_keys(Access::PROJECT_PERMS) : Access::decode($m['permissions'], array_keys(Access::PROJECT_PERMS)),
+                'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
     }
@@ -180,5 +181,22 @@ final class ProjectApi extends ApiController
             $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
         }
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'permissions' => Access::projectPerms($id, $uid)], $msg);
+    }
+
+    /** دسترسی یک عضو روی تسک‌های این پروژه: edit_info, edit_due, reassign, notes, complete, delete */
+    public function memberTaskPermissions()
+    {
+        $id = $this->pid();
+        $in = $this->body();
+        $uid = (int) ($in['user_id'] ?? 0);
+        if ($uid <= 0) {
+            $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
+        }
+        $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
+        [$ok, $msg] = ProjectService::setTaskPermissions($id, $this->uid, $uid, $perms);
+        if (!$ok) {
+            $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
+        }
+        $this->ok(['project_id' => $id, 'user_id' => $uid, 'task_permissions' => Access::projectTaskPerms($id, $uid)], $msg);
     }
 }

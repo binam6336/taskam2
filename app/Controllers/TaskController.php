@@ -96,7 +96,7 @@ final class TaskController extends Controller
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
             $n['mine'] = (int) $n['user_id'] === $uid;
-            $n['can_delete'] = $n['mine'] || $can['notes'];
+            $n['can_delete'] = $n['mine'] || $can['edit_meta'];
             $n['can_edit'] = $n['mine'] || (int) $t['user_id'] === $uid;
             $n['created_fa'] = jdate($n['created_at']);
             foreach ($n['attachments'] as &$a) {
@@ -111,7 +111,7 @@ final class TaskController extends Controller
             $f['url'] = url('files/task_attachments/' . rawurlencode($f['file_path']));
             $f['size_fa'] = human_size((int) $f['file_size']);
             $f['icon'] = file_icon($f['file_ext']);
-            $f['can_delete'] = (int) $f['user_id'] === $uid || (int) $t['user_id'] === $uid || $can['notes'];
+            $f['can_delete'] = (int) $f['user_id'] === $uid || $can['edit_info'];
         }
         unset($f);
         return [
@@ -134,7 +134,7 @@ final class TaskController extends Controller
     {
         $uid = $this->uid();
         $t = TaskModel::find((int) $id, $uid);
-        if ($t === null || !Access::can($t, $uid, 'view')) {
+        if ($t === null || !Access::canTask($t, $uid, 'view')) {
             $this->fail('تسک یافت نشد.', 404);
         }
         $this->ok('', ['task' => $this->detail($t, $uid)]);
@@ -184,7 +184,7 @@ final class TaskController extends Controller
     {
         $uid = $this->uid();
         $t = TaskModel::raw((int) $id);
-        if ($t === null || !Access::can($t, $uid, 'view')) {
+        if ($t === null || !Access::canTask($t, $uid, 'view')) {
             $this->fail('تسک یافت نشد.', 404);
         }
         $tok = TaskModel::ensureShareToken((int) $id);

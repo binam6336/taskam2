@@ -1103,3 +1103,8 @@ html[data-theme="sage"] .desk.in-conv.list-open .desk-scrim { background: rgba(6
   .desk-actions .btn-sm.btn-icon { width: 30px; height: 30px; }
   .dmsg .avatar { display: none; }
 }
+/* ───── دسترسی تسک‌ها در مودال اعضای پروژه ───── */
+.tperm-box { margin-top: 1.1rem; padding: .9rem; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.tperm-box .tperm-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
+.tperm-box h4 { margin: 0; font-size: .95rem; } .tperm-box h4 i { color: var(--g-400); margin-inline-end: .3rem; }
+.tperm-box > p { margin: 0 0 .7rem; }

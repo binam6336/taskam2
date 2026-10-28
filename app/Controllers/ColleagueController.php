@@ -6,7 +6,6 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\DB;
 use App\Core\Validate;
-use App\Services\Access;
 use App\Services\ColleagueService;
 
 final class ColleagueController extends Controller
@@ -19,7 +18,6 @@ final class ColleagueController extends Controller
             'incoming' => ColleagueService::incomingRequests($uid),
             'outgoing' => ColleagueService::outgoingRequests($uid),
             'blocked' => ColleagueService::blocked($uid),
-            'perms' => Access::COLLEAGUE_PERMS,
         ], ['title' => 'همکاران', 'page' => 'colleagues']);
     }
 
@@ -57,18 +55,6 @@ final class ColleagueController extends Controller
     {
         [$ok, $msg] = ColleagueService::respond((int) $id, $this->uid(), false);
         $ok ? $this->ok($msg) : $this->fail($msg);
-    }
-
-    public function permissions(string $userId)
-    {
-        $uid = $this->uid();
-        $row = DB::one('SELECT id FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$uid, (int) $userId]);
-        if ($row === null) {
-            $this->fail('همکار یافت نشد.', 404);
-        }
-        $clean = array_values(array_unique(array_intersect(array_map('strval', $this->request->arr('permissions')), array_keys(Access::COLLEAGUE_PERMS))));
-        DB::run('UPDATE colleagues SET permissions = ? WHERE id = ?', [json_encode($clean), (int) $row['id']]);
-        $this->ok('دسترسی‌ها ذخیره شد.', ['permissions' => $clean]);
     }
 
     public function remove(string $userId)

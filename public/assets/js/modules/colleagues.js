@@ -18,11 +18,4 @@ document.addEventListener('tk:ready', () => {
     TK.busy(b, true); const r = await TK.post('/colleagues', { colleague_user_id: b.dataset.add });
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { TK.modal.close('m-add-col'); TK.qs('#search-result').innerHTML = ''; TK.reload(); } else TK.busy(b, false);
   });
-  let cur = null; const f = TK.qs('#f-perms');
-  TK.on('click', '[data-perms]', (e, t) => { const d = JSON.parse(t.dataset.perms); cur = d.id; TK.qs('#perm-name').textContent = d.name; TK.qsa('[name="permissions[]"]', f).forEach((c) => (c.checked = d.perms.includes(c.value))); TK.modal.open('m-perms'); });
-  f?.addEventListener('submit', async (e) => {
-    e.preventDefault(); const perms = TK.qsa('[name="permissions[]"]:checked', f).map((c) => c.value);
-    const r = await TK.post('/colleagues/' + cur + '/permissions', { permissions: perms });
-    TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { TK.modal.close('m-perms'); TK.reload(); }
-  });
 });

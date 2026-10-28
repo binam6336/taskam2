@@ -189,6 +189,38 @@ final class ProjectService
         return [true, 'مجوزها ذخیره شد.'];
     }
 
+    /**
+     * دسترسی یک عضو روی تسک‌های این پروژه (پیش‌فرض هیچ).
+     * سازنده یا عضو دارای «اعطای دسترسی»؛ غیرسازنده فقط دسترسی‌هایی را که خودش دارد اعطا/لغو می‌کند.
+     */
+    public static function setTaskPermissions(int $projectId, int $actorId, int $memberId, array $perms): array
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($creator === 0) {
+            return [false, 'پروژه یافت نشد.'];
+        }
+        if (!Access::projectCan($projectId, $actorId, 'manage_permissions')) {
+            return [false, 'دسترسی مدیریت مجوزها را ندارید.'];
+        }
+        if ($memberId === $creator) {
+            return [false, 'سازنده‌ی پروژه همیشه همه‌ی دسترسی‌های تسک را دارد.'];
+        }
+        $row = DB::one('SELECT task_permissions FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
+        if ($row === null) {
+            return [false, 'کاربر عضو پروژه نیست.'];
+        }
+        $old = Access::decode($row['task_permissions'], array_keys(Access::TASK_PERMS));
+        $clean = array_values(array_unique(array_intersect($perms, array_keys(Access::TASK_PERMS))));
+        if ($actorId !== $creator) {
+            $grantable = Access::projectTaskPerms($projectId, $actorId);
+            $clean = array_values(array_unique(array_merge(array_diff($old, $grantable), array_intersect($clean, $grantable))));
+        }
+        // ترتیب ثابت مثل تعریف‌ها
+        $clean = array_values(array_intersect(array_keys(Access::TASK_PERMS), $clean));
+        DB::run('UPDATE project_members SET task_permissions = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
+        return [true, 'دسترسی تسک‌ها ذخیره شد.'];
+    }
+
     public static function delete(int $projectId, int $uid): array
     {
         $p = DB::one('SELECT id, user_id, profile_image FROM projects WHERE id = ?', [$projectId]);

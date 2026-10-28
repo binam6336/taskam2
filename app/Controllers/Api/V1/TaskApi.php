@@ -38,7 +38,7 @@ final class TaskApi extends ApiController
     {
         $id = $this->id();
         $t = TaskModel::find($id, $this->uid);
-        if ($t === null || !Access::can($t, $this->uid, 'view')) {
+        if ($t === null || !Access::canTask($t, $this->uid, 'view')) {
             $this->err('تسک یافت نشد.', 404, 'TASK_NOT_FOUND');
         }
         $out = self::format($t);
