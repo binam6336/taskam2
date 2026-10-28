@@ -49,6 +49,14 @@ CREATE TABLE `users` (
   KEY `idx_users_status_role` (`status`, `role`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `content_texts` (
+  `key`        VARCHAR(80) NOT NULL                COMMENT 'مثل tour.step_5',
+  `body`       TEXT NOT NULL                       COMMENT 'متن ویرایش‌شده توسط ادمین (پیش‌فرض‌ها در config)',
+  `updated_by` INT UNSIGNED NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `api_tokens` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`      INT UNSIGNED NOT NULL,

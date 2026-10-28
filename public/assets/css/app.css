@@ -1246,3 +1246,13 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
 @keyframes tour-draw { to { stroke-dashoffset: 0; } }
 @keyframes tour-zoom { from { opacity: 0; transform: scale(.6); } }
 @media (prefers-reduced-motion: reduce) { .tour-done-box circle, .tour-done-box path { stroke-dashoffset: 0; } }
+
+/* ───── ادمین ← محتوا ───── */
+.ct-group { display: flex; align-items: center; gap: .5rem; margin: 1.2rem 0 .7rem; font-size: 1rem; } .ct-group i { color: var(--g-400); }
+.ct-grid { display: grid; gap: .9rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .ct-grid { grid-template-columns: minmax(0, 1fr); } }
+.ct-card { display: flex; flex-direction: column; }
+.ct-card textarea { resize: vertical; min-height: 78px; }
+.ct-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .35rem; }
+.ct-card:not(.changed) .ct-badge, .ct-card:not(.changed) .ct-default, .ct-card:not(.changed) .ct-reset { display: none; }
+.ct-card.changed { border-color: rgba(251, 191, 36, .35); }

@@ -9,6 +9,7 @@ use App\Core\Controller;
 use App\Core\Crypto;
 use App\Core\DB;
 use App\Core\Validate;
+use App\Models\ContentModel;
 use App\Models\SupportModel;
 use App\Models\UserModel;
 use App\Services\ProjectService;
@@ -222,6 +223,30 @@ final class AdminController extends Controller
     }
 
     // ───── تحلیل ─────
+
+    /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */
+    public function contentTour()
+    {
+        $this->view('admin/content_tour', ['groups' => ContentModel::tourForAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'تور آموزشی', 'page' => 'admin-content-tour'], 'admin');
+    }
+
+    public function contentTourSave(string $id)
+    {
+        if (!array_key_exists($id, ContentModel::tourDefs())) {
+            $this->respond(false, 'متن یافت نشد.', '/admin/content/tour');
+        }
+        $body = trim(str_replace("\r\n", "\n", (string) $this->request->input('body', '')));
+        if ($body === '') {
+            $this->respond(false, 'متن نمی‌تواند خالی باشد.', '/admin/content/tour');
+        }
+        if (mb_strlen($body) > ContentModel::MAX_LEN) {
+            $this->respond(false, 'متن حداکثر ' . fa_num(ContentModel::MAX_LEN) . ' نویسه است.', '/admin/content/tour');
+        }
+        ContentModel::setTour($id, $body, $this->uid());
+        Audit::log($this->uid(), 'content_updated', ['key' => 'tour.' . $id]);
+        $this->respond(true, 'متن «' . $id . '» ذخیره شد.', '/admin/content/tour');
+    }
 
     public function analysis()
     {

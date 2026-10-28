@@ -39,7 +39,7 @@ $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
 // تور آموزشی: تا وقتی کاربر رد یا تمامش نکرده (NULL = هنوز پرسیده نشده)
 $tour = array_key_exists('tour', $u) ? $u['tour'] : 'done';
 if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
-    $this->boot['tour'] = ['state' => $tour, 'page' => $active];
+    $this->boot['tour'] = ['state' => $tour, 'page' => $active, 'texts' => \App\Models\ContentModel::tour()];
     $this->scripts[] = 'tour';
 }
 $allLinks = require BASE_PATH . '/config/quick_links.php';

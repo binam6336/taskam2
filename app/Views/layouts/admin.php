@@ -9,7 +9,10 @@ $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
 $menu = [
     ['admin-analysis', '/admin/analysis', 'fa-gauge-high', 'پیشخوان'],
     ['group' => 'users', 'icon' => 'fa-user-shield', 'label' => 'مدیریت کاربران', 'items' => [
-        ['admin-users', '/admin', 'fa-users-gear', 'کاربران'],
+        ['admin-users', '/admin', 'fa-users-gear', 'لیست کاربران'],
+    ]],
+    ['group' => 'content', 'icon' => 'fa-pen-to-square', 'label' => 'محتوا', 'items' => [
+        ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
     ]],
     ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
         ['docs', '/docs', 'fa-book', 'مستندات API'],

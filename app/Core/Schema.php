@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '014';
+    private const VERSION = '015';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -43,6 +43,7 @@ final class Schema
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */
     private const TABLES = [
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
+        ['content_texts', '015_content_texts.sql'],
     ];
 
     public static function ensure(): void

@@ -4,6 +4,7 @@
   'use strict';
   const boot = TK.boot().tour;
   if (!boot) return;
+  const T = boot.texts || {}; // متن‌ها از «محتوا ← تور آموزشی» در پنل ادمین (config/tour_texts.php)
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
   const tasksGroup = () => TK.qs('#nav-g-tasks')?.closest('[data-nav-group]');
@@ -19,12 +20,12 @@
   const STEPS = {
     1: {
       page: 'dashboard', when: () => mobile.matches, target: '.menu-btn', action: 'click', next: 2,
-      text: 'برای باز کردن منو و دسترسی به گزینه‌ها روی این گزینه کلیک کن.',
+      text: T.step_1,
     },
     2: {
       page: 'dashboard', target: '.nav-parent[aria-controls="nav-g-tasks"]', action: 'click', next: 3,
       prepare: () => { if (mobile.matches && !sidebarOpen()) TK.qs('.menu-btn')?.click(); },
-      text: 'با کلیک روی این گزینه می‌تونی وظایف فعلیت رو مدیریت، زمان‌بندی و بررسی کنی.',
+      text: T.step_2,
     },
     3: {
       page: 'dashboard', target: '#nav-g-tasks a.nav-sub[href$="/tasks"]', action: 'go', next: 4,
@@ -33,24 +34,24 @@
         const g = tasksGroup();
         if (g && !g.classList.contains('open')) g.querySelector('.nav-parent').click();
       },
-      text: 'وظایف اول باید تو قسمت تسک‌ها ایجاد بشن؛ اینجا بخش اصلی و ساده‌ی مدیریت وظایف هست.',
+      text: T.step_3,
     },
     4: {
       page: 'tasks', target: '#btn-new-task', action: 'click', next: 5,
-      text: 'با کلیک روی این دکمه می‌تونی تسک جدید ایجاد کنی.',
+      text: T.step_4,
     },
-    5: field('title', 'تو این بخش می‌تونی برای تسک عنوان بذاری.', { next: 6 }),
-    6: field('desc', 'توضیحات یا جزئیات مربوط به تسک رو اینجا بنویس.', { next: 7 }),
-    7: field('project', 'اینجا پروژه‌ی مربوط به تسک رو انتخاب کنید. پروژه‌ها برای مدیریت بهتر موضوعات تسک‌ها استفاده می‌شن و می‌تونید تنظیمات مدنظر خودتون رو روی پروژه اعمال کنید.', { next: 8 }),
-    8: field('assignee', 'اینجا مشخص می‌کنی این تسک رو کی باید انجام بده و مسئولش چه شخصیه.', { next: 9 }),
-    9: field('priority', 'این فیلد مشخص می‌کنه اولویت این تسک برای تیم چقدره.', { next: 10 }),
+    5: field('title', T.step_5, { next: 6 }),
+    6: field('desc', T.step_6, { next: 7 }),
+    7: field('project', T.step_7, { next: 8 }),
+    8: field('assignee', T.step_8, { next: 9 }),
+    9: field('priority', T.step_9, { next: 10 }),
     // بدون لیبل: کلیک روی لیبل → مرحله‌ی ساخت اولین لیبل؛ با لیبل موجود: انتخاب از لیست و «فهمیدم»
-    10: field('label', 'لیبل به شما کمک می‌کنه تگ‌های مدنظر رو برای تسک‌ها ایجاد کنید.', {
+    10: field('label', T.step_10, {
       action: () => (hasLabels() ? 'ok' : 'click'), next: () => (hasLabels() ? 12 : 11),
     }),
     11: {
       page: 'tasks', target: '#subj-pick .subj-new', action: 'wait', back: 10, next: 12,
-      text: 'اولین لیبل خودت رو ایجاد کن!', hint: 'عنوان لیبل رو بنویس و تیک رو بزن',
+      text: T.step_11, hint: T.hint_label,
       // باز کردن بخش «افزودن لیبل جدید» (بستن لیست بازشده‌ی انتخاب لیبل)
       prepare: () => {
         const sel = TK.qs('#f-task [name=subject_id]');
@@ -61,11 +62,11 @@
       },
       until: () => { const v = TK.qs('#f-task [name=subject_id]')?.value; return !!v && v !== '__new'; }, // لیبل ساخته و انتخاب شد
     },
-    12: field('due', 'تاریخ انجام تسک اینجا مشخص می‌شه و تو تاریخ مربوط به انجام، برای شما نوتیفیکیشن یادآوری ارسال می‌شه.', { next: 13 }),
-    13: field('time', 'حتی می‌تونید ساعت دقیق یادآوری رو هم اینجا مشخص کنید.', { next: 14 }),
-    14: field('files', 'اگه فایلی باید به تسک اضافه بشه، اینجا می‌تونید اضافه کنید.', { next: 15 }),
-    15: field('save', 'با کلیک روی ذخیره، تسک شما ایجاد می‌شه.', {
-      action: 'submit', next: 16, celebrate: 'تسک شما ایجاد شد!',
+    12: field('due', T.step_12, { next: 13 }),
+    13: field('time', T.step_13, { next: 14 }),
+    14: field('files', T.step_14, { next: 15 }),
+    15: field('save', T.step_15, {
+      action: 'submit', next: 16, celebrate: T.task_created,
       // فیلد اجباری خالی → برگشت به مرحله‌ی همان فیلد و بعد از آن دوباره همین‌جا
       check: () => {
         const f = TK.qs('#f-task');
@@ -93,11 +94,11 @@
     box.className = 'tour-ask';
     box.innerHTML = `<div class="tour-ask-box" role="dialog" aria-modal="true" aria-labelledby="tour-ask-t">
         <div class="tour-ask-ico"><i class="fa-solid fa-graduation-cap"></i></div>
-        <h3 id="tour-ask-t">به تسکام خوش اومدی!</h3>
-        <p>قبلاً با این پنل کار کردی؟</p>
+        <h3 id="tour-ask-t">${TK.esc(T.ask_title)}</h3>
+        <p>${TK.esc(T.ask_question)}</p>
         <div class="tour-ask-btns">
-          <button type="button" class="btn btn-primary" data-tour-learn><i class="fa-solid fa-route"></i> نه، آموزش رو شروع کن</button>
-          <button type="button" class="btn" data-tour-skip>آره، آشنا هستم</button>
+          <button type="button" class="btn btn-primary" data-tour-learn><i class="fa-solid fa-route"></i> ${TK.esc(T.ask_learn)}</button>
+          <button type="button" class="btn" data-tour-skip>${TK.esc(T.ask_skip)}</button>
         </div>
       </div>`;
     document.body.appendChild(box);
@@ -154,7 +155,7 @@
 
   const exit = async () => {
     const id = cur;
-    if (!(await TK.confirm('آموزش بسته شود؟ دیگر نمایش داده نمی‌شود.'))) { if (id) run(id); return; } // کلیک پنجره‌ی تأیید ممکن است منو را بسته باشد
+    if (!(await TK.confirm(T.exit_confirm))) { if (id) run(id); return; } // کلیک پنجره‌ی تأیید ممکن است منو را بسته باشد
     finish();
     save('skip');
   };
@@ -194,7 +195,7 @@
       if (miss) {
         e.preventDefault();
         e.stopPropagation();
-        TK.toast('اول این بخش رو کامل کن.', 'warning');
+        TK.toast(T.fill_first, 'warning');
         resume = step.id;
         run(miss);
       }
@@ -222,11 +223,11 @@
     const list = active();
     const pos = list.indexOf(id) + 1;
     const hint = act(step) === 'ok'
-      ? '<button type="button" class="btn btn-primary btn-sm" data-tour-ok>فهمیدم</button>'
-      : `<span class="tour-hint"><i class="fa-solid fa-hand-pointer"></i> ${TK.esc(step.hint || 'روی بخش مشخص‌شده کلیک کن')}</span>`;
-    ui.querySelector('.tour-body').innerHTML = `<div class="tour-step">مرحله‌ی ${TK.fa(pos)} از ${TK.fa(list.length)}</div>
+      ? '<button type="button" class="btn btn-primary btn-sm" data-tour-ok>' + TK.esc(T.ok) + '</button>'
+      : `<span class="tour-hint"><i class="fa-solid fa-hand-pointer"></i> ${TK.esc(step.hint || T.hint_click)}</span>`;
+    ui.querySelector('.tour-body').innerHTML = `<div class="tour-step">${TK.esc(T.counter.replace('{n}', TK.fa(pos)).replace('{total}', TK.fa(list.length)))}</div>
       <p>${TK.esc(step.text)}</p>
-      <div class="tour-foot">${hint}<button type="button" class="tour-exit" data-tour-exit>رد کردن آموزش</button></div>`;
+      <div class="tour-foot">${hint}<button type="button" class="tour-exit" data-tour-exit>${TK.esc(T.exit)}</button></div>`;
     const pop = ui.querySelector('.tour-pop');
     pop.classList.remove('in');
     // صبر تا بخش موردنظر ظاهر شود (باز شدن منو/پنجره)؛ اگر پیدا نشد، به مرحله‌ی برگشت یا بعدی می‌رود
