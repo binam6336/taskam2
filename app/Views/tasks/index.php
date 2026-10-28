@@ -7,6 +7,7 @@ $fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) 
 $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'created' ? $filters['sort'] : '', 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ?: '']);
 $this->boot['tasks'] = [
     'subjects' => $subjects,
+    'label_colors' => \App\Models\SubjectModel::COLORS,
     'projects' => array_map(static fn($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category'], $projects),
     'me_name' => full_name($currentUser),
     'assignees' => $assignees,
@@ -74,7 +75,7 @@ $this->scripts[] = 'tasks';
             <div class="item-meta">
                 <?= priority_badge($t) ?>
                 <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i><?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $t['due_time'] ? ' - ' . e(fa_num(substr((string) $t['due_time'], 0, 5))) : '' ?><?= $overdue ? ' (گذشته)' : '' ?></span><?php endif; ?>
-                <?php if ($t['subject_title']): ?><span><span class="color-dot" style="background:<?= e($t['subject_color']) ?>"></span> <?= e($t['subject_title']) ?></span><?php endif; ?>
+                <?php if ($t['subject_title']): ?><span class="t-label"><i class="fa-solid fa-tag" style="color:<?= e($t['subject_color']) ?>"></i> <?= e($t['subject_title']) ?></span><?php endif; ?>
                 <?php if ($t['project_title']): ?><span><i class="fa-solid fa-diagram-project"></i><?= e($t['project_title']) ?></span><?php endif; ?>
                 <?php if ($scope === 'others' && $t['assignee_id']): ?><span><i class="fa-solid fa-user"></i><?= e(full_name($t, 'assignee_')) ?></span><?php endif; ?>
                 <?php if ($scope === 'mine' && (int) $t['user_id'] !== (int) $currentUser['id']): ?><span><i class="fa-solid fa-user-pen"></i>از طرف <?= e(full_name($t, 'creator_')) ?></span><?php endif; ?>
@@ -115,9 +116,9 @@ $this->scripts[] = 'tasks';
                     <div class="field hidden" id="prio-pct"><label>اولویت <b class="prio-pct-val" id="prio-pct-val">۵۰٪</b></label>
                         <input type="range" class="prio-range" name="priority_percent" min="0" max="100" step="5" value="50" disabled aria-label="اولویت درصدی">
                         <div class="prio-scale"><span>کم</span><span>متوسط</span><span>زیاد</span></div></div>
-                    <div class="field"><label>موضوع *</label>
-                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id" required><option value="">— انتخاب موضوع —</option><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن موضوع جدید</option></select>
-                            <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="عنوان موضوع جدید" aria-label="عنوان موضوع جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
+                    <div class="field"><label><i class="fa-solid fa-tag"></i> لیبل *</label>
+                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id" required><option value="">— انتخاب لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
+                            <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="عنوان لیبل جدید" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
                 <div class="row">
                     <div class="field"><label>تاریخ سررسید</label><div data-jdate="due_date"></div></div>

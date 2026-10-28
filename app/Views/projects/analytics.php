@@ -54,7 +54,7 @@ $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red
         <div class="chart" id="ch-speed"></div>
         <p class="hint">حداکثر ۵ کاربر را برای مقایسه انتخاب کنید. «امتیاز سرعت» میانگین امتیاز تسک‌هایی است که در هر بازه انجام شده‌اند (۰ تا ۱۰۰)؛ نقطه‌ی خالی یعنی در آن بازه تسکی انجام نشده است.</p>
     </div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> توزیع موضوعات</h3></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> توزیع لیبل‌ها</h3></div>
         <?php if (!$k['subjects']): ?><p class="muted center">تسکی ثبت نشده است.</p><?php else: ?><div id="ch-subjects"></div><?php endif; ?></div>
 </div>
 

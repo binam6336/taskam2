@@ -70,13 +70,13 @@ final class TaskService
             $time = null;
         }
 
-        // موضوع و پروژه اجباری‌اند
+        // لیبل و پروژه اجباری‌اند
         $subjectId = (int) ($in['subject_id'] ?? 0);
         if ($subjectId <= 0) {
-            return self::err('انتخاب موضوع الزامی است.', 'SUBJECT_REQUIRED');
+            return self::err('انتخاب لیبل الزامی است.', 'SUBJECT_REQUIRED');
         }
         if (SubjectModel::owned($subjectId, $actor) === null) {
-            return self::err('موضوع انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
+            return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
         }
         $projectId = (int) ($in['project_id'] ?? 0);
         if ($projectId <= 0) {
@@ -110,7 +110,7 @@ final class TaskService
         $set = [];
         $has = static fn(string $k): bool => array_key_exists($k, $in);
 
-        // هر گروه فیلد مجوز خودش را دارد: عنوان/توضیحات = edit_info، سررسید = edit_due، اولویت/موضوع = فقط سازنده
+        // هر گروه فیلد مجوز خودش را دارد: عنوان/توضیحات = edit_info، سررسید = edit_due، اولویت/لیبل = فقط سازنده
         $needInfo = $needDue = $needMeta = false;
         if ($has('title')) {
             $title = trim((string) $in['title']);
@@ -183,10 +183,10 @@ final class TaskService
         if ($has('subject_id')) {
             $sid = (int) $in['subject_id'];
             if ($sid <= 0) {
-                return self::err('انتخاب موضوع الزامی است.', 'SUBJECT_REQUIRED');
+                return self::err('انتخاب لیبل الزامی است.', 'SUBJECT_REQUIRED');
             }
             if (SubjectModel::owned($sid, (int) $t['user_id']) === null && SubjectModel::owned($sid, $actor) === null) {
-                return self::err('موضوع انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
+                return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
             }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
                 $set['subject_id'] = $sid;
@@ -200,7 +200,7 @@ final class TaskService
             return self::err('اجازه‌ی تغییر زمان انجام این تسک را ندارید.', 'FORBIDDEN', 403);
         }
         if ($needMeta && !Access::canTask($t, $actor, 'edit_meta')) {
-            return self::err('تغییر اولویت و موضوع فقط برای سازنده‌ی تسک یا مدیر پروژه ممکن است.', 'FORBIDDEN', 403);
+            return self::err('تغییر اولویت و لیبل فقط برای سازنده‌ی تسک یا مدیر پروژه ممکن است.', 'FORBIDDEN', 403);
         }
 
         $newProject = $t['project_id'] === null ? null : (int) $t['project_id'];

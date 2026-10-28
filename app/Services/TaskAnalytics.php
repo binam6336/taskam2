@@ -97,7 +97,7 @@ final class TaskAnalytics
     }
 
     /**
-     * KPI هر عضو، خلاصه‌ی پروژه و توزیع موضوعات.
+     * KPI هر عضو، خلاصه‌ی پروژه و توزیع لیبل‌ها.
      * @return array{members:array,summary:array,subjects:array}
      */
     public static function project(int $projectId): array
@@ -120,7 +120,7 @@ final class TaskAnalytics
                 $sum['delayed']++;
             }
             $sk = $t['subject_id'] !== null ? (int) $t['subject_id'] : 0;
-            $subjects[$sk] = $subjects[$sk] ?? ['label' => $t['subject_title'] ?? 'بدون موضوع', 'color' => $t['subject_color'] ?: '#5f776a', 'value' => 0];
+            $subjects[$sk] = $subjects[$sk] ?? ['label' => $t['subject_title'] ?? 'بدون لیبل', 'color' => $t['subject_color'] ?: '#5f776a', 'value' => 0];
             $subjects[$sk]['value']++;
 
             $aid = (int) $t['assignee_id'];

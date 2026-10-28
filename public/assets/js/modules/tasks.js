@@ -56,23 +56,23 @@ document.addEventListener('tk:ready', () => {
   };
   rs.project_id.input.addEventListener('change', () => setPrioMode(projType(rs.project_id.get())));
 
-  /* ───── افزودن سریع موضوع ───── */
+  /* ───── افزودن سریع لیبل ───── */
   const subjSel = form.subject_id, subjNew = TK.qs('#subj-pick .subj-new'), subjIn = subjNew.querySelector('input');
   const subjMode = (adding) => { subjSel.classList.toggle('hidden', adding); subjNew.classList.toggle('hidden', !adding); if (adding) { subjIn.value = ''; subjIn.focus(); } };
   subjSel.addEventListener('change', () => { if (subjSel.value === '__new') { subjSel.value = ''; subjMode(true); } });
-  const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6', '#ec4899', '#84cc16'];
+  const COLORS = cfg.label_colors?.length ? cfg.label_colors : ['#22c55e'];
   const saveSubject = async () => {
     const title = subjIn.value.trim();
-    if (!title) { subjIn.focus(); return TK.toast('عنوان موضوع را بنویسید.', 'warning'); }
+    if (!title) { subjIn.focus(); return TK.toast('عنوان لیبل را بنویسید.', 'warning'); }
     const btn = TK.qs('[data-subj-save]', subjNew); TK.busy(btn, true);
     const r = await TK.post('/subjects', { title, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
     TK.busy(btn, false);
-    if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد موضوع', 'error');
+    if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد لیبل', 'error');
     const opt = new Option(title, r.id);
     subjSel.insertBefore(opt, subjSel.querySelector('option[value="__new"]'));
     (cfg.subjects = cfg.subjects || []).push({ id: r.id, title });
     subjSel.value = String(r.id); subjMode(false);
-    TK.toast('موضوع «' + title + '» اضافه شد.', 'success');
+    TK.toast('لیبل «' + title + '» اضافه شد.', 'success');
   };
   TK.qs('[data-subj-save]', subjNew).addEventListener('click', saveSubject);
   TK.qs('[data-subj-cancel]', subjNew).addEventListener('click', () => subjMode(false));
@@ -192,7 +192,7 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
-    // هر گروه فیلد با دسترسی خودش: اطلاعات (عنوان/توضیحات)، زمان انجام، اولویت/موضوع (فقط سازنده)
+    // هر گروه فیلد با دسترسی خودش: اطلاعات (عنوان/توضیحات)، زمان انجام، اولویت/لیبل (فقط سازنده)
     if (!c.edit_info) lock(['title', 'description'], true);
     if (!c.edit_due) lock(['due_date', 'due_time'], true);
     if (!c.edit_meta) lock(['priority', 'subject_id'], true);
@@ -202,12 +202,12 @@ document.addEventListener('tk:ready', () => {
   };
   TK.on('click', '[data-edit-task]', (e, t) => openEdit(JSON.parse(t.dataset.editTask)));
 
-  /* اعتبارسنجی سمت کاربر: موضوع و پروژه اجباری‌اند (قبل از ارسال AJAX) */
+  /* اعتبارسنجی سمت کاربر: لیبل و پروژه اجباری‌اند (قبل از ارسال AJAX) */
   form.addEventListener('submit', (e) => {
     const missing = [];
     if (tp.get() && !dp.get() && !dp.input.disabled) dp.set(dp.today());   // ساعت بدون تاریخ → امروز
-    if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); return TK.toast('موضوع جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
-    if (!form.subject_id.disabled && !form.subject_id.value) missing.push('موضوع');
+    if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); return TK.toast('لیبل جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
+    if (!form.subject_id.disabled && !form.subject_id.value) missing.push('لیبل');
     if (!rs.project_id.input.disabled && !rs.project_id.get()) { rs.project_id.invalid(); missing.push('پروژه'); }
     if (!canCreate && form.getAttribute('action') === TK.url('/tasks')) missing.push('پروژه (ابتدا بسازید)');
     if (missing.length) { e.preventDefault(); e.stopPropagation(); TK.toast('انتخاب ' + missing.join(' و ') + ' الزامی است.', 'error'); }
@@ -251,7 +251,7 @@ document.addEventListener('tk:ready', () => {
       <div class="flex wrap gap-1 mb-2">
         ${prioBadge(t)}
         <span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>
-        ${t.subject_title ? `<span class="chip">${E(t.subject_title)}</span>` : ''}${t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : ''}
+        ${t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" style="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>` : ''}${t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : ''}
         ${t.due_fa ? `<span class="chip"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa)}</span>` : ''}
       </div>
       ${t.description ? `<div class="card flat mb-2 note-body">${rich(t.description)}</div>` : ''}

@@ -14,7 +14,7 @@ $card = static fn(string $ico, string $cls, $num, string $lbl) => '<div class="c
 <div class="grid grid-3 mb-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-trophy"></i> فعال‌ترین کاربران</h3></div><div class="list"><?php foreach ($topUsers as $x): ?><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($x), 'src' => avatar_url($x['avatar']), 'size' => 'sm']); ?><span class="grow truncate"><?= e(full_name($x)) ?></span><span class="badge green"><?= e(fa_num($x['done'])) ?>/<?= e(fa_num($x['cnt'])) ?></span></div><?php endforeach; ?></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-diagram-project"></i> پروژه‌های برتر</h3></div><div class="list"><?php foreach ($topProjects as $x): ?><div class="flex between"><span class="truncate"><?= e($x['title']) ?></span><span class="small muted"><?= e(fa_num($x['tasks'])) ?> تسک • <?= e(fa_num($x['members'])) ?> عضو</span></div><?php endforeach; ?></div></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> موضوعات پرتکرار</h3></div><div class="chart" id="ch-subj"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> لیبل‌های پرتکرار</h3></div><div class="chart" id="ch-subj"></div></div>
 </div>
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> رمزگذاری پیام‌های چت</h3>
     <span class="badge <?= $chatSec['configured'] ? 'green' : 'yellow' ?>"><?= $chatSec['configured'] ? 'فعال (AES-256-GCM)' : 'غیرفعال' ?></span></div>

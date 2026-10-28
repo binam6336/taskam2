@@ -55,5 +55,5 @@ $sample = ['success' => true, 'status' => 'success', 'message' => 'پیام اخ
     <li>پارامتر <code>id</code> در endpointهای مبتنی بر شناسه، در query یا body پذیرفته می‌شود.</li>
     <li>تاریخ <code>YYYY-MM-DD</code>، ساعت <code>HH:MM</code> و همه‌ی زمان‌ها به وقت تهران است.</li>
     <li>فهرست‌ها با <code>limit</code> (حداکثر ۲۰۰، پیش‌فرض ۱۰۰) و <code>offset</code> صفحه‌بندی می‌شوند.</li>
-    <li>ایجاد تسک بدون «موضوع» و «پروژه» ممکن نیست (<code>subject_id</code> و <code>project_id</code> اجباری‌اند).</li>
+    <li>ایجاد تسک بدون «لیبل» و «پروژه» ممکن نیست (<code>subject_id</code> و <code>project_id</code> اجباری‌اند).</li>
 </ul>

@@ -5,7 +5,7 @@ declare(strict_types=1);
 return [
     ['id' => 'dashboard',  'title' => 'پیشخوان',         'path' => '/dashboard',  'icon' => 'fa-gauge-high'],
     ['id' => 'tasks',      'title' => 'وظایف',            'path' => '/tasks',      'icon' => 'fa-list-check'],
-    ['id' => 'subjects',   'title' => 'موضوع‌های وظایف',  'path' => '/subjects',   'icon' => 'fa-tag'],
+    ['id' => 'subjects',   'title' => 'لیبل‌های وظایف',  'path' => '/subjects',   'icon' => 'fa-tag'],
     ['id' => 'texts',      'title' => 'متن‌های آماده',    'path' => '/texts',      'icon' => 'fa-message'],
     ['id' => 'calls',      'title' => 'درخواست تماس',    'path' => '/calls',      'icon' => 'fa-phone-volume'],
     ['id' => 'colleagues', 'title' => 'همکاران',          'path' => '/colleagues', 'icon' => 'fa-users'],

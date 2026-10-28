@@ -47,7 +47,7 @@ final class TaskModel
         'due'      => 'تاریخ انجام (سررسید)',
         'priority' => 'اولویت',
         'project'  => 'پروژه',
-        'subject'  => 'موضوع',
+        'subject'  => 'لیبل',
     ];
 
     /** شرط WHERE مشترک فهرست و فیلترها. */
@@ -239,7 +239,7 @@ final class TaskModel
             'stats' => $s,
             'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : 0,
             'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'],
-            'top_subject' => $top['title'] ?? 'بدون موضوع',
+            'top_subject' => $top['title'] ?? 'بدون لیبل',
             'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1', [$uid, $uid]),
             'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1', [$uid, $uid]),
             'calls' => CallModel::stats($uid),

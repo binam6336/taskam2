@@ -16,7 +16,7 @@ $time = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['a']) : 
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
         <div id="ch-ratio"></div>
-        <div class="mt-2 small muted center">پرتکرارترین موضوع: <b class="text-green" style="color:var(--g-300)"><?= e($d['top_subject']) ?></b></div></div>
+        <div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" style="color:var(--g-300)"><?= e($d['top_subject']) ?></b></div></div>
 </div>
 
 <div class="grid grid-3 mb-2">
