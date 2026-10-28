@@ -148,6 +148,8 @@ final class TaskModel
 
     public static function create(array $d): int
     {
+        // تسک جدید در برد تیمی از «برنامه‌ریزی‌نشده» (Backlog) شروع می‌شود
+        $d += ['board_status' => 'backlog', 'board_moved_at' => date('Y-m-d H:i:s')];
         $id = DB::insert('tasks', $d);
         self::ensureShareToken($id);
         return $id;
