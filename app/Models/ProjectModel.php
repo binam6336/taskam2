@@ -43,13 +43,14 @@ final class ProjectModel
             $r['perms'] = $r['is_creator'] ? array_keys(Access::PROJECT_PERMS) : Access::decode($r['my_permissions'], array_keys(Access::PROJECT_PERMS));
             $r['task_perms'] = $r['is_creator'] ? array_keys(Access::TASK_PERMS) : Access::decode($r['my_task_permissions'], array_keys(Access::TASK_PERMS));
             $r['board_perms'] = $r['is_creator'] ? array_keys(Access::BOARD_PERMS) : Access::decode($r['my_board_permissions'], array_keys(Access::BOARD_PERMS));
+            $r['board_view'] = Access::boardViewScope((int) $r['id'], $uid);      // null = همه
         }
         return $rows;
     }
 
     public static function members(int $projectId): array
     {
-        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
+        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
             FROM project_members pm INNER JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? ORDER BY pm.added_at ASC, pm.id ASC', [$projectId]);
     }
 

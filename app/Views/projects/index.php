@@ -4,13 +4,14 @@ $boot = [];
 foreach ($projects as $p) {
     $boot[(int) $p['id']] = [
         'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
-        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'board_perms' => $p['board_perms'], 'pending' => $p['pending_ids'],
+        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'board_perms' => $p['board_perms'], 'board_view' => $p['board_view'], 'pending' => $p['pending_ids'],
         'members' => array_map(static fn($m) => [
             'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']),
             'is_creator' => (int) $m['user_id'] === (int) $p['user_id'],
             'perms' => \App\Services\Access::decode($m['permissions'], array_keys($permDefs)),
             'task_perms' => \App\Services\Access::decode($m['task_permissions'] ?? null, array_keys($taskPermDefs)),
             'board_perms' => \App\Services\Access::decode($m['board_permissions'] ?? null, array_keys($boardPermDefs)),
+            'board_view' => \App\Services\Access::ids($m['board_view_users'] ?? null),
         ], $p['members']),
     ];
 }
@@ -102,6 +103,11 @@ $this->scripts[] = 'projects';
         </div>
         <div data-ppanel="task"><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="mp-project"></b> می‌تواند انجام دهد (پیش‌فرض: هیچ). تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="mp-task-list" class="list"></div></div>
         <div data-ppanel="project" hidden><p class="xs muted mb-1">مدیریت خود پروژه: ویرایش، اعضا، اعطای دسترسی و تحلیل‌ها.</p><div id="mp-list" class="list"></div></div>
-        <div data-ppanel="board" hidden><p class="xs muted mb-1">کارهایی که این عضو در برد تیمی این پروژه می‌تواند انجام دهد (پیش‌فرض: هیچ؛ جدا از دسترسی تسک). هر جابه‌جایی فقط از یک مرحله به مرحله‌ی بعد است، مگر «جابه‌جایی آزاد».</p><div id="mp-board-list" class="list"></div></div>
+        <div data-ppanel="board" hidden><p class="xs muted mb-1">کارهایی که این عضو در برد تیمی این پروژه می‌تواند انجام دهد (پیش‌فرض: هیچ؛ جدا از دسترسی تسک). هر جابه‌جایی فقط از یک مرحله به مرحله‌ی بعد است، مگر «جابه‌جایی آزاد».</p>
+            <div class="bv-picker mb-1">
+                <button type="button" class="check bv-toggle" id="bv-toggle" aria-expanded="false" aria-controls="bv-list"><i class="fa-solid fa-eye bv-ic"></i><div><b>مشاهده‌ی تسک‌های:</b><span id="bv-summary"></span></div><i class="fa-solid fa-chevron-down bv-chev"></i></button>
+                <div class="bv-list" id="bv-list" hidden></div>
+            </div>
+            <div id="mp-board-list" class="list"></div></div>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>

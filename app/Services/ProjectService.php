@@ -198,10 +198,28 @@ final class ProjectService
         return self::setMemberPerms('task_permissions', Access::TASK_PERMS, [Access::class, 'projectTaskPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی تسک‌ها ذخیره شد.');
     }
 
-    /** دسترسی یک عضو در برد تیمی این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک. */
-    public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms): array
+    /**
+     * دسترسی یک عضو در برد تیمی این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک.
+     * $viewUsers (اختیاری): اعضایی که تسک‌هایشان در برد او دیده شود؛ غیرسازنده فقط اعضایی را که خودش می‌بیند انتخاب/حذف می‌کند.
+     */
+    public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms, ?array $viewUsers = null): array
     {
-        return self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی برد تیمی ذخیره شد.');
+        $res = self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی برد تیمی ذخیره شد.');
+        if (!$res[0] || $viewUsers === null) {
+            return $res;
+        }
+        $members = array_map('intval', array_column(DB::all('SELECT user_id FROM project_members WHERE project_id = ?', [$projectId]), 'user_id'));
+        $members[] = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        $old = Access::ids((string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]));
+        $clean = array_values(array_intersect(array_unique(array_map('intval', $viewUsers)), $members));
+        $scope = Access::boardViewScope($projectId, $actorId);
+        if ($scope !== null) {
+            $clean = array_merge(array_diff($old, $scope), array_intersect($clean, $scope));
+        }
+        $clean = array_values(array_diff(array_unique($clean), [$memberId]));      // خودش همیشه هست
+        sort($clean);
+        DB::run('UPDATE project_members SET board_view_users = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
+        return $res;
     }
 
     private static function setMemberPerms(string $column, array $defs, callable $holderPerms, int $projectId, int $actorId, int $memberId, array $perms, string $okMsg): array

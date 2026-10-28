@@ -34,7 +34,7 @@ final class ProjectApi extends ApiController
         return [
             'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
             'profile_image' => project_image_url($p['profile_image']), 'status' => (int) $p['status'],
-            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'my_board_permissions' => Access::projectBoardPerms((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
+            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'my_board_permissions' => Access::projectBoardPerms((int) $p['id'], $this->uid), 'my_board_view_user_ids' => Access::boardViewScope((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
         ];
     }
 
@@ -57,7 +57,8 @@ final class ProjectApi extends ApiController
             $out[] = ['member_row_id' => (int) $m['member_row_id'], 'user_id' => (int) $m['user_id'], 'full_name' => full_name($m), 'first_name' => $m['first_name'], 'last_name' => $m['last_name'], 'mobile' => $m['mobile'], 'email' => $m['email'], 'avatar_url' => avatar_url($m['avatar']),
                 'permissions' => $isCreator ? array_keys(Access::PROJECT_PERMS) : Access::decode($m['permissions'], array_keys(Access::PROJECT_PERMS)),
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),
-                'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
+                'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)),
+                'board_view_user_ids' => $isCreator ? null : Access::ids($m['board_view_users'] ?? null), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
     }
@@ -201,7 +202,7 @@ final class ProjectApi extends ApiController
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'task_permissions' => Access::projectTaskPerms($id, $uid)], $msg);
     }
 
-    /** دسترسی یک عضو در برد تیمی این پروژه: view, to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any */
+    /** دسترسی یک عضو در برد تیمی این پروژه: to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any */
     public function memberBoardPermissions()
     {
         $id = $this->pid();
@@ -211,10 +212,12 @@ final class ProjectApi extends ApiController
             $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
         }
         $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
-        [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms);
+        $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : []) : null;
+        [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms, $view);
         if (!$ok) {
             $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
         }
-        $this->ok(['project_id' => $id, 'user_id' => $uid, 'board_permissions' => Access::projectBoardPerms($id, $uid)], $msg);
+        $this->ok(['project_id' => $id, 'user_id' => $uid, 'board_permissions' => Access::projectBoardPerms($id, $uid),
+            'board_view_user_ids' => Access::ids((string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$id, $uid]))], $msg);
     }
 }

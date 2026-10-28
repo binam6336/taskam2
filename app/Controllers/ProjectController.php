@@ -93,7 +93,8 @@ final class ProjectController extends Controller
 
     public function memberBoardPermissions(string $id, string $userId)
     {
-        [$ok, $msg] = ProjectService::setBoardPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')));
+        [$ok, $msg] = ProjectService::setBoardPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')),
+            $this->request->input('view_present') ? array_map('intval', $this->request->arr('view_users')) : null);
         $this->respond($ok, $msg, '/projects');
     }
 

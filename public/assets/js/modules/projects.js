@@ -24,7 +24,8 @@ document.addEventListener('tk:ready', () => {
   const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" style="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
     <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
-    <div class="perm-cell"><span class="perm-cell-l">برد:</span>${chips(m.board_perms, data().boardPermDefs, 'بدون دسترسی')}</div>`;
+    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" style="margin:2px"><i class="fa-solid fa-eye"></i> ${E(viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" style="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}</div>`;
+  const viewSummary = (n) => (n ? `تسک‌های خودش + ${TK.fa(n)} نفر` : 'فقط تسک‌های خودش');
 
   /* مدیریت پروژه */
   const manage = (id) => {
@@ -62,11 +63,25 @@ document.addEventListener('tk:ready', () => {
     TK.qsa('[data-ppanel]', pf).forEach((p) => (p.hidden = p.dataset.ppanel !== name));
   };
   TK.on('click', '[data-ptab]', (e, b) => setTab(b.dataset.ptab));
+  const bvSync = () => { TK.qs('#bv-summary').textContent = viewSummary(TK.qsa('.bv-item', pf).slice(1).filter((l) => l.querySelector('input').checked).length); };
+  TK.on('change', '#bv-list input', bvSync);
+  TK.on('click', '#bv-toggle', (e, b) => { const l = TK.qs('#bv-list'); l.hidden = !l.hidden; b.setAttribute('aria-expanded', l.hidden ? 'false' : 'true'); });
   const box = (name, k, d, checked, enabled) => `<label class="check"><input type="checkbox" name="${name}[]" value="${k}" ${checked ? 'checked' : ''} ${enabled ? '' : 'disabled'}><div><b><i class="fa-solid ${d.icon}"></i> ${E(d.label)}</b><span>${E(d.desc)}</span></div></label>`;
   TK.on('click', '[data-mperm]', (e, t) => {
     const [pid, uid] = t.dataset.mperm.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
     target = { pid, uid }; TK.qs('#mp-name').textContent = m.name; TK.qs('#mp-project').textContent = '«' + p.title + '»';
     TK.qs('#mp-task-list').innerHTML = Object.entries(data().taskPermDefs).map(([k, d]) => box('task_permissions', k, d, m.task_perms.includes(k), p.task_perms.includes(k))).join('');
+    // «مشاهده‌ی تسک‌های»: خودِ عضو در صدر (همیشه)، بعد بقیه‌ی اعضا؛ غیرسازنده فقط اعضایی را که خودش می‌بیند تغییر می‌دهد
+    const scope = p.board_view === null ? null : new Set(p.board_view), sel = new Set(m.board_view);
+    const people = [m, ...p.members.filter((x) => x.id !== m.id)];
+    TK.qs('#bv-list').innerHTML = '<input type="hidden" name="view_present" value="1">' + people.map((x) => {
+      const self = x.id === m.id, can = !self && (scope === null || scope.has(x.id));
+      return `<label class="check bv-item"><input type="checkbox" name="view_users[]" value="${x.id}" ${self || sel.has(x.id) ? 'checked' : ''} ${can ? '' : 'disabled'}>
+        <span class="avatar sm">${x.avatar ? `<img src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
+        <div><b>${E(x.name)}${self ? ' <span class="badge green">خودش</span>' : ''}${x.is_creator ? ' <span class="badge">سازنده</span>' : ''}</b><span class="ltr">${E(x.mobile)}</span></div></label>`;
+    }).join('');
+    TK.qs('#bv-list').hidden = true; TK.qs('#bv-toggle').setAttribute('aria-expanded', 'false');
+    bvSync();
     TK.qs('#mp-board-list').innerHTML = Object.entries(data().boardPermDefs).map(([k, d]) => box('board_permissions', k, d, m.board_perms.includes(k), p.board_perms.includes(k))).join('');
     TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => box('permissions', k, d, m.perms.includes(k), p.perms.includes(k))).join('');
     setTab('task');
@@ -79,7 +94,7 @@ document.addEventListener('tk:ready', () => {
     const base = '/projects/' + target.pid + '/members/' + target.uid;
     const r1 = await TK.post(base + '/task-permissions', { permissions: vals('task_permissions') });
     const r2 = TK.ok(r1) ? await TK.post(base + '/permissions', { permissions: vals('permissions') }) : null;
-    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { permissions: vals('board_permissions') }) : null;
+    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { permissions: vals('board_permissions'), view_present: 1, view_users: vals('view_users').map(Number).filter((id) => id !== target.uid) }) : null;
     TK.busy(btn, false);
     const ok = TK.ok(r1) && TK.ok(r2) && TK.ok(r3);
     TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r3 || r2 || r1).message || 'خطا'), ok ? 'success' : 'error');

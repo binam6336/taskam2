@@ -31,9 +31,10 @@ final class Access
     /**
      * دسترسی‌های برد تیمی (کانبان) به ازای هر پروژه؛ جدا از دسترسی تسک‌ها و پیش‌فرض بسته.
      * مسیر اصلی مراحل: backlog → todo → in_progress → review → done؛ «مسدودشده» مرحله‌ی کناری است.
+     * دیدن کارت‌ها جداست: هر کس تسک‌های خودش را می‌بیند + تسک‌های اعضایی که در «مشاهده‌ی تسک‌های» برایش انتخاب شده
+     * (project_members.board_view_users)؛ سازنده‌ی پروژه همه را می‌بیند.
      */
     public const BOARD_PERMS = [
-        'view'        => ['label' => 'مشاهده‌ی برد پروژه', 'icon' => 'fa-eye', 'desc' => 'دیدن همه‌ی تسک‌های پروژه در برد (حتی بدون دسترسی تسک)'],
         'to_todo'     => ['label' => 'برنامه‌ریزی‌نشده ← آماده انجام', 'icon' => 'fa-list-ul', 'desc' => 'انتخاب تسک برای انجام'],
         'to_progress' => ['label' => 'آماده انجام ← در حال انجام', 'icon' => 'fa-person-running', 'desc' => 'شروع کار روی تسک'],
         'to_review'   => ['label' => 'در حال انجام ← در انتظار بررسی', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی'],
@@ -70,16 +71,17 @@ final class Access
         return (int) ($row['assignee_id'] ?? 0) === $uid && in_array($action, ['view', 'complete', 'notes'], true);
     }
 
-    /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو] — با کش درون درخواست */
+    /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو، اعضایی که تسک‌هایشان را در برد می‌بیند] — با کش درون درخواست */
     private static function projectRole(int $projectId, int $uid): array
     {
         static $cache = [];
         $k = $projectId . ':' . $uid;
         if (!isset($cache[$k])) {
             $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
-            $row = DB::one('SELECT task_permissions, board_permissions FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
+            $row = DB::one('SELECT task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
             $cache[$k] = [$creator, $row === null ? null : self::decode($row['task_permissions'], array_keys(self::TASK_PERMS)),
-                $row === null ? [] : self::decode($row['board_permissions'], array_keys(self::BOARD_PERMS))];
+                $row === null ? [] : self::decode($row['board_permissions'], array_keys(self::BOARD_PERMS)),
+                $row === null ? [] : self::ids($row['board_view_users'])];
         }
         return $cache[$k];
     }
@@ -124,6 +126,26 @@ final class Access
     public static function canTask(array $task, int $uid, string $action): bool
     {
         return in_array($action, self::taskPerms($task, $uid), true);
+    }
+
+    /** آرایه‌ی JSON شناسه‌ها → int[] یکتا و مثبت */
+    public static function ids(?string $json): array
+    {
+        $d = json_decode((string) $json, true);
+        return is_array($d) ? array_values(array_unique(array_filter(array_map('intval', array_filter($d, 'is_numeric')), static fn($v) => $v > 0))) : [];
+    }
+
+    /**
+     * اعضایی که کاربر تسک‌هایشان را در برد این پروژه می‌بیند (همیشه شامل خودش).
+     * null = همه (سازنده‌ی پروژه)؛ [] = عضو پروژه نیست.
+     */
+    public static function boardViewScope(int $projectId, int $uid): ?array
+    {
+        [$creator, $perms, , $view] = self::projectRole($projectId, $uid);
+        if ($creator === $uid) {
+            return null;
+        }
+        return $perms === null ? [] : array_values(array_unique(array_merge([$uid], $view)));
     }
 
     /** دسترسی برد یک عضو در پروژه (سازنده‌ی پروژه = همه). */
@@ -171,10 +193,22 @@ final class Access
         return array_values(array_filter($statuses, static fn($to) => $to !== $from && ($any || in_array(self::boardMovePerm($from, $to), $have, true))));
     }
 
-    /** دیدن تسک در برد: دسترسی مشاهده‌ی تسک یا «مشاهده‌ی برد پروژه». */
+    /**
+     * دیدن تسک در برد: تسک‌های خودش (سازنده یا مسئول)، و در پروژه، تسک‌هایی که مسئولشان
+     * جزو اعضای انتخاب‌شده در «مشاهده‌ی تسک‌های» اوست (سازنده‌ی پروژه = همه).
+     */
     public static function canBoardView(array $task, int $uid): bool
     {
-        return self::canTask($task, $uid, 'view') || in_array('view', self::boardPerms($task, $uid), true);
+        $assignee = (int) ($task['assignee_id'] ?? 0);
+        if ((int) $task['user_id'] === $uid || $assignee === $uid) {
+            return true;
+        }
+        $pid = (int) ($task['project_id'] ?? 0);
+        if ($pid <= 0) {
+            return false;
+        }
+        $scope = self::boardViewScope($pid, $uid);
+        return $scope === null || ($assignee > 0 && in_array($assignee, $scope, true));
     }
 
     public static function isColleague(int $a, int $b): bool

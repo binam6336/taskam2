@@ -1158,3 +1158,13 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
 .kb-focus-tag { display: inline-flex; align-items: center; gap: .3rem; margin-bottom: .35rem; padding: .1rem .5rem; border-radius: 99px; font-size: .7rem; font-weight: 800; color: var(--g-ink); background: var(--g-400); }
 @keyframes kb-pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), .6), var(--glow); } 100% { box-shadow: 0 0 0 14px rgba(var(--accent-rgb), 0), var(--glow); } }
 @media (prefers-reduced-motion: reduce) { .kb-card.kb-focus { animation: none; } }
+/* «مشاهده‌ی تسک‌های» در تب دسترسی برد */
+.bv-toggle { width: 100%; align-items: center; text-align: start; font: inherit; color: inherit; }
+.bv-toggle > div { flex: 1; } .bv-toggle b { display: block; } .bv-toggle span { font-size: .78rem; color: var(--g-300); }
+.bv-ic { color: var(--g-400); } .bv-chev { color: var(--faint); transition: transform .15s; }
+.bv-toggle[aria-expanded="true"] { border-color: var(--g-500); } .bv-toggle[aria-expanded="true"] .bv-chev { transform: rotate(180deg); }
+.bv-list { display: flex; flex-direction: column; gap: .35rem; margin-top: .4rem; padding: .45rem; max-height: 260px; overflow: auto; border: 1px dashed var(--border-2); border-radius: var(--radius-sm); }
+.bv-item { align-items: center; } .bv-item input { margin-top: 0; } .bv-item b { display: block; font-size: .86rem; } .bv-item span.ltr { font-size: .72rem; color: var(--faint); }
+.bv-item:has(input:disabled) { opacity: .75; cursor: default; }
+.bv-item .avatar { color: var(--g-ink); font-size: .8rem; } .bv-item .badge { font-size: .68rem; color: var(--muted); } .bv-item .badge.green { color: var(--g-300); }
+.bv-list[hidden] { display: none; }

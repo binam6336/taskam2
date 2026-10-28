@@ -18,7 +18,7 @@ $total = array_sum(array_map('count', $columns));
 
 <div data-live="board-body">
 <?php if ($total === 0): ?>
-<div class="card empty"><i class="fa-solid fa-table-columns"></i><p>تسکی برای نمایش در برد نیست. تسک‌های پروژه‌هایتان (که اجازه‌ی دیدنشان را دارید) این‌جا نمایش داده می‌شوند.</p></div>
+<div class="card empty"><i class="fa-solid fa-table-columns"></i><p>تسکی برای نمایش در برد نیست. این‌جا تسک‌های خودتان و تسک‌های اعضایی که مدیر پروژه در «مشاهده‌ی تسک‌های» برایتان انتخاب کرده نمایش داده می‌شوند.</p></div>
 <?php endif; ?>
 <div class="kb-board" id="kb-board">
 <?php foreach ($statuses as $key => $s): $cards = $columns[$key]; ?>
