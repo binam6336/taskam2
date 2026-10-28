@@ -19,6 +19,21 @@ final class SupportModel
         'answered' => ['پاسخ‌داده‌شده', "st.status = 'answered'"],
         'closed' => ['بسته', "st.status = 'closed'"],
     ];
+    /** آخرین فرستنده و وجود پاسخ مدیر (برای دسته‌بندی تیکت‌ها در پنل ادمین) */
+    private const LAST_ROLE = '(SELECT lm.sender_role FROM support_messages lm WHERE lm.ticket_id = st.id ORDER BY lm.id DESC LIMIT 1)';
+    private const HAS_ADMIN = "EXISTS (SELECT 1 FROM support_messages am WHERE am.ticket_id = st.id AND am.sender_role = 'admin')";
+    /**
+     * دسته‌های پنل ادمین:
+     *   جدید = هنوز هیچ پاسخی از مدیر/کارشناس نگرفته • منتظر پاسخ = آخرین پیام از کاربر است (بعد از پاسخ ما)
+     *   پاسخ داده شده = آخرین پیام از مدیر/کارشناس است • بسته شده
+     */
+    public const ADMIN_FILTERS = [
+        'all' => ['همه', ''],
+        'new' => ['جدید', "st.status <> 'closed' AND NOT " . self::HAS_ADMIN],
+        'waiting' => ['منتظر پاسخ', "st.status <> 'closed' AND " . self::HAS_ADMIN . ' AND ' . self::LAST_ROLE . " = 'user'"],
+        'answered' => ['پاسخ داده شده', "st.status <> 'closed' AND " . self::LAST_ROLE . " = 'admin'"],
+        'closed' => ['بسته شده', "st.status = 'closed'"],
+    ];
     public const MSG_MAX = 5000;
 
     /**
@@ -63,7 +78,7 @@ final class SupportModel
             $w[] = 'st.user_id = ?';
             $p[] = $uid;
         }
-        if (($cond = self::FILTERS[$filter][1] ?? '') !== '') {
+        if (($cond = self::filters($uid === null)[$filter][1] ?? '') !== '') {
             $w[] = $cond;
         }
         $q = trim($q);
@@ -98,6 +113,35 @@ final class SupportModel
                 (SELECT COUNT(*) FROM support_messages sm WHERE sm.ticket_id = st.id AND sm.sender_role = 'admin') AS admin_replies
             $from ORDER BY {$order}COALESCE(st.last_reply_at, st.created_at) DESC, st.id DESC LIMIT $per OFFSET " . (($page - 1) * $per), $p);
         return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per' => $per, 'pages' => $pages];
+    }
+
+    /** @return array<string,array{0:string,1:string}> */
+    public static function filters(bool $admin): array
+    {
+        return $admin ? self::ADMIN_FILTERS : self::FILTERS;
+    }
+
+    /** تعداد تیکت‌های هر دسته‌ی پنل ادمین (برای نمایش روی تب‌ها). */
+    public static function adminCounts(): array
+    {
+        $sel = [];
+        foreach (self::ADMIN_FILTERS as $k => [, $cond]) {
+            $sel[] = ($cond === '' ? 'COUNT(*)' : "SUM(CASE WHEN $cond THEN 1 ELSE 0 END)") . " AS `$k`";
+        }
+        $r = DB::one('SELECT ' . implode(', ', $sel) . ' FROM support_tickets st') ?: [];
+        return array_map('intval', $r);
+    }
+
+    /** دسته‌ی ادمین یک تیکت: [کلید، عنوان، رنگ نشان] */
+    public static function adminCategory(array $t): array
+    {
+        if ($t['status'] === 'closed') {
+            return ['closed', 'بسته شده', ''];
+        }
+        if ((int) ($t['admin_replies'] ?? 0) === 0) {
+            return ['new', 'جدید', 'yellow'];
+        }
+        return ($t['last_role'] ?? 'user') === 'admin' ? ['answered', 'پاسخ داده شده', 'green'] : ['waiting', 'منتظر پاسخ', 'red'];
     }
 
     public static function find(int $id, ?int $uid = null): ?array

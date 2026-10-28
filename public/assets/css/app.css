@@ -955,6 +955,8 @@ body.page-desk .qa { display: none; }
 .desk-filters { display: flex; gap: .35rem; flex-wrap: wrap; }
 .desk-filters .chip { color: var(--muted); transition: background-color .12s, color .12s; }
 .desk-filters .chip:hover { color: var(--text); background: var(--surface-2); }
+.desk-filters .chip-n { min-width: 18px; padding: 0 .35rem; border-radius: 99px; background: var(--surface-2); font-size: .68rem; text-align: center; }
+.desk-filters .chip.active .chip-n { background: rgba(var(--accent-rgb), .2); }
 .desk-filters .chip.active { background: var(--ok-bg); color: var(--g-300); border-color: rgba(var(--accent-rgb), .35); font-weight: 700; }
 .desk-list { flex: 1; overflow-y: auto; padding: .7rem; display: flex; flex-direction: column; gap: .6rem; overscroll-behavior: contain; }
 .desk-none { margin: 2rem auto; text-align: center; color: var(--muted); max-width: 260px; font-size: .88rem; }

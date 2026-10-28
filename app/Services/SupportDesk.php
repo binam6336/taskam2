@@ -19,7 +19,7 @@ final class SupportDesk
     {
         $q = $req->query;
         $params = [
-            'status' => isset(SupportModel::FILTERS[$q['status'] ?? '']) ? (string) $q['status'] : 'all',
+            'status' => isset(SupportModel::filters($admin)[$q['status'] ?? '']) ? (string) $q['status'] : 'all',
             'q' => mb_substr(trim((string) ($q['q'] ?? '')), 0, 100),
             'page' => max(1, (int) ($q['page'] ?? 1)),
             'per' => (int) ($q['per'] ?? 20),
@@ -49,6 +49,7 @@ final class SupportDesk
             'me' => $uid,
             'texts' => $texts,
             'priorities' => SupportModel::PRIORITIES,
+            'counts' => $admin ? SupportModel::adminCounts() : null,
         ];
     }
 

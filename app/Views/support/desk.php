@@ -2,7 +2,7 @@
 /**
  * میز تیکت (مشترک کاربر و ادمین): فهرست تیکت‌ها کنار گفتگوی تیکت بازشده.
  * @var bool $admin @var string $base @var array $list @var array $params @var ?array $ticket @var array $messages
- * @var int $me @var array $texts @var array $priorities
+ * @var int $me @var array $texts @var array $priorities @var ?array $counts
  */
 use App\Models\SupportModel;
 use App\Services\SupportDesk;
@@ -14,7 +14,12 @@ $tid = $ticket ? (int) $ticket['id'] : 0;
 $closed = $ticket && $ticket['status'] === 'closed';
 $canWrite = $ticket && ($admin || !$closed);
 $imgExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-$badgeHtml = static function (array $t): string {
+$badgeHtml = static function (array $t) use ($admin): string {
+    if ($admin) {
+        // پنل ادمین: دسته‌ی تیکت (جدید / منتظر پاسخ / پاسخ داده شده / بسته شده) + «در حال انجام»
+        [, $label, $tone] = SupportModel::adminCategory($t);
+        return '<span class="badge ' . e($tone) . '">' . e($label) . '</span>' . ($t['status'] === 'in_progress' ? '<span class="tbadge-wait user">در حال انجام</span>' : '');
+    }
     $b = SupportModel::badges($t);
     $h = '<span class="badge ' . e($b['state'][1]) . '">' . e($b['state'][0]) . '</span>';
     if ($b['wait']) {
@@ -41,8 +46,8 @@ $badgeHtml = static function (array $t): string {
                 <?php if ($params['per'] !== 20): ?><input type="hidden" name="per" value="<?= e((string) $params['per']) ?>"><?php endif; ?>
             </form>
             <nav class="desk-filters" aria-label="فیلتر وضعیت">
-                <?php foreach (SupportModel::FILTERS as $k => [$label]): ?>
-                <a class="chip <?= $params['status'] === $k ? 'active' : '' ?>" href="<?= e(url($base) . $qs(['status' => $k, 'page' => 1])) ?>"><?= e($label) ?></a>
+                <?php foreach (SupportModel::filters($admin) as $k => [$label]): ?>
+                <a class="chip <?= $params['status'] === $k ? 'active' : '' ?>" href="<?= e(url($base) . $qs(['status' => $k, 'page' => 1])) ?>"><?= e($label) ?><?php if ($counts !== null): ?> <span class="chip-n" data-live="desk-n-<?= e($k) ?>"><?= e(fa_num($counts[$k] ?? 0)) ?></span><?php endif; ?></a>
                 <?php endforeach; ?>
             </nav>
         </div>
