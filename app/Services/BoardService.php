@@ -9,7 +9,8 @@ use App\Models\TaskModel;
 /**
  * برد تیمی (کانبان) — نسخه‌ی دمو.
  * هر تسک یک وضعیت کانبان دارد؛ «done» با is_completed همگام است.
- * جابه‌جایی بین ستون‌ها = تغییر وضعیت، پس همان دسترسی «تکمیل تسک» (complete) را می‌خواهد.
+ * دیدن و جابه‌جایی کارت‌ها با «دسترسی برد تیمی» هر پروژه است (Access::BOARD_PERMS، جدا از دسترسی تسک؛ پیش‌فرض بسته).
+ * هر جابه‌جایی فقط یک مرحله جلو/عقب است، مگر با «جابه‌جایی آزاد».
  */
 final class BoardService
 {
@@ -39,7 +40,7 @@ final class BoardService
     /**
      * کارت‌های برد، گروه‌بندی‌شده بر اساس وضعیت.
      * فقط تسک‌هایی که کاربر اجازه‌ی مشاهده‌شان را دارد (طبق دسترسی تسک پروژه).
-     * @param array $f project (شناسه یا ۰)، mine (فقط مسئولیت من)، q (جستجو در عنوان)
+     * @param array $f project (شناسه یا ۰)، mine (فقط مسئولیت من)، q (جستجو در عنوان)، focus (تسکی که برجسته می‌شود؛ همیشه نمایش داده می‌شود)
      */
     public static function columns(int $uid, array $f): array
     {
@@ -60,20 +61,34 @@ final class BoardService
         $rows = TaskModel::board($where, $params);
 
         $cols = array_fill_keys(array_keys(self::STATUSES), []);
+        $focus = (int) ($f['focus'] ?? 0);
         foreach ($rows as $t) {
-            $st = isset($cols[$t['board_status']]) ? $t['board_status'] : ((int) $t['is_completed'] === 1 ? 'done' : 'todo');
-            if ($st === 'done' && count($cols['done']) >= self::DONE_LIMIT) {
+            $st = self::status($t);
+            $isFocus = (int) $t['id'] === $focus;
+            if ($st === 'done' && count($cols['done']) >= self::DONE_LIMIT && !$isFocus) {
                 continue;
             }
-            $perms = Access::taskPerms($t, $uid);
-            if (!in_array('view', $perms, true)) {
+            if (!Access::canBoardView($t, $uid)) {
                 continue;
             }
-            $t['can_move'] = in_array('complete', $perms, true);
+            $t['moves'] = Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES));
+            $t['can_move'] = $t['moves'] !== [];
+            $t['is_focus'] = $isFocus;
             $t['token'] = $t['share_token'] ?: TaskModel::ensureShareToken((int) $t['id']);
             $cols[$st][] = $t;
         }
         return $cols;
+    }
+
+    private static function status(array $t): string
+    {
+        return isset(self::STATUSES[$t['board_status'] ?? '']) ? $t['board_status'] : ((int) $t['is_completed'] === 1 ? 'done' : 'todo');
+    }
+
+    /** آیا تسک در برد کاربر دیده می‌شود؟ (برای آیکون «نمایش در برد» در جزئیات تسک) */
+    public static function canSee(array $t, int $uid): bool
+    {
+        return Access::canBoardView($t, $uid);
     }
 
     /** انتقال کارت به ستون دیگر. */
@@ -83,11 +98,15 @@ final class BoardService
             return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
         }
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+        if ($t === null || !Access::canBoardView($t, $actor)) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!Access::canTask($t, $actor, 'complete')) {
-            return self::res(false, 'اجازه‌ی تغییر وضعیت این تسک را ندارید.', 'FORBIDDEN', 403);
+        $from = self::status($t);
+        if ($from === $status) {
+            return self::res(true, 'تسک همین حالا در «' . self::STATUSES[$status]['label'] . '» است.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+        }
+        if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
+            return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);
         }
         $reason = trim(mb_substr($reason, 0, 255));
         $done = $status === 'done';

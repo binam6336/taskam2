@@ -35,19 +35,21 @@ final class ProjectModel
               (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS tasks_count,
               (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_completed = 1) AS tasks_done,
               (SELECT permissions FROM project_members pm2 WHERE pm2.project_id = p.id AND pm2.user_id = ? LIMIT 1) AS my_permissions,
-              (SELECT task_permissions FROM project_members pm3 WHERE pm3.project_id = p.id AND pm3.user_id = ? LIMIT 1) AS my_task_permissions
-            FROM projects p WHERE $w ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid, $uid], $p, [$limit, $offset]));
+              (SELECT task_permissions FROM project_members pm3 WHERE pm3.project_id = p.id AND pm3.user_id = ? LIMIT 1) AS my_task_permissions,
+              (SELECT board_permissions FROM project_members pm4 WHERE pm4.project_id = p.id AND pm4.user_id = ? LIMIT 1) AS my_board_permissions
+            FROM projects p WHERE $w ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid, $uid, $uid], $p, [$limit, $offset]));
         foreach ($rows as &$r) {
             $r['is_creator'] = (int) $r['user_id'] === $uid;
             $r['perms'] = $r['is_creator'] ? array_keys(Access::PROJECT_PERMS) : Access::decode($r['my_permissions'], array_keys(Access::PROJECT_PERMS));
             $r['task_perms'] = $r['is_creator'] ? array_keys(Access::TASK_PERMS) : Access::decode($r['my_task_permissions'], array_keys(Access::TASK_PERMS));
+            $r['board_perms'] = $r['is_creator'] ? array_keys(Access::BOARD_PERMS) : Access::decode($r['my_board_permissions'], array_keys(Access::BOARD_PERMS));
         }
         return $rows;
     }
 
     public static function members(int $projectId): array
     {
-        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
+        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
             FROM project_members pm INNER JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? ORDER BY pm.added_at ASC, pm.id ASC', [$projectId]);
     }
 

@@ -1,8 +1,9 @@
 -- ============================================================================
 --  تسکام — پخش تسک‌های باز داده‌ی آزمایشی بین ستون‌های برد تیمی (کانبان)
---  پیش‌نیاز: demo_kpi.sql اجرا شده باشد و migration 010 (یا یک بار باز شدن برنامه) اعمال شده باشد.
+--  پیش‌نیاز: demo_kpi.sql اجرا شده باشد و migrationهای 010 و 011 (یا یک بار باز شدن برنامه) اعمال شده باشند.
 --  فقط تسک‌های انجام‌نشده‌ی کاربران آزمایشی (09991867331 تا 09991867336) تغییر می‌کنند؛ اجرای دوباره امن است.
---  برای تست جابه‌جایی توسط همکاران، دسترسی «تکمیل تسک» و «نوشتن یادداشت» هم به اعضای پروژه‌های آزمایشی داده می‌شود.
+--  برای تست، به اعضای پروژه‌های آزمایشی که هنوز دسترسی برد ندارند یک دسترسی برد نمونه داده می‌شود:
+--  مشاهده، شروع کار، ارسال برای بررسی، مسدود کردن و رفع مسدودی (تأیید نهایی و جابه‌جایی آزاد فقط با مدیر پروژه).
 -- ============================================================================
 SET NAMES utf8mb4;
 START TRANSACTION;
@@ -26,8 +27,8 @@ UPDATE tasks t JOIN users u ON u.id = t.user_id
 UPDATE project_members pm
   JOIN projects p ON p.id = pm.project_id
   JOIN users o ON o.id = p.user_id
-   SET pm.task_permissions = '["notes","complete"]'
+   SET pm.board_permissions = '["view","to_progress","to_review","block","unblock"]'
  WHERE o.mobile = '09991867331' AND pm.user_id <> p.user_id
-   AND (pm.task_permissions IS NULL OR pm.task_permissions = '' OR pm.task_permissions = '[]');
+   AND (pm.board_permissions IS NULL OR pm.board_permissions = '' OR pm.board_permissions = '[]');
 
 COMMIT;

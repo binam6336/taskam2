@@ -111,6 +111,8 @@ return [
         'my_permissions' => 'مجوزهای شما در پروژه: edit_project, add_member, remove_member, manage_permissions, view_analytics.',
         'my_task_permissions' => 'دسترسی شما روی تسک‌های پروژه: edit_info, edit_due, reassign, notes, complete, delete (سازنده = همه).',
         'task_permissions' => 'دسترسی عضو روی تسک‌های همین پروژه: edit_info, edit_due, reassign, notes, complete, delete (پیش‌فرض هیچ).',
+        'my_board_permissions' => 'دسترسی شما در برد تیمی پروژه: view, to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any (سازنده = همه).',
+        'board_permissions' => 'دسترسی عضو در برد تیمی همین پروژه: view, to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any (پیش‌فرض هیچ).',
         'members_count' => 'تعداد اعضای فعلی.',
         'members' => 'آرایه‌ی اعضای پروژه.',
         'member_row_id' => 'شناسه‌ی ردیف عضویت.',

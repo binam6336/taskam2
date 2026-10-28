@@ -28,6 +28,25 @@ final class Access
     /** کارهایی که فقط سازنده‌ی تسک/پروژه انجام می‌دهد (مجوز جدا ندارند) */
     public const TASK_OWNER_ONLY = ['edit_meta', 'change_project'];
 
+    /**
+     * دسترسی‌های برد تیمی (کانبان) به ازای هر پروژه؛ جدا از دسترسی تسک‌ها و پیش‌فرض بسته.
+     * مسیر اصلی مراحل: backlog → todo → in_progress → review → done؛ «مسدودشده» مرحله‌ی کناری است.
+     */
+    public const BOARD_PERMS = [
+        'view'        => ['label' => 'مشاهده‌ی برد پروژه', 'icon' => 'fa-eye', 'desc' => 'دیدن همه‌ی تسک‌های پروژه در برد (حتی بدون دسترسی تسک)'],
+        'to_todo'     => ['label' => 'برنامه‌ریزی‌نشده ← آماده انجام', 'icon' => 'fa-list-ul', 'desc' => 'انتخاب تسک برای انجام'],
+        'to_progress' => ['label' => 'آماده انجام ← در حال انجام', 'icon' => 'fa-person-running', 'desc' => 'شروع کار روی تسک'],
+        'to_review'   => ['label' => 'در حال انجام ← در انتظار بررسی', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی'],
+        'to_done'     => ['label' => 'در انتظار بررسی ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک'],
+        'block'       => ['label' => 'مسدود کردن', 'icon' => 'fa-ban', 'desc' => 'انتقال از آماده انجام / در حال انجام / در انتظار بررسی به مسدودشده (با علت توقف)'],
+        'unblock'     => ['label' => 'رفع مسدودی', 'icon' => 'fa-lock-open', 'desc' => 'برگرداندن از مسدودشده به آماده انجام / در حال انجام / در انتظار بررسی'],
+        'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً در انتظار بررسی ← در حال انجام برای اصلاح، یا انجام‌شده ← در انتظار بررسی'],
+        'move_any'    => ['label' => 'جابه‌جایی آزاد', 'icon' => 'fa-shuffle', 'desc' => 'انتقال بین هر دو مرحله، از جمله پرش از چند مرحله'],
+    ];
+    private const BOARD_CHAIN = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+    private const BOARD_FORWARD = ['todo' => 'to_todo', 'in_progress' => 'to_progress', 'review' => 'to_review', 'done' => 'to_done'];
+    private const BOARD_ACTIVE = ['todo', 'in_progress', 'review'];
+
     public const PROJECT_PERMS = [
         'edit_project'       => ['label' => 'ویرایش پروژه', 'icon' => 'fa-pen', 'desc' => 'ویرایش نام، توضیحات، تصویر و تنظیمات'],
         'add_member'         => ['label' => 'افزودن کاربر', 'icon' => 'fa-user-plus', 'desc' => 'افزودن همکاران جدید به پروژه'],
@@ -51,15 +70,16 @@ final class Access
         return (int) ($row['assignee_id'] ?? 0) === $uid && in_array($action, ['view', 'complete', 'notes'], true);
     }
 
-    /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست] — با کش درون درخواست */
+    /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو] — با کش درون درخواست */
     private static function projectRole(int $projectId, int $uid): array
     {
         static $cache = [];
         $k = $projectId . ':' . $uid;
         if (!isset($cache[$k])) {
             $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
-            $row = DB::one('SELECT task_permissions FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
-            $cache[$k] = [$creator, $row === null ? null : self::decode($row['task_permissions'], array_keys(self::TASK_PERMS))];
+            $row = DB::one('SELECT task_permissions, board_permissions FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
+            $cache[$k] = [$creator, $row === null ? null : self::decode($row['task_permissions'], array_keys(self::TASK_PERMS)),
+                $row === null ? [] : self::decode($row['board_permissions'], array_keys(self::BOARD_PERMS))];
         }
         return $cache[$k];
     }
@@ -104,6 +124,57 @@ final class Access
     public static function canTask(array $task, int $uid, string $action): bool
     {
         return in_array($action, self::taskPerms($task, $uid), true);
+    }
+
+    /** دسترسی برد یک عضو در پروژه (سازنده‌ی پروژه = همه). */
+    public static function projectBoardPerms(int $projectId, int $uid): array
+    {
+        [$creator, , $board] = self::projectRole($projectId, $uid);
+        return $creator === $uid ? array_keys(self::BOARD_PERMS) : $board;
+    }
+
+    /** دسترسی‌های برد کاربر روی یک تسک: سازنده‌ی تسک و سازنده‌ی پروژه همه؛ بقیه طبق عضویتشان در پروژه. */
+    public static function boardPerms(array $task, int $uid): array
+    {
+        if ((int) $task['user_id'] === $uid) {
+            return array_keys(self::BOARD_PERMS);
+        }
+        $pid = (int) ($task['project_id'] ?? 0);
+        return $pid > 0 ? self::projectBoardPerms($pid, $uid) : [];
+    }
+
+    /** مجوز لازم برای جابه‌جایی کارت از مرحله‌ی $from به $to (همیشه move_any هم کافی است). */
+    public static function boardMovePerm(string $from, string $to): string
+    {
+        $i = array_search($from, self::BOARD_CHAIN, true);
+        $j = array_search($to, self::BOARD_CHAIN, true);
+        if ($i !== false && $j !== false) {
+            if ($j === $i + 1) {
+                return self::BOARD_FORWARD[$to];
+            }
+            return $j === $i - 1 ? 'move_back' : 'move_any';
+        }
+        if ($to === 'blocked') {
+            return in_array($from, self::BOARD_ACTIVE, true) ? 'block' : 'move_any';
+        }
+        return $from === 'blocked' && in_array($to, self::BOARD_ACTIVE, true) ? 'unblock' : 'move_any';
+    }
+
+    /** مراحلی که کاربر می‌تواند کارت را از وضعیت فعلی‌اش به آن‌ها ببرد. */
+    public static function boardTargets(array $task, int $uid, string $from, array $statuses): array
+    {
+        $have = self::boardPerms($task, $uid);
+        if (!$have) {
+            return [];
+        }
+        $any = in_array('move_any', $have, true);
+        return array_values(array_filter($statuses, static fn($to) => $to !== $from && ($any || in_array(self::boardMovePerm($from, $to), $have, true))));
+    }
+
+    /** دیدن تسک در برد: دسترسی مشاهده‌ی تسک یا «مشاهده‌ی برد پروژه». */
+    public static function canBoardView(array $task, int $uid): bool
+    {
+        return self::canTask($task, $uid, 'view') || in_array('view', self::boardPerms($task, $uid), true);
     }
 
     public static function isColleague(int $a, int $b): bool

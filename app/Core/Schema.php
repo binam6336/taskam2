@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '010';
+    private const VERSION = '011';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -30,6 +30,8 @@ final class Schema
             "UPDATE `tasks` SET `board_status` = 'done' WHERE `is_completed` = 1"],
         ['tasks', 'blocked_reason', 'ADD COLUMN `blocked_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `board_status`', null],
         ['tasks', 'board_moved_at', 'ADD COLUMN `board_moved_at` TIMESTAMP NULL DEFAULT NULL AFTER `blocked_reason`', null],
+        // 011
+        ['project_members', 'board_permissions', 'ADD COLUMN `board_permissions` TEXT NULL DEFAULT NULL AFTER `task_permissions`', null],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */

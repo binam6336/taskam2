@@ -241,6 +241,7 @@ document.addEventListener('tk:ready', () => {
     detail.innerHTML = `
       <div class="flex between gap-2 items-center mb-2">
         <h3 class="grow" style="margin:0">${E(t.title)}</h3>
+        ${t.on_board ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در برد تیمی" aria-label="نمایش در برد تیمی"><i class="fa-solid fa-table-columns"></i></a>` : ''}
         ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
         <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
       </div>

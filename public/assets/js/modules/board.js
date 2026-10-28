@@ -24,9 +24,12 @@ document.addEventListener('tk:ready', () => {
     TK.reload();                               // علت توقف، مرتب‌سازی و شمارنده‌ها از سرور
   };
 
-  /* «مسدودشده» علت توقف می‌پرسد */
+  /* مقصدهای مجاز هر کارت (طبق دسترسی برد تیمی) از سرور می‌آید؛ «مسدودشده» علت توقف می‌پرسد */
+  const allowed = (card, status) => (card.dataset.moves || '').split(' ').includes(status);
   let pending = null; const bf = TK.qs('#f-kb-block');
   const request = (card, status) => {
+    if (card.dataset.status === status) return;
+    if (!allowed(card, status)) { TK.toast(`اجازه‌ی انتقال این تسک به «${statuses[status]?.label || status}» را ندارید.`, 'error'); return; }
     if (status !== 'blocked') return move(card, status);
     pending = card; bf.reset(); TK.modal.open('m-kb-block');
   };
@@ -41,11 +44,12 @@ document.addEventListener('tk:ready', () => {
   document.addEventListener('dragstart', (e) => {
     const c = e.target.closest?.('.kb-card[draggable="true"]'); if (!c) return;
     dragged = c; c.classList.add('kb-dragging');
+    TK.qsa('.kb-col').forEach((col) => col.classList.toggle('kb-deny', col.dataset.col !== c.dataset.status && !allowed(c, col.dataset.col)));
     e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.id);
   });
-  document.addEventListener('dragend', () => { dragged?.classList.remove('kb-dragging'); dragged = null; TK.qsa('.kb-col.kb-over').forEach((c) => c.classList.remove('kb-over')); });
+  document.addEventListener('dragend', () => { dragged?.classList.remove('kb-dragging'); dragged = null; TK.qsa('.kb-col.kb-over, .kb-col.kb-deny').forEach((c) => c.classList.remove('kb-over', 'kb-deny')); });
   document.addEventListener('dragover', (e) => {
-    const col = e.target.closest?.('.kb-col'); if (!col || !dragged) return;
+    const col = e.target.closest?.('.kb-col'); if (!col || !dragged || col.classList.contains('kb-deny')) return;
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
     TK.qsa('.kb-col.kb-over').forEach((c) => c !== col && c.classList.remove('kb-over'));
     col.classList.add('kb-over');
@@ -62,10 +66,14 @@ document.addEventListener('tk:ready', () => {
     const card = b.closest('.kb-card'), open = card.querySelector('.kb-menu'); closeMenu();
     if (open) return;
     const m = document.createElement('div'); m.className = 'kb-menu'; m.setAttribute('role', 'menu');
-    m.innerHTML = '<div class="kb-menu-h">انتقال به</div>' + Object.entries(statuses).map(([k, s]) => `<button type="button" role="menuitem" data-kb-to="${E(k)}" ${k === card.dataset.status ? 'disabled' : ''}><i class="fa-solid ${E(s.icon)}"></i> ${E(s.label)}</button>`).join('');
+    m.innerHTML = '<div class="kb-menu-h">انتقال به</div>' + Object.entries(statuses).map(([k, s]) => `<button type="button" role="menuitem" data-kb-to="${E(k)}" ${k === card.dataset.status || !allowed(card, k) ? 'disabled' : ''}><i class="fa-solid ${E(s.icon)}"></i> ${E(s.label)}${k !== card.dataset.status && !allowed(card, k) ? ' <i class="fa-solid fa-lock kb-menu-lock"></i>' : ''}</button>`).join('');
     card.appendChild(m); m.querySelector('button:not([disabled])')?.focus();
   });
   TK.on('click', '[data-kb-to]', (e, b) => { const card = b.closest('.kb-card'); closeMenu(); request(card, b.dataset.kbTo); });
   document.addEventListener('click', (e) => { if (!e.target.closest('.kb-menu, [data-kb-menu]')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  /* آمدن از جزئیات تسک (?task=): کارت برجسته در وسط دید */
+  const f = TK.qs('.kb-card.kb-focus');
+  if (f) setTimeout(() => f.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }), 150);
 });

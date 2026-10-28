@@ -20,10 +20,11 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#proj-title-h').textContent = 'پروژه جدید'; TK.qs('#members-field').classList.remove('hidden'); memberChecks(); TK.modal.open('m-project');
   });
 
-  /* ستون دسترسی‌ها: دو گروه تسک و پروژه */
+  /* ستون دسترسی‌ها: سه گروه تسک، پروژه و برد تیمی */
   const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" style="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
-    <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>`;
+    <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
+    <div class="perm-cell"><span class="perm-cell-l">برد:</span>${chips(m.board_perms, data().boardPermDefs, 'بدون دسترسی')}</div>`;
 
   /* مدیریت پروژه */
   const manage = (id) => {
@@ -34,7 +35,7 @@ document.addEventListener('tk:ready', () => {
       <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>دسترسی‌ها</th><th></th></tr></thead><tbody>
       ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)} ${m.is_creator ? '<span class="badge green">سازنده</span>' : ''}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
         <td>${m.is_creator ? '<span class="faint small">همه‌ی دسترسی‌ها</span>' : permCell(m)}</td>
-        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="دسترسی‌های تسک و پروژه"><i class="fa-solid fa-key"></i></button>` : ''}
+        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="دسترسی‌های تسک، پروژه و برد تیمی"><i class="fa-solid fa-key"></i></button>` : ''}
           ${!m.is_creator && can('remove_member') ? `<button class="btn btn-xs btn-danger" data-post="${TK.url('/projects/' + id + '/members/' + m.id + '/remove')}" data-confirm="«${E(m.name)}» از پروژه حذف شود؟"><i class="fa-solid fa-user-minus"></i></button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>`;
     TK.modal.open('m-members');
@@ -54,7 +55,7 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open('m-project');
   });
 
-  /* دسترسی‌های عضو: دو تب «تسک» (اول) و «پروژه»؛ فقط دسترسی‌هایی که خودتان دارید قابل تغییر است */
+  /* دسترسی‌های عضو: سه تب «تسک» (اول)، «پروژه» و «برد تیمی»؛ فقط دسترسی‌هایی که خودتان دارید قابل تغییر است */
   let target = null; const pf = TK.qs('#f-mperm');
   const setTab = (name) => {
     TK.qsa('[data-ptab]', pf).forEach((b) => { const on = b.dataset.ptab === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
@@ -66,6 +67,7 @@ document.addEventListener('tk:ready', () => {
     const [pid, uid] = t.dataset.mperm.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
     target = { pid, uid }; TK.qs('#mp-name').textContent = m.name; TK.qs('#mp-project').textContent = '«' + p.title + '»';
     TK.qs('#mp-task-list').innerHTML = Object.entries(data().taskPermDefs).map(([k, d]) => box('task_permissions', k, d, m.task_perms.includes(k), p.task_perms.includes(k))).join('');
+    TK.qs('#mp-board-list').innerHTML = Object.entries(data().boardPermDefs).map(([k, d]) => box('board_permissions', k, d, m.board_perms.includes(k), p.board_perms.includes(k))).join('');
     TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => box('permissions', k, d, m.perms.includes(k), p.perms.includes(k))).join('');
     setTab('task');
     TK.modal.open('m-mperm');
@@ -77,9 +79,10 @@ document.addEventListener('tk:ready', () => {
     const base = '/projects/' + target.pid + '/members/' + target.uid;
     const r1 = await TK.post(base + '/task-permissions', { permissions: vals('task_permissions') });
     const r2 = TK.ok(r1) ? await TK.post(base + '/permissions', { permissions: vals('permissions') }) : null;
+    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { permissions: vals('board_permissions') }) : null;
     TK.busy(btn, false);
-    const ok = TK.ok(r1) && TK.ok(r2);
-    TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r2 || r1).message || 'خطا'), ok ? 'success' : 'error');
+    const ok = TK.ok(r1) && TK.ok(r2) && TK.ok(r3);
+    TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r3 || r2 || r1).message || 'خطا'), ok ? 'success' : 'error');
     if (ok) { TK.modal.close('m-mperm'); TK.modal.close('m-members'); TK.reload(); }
   });
 });

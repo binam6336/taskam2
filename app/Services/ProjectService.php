@@ -195,6 +195,17 @@ final class ProjectService
      */
     public static function setTaskPermissions(int $projectId, int $actorId, int $memberId, array $perms): array
     {
+        return self::setMemberPerms('task_permissions', Access::TASK_PERMS, [Access::class, 'projectTaskPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی تسک‌ها ذخیره شد.');
+    }
+
+    /** دسترسی یک عضو در برد تیمی این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک. */
+    public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms): array
+    {
+        return self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی برد تیمی ذخیره شد.');
+    }
+
+    private static function setMemberPerms(string $column, array $defs, callable $holderPerms, int $projectId, int $actorId, int $memberId, array $perms, string $okMsg): array
+    {
         $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
         if ($creator === 0) {
             return [false, 'پروژه یافت نشد.'];
@@ -203,22 +214,23 @@ final class ProjectService
             return [false, 'دسترسی مدیریت مجوزها را ندارید.'];
         }
         if ($memberId === $creator) {
-            return [false, 'سازنده‌ی پروژه همیشه همه‌ی دسترسی‌های تسک را دارد.'];
+            return [false, 'سازنده‌ی پروژه همیشه همه‌ی دسترسی‌ها را دارد.'];
         }
-        $row = DB::one('SELECT task_permissions FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
+        $row = DB::one('SELECT `' . $column . '` AS v FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
         if ($row === null) {
             return [false, 'کاربر عضو پروژه نیست.'];
         }
-        $old = Access::decode($row['task_permissions'], array_keys(Access::TASK_PERMS));
-        $clean = array_values(array_unique(array_intersect($perms, array_keys(Access::TASK_PERMS))));
+        $keys = array_keys($defs);
+        $old = Access::decode($row['v'], $keys);
+        $clean = array_values(array_unique(array_intersect($perms, $keys)));
         if ($actorId !== $creator) {
-            $grantable = Access::projectTaskPerms($projectId, $actorId);
+            $grantable = $holderPerms($projectId, $actorId);
             $clean = array_values(array_unique(array_merge(array_diff($old, $grantable), array_intersect($clean, $grantable))));
         }
         // ترتیب ثابت مثل تعریف‌ها
-        $clean = array_values(array_intersect(array_keys(Access::TASK_PERMS), $clean));
-        DB::run('UPDATE project_members SET task_permissions = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
-        return [true, 'دسترسی تسک‌ها ذخیره شد.'];
+        $clean = array_values(array_intersect($keys, $clean));
+        DB::run('UPDATE project_members SET `' . $column . '` = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
+        return [true, $okMsg];
     }
 
     public static function delete(int $projectId, int $uid): array

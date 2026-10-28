@@ -12,6 +12,7 @@ use App\Models\ProjectModel;
 use App\Models\SubjectModel;
 use App\Models\TaskModel;
 use App\Services\Access;
+use App\Services\BoardService;
 use App\Services\Priority;
 use App\Services\TaskService;
 
@@ -126,7 +127,7 @@ final class TaskController extends Controller
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'assignee_name' => $t['assignee_id'] ? full_name($t, 'assignee_') : null,
             'creator_id' => (int) $t['user_id'], 'creator_name' => full_name($t, 'creator_'),
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
-            'share_token' => $t['share_token'], 'can' => $can, 'notes' => $notes, 'files' => $files,
+            'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
         ];
     }
 

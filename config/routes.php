@@ -118,6 +118,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/{id}/unblock', [ProjectController::class, 'unblock']);
     $r->post('/projects/{id}/members/{userId}/permissions', [ProjectController::class, 'memberPermissions']);
     $r->post('/projects/{id}/members/{userId}/task-permissions', [ProjectController::class, 'memberTaskPermissions']);
+    $r->post('/projects/{id}/members/{userId}/board-permissions', [ProjectController::class, 'memberBoardPermissions']);
     $r->post('/projects/{id}/members/{userId}/remove', [ProjectController::class, 'removeMember']);
 
     // گفتگو (JSON)
@@ -250,4 +251,5 @@ $router->group(['api'], function ($r) {
     $r->post('/projects/member-remove', [ProjectApi::class, 'memberRemove']);
     $r->post('/projects/member-permissions', [ProjectApi::class, 'memberPermissions']);
     $r->post('/projects/task-permissions', [ProjectApi::class, 'memberTaskPermissions']);
+    $r->post('/projects/board-permissions', [ProjectApi::class, 'memberBoardPermissions']);
 }, '/api/v1');

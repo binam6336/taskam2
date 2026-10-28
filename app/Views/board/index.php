@@ -31,11 +31,12 @@ $total = array_sum(array_map('count', $columns));
         <div class="kb-list" data-drop="<?= e($key) ?>">
         <?php foreach ($cards as $t):
             $overdue = $key !== 'done' && $t['due_date'] && strtotime($t['due_date'] . ' ' . ($t['due_time'] ?: '23:59:59')) < time(); ?>
-            <article class="kb-card p-<?= e($t['priority']) ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
+            <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
+                <?php if ($t['is_focus']): ?><div class="kb-focus-tag"><i class="fa-solid fa-location-crosshairs"></i> همین تسک</div><?php endif; ?>
                 <div class="kb-card-top">
                     <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>"><?= e($t['title']) ?></a>
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                    <?php else: ?><span class="faint xs" title="اجازه‌ی تغییر وضعیت این تسک را ندارید"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
+                    <?php else: ?><span class="faint xs" title="دسترسی جابه‌جایی این تسک در برد را ندارید"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
                 </div>
                 <?php if ($key === 'blocked' && $t['blocked_reason']): ?><div class="kb-reason"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
                 <div class="kb-meta">

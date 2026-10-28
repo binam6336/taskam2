@@ -1151,3 +1151,10 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
   .kb-col { max-height: none; }
   .kb-filters select.input { flex: 1 1 100%; }
 }
+.kb-col.kb-deny { opacity: .45; }
+.kb-menu-lock { margin-inline-start: auto; font-size: .7rem; }
+.kb-card.kb-focus { border-color: var(--g-400); border-width: 2px; border-inline-start-width: 4px; box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .25), var(--glow); animation: kb-pulse 1.4s ease-out 2; }
+.kb-card.kb-focus .kb-title { font-weight: 900; font-size: 1rem; }
+.kb-focus-tag { display: inline-flex; align-items: center; gap: .3rem; margin-bottom: .35rem; padding: .1rem .5rem; border-radius: 99px; font-size: .7rem; font-weight: 800; color: var(--g-ink); background: var(--g-400); }
+@keyframes kb-pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), .6), var(--glow); } 100% { box-shadow: 0 0 0 14px rgba(var(--accent-rgb), 0), var(--glow); } }
+@media (prefers-reduced-motion: reduce) { .kb-card.kb-focus { animation: none; } }

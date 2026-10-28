@@ -111,6 +111,7 @@ CREATE TABLE `project_members` (
   `user_id`     INT UNSIGNED NOT NULL,
   `permissions` TEXT NULL DEFAULT NULL               COMMENT 'JSON: edit_project, add_member, remove_member, manage_permissions, view_analytics',
   `task_permissions` TEXT NULL DEFAULT NULL          COMMENT 'JSON: edit_info, edit_due, reassign, notes, complete, delete — دسترسی روی تسک‌های همین پروژه',
+  `board_permissions` TEXT NULL DEFAULT NULL         COMMENT 'JSON: دسترسی عضو در برد تیمی همین پروژه (view, to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any)',
   `added_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_project_member` (`project_id`, `user_id`),
