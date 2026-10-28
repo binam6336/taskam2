@@ -60,9 +60,13 @@ final class BoardService
             $params[] = '%' . addcslashes((string) $f['q'], '%_\\') . '%';
         }
         $rows = TaskModel::board($where, $params);
+        // کارت برجسته همیشه هست، حتی اگر بیرون از سقف تعداد کارت‌ها افتاده باشد
+        $focus = (int) ($f['focus'] ?? 0);
+        if ($focus > 0 && !in_array($focus, array_map(static fn($r) => (int) $r['id'], $rows), true)) {
+            $rows = array_merge($rows, TaskModel::board('t.id = ?', [$uid, $focus]));
+        }
 
         $cols = array_fill_keys(array_keys(self::STATUSES), []);
-        $focus = (int) ($f['focus'] ?? 0);
         foreach ($rows as $t) {
             $st = self::status($t);
             $isFocus = (int) $t['id'] === $focus;
