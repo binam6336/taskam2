@@ -7,12 +7,14 @@
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
   const tasksGroup = () => TK.qs('#nav-g-tasks')?.closest('[data-nav-group]');
+  const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
   const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
 
   /* مرحله‌ها با شماره‌ی ثابت (همان که ذخیره می‌شود).
      page: صفحه‌ای که مرحله در آن اجرا می‌شود | when: شرط نمایش | target: بخشی که به آن اشاره می‌شود (اولین مورد نمایان)
      action: click = با کلیک کاربر روی بخش جلو می‌رود، go = لینک بخش باز می‌شود و تور در صفحه‌ی بعد ادامه دارد،
-             ok = دکمه‌ی «فهمیدم» (کاربر می‌تواند همان بخش را پر کند)، submit = بعد از ذخیره‌ی موفق فرم جلو می‌رود
+             ok = دکمه‌ی «فهمیدم» (کاربر می‌تواند همان بخش را پر کند)، submit = بعد از ذخیره‌ی موفق فرم جلو می‌رود،
+             wait = وقتی شرط until برقرار شد جلو می‌رود (hint: راهنمای زیر متن)
      back: اگر بخش پنهان شد (مثلاً پنجره بسته شد) به این مرحله برمی‌گردد */
   const STEPS = {
     1: {
@@ -42,22 +44,40 @@
     7: field('project', 'اینجا پروژه‌ی مربوط به تسک رو انتخاب کنید. پروژه‌ها برای مدیریت بهتر موضوعات تسک‌ها استفاده می‌شن و می‌تونید تنظیمات مدنظر خودتون رو روی پروژه اعمال کنید.', { next: 8 }),
     8: field('assignee', 'اینجا مشخص می‌کنی این تسک رو کی باید انجام بده و مسئولش چه شخصیه.', { next: 9 }),
     9: field('priority', 'این فیلد مشخص می‌کنه اولویت این تسک برای تیم چقدره.', { next: 10 }),
-    10: field('label', 'لیبل به شما کمک می‌کنه تگ‌های مدنظر رو برای تسک‌ها ایجاد کنید.', { next: 11 }),
-    11: field('due', 'تاریخ انجام تسک اینجا مشخص می‌شه و تو تاریخ مربوط به انجام، برای شما نوتیفیکیشن یادآوری ارسال می‌شه.', { next: 12 }),
-    12: field('time', 'حتی می‌تونید ساعت دقیق یادآوری رو هم اینجا مشخص کنید.', { next: 13 }),
-    13: field('files', 'اگه فایلی باید به تسک اضافه بشه، اینجا می‌تونید اضافه کنید.', { next: 14 }),
-    14: field('save', 'با کلیک روی ذخیره، تسک شما ایجاد می‌شه.', {
-      action: 'submit', next: 15, celebrate: 'تسک شما ایجاد شد!',
-      // فیلد اجباری خالی → برگشت به مرحله‌ی همان فیلد و بعد از «فهمیدم» دوباره همین‌جا
+    // بدون لیبل: کلیک روی لیبل → مرحله‌ی ساخت اولین لیبل؛ با لیبل موجود: انتخاب از لیست و «فهمیدم»
+    10: field('label', 'لیبل به شما کمک می‌کنه تگ‌های مدنظر رو برای تسک‌ها ایجاد کنید.', {
+      action: () => (hasLabels() ? 'ok' : 'click'), next: () => (hasLabels() ? 12 : 11),
+    }),
+    11: {
+      page: 'tasks', target: '#subj-pick .subj-new', action: 'wait', back: 10, next: 12,
+      text: 'اولین لیبل خودت رو ایجاد کن!', hint: 'عنوان لیبل رو بنویس و تیک رو بزن',
+      // باز کردن بخش «افزودن لیبل جدید» (بستن لیست بازشده‌ی انتخاب لیبل)
+      prepare: () => {
+        const sel = TK.qs('#f-task [name=subject_id]');
+        if (!sel || sel.classList.contains('hidden')) return;
+        sel.blur();
+        sel.value = '__new';
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      },
+      until: () => { const v = TK.qs('#f-task [name=subject_id]')?.value; return !!v && v !== '__new'; }, // لیبل ساخته و انتخاب شد
+    },
+    12: field('due', 'تاریخ انجام تسک اینجا مشخص می‌شه و تو تاریخ مربوط به انجام، برای شما نوتیفیکیشن یادآوری ارسال می‌شه.', { next: 13 }),
+    13: field('time', 'حتی می‌تونید ساعت دقیق یادآوری رو هم اینجا مشخص کنید.', { next: 14 }),
+    14: field('files', 'اگه فایلی باید به تسک اضافه بشه، اینجا می‌تونید اضافه کنید.', { next: 15 }),
+    15: field('save', 'با کلیک روی ذخیره، تسک شما ایجاد می‌شه.', {
+      action: 'submit', next: 16, celebrate: 'تسک شما ایجاد شد!',
+      // فیلد اجباری خالی → برگشت به مرحله‌ی همان فیلد و بعد از آن دوباره همین‌جا
       check: () => {
         const f = TK.qs('#f-task');
         if (!f.elements.title.value.trim()) return 5;
         if (!f.elements.project_id.value) return 7;
-        if (!f.elements.subject_id.value || f.elements.subject_id.value === '__new') return 10;
+        const subj = f.elements.subject_id;
+        if (!subj.value || subj.value === '__new') return hasLabels() ? 10 : 11; // بدون لیبل → مستقیم ساخت لیبل
         return 0;
       },
     }),
   };
+  const act = (step) => (typeof step.action === 'function' ? step.action() : step.action);
   const ids = Object.keys(STEPS).map(Number).sort((a, b) => a - b);
   const active = () => ids.filter((i) => !STEPS[i].when || STEPS[i].when());
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
@@ -120,11 +140,13 @@
     });
     document.body.appendChild(ui);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('mousedown', noNative, true);
   };
 
   const finish = () => {
     cancelAnimationFrame(raf);
     document.removeEventListener('click', onClick, true);
+    document.removeEventListener('mousedown', noNative, true);
     form?.removeEventListener('tk:done', onSaved);
     ui?.remove();
     ui = cur = form = null;
@@ -140,8 +162,8 @@
   // رفتن به مرحله‌ی بعد؛ اگر در همین صفحه نباشد، ذخیره می‌شود تا در صفحه‌ی خودش ادامه پیدا کند
   const advance = () => {
     const step = STEPS[cur];
-    if (resume && step.action === 'ok') { const r = resume; resume = null; run(r); return; }
-    let n = step.next;
+    if (resume && ['ok', 'wait'].includes(act(step))) { const r = resume; resume = null; run(r); return; }
+    let n = typeof step.next === 'function' ? step.next() : step.next;
     while (n && STEPS[n] && STEPS[n].when && !STEPS[n].when()) n = STEPS[n].next;
     if (!n) { finish(); save('done'); return; }
     if (!STEPS[n] || STEPS[n].page !== boot.page) { finish(); save(String(n)); return; }
@@ -150,18 +172,24 @@
 
   // ذخیره‌ی موفق فرم در مرحله‌ی submit: تیک انیمیشنی و آماده‌ی مرحله‌ی بعد؛ خطا (مثلاً لیبل انتخاب نشده) = ماندن در همین مرحله
   const onSaved = (e) => {
-    if (cur === null || STEPS[cur].action !== 'submit' || !TK.ok(e.detail)) return;
+    if (cur === null || act(STEPS[cur]) !== 'submit' || !TK.ok(e.detail)) return;
     const step = STEPS[cur];
     if (step.celebrate) celebrate(step.celebrate);
     advance();
+  };
+
+  // در مرحله‌ی «کلیک کن» روی یک select، لیست خود مرورگر باز نشود (مرحله‌ی بعد جای آن را می‌گیرد)
+  const noNative = (e) => {
+    if (cur !== null && act(STEPS[cur]) === 'click' && e.target.closest?.('select') && e.target.closest(STEPS[cur].target)) e.preventDefault();
   };
 
   const onClick = (e) => {
     if (cur === null) return;
     const step = STEPS[cur];
     const t = e.target.closest?.(step.target);
-    if (!t || step.action === 'ok') return;
-    if (step.action === 'submit') {
+    const action = act(step);
+    if (!t || action === 'ok' || action === 'wait') return;
+    if (action === 'submit') {
       const miss = step.check?.();
       if (miss) {
         e.preventDefault();
@@ -172,7 +200,7 @@
       }
       return;
     }
-    if (step.action === 'go') {
+    if (action === 'go') {
       e.preventDefault();
       e.stopPropagation();
       const href = t.href;
@@ -193,9 +221,9 @@
     step.prepare?.();
     const list = active();
     const pos = list.indexOf(id) + 1;
-    const hint = step.action === 'ok'
+    const hint = act(step) === 'ok'
       ? '<button type="button" class="btn btn-primary btn-sm" data-tour-ok>فهمیدم</button>'
-      : '<span class="tour-hint"><i class="fa-solid fa-hand-pointer"></i> روی بخش مشخص‌شده کلیک کن</span>';
+      : `<span class="tour-hint"><i class="fa-solid fa-hand-pointer"></i> ${TK.esc(step.hint || 'روی بخش مشخص‌شده کلیک کن')}</span>`;
     ui.querySelector('.tour-body').innerHTML = `<div class="tour-step">مرحله‌ی ${TK.fa(pos)} از ${TK.fa(list.length)}</div>
       <p>${TK.esc(step.text)}</p>
       <div class="tour-foot">${hint}<button type="button" class="tour-exit" data-tour-exit>رد کردن آموزش</button></div>`;
@@ -212,7 +240,7 @@
       }
       el.scrollIntoView({ block: 'nearest' });
       cur = id;
-      if (step.action === 'submit') { form = el.closest('form'); form?.addEventListener('tk:done', onSaved); }
+      if (act(step) === 'submit') { form = el.closest('form'); form?.addEventListener('tk:done', onSaved); }
       void pop.offsetWidth;
       pop.classList.add('in');
       track(el);
@@ -228,6 +256,7 @@
     let shown = new Set();
     const set = (n, x, y, w, h) => Object.assign(n.style, { left: x + 'px', top: y + 'px', width: Math.max(0, w) + 'px', height: Math.max(0, h) + 'px' });
     const frame = () => {
+      if (cur !== null && STEPS[cur].until?.()) { advance(); return; }
       if (cur !== null && !visible(el)) {
         const step = STEPS[cur];
         const again = find(step.target);
