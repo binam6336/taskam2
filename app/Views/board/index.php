@@ -32,7 +32,7 @@ $total = array_sum(array_map('count', $columns));
         <?php foreach ($cards as $t):
             $overdue = $key !== 'done' && $t['due_date'] && strtotime($t['due_date'] . ' ' . ($t['due_time'] ?: '23:59:59')) < time(); ?>
             <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
-                <?php if ($t['is_focus']): ?><div class="kb-focus-tag"><i class="fa-solid fa-location-crosshairs"></i> همین تسک</div><?php endif; ?>
+                <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>
                 <div class="kb-card-top">
                     <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>"><?= e($t['title']) ?></a>
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
