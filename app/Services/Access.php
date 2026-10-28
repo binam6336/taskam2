@@ -56,6 +56,61 @@ final class Access
         'view_analytics'     => ['label' => 'مشاهده تحلیل‌ها', 'icon' => 'fa-chart-line', 'desc' => 'دسترسی به صفحه‌ی تحلیل و آمار پروژه'],
     ];
 
+    /**
+     * نقش‌های آماده‌ی عضو پروژه: پکیج دسترسی تسک + پروژه + برد تیمی + «مشاهده‌ی تسک‌ها»ی برد (all = همه‌ی اعضا، own = فقط خودش).
+     * نقش ذخیره نمی‌شود؛ از روی دسترسی‌های فعلی تشخیص داده می‌شود (هر تغییر دستی = «سفارشی»).
+     */
+    public const ROLES = [
+        'admin'        => ['label' => 'مدیر کل', 'icon' => 'fa-crown', 'tone' => 'green', 'desc' => 'همه‌ی دسترسی‌ها در همه‌ی بخش‌های پروژه؛ در برد تسک‌های همه را می‌بیند.',
+            'task' => '*', 'project' => '*', 'board' => '*', 'view' => 'all'],
+        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز حذف تسک؛ در برد تسک‌های همه را می‌بیند.',
+            'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => '*', 'board' => '*', 'view' => 'all'],
+        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز حذف. پروژه: همه‌چیز جز افزودن و حذف کاربر. برد: همه‌چیز؛ پیش‌فرض فقط تسک‌های خودش را می‌بیند.',
+            'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => ['edit_project', 'manage_permissions', 'view_analytics'], 'board' => '*', 'view' => 'own'],
+        'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. بدون دسترسی پروژه و برد؛ فقط تسک‌های خودش را می‌بیند.',
+            'task' => ['edit_info', 'notes'], 'project' => [], 'board' => [], 'view' => 'own'],
+        'none'         => ['label' => 'بدون دسترسی', 'icon' => 'fa-user-slash', 'tone' => 'red', 'desc' => 'هیچ دسترسی‌ای ندارد؛ فقط تسک‌های خودش را می‌بیند.',
+            'task' => [], 'project' => [], 'board' => [], 'view' => 'own'],
+    ];
+    public const ROLE_CUSTOM = ['label' => 'سفارشی', 'icon' => 'fa-sliders', 'tone' => 'purple', 'desc' => 'دسترسی‌ها دستی تنظیم شده و با هیچ نقش آماده‌ای یکی نیست.'];
+
+    /** پکیج کامل یک نقش: [task[], project[], board[], viewAll] */
+    public static function rolePackage(string $role): ?array
+    {
+        $r = self::ROLES[$role] ?? null;
+        if ($r === null) {
+            return null;
+        }
+        $all = static fn($v, array $defs) => $v === '*' ? array_keys($defs) : $v;
+        return [$all($r['task'], self::TASK_PERMS), $all($r['project'], self::PROJECT_PERMS), $all($r['board'], self::BOARD_PERMS), $r['view'] === 'all'];
+    }
+
+    /** نقش عضو از روی دسترسی‌های فعلی‌اش (یا custom). */
+    public static function roleOf(array $task, array $project, array $board, bool $viewAll, array $viewIds): string
+    {
+        $same = static fn(array $a, array $b) => !array_diff($a, $b) && !array_diff($b, $a);
+        foreach (array_keys(self::ROLES) as $k) {
+            [$t, $p, $b, $all] = self::rolePackage($k);
+            if ($same($task, $t) && $same($project, $p) && $same($board, $b) && $viewAll === $all && ($all || !$viewIds)) {
+                return $k;
+            }
+        }
+        return 'custom';
+    }
+
+    /** نقش یک ردیف project_members (ستون‌های permissions, task_permissions, board_permissions, board_view_users). */
+    public static function memberRole(array $row): string
+    {
+        return self::roleOf(self::decode($row['task_permissions'] ?? null, array_keys(self::TASK_PERMS)), self::decode($row['permissions'] ?? null, array_keys(self::PROJECT_PERMS)),
+            self::decode($row['board_permissions'] ?? null, array_keys(self::BOARD_PERMS)), self::viewAll($row['board_view_users'] ?? null), self::ids($row['board_view_users'] ?? null));
+    }
+
+    /** board_view_users = "all": تسک‌های همه‌ی اعضا (حتی اعضای بعدی) */
+    public static function viewAll(?string $json): bool
+    {
+        return json_decode((string) $json, true) === 'all';
+    }
+
     public static function decode(?string $json, array $allowed): array
     {
         $d = json_decode((string) $json, true);
@@ -81,7 +136,7 @@ final class Access
             $row = DB::one('SELECT task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
             $cache[$k] = [$creator, $row === null ? null : self::decode($row['task_permissions'], array_keys(self::TASK_PERMS)),
                 $row === null ? [] : self::decode($row['board_permissions'], array_keys(self::BOARD_PERMS)),
-                $row === null ? [] : self::ids($row['board_view_users'])];
+                $row === null ? [] : (self::viewAll($row['board_view_users']) ? null : self::ids($row['board_view_users']))];
         }
         return $cache[$k];
     }
@@ -142,8 +197,8 @@ final class Access
     public static function boardViewScope(int $projectId, int $uid): ?array
     {
         [$creator, $perms, , $view] = self::projectRole($projectId, $uid);
-        if ($creator === $uid) {
-            return null;
+        if ($creator === $uid || ($perms !== null && $view === null)) {
+            return null;                                       // سازنده یا «همه‌ی اعضا»
         }
         return $perms === null ? [] : array_values(array_unique(array_merge([$uid], $view)));
     }

@@ -34,8 +34,16 @@ final class ProjectApi extends ApiController
         return [
             'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
             'profile_image' => project_image_url($p['profile_image']), 'status' => (int) $p['status'],
-            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'my_board_permissions' => Access::projectBoardPerms((int) $p['id'], $this->uid), 'my_board_view_user_ids' => Access::boardViewScope((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
+            'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'my_board_permissions' => Access::projectBoardPerms((int) $p['id'], $this->uid), 'my_role' => $this->myRole($p), 'my_board_view_user_ids' => Access::boardViewScope((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
         ];
+    }
+
+    private function myRole(array $p): string
+    {
+        if ((int) $p['user_id'] === $this->uid) {
+            return 'creator';
+        }
+        return Access::memberRole(DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [(int) $p['id'], $this->uid]) ?? []);
     }
 
     public function list()
@@ -58,7 +66,8 @@ final class ProjectApi extends ApiController
                 'permissions' => $isCreator ? array_keys(Access::PROJECT_PERMS) : Access::decode($m['permissions'], array_keys(Access::PROJECT_PERMS)),
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),
                 'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)),
-                'board_view_user_ids' => $isCreator ? null : Access::ids($m['board_view_users'] ?? null), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
+                'board_view_user_ids' => $isCreator || Access::viewAll($m['board_view_users'] ?? null) ? null : Access::ids($m['board_view_users'] ?? null),
+                'role' => $isCreator ? 'creator' : Access::memberRole($m), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
     }
@@ -212,12 +221,40 @@ final class ProjectApi extends ApiController
             $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
         }
         $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
-        $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : []) : null;
+        $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : ($in['view_user_ids'] === 'all' ? 'all' : [])) : null;
         [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms, $view);
         if (!$ok) {
             $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
         }
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'board_permissions' => Access::projectBoardPerms($id, $uid),
-            'board_view_user_ids' => Access::ids((string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$id, $uid]))], $msg);
+            'board_view_user_ids' => self::viewIds($id, $uid)], $msg);
+    }
+
+    private static function viewIds(int $projectId, int $uid): ?array
+    {
+        $raw = (string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        return Access::viewAll($raw) ? null : Access::ids($raw);
+    }
+
+    /** اعمال نقش آماده روی عضو: admin, unit_manager, supervisor, member, none */
+    public function memberRole()
+    {
+        $id = $this->pid();
+        $in = $this->body();
+        $uid = (int) ($in['user_id'] ?? 0);
+        if ($uid <= 0) {
+            $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
+        }
+        $role = (string) ($in['role'] ?? '');
+        if (!isset(Access::ROLES[$role])) {
+            $this->err('نقش نامعتبر است؛ یکی از: ' . implode(', ', array_keys(Access::ROLES)), 400, 'ROLE_INVALID');
+        }
+        [$ok, $msg] = ProjectService::applyRole($id, $this->uid, $uid, $role);
+        if (!$ok) {
+            $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
+        }
+        $m = DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$id, $uid]) ?? [];
+        $this->ok(['project_id' => $id, 'user_id' => $uid, 'role' => Access::memberRole($m), 'permissions' => Access::projectPerms($id, $uid),
+            'task_permissions' => Access::projectTaskPerms($id, $uid), 'board_permissions' => Access::projectBoardPerms($id, $uid), 'board_view_user_ids' => self::viewIds($id, $uid)], $msg);
     }
 }

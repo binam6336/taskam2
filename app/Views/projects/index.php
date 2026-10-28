@@ -1,5 +1,5 @@
 <?php
-/** @var array $projects @var array $colleagues @var array $requests @var array $history @var array $permDefs @var array $taskPermDefs @var array $boardPermDefs */
+/** @var array $projects @var array $colleagues @var array $requests @var array $history @var array $permDefs @var array $taskPermDefs @var array $boardPermDefs @var array $roles */
 $boot = [];
 foreach ($projects as $p) {
     $boot[(int) $p['id']] = [
@@ -12,10 +12,17 @@ foreach ($projects as $p) {
             'task_perms' => \App\Services\Access::decode($m['task_permissions'] ?? null, array_keys($taskPermDefs)),
             'board_perms' => \App\Services\Access::decode($m['board_permissions'] ?? null, array_keys($boardPermDefs)),
             'board_view' => \App\Services\Access::ids($m['board_view_users'] ?? null),
+            'board_view_all' => \App\Services\Access::viewAll($m['board_view_users'] ?? null),
+            'role' => (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m),
         ], $p['members']),
     ];
 }
-$projData = ['list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'me' => (int) $currentUser['id']];
+// نقش‌ها برای تب «نقش کاربر»: پکیج هر نقش [task, project, board, viewAll]
+$roleDefs = [];
+foreach ($roles as $rk => $r) {
+    $roleDefs[$rk] = ['label' => $r['label'], 'icon' => $r['icon'], 'tone' => $r['tone'], 'desc' => $r['desc'], 'pkg' => \App\Services\Access::rolePackage($rk)];
+}
+$projData = ['list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
 <div class="page-head"><h2><i class="fa-solid fa-diagram-project" style="color:var(--g-400)"></i> پروژه‌ها</h2>
@@ -43,7 +50,7 @@ $this->scripts[] = 'projects';
         <div class="flex items-center gap-2 mb-1">
             <span class="avatar sq lg" style="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($p['title']) ?></div>
-                <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green">سازنده</span><?php else: ?><span class="badge">عضو</span><?php endif; ?>
+                <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
         </div>
         <?php if ($p['description']): ?><p class="muted small" style="max-height:3.4em;overflow:hidden"><?= e($p['description']) ?></p><?php endif; ?>
@@ -97,11 +104,13 @@ $this->scripts[] = 'projects';
 <div class="modal" id="m-mperm"><div class="modal-box"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی‌های <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <div class="tabs perm-tabs" role="tablist">
-            <button type="button" class="tab active" role="tab" data-ptab="task" aria-selected="true"><i class="fa-solid fa-list-check"></i> دسترسی‌های تسک</button>
+            <button type="button" class="tab active" role="tab" data-ptab="role" aria-selected="true"><i class="fa-solid fa-id-badge"></i> نقش کاربر</button>
+            <button type="button" class="tab" role="tab" data-ptab="task" aria-selected="false"><i class="fa-solid fa-list-check"></i> دسترسی‌های تسک</button>
             <button type="button" class="tab" role="tab" data-ptab="project" aria-selected="false"><i class="fa-solid fa-diagram-project"></i> دسترسی‌های پروژه</button>
             <button type="button" class="tab" role="tab" data-ptab="board" aria-selected="false"><i class="fa-solid fa-table-columns"></i> دسترسی برد تیمی</button>
         </div>
-        <div data-ppanel="task"><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="mp-project"></b> می‌تواند انجام دهد (پیش‌فرض: هیچ). تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="mp-task-list" class="list"></div></div>
+        <div data-ppanel="role"><p class="xs muted mb-1">نقش‌ها پکیج‌های آماده‌ی دسترسی‌اند و برای هر پروژه جدا تعیین می‌شوند. با انتخاب نقش، تب‌های تسک، پروژه و برد پر می‌شوند؛ هر تغییر دستی بعدی نقش را «سفارشی» می‌کند.</p><div id="mp-role-list" class="list"></div></div>
+        <div data-ppanel="task" hidden><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="mp-project"></b> می‌تواند انجام دهد (پیش‌فرض: هیچ). تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="mp-task-list" class="list"></div></div>
         <div data-ppanel="project" hidden><p class="xs muted mb-1">مدیریت خود پروژه: ویرایش، اعضا، اعطای دسترسی و تحلیل‌ها.</p><div id="mp-list" class="list"></div></div>
         <div data-ppanel="board" hidden><p class="xs muted mb-1">کارهایی که این عضو در برد تیمی این پروژه می‌تواند انجام دهد (پیش‌فرض: هیچ؛ جدا از دسترسی تسک). هر جابه‌جایی فقط از یک مرحله به مرحله‌ی بعد است، مگر «جابه‌جایی آزاد».</p>
             <div class="bv-picker mb-1">

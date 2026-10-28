@@ -1168,3 +1168,12 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
 .bv-item:has(input:disabled) { opacity: .75; cursor: default; }
 .bv-item .avatar { color: var(--g-ink); font-size: .8rem; } .bv-item .badge { font-size: .68rem; color: var(--muted); } .bv-item .badge.green { color: var(--g-300); }
 .bv-list[hidden] { display: none; }
+/* نقش کاربر در پروژه */
+.badge.purple { background: rgba(167, 139, 250, .12); color: #a78bfa; border-color: rgba(167, 139, 250, .3); }
+.role-badge i { font-size: .8em; }
+.role-opt { align-items: center; } .role-opt input { margin-top: 0; accent-color: var(--g-500); }
+.role-opt b { margin-bottom: .2rem; } .role-opt .badge { font-size: .82rem; padding: .2rem .7rem; }
+.role-opt:has(input:checked) { border-color: var(--g-500); background: var(--ok-bg); }
+.bv-all-row { border-style: dashed; } .bv-item.bv-covered { opacity: .5; pointer-events: none; }
+.perm-tabs { flex-wrap: wrap; } .perm-tabs .tab { white-space: nowrap; }
+.perm-tabs .tab { flex: 1 1 auto; font-size: .8rem; padding-inline: .45rem; gap: .3rem; } .perm-tabs .tab i { font-size: .85em; }

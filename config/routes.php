@@ -252,4 +252,5 @@ $router->group(['api'], function ($r) {
     $r->post('/projects/member-permissions', [ProjectApi::class, 'memberPermissions']);
     $r->post('/projects/task-permissions', [ProjectApi::class, 'memberTaskPermissions']);
     $r->post('/projects/board-permissions', [ProjectApi::class, 'memberBoardPermissions']);
+    $r->post('/projects/member-role', [ProjectApi::class, 'memberRole']);
 }, '/api/v1');

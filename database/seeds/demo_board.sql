@@ -5,6 +5,8 @@
 --  برای تست، به اعضای پروژه‌های آزمایشی که هنوز دسترسی برد ندارند یک دسترسی برد نمونه داده می‌شود:
 --  شروع کار، ارسال برای بررسی، مسدود کردن و رفع مسدودی (تأیید نهایی و جابه‌جایی آزاد فقط با مدیر پروژه).
 --  همه فقط تسک‌های خودشان را در برد می‌بینند، جز 09991867332 که تسک‌های همه‌ی اعضای پروژه را می‌بیند.
+--  در پایان، نمونه‌ی نقش‌ها در پروژه‌های آزمایشی: 09991867336 مدیر کل، 09991867332 مدیر واحد، 09991867333 سرپرست، 09991867334 عضو
+--  (09991867335 همان دسترسی دستی بالا را دارد = «سفارشی»).
 -- ============================================================================
 SET NAMES utf8mb4;
 START TRANSACTION;
@@ -39,5 +41,28 @@ UPDATE project_members pm
   JOIN (SELECT project_id, CONCAT('[', GROUP_CONCAT(user_id ORDER BY user_id), ']') AS ids FROM project_members GROUP BY project_id) x ON x.project_id = pm.project_id
    SET pm.board_view_users = x.ids
  WHERE o.mobile = '09991867331' AND me.mobile = '09991867332';
+
+-- ───── نقش‌ها (همان پکیج‌های app/Services/Access.php::ROLES) ─────
+UPDATE project_members pm JOIN projects p ON p.id = pm.project_id JOIN users o ON o.id = p.user_id JOIN users me ON me.id = pm.user_id
+   SET pm.task_permissions  = '["edit_info","edit_due","reassign","notes","complete","delete"]',
+       pm.permissions       = '["edit_project","add_member","remove_member","manage_permissions","view_analytics"]',
+       pm.board_permissions = '["to_todo","to_progress","to_review","to_done","block","unblock","move_back","move_any"]',
+       pm.board_view_users  = '"all"'
+ WHERE o.mobile = '09991867331' AND me.mobile = '09991867336';
+UPDATE project_members pm JOIN projects p ON p.id = pm.project_id JOIN users o ON o.id = p.user_id JOIN users me ON me.id = pm.user_id
+   SET pm.task_permissions  = '["edit_info","edit_due","reassign","notes","complete"]',
+       pm.permissions       = '["edit_project","add_member","remove_member","manage_permissions","view_analytics"]',
+       pm.board_permissions = '["to_todo","to_progress","to_review","to_done","block","unblock","move_back","move_any"]',
+       pm.board_view_users  = '"all"'
+ WHERE o.mobile = '09991867331' AND me.mobile = '09991867332';
+UPDATE project_members pm JOIN projects p ON p.id = pm.project_id JOIN users o ON o.id = p.user_id JOIN users me ON me.id = pm.user_id
+   SET pm.task_permissions  = '["edit_info","edit_due","reassign","notes","complete"]',
+       pm.permissions       = '["edit_project","manage_permissions","view_analytics"]',
+       pm.board_permissions = '["to_todo","to_progress","to_review","to_done","block","unblock","move_back","move_any"]',
+       pm.board_view_users  = '[]'
+ WHERE o.mobile = '09991867331' AND me.mobile = '09991867333';
+UPDATE project_members pm JOIN projects p ON p.id = pm.project_id JOIN users o ON o.id = p.user_id JOIN users me ON me.id = pm.user_id
+   SET pm.task_permissions = '["edit_info","notes"]', pm.permissions = '[]', pm.board_permissions = '[]', pm.board_view_users = '[]'
+ WHERE o.mobile = '09991867331' AND me.mobile = '09991867334';
 
 COMMIT;

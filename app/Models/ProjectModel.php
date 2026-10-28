@@ -36,14 +36,18 @@ final class ProjectModel
               (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_completed = 1) AS tasks_done,
               (SELECT permissions FROM project_members pm2 WHERE pm2.project_id = p.id AND pm2.user_id = ? LIMIT 1) AS my_permissions,
               (SELECT task_permissions FROM project_members pm3 WHERE pm3.project_id = p.id AND pm3.user_id = ? LIMIT 1) AS my_task_permissions,
-              (SELECT board_permissions FROM project_members pm4 WHERE pm4.project_id = p.id AND pm4.user_id = ? LIMIT 1) AS my_board_permissions
-            FROM projects p WHERE $w ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid, $uid, $uid], $p, [$limit, $offset]));
+              (SELECT board_permissions FROM project_members pm4 WHERE pm4.project_id = p.id AND pm4.user_id = ? LIMIT 1) AS my_board_permissions,
+              (SELECT board_view_users FROM project_members pm5 WHERE pm5.project_id = p.id AND pm5.user_id = ? LIMIT 1) AS my_board_view_users
+            FROM projects p WHERE $w ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid, $uid, $uid, $uid], $p, [$limit, $offset]));
         foreach ($rows as &$r) {
             $r['is_creator'] = (int) $r['user_id'] === $uid;
             $r['perms'] = $r['is_creator'] ? array_keys(Access::PROJECT_PERMS) : Access::decode($r['my_permissions'], array_keys(Access::PROJECT_PERMS));
             $r['task_perms'] = $r['is_creator'] ? array_keys(Access::TASK_PERMS) : Access::decode($r['my_task_permissions'], array_keys(Access::TASK_PERMS));
             $r['board_perms'] = $r['is_creator'] ? array_keys(Access::BOARD_PERMS) : Access::decode($r['my_board_permissions'], array_keys(Access::BOARD_PERMS));
             $r['board_view'] = Access::boardViewScope((int) $r['id'], $uid);      // null = همه
+            // نقش من در این پروژه (برچسب روی کارت پروژه)
+            $r['my_role'] = $r['is_creator'] ? 'creator' : Access::memberRole(['permissions' => $r['my_permissions'], 'task_permissions' => $r['my_task_permissions'],
+                'board_permissions' => $r['my_board_permissions'], 'board_view_users' => $r['my_board_view_users']]);
         }
         return $rows;
     }

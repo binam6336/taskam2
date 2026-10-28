@@ -200,19 +200,35 @@ final class ProjectService
 
     /**
      * دسترسی یک عضو در برد تیمی این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک.
-     * $viewUsers (اختیاری): اعضایی که تسک‌هایشان در برد او دیده شود؛ غیرسازنده فقط اعضایی را که خودش می‌بیند انتخاب/حذف می‌کند.
+     * $viewUsers (اختیاری): اعضایی که تسک‌هایشان در برد او دیده شود، یا 'all' = همه‌ی اعضا (حتی اعضای بعدی)؛
+     * غیرسازنده فقط اعضایی را که خودش می‌بیند انتخاب/حذف می‌کند و «همه» را فقط اگر خودش همه را ببیند.
+     * @param int[]|string|null $viewUsers
      */
-    public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms, ?array $viewUsers = null): array
+    public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms, $viewUsers = null): array
     {
         $res = self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی برد تیمی ذخیره شد.');
         if (!$res[0] || $viewUsers === null) {
             return $res;
         }
+        $scope = Access::boardViewScope($projectId, $actorId);
+        $oldRaw = (string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
+        if ($viewUsers === 'all') {
+            if ($scope === null) {
+                DB::run('UPDATE project_members SET board_view_users = ? WHERE project_id = ? AND user_id = ?', ['"all"', $projectId, $memberId]);
+                return $res;
+            }
+            if (Access::viewAll($oldRaw)) {
+                return $res;
+            }
+            $viewUsers = $scope;
+        } elseif (Access::viewAll($oldRaw) && $scope !== null) {
+            return $res;                                       // «همه» را فقط کسی که خودش همه را می‌بیند برمی‌دارد
+        }
+        $viewUsers = is_array($viewUsers) ? $viewUsers : [];
         $members = array_map('intval', array_column(DB::all('SELECT user_id FROM project_members WHERE project_id = ?', [$projectId]), 'user_id'));
         $members[] = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
-        $old = Access::ids((string) DB::value('SELECT board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]));
+        $old = Access::ids($oldRaw);
         $clean = array_values(array_intersect(array_unique(array_map('intval', $viewUsers)), $members));
-        $scope = Access::boardViewScope($projectId, $actorId);
         if ($scope !== null) {
             $clean = array_merge(array_diff($old, $scope), array_intersect($clean, $scope));
         }
@@ -220,6 +236,30 @@ final class ProjectService
         sort($clean);
         DB::run('UPDATE project_members SET board_view_users = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
         return $res;
+    }
+
+    /**
+     * اعمال یک نقش آماده (Access::ROLES) روی عضو: دسترسی تسک، پروژه، برد و «مشاهده‌ی تسک‌ها» یکجا.
+     * همان قواعد اعطا: غیرسازنده فقط آنچه خودش دارد را تغییر می‌دهد (در آن صورت نتیجه ممکن است «سفارشی» شود).
+     */
+    public static function applyRole(int $projectId, int $actorId, int $memberId, string $role): array
+    {
+        $pkg = Access::rolePackage($role);
+        if ($pkg === null) {
+            return [false, 'نقش نامعتبر است.'];
+        }
+        [$task, $project, $board, $viewAll] = $pkg;
+        foreach ([self::setTaskPermissions($projectId, $actorId, $memberId, $task), self::setPermissions($projectId, $actorId, $memberId, $project),
+                  self::setBoardPermissions($projectId, $actorId, $memberId, $board, $viewAll ? 'all' : [])] as $r) {
+            if (!$r[0]) {
+                return $r;
+            }
+        }
+        $now = Access::memberRole(DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]) ?? []);
+        if ($now !== $role) {
+            return [true, 'نقش «' . Access::ROLES[$role]['label'] . '» فقط تا حدی اعمال شد؛ فقط دسترسی‌هایی را که خودتان دارید می‌توانید تغییر دهید. نقش فعلی: سفارشی.'];
+        }
+        return [true, 'نقش «' . Access::ROLES[$role]['label'] . '» اعمال شد.'];
     }
 
     private static function setMemberPerms(string $column, array $defs, callable $holderPerms, int $projectId, int $actorId, int $memberId, array $perms, string $okMsg): array
