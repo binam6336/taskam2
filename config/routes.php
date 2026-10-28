@@ -29,6 +29,7 @@ use App\Controllers\SupportController;
 use App\Controllers\TaskController;
 use App\Controllers\TextController;
 use App\Controllers\TokenController;
+use App\Controllers\TourController;
 
 // ───────────────────────── عمومی / احراز هویت ─────────────────────────
 $router->get('/', [AuthController::class, 'home']);
@@ -174,6 +175,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/quick-links', [ProfileController::class, 'quickLinks']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
+    $r->post('/tour', [TourController::class, 'update']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
     $r->get('/install', [PwaController::class, 'install']);

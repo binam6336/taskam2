@@ -37,6 +37,7 @@ CREATE TABLE `users` (
   `task_link_access`                ENUM('members','colleagues','me','all') NOT NULL DEFAULT 'members' COMMENT 'چه کسانی می‌توانند تسک‌های من را با لینک ببینند',
   `quick_links`                     TEXT NULL DEFAULT NULL               COMMENT 'JSON: شناسه‌ی لینک‌های دسترسی سریع',
   `theme`                           VARCHAR(20) NOT NULL DEFAULT 'dark'  COMMENT 'تم ظاهری: config/themes.php',
+  `tour`                            VARCHAR(20) NULL DEFAULT NULL        COMMENT 'تور آموزشی: NULL پرسیده نشده، skip، done یا شماره‌ی مرحله',
   `last_seen`                       INT UNSIGNED NULL DEFAULT NULL       COMMENT 'Unix time آخرین فعالیت چت',
   `last_login_at`                   DATETIME NULL DEFAULT NULL,
   `last_login_ip`                   VARCHAR(45) NULL DEFAULT NULL,

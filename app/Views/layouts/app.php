@@ -36,6 +36,12 @@ $menu = [
 $badges = array_fill_keys(['tasks', 'colleagues', 'projects', 'chat', 'support'], 0);
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
+// تور آموزشی: تا وقتی کاربر رد یا تمامش نکرده (NULL = هنوز پرسیده نشده)
+$tour = array_key_exists('tour', $u) ? $u['tour'] : 'done';
+if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
+    $this->boot['tour'] = ['state' => $tour, 'page' => $active];
+    $this->scripts[] = 'tour';
+}
 $allLinks = require BASE_PATH . '/config/quick_links.php';
 $sel = json_decode((string) ($u['quick_links'] ?? ''), true);
 $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => in_array($l['id'], $sel, true))) : [];
