@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '009';
+    private const VERSION = '010';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -25,6 +25,11 @@ final class Schema
         ['chat_messages', 'forwarded_from', 'ADD COLUMN `forwarded_from` INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_type`', null],
         // 009
         ['project_members', 'task_permissions', 'ADD COLUMN `task_permissions` TEXT NULL DEFAULT NULL AFTER `permissions`', null],
+        // 010
+        ['tasks', 'board_status', "ADD COLUMN `board_status` ENUM('backlog','todo','in_progress','blocked','review','done') NOT NULL DEFAULT 'todo' AFTER `is_completed`",
+            "UPDATE `tasks` SET `board_status` = 'done' WHERE `is_completed` = 1"],
+        ['tasks', 'blocked_reason', 'ADD COLUMN `blocked_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `board_status`', null],
+        ['tasks', 'board_moved_at', 'ADD COLUMN `board_moved_at` TIMESTAMP NULL DEFAULT NULL AFTER `blocked_reason`', null],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */

@@ -153,6 +153,12 @@ final class TaskModel
         return $id;
     }
 
+    /** کارت‌های برد تیمی: WHERE آماده با پارامترهایش (اولین پارامتر = بیننده برای دسترسی تسک). */
+    public static function board(string $where, array $params): array
+    {
+        return DB::all(self::base() . ' WHERE ' . $where . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT 600", $params);
+    }
+
     public static function ensureShareToken(int $id): string
     {
         $t = (string) DB::value('SELECT share_token FROM tasks WHERE id = ?', [$id]);
@@ -167,10 +173,11 @@ final class TaskModel
     public static function toggle(int $id): array
     {
         $done = (int) DB::value('SELECT is_completed FROM tasks WHERE id = ?', [$id]) === 1;
+        // وضعیت برد تیمی همگام می‌ماند: تکمیل = done، بازگشت = todo
         if ($done) {
-            DB::run('UPDATE tasks SET is_completed = 0, completed_at = NULL WHERE id = ?', [$id]);
+            DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = 'todo', board_moved_at = NOW() WHERE id = ?", [$id]);
         } else {
-            DB::run('UPDATE tasks SET is_completed = 1, completed_at = NOW() WHERE id = ?', [$id]);
+            DB::run("UPDATE tasks SET is_completed = 1, completed_at = NOW(), board_status = 'done', blocked_reason = NULL, board_moved_at = NOW() WHERE id = ?", [$id]);
         }
         return ['id' => $id, 'is_completed' => !$done];
     }

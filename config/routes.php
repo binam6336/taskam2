@@ -4,6 +4,7 @@ declare(strict_types=1);
 /** @var App\Core\Router $router */
 
 use App\Controllers\AdminController;
+use App\Controllers\BoardController;
 use App\Controllers\Api\V1\CallApi;
 use App\Controllers\Api\V1\ColleagueApi;
 use App\Controllers\Api\V1\MetaApi;
@@ -65,6 +66,10 @@ $router->group(['panel'], function ($r) {
     $r->post('/notes/{id}/delete', [TaskController::class, 'deleteNote']);
     $r->post('/files/{kind}/{id}/delete', [TaskController::class, 'deleteFile']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
+
+    // برد تیمی (کانبان، دمو)
+    $r->get('/board', [BoardController::class, 'index']);
+    $r->post('/board/tasks/{id}/move', [BoardController::class, 'move']);
 
     // موضوعات
     $r->get('/subjects', [SubjectController::class, 'index']);
