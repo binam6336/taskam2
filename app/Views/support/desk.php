@@ -25,13 +25,14 @@ $badgeHtml = static function (array $t): string {
 ?>
 <div class="desk <?= $ticket ? 'in-conv' : '' ?>" id="desk">
     <!-- ───── فهرست تیکت‌ها ───── -->
-    <aside class="desk-side" aria-label="تاریخچه تیکت‌ها">
+    <aside class="desk-side" id="desk-side" aria-label="تاریخچه تیکت‌ها">
         <div class="desk-side-head">
             <div class="flex between gap-1">
                 <div class="grow" style="min-width:0"><h3 class="desk-h">تاریخچه تیکت‌ها</h3>
                     <div class="xs muted"><?= $admin ? 'تیکت‌های ثبت‌شده‌ی همه‌ی کاربران' : 'تیکت‌های ثبت‌شده‌ی شما' ?></div></div>
                 <span class="badge" data-live="desk-count"><?= e(fa_num($list['total'])) ?> تیکت</span>
                 <?php if (!$admin): ?><button class="btn btn-primary btn-sm" data-modal="m-support" type="button"><i class="fa-solid fa-plus"></i> <span class="hide-xs">تیکت جدید</span></button><?php endif; ?>
+                <?php if ($ticket): ?><button type="button" class="btn btn-ghost btn-icon btn-sm desk-side-close" data-desk-list="close" aria-label="بستن فهرست"><i class="fa-solid fa-xmark"></i></button><?php endif; ?>
             </div>
             <form class="desk-search search" method="get" action="<?= e(url($base)) ?>" role="search">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -86,6 +87,7 @@ $badgeHtml = static function (array $t): string {
         </div>
     </aside>
 
+    <?php if ($ticket): ?><div class="desk-scrim" data-desk-list="close" hidden></div><?php endif; ?>
     <!-- ───── گفتگوی تیکت ───── -->
     <section class="desk-main">
     <?php if (!$ticket): ?>
@@ -97,6 +99,7 @@ $badgeHtml = static function (array $t): string {
         </div>
     <?php else: ?>
         <header class="desk-head" data-live="desk-head">
+            <button type="button" class="btn btn-icon btn-sm desk-list-toggle" data-desk-list="toggle" aria-controls="desk-side" title="فهرست تیکت‌ها"><i class="fa-solid fa-list-ul"></i></button>
             <a class="btn btn-ghost btn-icon desk-back" href="<?= e(url($base) . $qs()) ?>" aria-label="بازگشت به فهرست"><i class="fa-solid fa-arrow-right"></i></a>
             <span class="desk-head-ico"><i class="fa-solid <?= $admin ? 'fa-id-card' : 'fa-headset' ?>"></i></span>
             <div class="grow desk-head-txt">

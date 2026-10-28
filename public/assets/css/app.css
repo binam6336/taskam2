@@ -1057,6 +1057,22 @@ body.page-desk .qa { display: none; }
 html[data-theme="sage"] .desk-pop { box-shadow: 0 16px 36px -14px rgba(60, 70, 40, .45); }
 
 /* لپ‌تاپ کوچک/تبلت افقی: فهرست باریک‌تر */
+/* لپ‌تاپ، تبلت افقی و مانیتور کم‌عرض: با باز شدن تیکت، فهرست جمع می‌شود و گفتگو تمام عرض می‌گیرد؛
+   فهرست با دکمه‌ی سربرگ به‌صورت کشو روی گفتگو باز می‌شود */
+.desk { position: relative; overflow: hidden; }
+.desk-list-toggle, .desk-side-close { display: none; flex: none; }
+.desk-scrim { display: none; }
+@media (min-width: 861px) and (max-width: 1440px) {
+  .desk.in-conv { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; }
+  .desk.in-conv .desk-side { grid-area: auto; position: absolute; top: 0; bottom: 0; right: 0; z-index: 45; width: min(400px, 88%); border-left: 1px solid var(--border-2); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .55); transform: translateX(105%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; }
+  .desk.in-conv.list-open .desk-side { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; }
+  .desk.in-conv .desk-list-toggle, .desk.in-conv .desk-side-close { display: inline-flex; }
+  .desk.in-conv.list-open .desk-scrim { display: block; position: absolute; inset: 0; z-index: 44; background: rgba(0, 0, 0, .35); animation: fade .15s; }
+  .desk.in-conv .tcard-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+html[data-theme="sage"] .desk.in-conv .desk-side { box-shadow: -18px 0 36px -18px rgba(60, 70, 40, .4); }
+html[data-theme="sage"] .desk.in-conv.list-open .desk-scrim { background: rgba(60, 70, 40, .22); }
+@media (prefers-reduced-motion: reduce) { .desk .desk-side { transition: none !important; } }
 @media (max-width: 1200px) { .desk { grid-template-columns: 340px minmax(0, 1fr); } .tcard-meta { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1024px) { .desk-actions .hide-sm, .desk-sub .hide-sm { display: none; } .desk-actions .btn-sm:not(.btn-icon) { padding-inline: .55rem; } }
 /* موبایل/تبلت عمودی: یا فهرست یا گفتگو */

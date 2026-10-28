@@ -83,6 +83,15 @@
   // تیکت بازشده در فهرست دیده شود
   TK.qs('.tcard.active')?.scrollIntoView({ block: 'nearest' });
 
+  /* ───── فهرست جمع‌شده (لپ‌تاپ/تبلت/مانیتور کم‌عرض): کشوی روی گفتگو ───── */
+  const setList = (open) => {
+    desk.classList.toggle('list-open', open);
+    TK.qsa('[data-desk-list="toggle"]').forEach((b) => b.setAttribute('aria-expanded', open ? 'true' : 'false'));
+    if (open) TK.qs('.tcard.active')?.scrollIntoView({ block: 'nearest' });
+  };
+  TK.on('click', '[data-desk-list]', (e, b) => setList(b.dataset.deskList === 'toggle' ? !desk.classList.contains('list-open') : false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && desk.classList.contains('list-open')) setList(false); });
+
   /* ───── تعداد در صفحه ───── */
   TK.qs('#desk-per')?.addEventListener('change', (e) => e.target.form.submit());
 
