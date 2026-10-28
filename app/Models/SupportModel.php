@@ -14,10 +14,10 @@ final class SupportModel
     public const PER_PAGE = [10, 20, 30, 50];
     /** فیلترهای فهرست: کلید → [عنوان، شرط SQL] */
     public const FILTERS = [
-        'all' => ['همه', ''],
         'open' => ['باز', "st.status IN ('open','in_progress')"],
         'answered' => ['پاسخ‌داده‌شده', "st.status = 'answered'"],
         'closed' => ['بسته', "st.status = 'closed'"],
+        'all' => ['همه', ''],
     ];
     /** آخرین فرستنده و وجود پاسخ مدیر (برای دسته‌بندی تیکت‌ها در پنل ادمین) */
     private const LAST_ROLE = '(SELECT lm.sender_role FROM support_messages lm WHERE lm.ticket_id = st.id ORDER BY lm.id DESC LIMIT 1)';
@@ -28,11 +28,11 @@ final class SupportModel
      *   پاسخ داده شده = آخرین پیام از مدیر/کارشناس است • بسته شده
      */
     public const ADMIN_FILTERS = [
-        'all' => ['همه', ''],
         'new' => ['جدید', "st.status <> 'closed' AND NOT " . self::HAS_ADMIN],
         'waiting' => ['منتظر پاسخ', "st.status <> 'closed' AND " . self::HAS_ADMIN . ' AND ' . self::LAST_ROLE . " = 'user'"],
         'answered' => ['پاسخ داده شده', "st.status <> 'closed' AND " . self::LAST_ROLE . " = 'admin'"],
         'closed' => ['بسته شده', "st.status = 'closed'"],
+        'all' => ['همه', ''],
     ];
     public const MSG_MAX = 5000;
 
