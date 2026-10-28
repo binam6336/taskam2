@@ -4,7 +4,7 @@ document.addEventListener('tk:ready', () => {
   const E = TK.esc;
 
   /* شمارنده‌ی ستون‌ها بعد از هر جابه‌جایی */
-  const recount = () => TK.qsa('.kb-col').forEach((c) => { c.querySelector('.kb-count').textContent = TK.fa(c.querySelectorAll('.kb-card').length); });
+  const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => { c.querySelector('.kb-count').textContent = TK.fa(c.querySelectorAll('.kb-card').length); });
 
   /* انتقال: جابه‌جایی فوری در صفحه، اگر سرور رد کرد برمی‌گردد */
   const move = async (card, status, reason = '') => {
@@ -76,4 +76,47 @@ document.addEventListener('tk:ready', () => {
   /* آمدن از جزئیات تسک (?task=): کارت برجسته در وسط دید */
   const f = TK.qs('.kb-card.kb-focus');
   if (f) setTimeout(() => f.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }), 150);
+
+  /* ───── آرشیو ───── */
+  const filters = () => { const u = new URLSearchParams(location.search); return { project: u.get('project') || '', mine: u.get('mine') || '', q: u.get('q') || '' }; };
+
+  // آیکون آرشیو در ستون «انجام‌شده»: همه‌ی انجام‌شده‌های این برد (با فیلترهای فعلی)
+  TK.on('click', '[data-kb-archive-all]', async (e, b) => {
+    const n = Number(b.dataset.kbArchiveAll) || 0;
+    if (!(await TK.confirm(`${TK.fa(n)} تسک انجام‌شده به آرشیو منتقل شود؟ (از آرشیو قابل بازگردانی است)`, { okText: 'انتقال به آرشیو', danger: false }))) return;
+    TK.busy(b, true);
+    const r = await TK.post('/board/archive-done', filters());
+    TK.busy(b, false);
+    TK.toast(r?.message || 'خطا', TK.ok(r) ? 'success' : 'error');
+    if (TK.ok(r)) TK.reload();
+  });
+
+  // «مشاهده بیشتر»: پاپ‌آپ همه‌ی آرشیو
+  let archItems = [];
+  const archRender = () => {
+    const q = (TK.qs('#kb-arch-q').value || '').trim().toLowerCase();
+    const rows = archItems.filter((t) => !q || t.title.toLowerCase().includes(q) || (t.project || '').toLowerCase().includes(q));
+    TK.qs('#kb-arch-count').textContent = TK.fa(archItems.length);
+    TK.qs('#kb-arch-list').innerHTML = rows.map((t) => `<div class="item kb-arch-item">
+        <span class="avatar sm" title="${E(t.assignee || 'بدون مسئول')}">${t.assignee_avatar ? `<img src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee || '؟'))}</span>
+        <div class="grow"><a class="bold" href="${E(t.url)}">${E(t.title)}</a>
+          <div class="xs muted">${t.project ? `<i class="fa-solid fa-diagram-project"></i> ${E(t.project)} • ` : ''}آرشیو: ${E(t.archived_fa)}${t.completed_fa ? ` • انجام: ${E(t.completed_fa)}` : ''}</div></div>
+        ${t.can_restore ? `<button type="button" class="btn btn-sm" data-kb-restore="${t.id}" title="بازگرداندن به انجام‌شده"><i class="fa-solid fa-rotate-left"></i> بازگردانی</button>` : ''}
+      </div>`).join('') || '<div class="empty small">موردی در آرشیو نیست.</div>';
+  };
+  const archLoad = async () => {
+    TK.qs('#kb-arch-list').innerHTML = '<div class="empty small"><span class="spin"></span></div>';
+    const r = await TK.get('/board/archive', filters());
+    archItems = TK.ok(r) ? r.items : [];
+    if (!TK.ok(r)) TK.toast(r?.message || 'خطا در دریافت آرشیو', 'error');
+    archRender();
+  };
+  TK.on('click', '[data-kb-archive-more]', () => { TK.qs('#kb-arch-q').value = ''; TK.modal.open('m-kb-archive'); archLoad(); });
+  TK.qs('#kb-arch-q')?.addEventListener('input', archRender);
+  TK.on('click', '[data-kb-restore]', async (e, b) => {
+    TK.busy(b, true);
+    const r = await TK.post('/board/tasks/' + b.dataset.kbRestore + '/move', { status: 'done' });
+    TK.toast(r?.message || 'خطا', TK.ok(r) ? 'success' : 'error');
+    if (TK.ok(r)) { archItems = archItems.filter((t) => t.id !== Number(b.dataset.kbRestore)); archRender(); TK.reload(); } else TK.busy(b, false);
+  });
 });

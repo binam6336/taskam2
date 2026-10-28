@@ -1184,3 +1184,12 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
 .bv-all-row { border-style: dashed; } .bv-item.bv-covered { opacity: .5; pointer-events: none; }
 .perm-tabs { flex-wrap: wrap; } .perm-tabs .tab { white-space: nowrap; }
 .perm-tabs .tab { flex: 1 1 auto; font-size: .8rem; padding-inline: .45rem; gap: .3rem; } .perm-tabs .tab i { font-size: .85em; }
+/* آرشیو برد */
+.kb-col.tone-archive { --tone: #94a3b8; background: color-mix(in srgb, var(--faint) 10%, var(--bg-2)); }
+.kb-col[data-col="archived"] .kb-card { opacity: .78; filter: grayscale(.6); }
+.kb-col[data-col="archived"] .kb-card:hover { opacity: 1; filter: none; }
+.kb-col[data-col="archived"] .kb-title { color: var(--muted); }
+.kb-archive-all { color: var(--muted); } .kb-archive-all:hover { color: var(--g-300); }
+.kb-more { width: 100%; justify-content: center; border-style: dashed; color: var(--muted); }
+.kb-arch-list { max-height: min(60vh, 560px); overflow: auto; }
+.kb-arch-item { align-items: center; } .kb-arch-item a.bold { color: var(--text); text-decoration: none; } .kb-arch-item a.bold:hover { color: var(--g-300); }

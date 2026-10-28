@@ -1,5 +1,5 @@
 <?php
-/** @var array $columns @var array $statuses @var array $projects @var array $filters */
+/** @var array $columns @var array $statuses @var array $projects @var array $filters @var array $archive @var int $archivable */
 $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
@@ -26,40 +26,31 @@ $total = array_sum(array_map('count', $columns));
         <header class="kb-col-head" title="<?= e($s['desc']) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
             <div class="grow"><b><?= e($s['label']) ?></b><span><?= e($s['en']) ?></span></div>
+            <?php if ($key === 'done' && $archivable > 0): ?><button type="button" class="btn btn-ghost btn-icon btn-xs kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" title="انتقال تسک‌های انجام‌شده به آرشیو" aria-label="انتقال تسک‌های انجام‌شده به آرشیو"><i class="fa-solid fa-box-archive"></i></button><?php endif; ?>
             <span class="kb-count"><?= e(fa_num(count($cards))) ?></span>
         </header>
         <div class="kb-list" data-drop="<?= e($key) ?>">
-        <?php foreach ($cards as $t):
-            $overdue = $key !== 'done' && $t['due_date'] && strtotime($t['due_date'] . ' ' . ($t['due_time'] ?: '23:59:59')) < time(); ?>
-            <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
-                <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>
-                <div class="kb-card-top">
-                    <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>"><?= e($t['title']) ?></a>
-                    <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                    <?php else: ?><span class="faint xs" title="دسترسی جابه‌جایی این تسک در برد را ندارید"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
-                </div>
-                <?php if ($key === 'blocked' && $t['blocked_reason']): ?><div class="kb-reason"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
-                <div class="kb-meta">
-                    <?= priority_badge($t) ?>
-                    <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i> <?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $overdue ? ' (گذشته)' : '' ?></span><?php endif; ?>
-                    <?php if ((int) $t['notes_count'] > 0): ?><span><i class="fa-regular fa-comment"></i> <?= e(fa_num($t['notes_count'])) ?></span><?php endif; ?>
-                    <?php if ((int) $t['attachments_count'] > 0): ?><span><i class="fa-solid fa-paperclip"></i> <?= e(fa_num($t['attachments_count'])) ?></span><?php endif; ?>
-                </div>
-                <div class="kb-foot">
-                    <?php if ($t['project_title'] && !$filters['project']): ?><span class="kb-proj"><i class="fa-solid fa-diagram-project"></i> <?= e($t['project_title']) ?></span><?php else: ?><span></span><?php endif; ?>
-                    <?php if ($t['assignee_id']): $an = full_name($t, 'assignee_'); ?>
-                        <span class="avatar sm" title="مسئول: <?= e($an) ?>"><?php if ($t['assignee_avatar']): ?><img src="<?= e(avatar_url($t['assignee_avatar'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($an)) ?><?php endif; ?></span>
-                    <?php endif; ?>
-                </div>
-            </article>
-        <?php endforeach; ?>
+        <?php foreach ($cards as $t) { $this->partial('kb_card', ['t' => $t, 'key' => $key, 'filters' => $filters]); } ?>
         </div>
     </section>
 <?php endforeach; ?>
+    <section class="kb-col tone-archive" data-col="archived" aria-label="آرشیو">
+        <header class="kb-col-head" title="تسک‌های انجام‌شده‌ای که بایگانی شده‌اند">
+            <i class="fa-solid fa-box-archive"></i>
+            <div class="grow"><b>آرشیو</b><span>Archived</span></div>
+            <span class="kb-count"><?= e(fa_num($archive['total'])) ?></span>
+        </header>
+        <div class="kb-list" data-drop="archived">
+        <?php foreach ($archive['cards'] as $t) { $this->partial('kb_card', ['t' => $t, 'key' => 'archived', 'filters' => $filters]); } ?>
+        <?php if ($archive['total'] > count($archive['cards'])): ?>
+            <button type="button" class="btn kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button>
+        <?php endif; ?>
+        </div>
+    </section>
 </div>
 </div>
 
-<script type="application/json" id="kb-data"><?= json_html(['statuses' => array_map(static fn($s) => ['label' => $s['label'], 'icon' => $s['icon']], $statuses)]) ?></script>
+<script type="application/json" id="kb-data"><?= json_html(['statuses' => array_map(static fn($s) => ['label' => $s['label'], 'icon' => $s['icon']], $statuses) + ['archived' => ['label' => 'آرشیو', 'icon' => 'fa-box-archive']]]) ?></script>
 
 <!-- علت توقف -->
 <div class="modal" id="m-kb-block"><div class="modal-box sm"><form id="f-kb-block">
@@ -68,3 +59,12 @@ $total = array_sum(array_map('count', $columns));
         <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="مثلاً: منتظر تأیید طراحی / وابسته به تسک دیگر / مشکل فنی سرور"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-danger">انتقال به مسدودشده</button></div>
 </form></div></div>
+
+<!-- همه‌ی آرشیو -->
+<div class="modal" id="m-kb-archive"><div class="modal-box lg">
+    <div class="modal-head"><h3><i class="fa-solid fa-box-archive"></i> آرشیو تسک‌ها <span class="badge" id="kb-arch-count"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+        <div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="kb-arch-q" placeholder="جستجو در آرشیو…" autocomplete="off"></div>
+        <div id="kb-arch-list" class="list kb-arch-list"></div>
+    </div>
+</div></div>

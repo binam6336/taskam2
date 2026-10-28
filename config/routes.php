@@ -70,6 +70,8 @@ $router->group(['panel'], function ($r) {
     // برد تیمی (کانبان، دمو)
     $r->get('/board', [BoardController::class, 'index']);
     $r->post('/board/tasks/{id}/move', [BoardController::class, 'move']);
+    $r->get('/board/archive', [BoardController::class, 'archive']);
+    $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
 
     // موضوعات
     $r->get('/subjects', [SubjectController::class, 'index']);

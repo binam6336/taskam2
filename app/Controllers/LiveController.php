@@ -130,7 +130,7 @@ final class LiveController extends Controller
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 break;
             case 'board':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
                     WHERE user_id = ? OR assignee_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.user_id, pm.task_permissions, pm.board_permissions, pm.board_view_users))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
                 break;
