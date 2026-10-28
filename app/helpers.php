@@ -225,29 +225,58 @@ function duration_fa(float $hours): string
     return fa_num($d) . ' روز' . ($h > 0 ? ' و ' . fa_num($h) . ' ساعت' : '');
 }
 
-/** SVG لوگوی تسکام. $uid شناسه‌ها را یکتا می‌کند تا چند لوگو در یک صفحه تداخل نداشته باشند. */
-function logo_svg(string $uid = ''): string
+/**
+ * رنگ‌های لوگو برای هر تم: [گرادیان خط ۱، گرادیان خط ۲، پس‌زمینه ۱، پس‌زمینه ۲، داخل مربع]
+ * همین رنگ‌ها در app.css به‌صورت --logo-* برای هر تم تعریف شده‌اند (لوگوی داخل صفحه با تغییر تم فوراً عوض می‌شود).
+ */
+function logo_palette(string $theme): array
+{
+    $p = [
+        'dark' => ['#22c55e', '#10b981', '#121816', '#0a0f0d', '#111c16'],
+        'sage' => ['#7FB77E', '#4E9A5B', '#FBFAEB', '#E3E4C9', '#F7F6DC'],
+    ];
+    return $p[$theme] ?? $p['dark'];
+}
+
+/**
+ * لوگوی تسکام (SVG).
+ * $theme = null: رنگ از متغیرهای CSS تم فعلی صفحه (--logo-*) با پیش‌فرض تم تیره؛ وگرنه رنگ ثابت همان تم (فاوآیکن، آیکن PWA).
+ * $bleed: نسخه‌ی تمام‌صفحه (maskable / apple-touch): پس‌زمینه بدون گوشه‌ی گرد و طرح کوچک‌تر در ناحیه‌ی امن.
+ */
+function logo_svg(string $uid = '', ?string $theme = null, bool $bleed = false): string
 {
     static $n = 0;
     $u = $uid !== '' ? $uid : 'lg' . (++$n);
+    $c = logo_palette($theme ?? 'dark');
+    $vars = ['--logo-a', '--logo-b', '--logo-bg1', '--logo-bg2', '--logo-inner'];
+    // رنگ i: ثابت یا var(--logo-*, پیش‌فرض)
+    $col = static fn(int $i, string $prop) => $theme !== null ? $prop . '="' . $c[$i] . '"' : 'style="' . $prop . ':var(' . $vars[$i] . ',' . $c[$i] . ')"';
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" aria-hidden="true" focusable="false">'
         . '<defs>'
-        . '<linearGradient id="' . $u . 'g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#10b981"/></linearGradient>'
-        . '<linearGradient id="' . $u . 'b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#121816"/><stop offset="100%" stop-color="#0a0f0d"/></linearGradient>'
+        . '<linearGradient id="' . $u . 'g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" ' . $col(0, 'stop-color') . '/><stop offset="100%" ' . $col(1, 'stop-color') . '/></linearGradient>'
+        . '<linearGradient id="' . $u . 'b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" ' . $col(2, 'stop-color') . '/><stop offset="100%" ' . $col(3, 'stop-color') . '/></linearGradient>'
         . '<filter id="' . $u . 'f" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>'
         . '</defs>'
-        . '<rect width="400" height="400" rx="90" fill="url(#' . $u . 'b)"/>'
+        . '<rect width="400" height="400" rx="' . ($bleed ? 0 : 90) . '" fill="url(#' . $u . 'b)"/>'
+        . ($bleed ? '<g transform="translate(40 40) scale(.8)">' : '')
         . '<path d="M 200 75 A 125 125 0 1 1 85 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" opacity="0.35"/>'
         . '<path d="M 85 160 L 85 200 L 125 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>'
-        . '<rect x="125" y="125" width="150" height="150" rx="40" fill="#111c16" stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
+        . '<rect x="125" y="125" width="150" height="150" rx="40" ' . ($theme !== null ? 'fill="' . $c[4] . '"' : 'style="fill:var(--logo-inner,' . $c[4] . ')"') . ' stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
         . '<path d="M 160 200 L 195 235 L 245 170" fill="none" stroke="url(#' . $u . 'g)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>'
+        . ($bleed ? '</g>' : '')
         . '</svg>';
 }
 
-/** فاو‌آیکن به‌صورت data URI (بدون درخواست جداگانه به سرور). */
-function favicon_uri(): string
+/** فاو‌آیکن تم به‌صورت data URI (بدون درخواست جداگانه به سرور). */
+function favicon_uri(string $theme = 'dark'): string
 {
-    return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav')));
+    return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav', $theme)));
+}
+
+/** پسوند فایل آیکن‌های PNG تم ('' برای تیره، '-light' برای تم‌های روشن). */
+function icon_suffix(string $theme): string
+{
+    return $theme === 'sage' ? '-light' : '';
 }
 
 /** رنگ اولویت درصدی: سبز (کم) ← زرد (متوسط) ← قرمز (زیاد) */

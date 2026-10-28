@@ -1,14 +1,14 @@
-<?php  ?>
+<?php $th = user_theme($currentUser ?? null); ?>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <meta name="base-url" content="<?= e(base_url()) ?>">
-<meta name="theme-color" content="<?= e(themes()[user_theme($currentUser ?? null)]['meta']) ?>">
+<meta name="theme-color" content="<?= e(themes()[$th]['meta']) ?>">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($this->title) ?> • <?= e(env('APP_NAME', 'تسکام')) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri()) ?>">
-<link rel="manifest" href="<?= e(url('manifest')) ?>">
-<link rel="apple-touch-icon" href="<?= e(url('assets/img/apple-touch-icon.png')) ?>">
+<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri($th)) ?>">
+<link rel="manifest" href="<?= e(url('manifest')) ?>" crossorigin="use-credentials">
+<link rel="apple-touch-icon" href="<?= e(url('assets/img/apple-touch-icon' . icon_suffix($th) . '.png')) ?>">
 <meta name="application-name" content="<?= e(env('APP_NAME', 'تسکام')) ?>">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">

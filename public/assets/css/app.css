@@ -4,6 +4,8 @@
    ========================================================================== */
 
 :root {
+  /* رنگ‌های لوگو (logo_svg در helpers.php) */
+  --logo-a: #22c55e; --logo-b: #10b981; --logo-bg1: #121816; --logo-bg2: #0a0f0d; --logo-inner: #111c16;
   --bg: #060908;
   --bg-2: #0a100d;
   --surface: #0f1612;
@@ -764,6 +766,7 @@ input[type=file].input::-webkit-file-upload-button { margin-inline-end: .9rem; p
    ═══════════════════════════════════════════════════════════════════════ */
 html[data-theme="sage"] {
   color-scheme: light;
+  --logo-a: #7FB77E; --logo-b: #4E9A5B; --logo-bg1: #FBFAEB; --logo-bg2: #E3E4C9; --logo-inner: #F7F6DC;
   /* پس‌زمینه کمی تیره‌تر و خنثی‌تر از #F7F6DC تا چشم را نزند؛ خود #F7F6DC رنگ کارت‌هاست */
   --bg: #E8E9D3;
   --bg-2: #E1E3CB;

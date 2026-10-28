@@ -28,8 +28,11 @@ final class PwaController extends Controller
     {
         $name = (string) env('APP_NAME', 'تسکام');
         $s = self::scope();
-        $icon = static fn(string $f, string $size, string $purpose = 'any') => ['src' => $s . 'assets/img/' . $f, 'sizes' => $size, 'type' => 'image/png', 'purpose' => $purpose];
-        $theme = themes()[user_theme(Auth::user())]['meta'];
+        // آیکن‌ها و رنگ‌ها مطابق تم کاربر (manifest با crossorigin="use-credentials" درخواست می‌شود تا نشست همراهش باشد)
+        $th = user_theme(Auth::user());
+        $sx = icon_suffix($th);
+        $icon = static fn(string $f, string $size, string $purpose = 'any') => ['src' => $s . 'assets/img/' . $f . $sx . '.png', 'sizes' => $size, 'type' => 'image/png', 'purpose' => $purpose];
+        $theme = themes()[$th]['meta'];
         $m = [
             'id' => $s,
             'name' => $name . ' — مدیریت وظایف و تیم',
@@ -42,17 +45,17 @@ final class PwaController extends Controller
             'display' => 'standalone',
             'display_override' => ['standalone', 'minimal-ui'],
             'orientation' => 'any',
-            'background_color' => '#060908',
+            'background_color' => $theme,
             'theme_color' => $theme,
             'categories' => ['productivity', 'business'],
             'icons' => [
-                $icon('icon-192.png', '192x192'), $icon('icon-512.png', '512x512'),
-                $icon('icon-maskable-192.png', '192x192', 'maskable'), $icon('icon-maskable-512.png', '512x512', 'maskable'),
+                $icon('icon-192', '192x192'), $icon('icon-512', '512x512'),
+                $icon('icon-maskable-192', '192x192', 'maskable'), $icon('icon-maskable-512', '512x512', 'maskable'),
             ],
             'shortcuts' => [
-                ['name' => 'تسک‌ها', 'short_name' => 'تسک‌ها', 'url' => $s . 'tasks', 'icons' => [$icon('icon-192.png', '192x192')]],
-                ['name' => 'گفتگو', 'short_name' => 'گفتگو', 'url' => $s . 'chat', 'icons' => [$icon('icon-192.png', '192x192')]],
-                ['name' => 'پیشخوان', 'short_name' => 'پیشخوان', 'url' => $s . 'dashboard', 'icons' => [$icon('icon-192.png', '192x192')]],
+                ['name' => 'تسک‌ها', 'short_name' => 'تسک‌ها', 'url' => $s . 'tasks', 'icons' => [$icon('icon-192', '192x192')]],
+                ['name' => 'گفتگو', 'short_name' => 'گفتگو', 'url' => $s . 'chat', 'icons' => [$icon('icon-192', '192x192')]],
+                ['name' => 'پیشخوان', 'short_name' => 'پیشخوان', 'url' => $s . 'dashboard', 'icons' => [$icon('icon-192', '192x192')]],
             ],
         ];
         header('Content-Type: application/manifest+json; charset=utf-8');

@@ -13,7 +13,7 @@ $this->scripts[] = 'profile';
 </div></div>
 
 <div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" style="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
-    <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme"><?= csrf_field() ?>
+    <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
         <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
         <?php $cur = user_theme($u); foreach (themes() as $key => $th): [$pBg, $pSide, $pCard, $pAcc] = $th['preview']; ?>
             <label class="theme-opt"><input type="radio" name="theme" value="<?= e($key) ?>" <?= $cur === $key ? 'checked' : '' ?>>
