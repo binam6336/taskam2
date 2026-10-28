@@ -42,10 +42,11 @@ $total = array_sum(array_map('count', $columns));
         </header>
         <div class="kb-list" data-drop="archived">
         <?php foreach ($archive['cards'] as $t) { $this->partial('kb_card', ['t' => $t, 'key' => 'archived', 'filters' => $filters]); } ?>
-        <?php if ($archive['total'] > count($archive['cards'])): ?>
-            <button type="button" class="btn kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button>
-        <?php endif; ?>
+        <?php if (!$archive['total']): ?><div class="kb-empty xs faint">آرشیو خالی است.</div><?php endif; ?>
         </div>
+        <?php if ($archive['total'] > 0): ?>
+        <footer class="kb-col-foot"><button type="button" class="btn btn-sm kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button></footer>
+        <?php endif; ?>
     </section>
 </div>
 </div>
