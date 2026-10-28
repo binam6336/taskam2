@@ -11,6 +11,7 @@ use App\Core\DB;
 use App\Core\Validate;
 use App\Models\SupportModel;
 use App\Models\UserModel;
+use App\Services\SupportDesk;
 
 /** پنل مدیریت: کاربران، پشتیبانی، تحلیل سیستم. */
 final class AdminController extends Controller
@@ -164,46 +165,55 @@ final class AdminController extends Controller
 
     // ───── پشتیبانی ─────
 
+    private function desk(?array $ticket): void
+    {
+        $this->view('support/desk', SupportDesk::data(true, $this->uid(), $this->request, $ticket) + ['supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => $ticket ? 'تیکت #' . fa_num($ticket['id']) : 'پشتیبانی', 'page' => 'admin-support', 'bodyClass' => 'page-desk'], 'admin');
+    }
+
+    private function ticket(string $id): array
+    {
+        SupportModel::ensureSchema();
+        $t = SupportModel::find((int) $id);
+        if ($t === null) {
+            $this->abort(404, 'تیکت یافت نشد.', 'NOT_FOUND');
+        }
+        return $t;
+    }
+
     public function support()
     {
-        $status = $this->request->query['status'] ?? 'all';
-        $this->view('admin/support', ['tickets' => SupportModel::adminTickets((string) $status), 'status' => $status, 'supportUnread' => SupportModel::unreadForAdmin()], ['title' => 'پشتیبانی', 'page' => 'admin-support'], 'admin');
+        SupportModel::ensureSchema();
+        $this->desk(null);
     }
 
     public function supportShow(string $id)
     {
-        $t = DB::one('SELECT st.*, u.first_name, u.last_name, u.mobile FROM support_tickets st INNER JOIN users u ON u.id = st.user_id WHERE st.id = ?', [(int) $id]);
-        if ($t === null) {
-            $this->abort(404, 'تیکت یافت نشد.', 'NOT_FOUND');
-        }
-        DB::run("UPDATE support_messages SET is_read_by_admin = 1 WHERE ticket_id = ? AND sender_role = 'user' AND is_read_by_admin = 0", [(int) $id]);
-        $this->view('admin/support_show', ['ticket' => $t, 'messages' => SupportModel::messages((int) $id), 'supportUnread' => SupportModel::unreadForAdmin()], ['title' => 'تیکت #' . $id, 'page' => 'admin-support'], 'admin');
+        $this->desk($this->ticket($id));
     }
 
     public function supportReply(string $id)
     {
-        $msg = $this->request->str('message', 5000);
-        if ($msg === '' || DB::one('SELECT id FROM support_tickets WHERE id = ?', [(int) $id]) === null) {
-            $this->respond(false, 'پیام نامعتبر است.', '/admin/support/' . $id);
-        }
-        DB::insert('support_messages', ['ticket_id' => (int) $id, 'sender_id' => $this->uid(), 'sender_role' => 'admin', 'message' => $msg, 'is_read_by_user' => 0, 'is_read_by_admin' => 1]);
-        DB::run("UPDATE support_tickets SET status = 'answered', last_reply_at = NOW(), closed_at = NULL WHERE id = ?", [(int) $id]);
-        $this->respond(true, 'پاسخ ارسال شد.', '/admin/support/' . $id);
+        $t = $this->ticket($id);
+        [$ok, $msg] = SupportModel::addMessage($t, $this->uid(), 'admin', $this->request->str('message', SupportModel::MSG_MAX), $this->request->file('attachment'));
+        $this->respond($ok, $msg, '/admin/support/' . $id);
     }
 
     public function supportStatus(string $id)
     {
-        $s = Validate::enum($this->request->input('status'), ['open', 'answered', 'closed'], '');
+        $t = $this->ticket($id);
+        $s = Validate::enum($this->request->input('status'), ['open', 'in_progress', 'answered', 'closed'], '');
         if ($s === '') {
             $this->respond(false, 'وضعیت نامعتبر است.', '/admin/support/' . $id);
         }
-        DB::run('UPDATE support_tickets SET status = ?, closed_at = ' . ($s === 'closed' ? 'NOW()' : 'NULL') . ' WHERE id = ?', [$s, (int) $id]);
-        $this->respond(true, 'وضعیت تیکت تغییر کرد.', '/admin/support/' . $id);
+        DB::run('UPDATE support_tickets SET status = ?, closed_at = ' . ($s === 'closed' ? 'NOW()' : 'NULL') . ' WHERE id = ?', [$s, (int) $t['id']]);
+        $labels = ['open' => 'تیکت دوباره باز شد.', 'in_progress' => 'تیکت «در حال انجام» شد.', 'answered' => 'وضعیت تیکت تغییر کرد.', 'closed' => 'تیکت بسته شد.'];
+        $this->respond(true, $labels[$s], '/admin/support/' . $id);
     }
 
     public function supportDelete(string $id)
     {
-        DB::run('DELETE FROM support_tickets WHERE id = ?', [(int) $id]);
+        SupportModel::delete((int) $this->ticket($id)['id']);
         $this->respond(true, 'تیکت حذف شد.', '/admin/support');
     }
 

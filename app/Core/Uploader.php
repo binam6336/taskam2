@@ -42,7 +42,7 @@ final class Uploader
 
     public static function dir(string $type): string
     {
-        if (!in_array($type, ['avatars', 'projects', 'task_attachments', 'note_attachments', 'chat_files'], true)) {
+        if (!in_array($type, ['avatars', 'projects', 'task_attachments', 'note_attachments', 'chat_files', 'support_files'], true)) {
             throw new \InvalidArgumentException('bad upload type');
         }
         $d = STORAGE_PATH . '/uploads/' . $type;

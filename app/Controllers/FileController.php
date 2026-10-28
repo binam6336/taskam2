@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\DB;
 use App\Core\Uploader;
@@ -15,7 +16,7 @@ final class FileController extends Controller
     public function serve(string $type, string $name)
     {
         $uid = $this->uid();
-        $path = in_array($type, ['avatars', 'projects', 'task_attachments', 'note_attachments', 'chat_files'], true) ? Uploader::path($type, $name) : null;
+        $path = in_array($type, ['avatars', 'projects', 'task_attachments', 'note_attachments', 'chat_files', 'support_files'], true) ? Uploader::path($type, $name) : null;
         if ($path === null) {
             $this->abort(404, 'فایل یافت نشد.', 'NOT_FOUND');
         }
@@ -48,6 +49,9 @@ final class FileController extends Controller
         if ($type === 'note_attachments') {
             return DB::value('SELECT file_name FROM note_attachments WHERE file_path = ? LIMIT 1', [$name]);
         }
+        if ($type === 'support_files') {
+            return DB::value('SELECT attachment_name FROM support_messages WHERE attachment = ? LIMIT 1', [$name]);
+        }
         if ($type === 'chat_files') {
             $m = DB::one('SELECT attachment_name, sender_id, receiver_id FROM chat_messages WHERE attachment = ? LIMIT 1', [$name]);
             return $m ? \App\Models\ChatModel::open($m['attachment_name'], (int) $m['sender_id'], (int) $m['receiver_id']) : null;
@@ -63,6 +67,10 @@ final class FileController extends Controller
                 return true; // تصاویر پروفایل برای کاربران واردشده قابل مشاهده است
             case 'chat_files':
                 return (bool) DB::value('SELECT 1 FROM chat_messages WHERE attachment = ? AND (sender_id = ? OR receiver_id = ?) LIMIT 1', [$name, $uid, $uid]);
+            case 'support_files':
+                // صاحب تیکت، یا مدیر (نه در حالت ورود به‌جای کاربر)
+                $owner = DB::value('SELECT st.user_id FROM support_messages sm INNER JOIN support_tickets st ON st.id = sm.ticket_id WHERE sm.attachment = ? LIMIT 1', [$name]);
+                return $owner !== null && ((int) $owner === $uid || (Auth::isAdmin($this->user()) && !Auth::isImpersonating()));
             case 'task_attachments':
                 $t = DB::one('SELECT t.id, t.user_id, t.assignee_id, t.project_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.file_path = ? LIMIT 1', [$name]);
                 break;

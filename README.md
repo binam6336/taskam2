@@ -60,6 +60,7 @@ mysql -u root -p taskam < database/migrations/004_priority_percent_and_task_link
 mysql -u root -p taskam < database/migrations/005_user_theme.sql                              # v2.1: تم ظاهری کاربر
 mysql -u root -p taskam < database/migrations/006_chat_forward_and_clear.sql                  # v2.2: بازارسال و حذف تاریخچه‌ی چت
 mysql -u root -p taskam < database/migrations/007_push_subscriptions.sql                     # v2.3: اعلان‌های PWA
+mysql -u root -p taskam < database/migrations/008_support_desk.sql                          # v2.4: میز پشتیبانی (پیوست + در حال انجام)
 ```
 
 ## تسک‌ها و تحلیل پروژه
