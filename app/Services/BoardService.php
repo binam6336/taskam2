@@ -12,7 +12,8 @@ use App\Models\TaskModel;
  * دیدن کارت‌ها: تسک‌های خود کاربر + تسک‌های اعضایی که در «مشاهده‌ی تسک‌های» برایش انتخاب شده (Access::canBoardView).
  * جابه‌جایی با «دسترسی برد تیمی» هر پروژه است (Access::BOARD_PERMS، جدا از دسترسی تسک؛ پیش‌فرض بسته).
  * هر جابه‌جایی فقط یک مرحله جلو/عقب است، مگر با «جابه‌جایی آزاد».
- * آرشیو: تسک انجام‌شده با archived_at؛ ستون جدا بعد از «انجام‌شده». آرشیو/بازگردانی با دسترسی to_done یا move_any.
+ * آرشیو: تسک انجام‌شده با archived_at؛ ستون جدا بعد از «انجام‌شده». فقط نمایش برد را مرتب می‌کند و روی خود تسک
+ * (انجام‌شدن، لیست‌ها، گزارش‌ها) اثری ندارد؛ پس هر کسی که کارت را در برد می‌بیند می‌تواند آرشیو/بازگردانی کند.
  */
 final class BoardService
 {
@@ -82,10 +83,10 @@ final class BoardService
         return $out;
     }
 
-    /** آرشیو کردن / برگرداندن از آرشیو: کسی که می‌تواند تسک را به «انجام‌شده» ببرد (to_done) یا جابه‌جایی آزاد دارد */
+    /** آرشیو کردن / برگرداندن از آرشیو: فقط مخصوص برد است، پس هر کسی که کارت را در برد می‌بیند */
     public static function canArchive(array $t, int $uid): bool
     {
-        return (bool) array_intersect(['to_done', 'move_any'], Access::boardPerms($t, $uid));
+        return Access::canBoardView($t, $uid);
     }
 
     /**
@@ -155,7 +156,7 @@ final class BoardService
             }
         }
         if (!$ids) {
-            return self::res(false, 'تسک انجام‌شده‌ای برای آرشیو نیست (یا اجازه‌ی آرشیو کردنشان را ندارید).', 'NOTHING_TO_ARCHIVE', 422);
+            return self::res(false, 'تسک انجام‌شده‌ای برای آرشیو نیست.', 'NOTHING_TO_ARCHIVE', 422);
         }
         foreach (array_chunk($ids, 500) as $chunk) {
             DB::run('UPDATE tasks SET archived_at = NOW() WHERE archived_at IS NULL AND id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk);
@@ -194,7 +195,7 @@ final class BoardService
                 return self::res(true, 'تسک همین حالا در آرشیو است.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => true]);
             }
             if (!in_array($status, self::targets($t, $actor, $from), true)) {
-                return self::res(false, $from === 'archived' ? 'تسک آرشیوشده فقط به «انجام‌شده» برمی‌گردد و اجازه‌اش را باید داشته باشید.' : 'فقط تسک‌های انجام‌شده آرشیو می‌شوند و اجازه‌اش را باید داشته باشید.', 'FORBIDDEN', 403);
+                return self::res(false, $from === 'archived' ? 'تسک آرشیوشده فقط به «انجام‌شده» برمی‌گردد.' : 'فقط تسک‌های انجام‌شده آرشیو می‌شوند.', 'FORBIDDEN', 403);
             }
             DB::run('UPDATE tasks SET archived_at = ' . ($status === 'archived' ? 'NOW()' : 'NULL') . ', board_moved_at = NOW() WHERE id = ?', [$id]);
             return self::res(true, $status === 'archived' ? 'تسک به آرشیو منتقل شد.' : 'تسک از آرشیو به «انجام‌شده» برگشت.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => true]);

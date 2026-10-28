@@ -1192,7 +1192,7 @@ html[data-theme="sage"] .kb-menu { box-shadow: 0 16px 36px -14px rgba(60, 70, 40
 .kb-col[data-col="archived"] .kb-card { opacity: .78; filter: grayscale(.6); }
 .kb-col[data-col="archived"] .kb-card:hover { opacity: 1; filter: none; }
 .kb-col[data-col="archived"] .kb-title { color: var(--muted); }
-.kb-archive-all { color: var(--muted); } .kb-archive-all:hover { color: var(--g-300); }
+.kb-archive-all { flex: none; padding: .25rem .55rem; font-size: .75rem; gap: .3rem; } .kb-archive-all:not(:disabled):hover { color: var(--g-300); border-color: var(--g-400); }
 .kb-col-foot { flex: none; padding: .5rem .6rem .6rem; border-top: 1px solid var(--border); }
 .kb-more { width: 100%; justify-content: center; border-style: dashed; color: var(--muted); }
 .kb-empty { text-align: center; padding: 1rem .5rem; }

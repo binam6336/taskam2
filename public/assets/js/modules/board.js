@@ -83,7 +83,7 @@ document.addEventListener('tk:ready', () => {
   // آیکون آرشیو در ستون «انجام‌شده»: همه‌ی انجام‌شده‌های این برد (با فیلترهای فعلی)
   TK.on('click', '[data-kb-archive-all]', async (e, b) => {
     const n = Number(b.dataset.kbArchiveAll) || 0;
-    if (!(await TK.confirm(`${TK.fa(n)} تسک انجام‌شده به آرشیو منتقل شود؟ (از آرشیو قابل بازگردانی است)`, { okText: 'انتقال به آرشیو', danger: false }))) return;
+    if (!(await TK.confirm(`${TK.fa(n)} تسک انجام‌شده به آرشیو برد منتقل شود؟ روی خود تسک‌ها اثری ندارد و از آرشیو قابل بازگردانی است.`, { okText: 'انتقال به آرشیو', danger: false }))) return;
     TK.busy(b, true);
     const r = await TK.post('/board/archive-done', filters());
     TK.busy(b, false);

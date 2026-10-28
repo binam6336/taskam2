@@ -26,7 +26,7 @@ $total = array_sum(array_map('count', $columns));
         <header class="kb-col-head" title="<?= e($s['desc']) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
             <div class="grow"><b><?= e($s['label']) ?></b><span><?= e($s['en']) ?></span></div>
-            <?php if ($key === 'done' && $archivable > 0): ?><button type="button" class="btn btn-ghost btn-icon btn-xs kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" title="انتقال تسک‌های انجام‌شده به آرشیو" aria-label="انتقال تسک‌های انجام‌شده به آرشیو"><i class="fa-solid fa-box-archive"></i></button><?php endif; ?>
+            <?php if ($key === 'done'): ?><button type="button" class="btn btn-sm kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" <?= $archivable ? '' : 'disabled' ?> title="<?= $archivable ? 'انتقال همه‌ی تسک‌های انجام‌شده به آرشیو (فقط در برد؛ روی خود تسک‌ها اثری ندارد)' : 'تسک انجام‌شده‌ای برای آرشیو نیست' ?>" aria-label="آرشیو انجام‌شده‌ها"><i class="fa-solid fa-box-archive"></i> آرشیو</button><?php endif; ?>
             <span class="kb-count"><?= e(fa_num(count($cards))) ?></span>
         </header>
         <div class="kb-list" data-drop="<?= e($key) ?>">
