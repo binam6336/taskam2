@@ -7,10 +7,13 @@
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
   const tasksGroup = () => TK.qs('#nav-g-tasks')?.closest('[data-nav-group]');
+  const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
 
   /* مرحله‌ها با شماره‌ی ثابت (همان که ذخیره می‌شود).
-     page: صفحه‌ای که مرحله در آن اجرا می‌شود | when: شرط نمایش | target: بخشی که به آن اشاره می‌شود
-     action: click = با کلیک کاربر روی بخش جلو می‌رود، go = لینک بخش باز می‌شود و تور در صفحه‌ی بعد ادامه دارد، ok = دکمه‌ی «فهمیدم» */
+     page: صفحه‌ای که مرحله در آن اجرا می‌شود | when: شرط نمایش | target: بخشی که به آن اشاره می‌شود (اولین مورد نمایان)
+     action: click = با کلیک کاربر روی بخش جلو می‌رود، go = لینک بخش باز می‌شود و تور در صفحه‌ی بعد ادامه دارد،
+             ok = دکمه‌ی «فهمیدم» (کاربر می‌تواند همان بخش را پر کند)، submit = بعد از ذخیره‌ی موفق فرم جلو می‌رود
+     back: اگر بخش پنهان شد (مثلاً پنجره بسته شد) به این مرحله برمی‌گردد */
   const STEPS = {
     1: {
       page: 'dashboard', when: () => mobile.matches, target: '.menu-btn', action: 'click', next: 2,
@@ -30,9 +33,37 @@
       },
       text: 'وظایف اول باید تو قسمت تسک‌ها ایجاد بشن؛ اینجا بخش اصلی و ساده‌ی مدیریت وظایف هست.',
     },
+    4: {
+      page: 'tasks', target: '#btn-new-task', action: 'click', next: 5,
+      text: 'با کلیک روی این دکمه می‌تونی تسک جدید ایجاد کنی.',
+    },
+    5: field('title', 'تو این بخش می‌تونی برای تسک عنوان بذاری.', { next: 6 }),
+    6: field('desc', 'توضیحات یا جزئیات مربوط به تسک رو اینجا بنویس.', { next: 7 }),
+    7: field('project', 'اینجا پروژه‌ی مربوط به تسک رو انتخاب کنید. پروژه‌ها برای مدیریت بهتر موضوعات تسک‌ها استفاده می‌شن و می‌تونید تنظیمات مدنظر خودتون رو روی پروژه اعمال کنید.', { next: 8 }),
+    8: field('assignee', 'اینجا مشخص می‌کنی این تسک رو کی باید انجام بده و مسئولش چه شخصیه.', { next: 9 }),
+    9: field('priority', 'این فیلد مشخص می‌کنه اولویت این تسک برای تیم چقدره.', { next: 10 }),
+    10: field('label', 'لیبل به شما کمک می‌کنه تگ‌های مدنظر رو برای تسک‌ها ایجاد کنید.', { next: 11 }),
+    11: field('due', 'تاریخ انجام تسک اینجا مشخص می‌شه و تو تاریخ مربوط به انجام، برای شما نوتیفیکیشن یادآوری ارسال می‌شه.', { next: 12 }),
+    12: field('time', 'حتی می‌تونید ساعت دقیق یادآوری رو هم اینجا مشخص کنید.', { next: 13 }),
+    13: field('files', 'اگه فایلی باید به تسک اضافه بشه، اینجا می‌تونید اضافه کنید.', { next: 14 }),
+    14: field('save', 'با کلیک روی ذخیره، تسک شما ایجاد می‌شه.', {
+      action: 'submit', next: 15, celebrate: 'تسک شما ایجاد شد!',
+      // فیلد اجباری خالی → برگشت به مرحله‌ی همان فیلد و بعد از «فهمیدم» دوباره همین‌جا
+      check: () => {
+        const f = TK.qs('#f-task');
+        if (!f.elements.title.value.trim()) return 5;
+        if (!f.elements.project_id.value) return 7;
+        if (!f.elements.subject_id.value || f.elements.subject_id.value === '__new') return 10;
+        return 0;
+      },
+    }),
   };
   const ids = Object.keys(STEPS).map(Number).sort((a, b) => a - b);
   const active = () => ids.filter((i) => !STEPS[i].when || STEPS[i].when());
+  const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const find = (sel) => TK.qsa(sel).find(visible) || null;
+  // منوهای بازشونده‌ی داخل بخش (انتخاب پروژه/مسئول، تقویم، ساعت) هم باید دیده و کلیک شوند
+  const POPUPS = '.rselect.open .rselect-menu, .picker-pop:not([hidden])';
 
   const save = (state) => TK.post('/tour', { state });
 
@@ -64,8 +95,17 @@
     });
   };
 
+  /* ───── تیک موفقیت (انیمیشنی) ───── */
+  const celebrate = (text) => {
+    const box = document.createElement('div');
+    box.className = 'tour-done';
+    box.innerHTML = `<div class="tour-done-box"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><b>${TK.esc(text)}</b></div>`;
+    document.body.appendChild(box);
+    setTimeout(() => { box.classList.add('out'); setTimeout(() => box.remove(), 350); }, 2000);
+  };
+
   /* ───── اجرای مرحله‌ها ───── */
-  let ui = null, raf = 0, cur = null;
+  let ui = null, raf = 0, cur = null, form = null, resume = null;
 
   const build = () => {
     ui = document.createElement('div');
@@ -85,8 +125,9 @@
   const finish = () => {
     cancelAnimationFrame(raf);
     document.removeEventListener('click', onClick, true);
+    form?.removeEventListener('tk:done', onSaved);
     ui?.remove();
-    ui = cur = null;
+    ui = cur = form = null;
   };
 
   const exit = async () => {
@@ -99,6 +140,7 @@
   // رفتن به مرحله‌ی بعد؛ اگر در همین صفحه نباشد، ذخیره می‌شود تا در صفحه‌ی خودش ادامه پیدا کند
   const advance = () => {
     const step = STEPS[cur];
+    if (resume && step.action === 'ok') { const r = resume; resume = null; run(r); return; }
     let n = step.next;
     while (n && STEPS[n] && STEPS[n].when && !STEPS[n].when()) n = STEPS[n].next;
     if (!n) { finish(); save('done'); return; }
@@ -106,11 +148,30 @@
     run(n);
   };
 
+  // ذخیره‌ی موفق فرم در مرحله‌ی submit: تیک انیمیشنی و آماده‌ی مرحله‌ی بعد؛ خطا (مثلاً لیبل انتخاب نشده) = ماندن در همین مرحله
+  const onSaved = (e) => {
+    if (cur === null || STEPS[cur].action !== 'submit' || !TK.ok(e.detail)) return;
+    const step = STEPS[cur];
+    if (step.celebrate) celebrate(step.celebrate);
+    advance();
+  };
+
   const onClick = (e) => {
     if (cur === null) return;
     const step = STEPS[cur];
     const t = e.target.closest?.(step.target);
     if (!t || step.action === 'ok') return;
+    if (step.action === 'submit') {
+      const miss = step.check?.();
+      if (miss) {
+        e.preventDefault();
+        e.stopPropagation();
+        TK.toast('اول این بخش رو کامل کن.', 'warning');
+        resume = step.id;
+        run(miss);
+      }
+      return;
+    }
     if (step.action === 'go') {
       e.preventDefault();
       e.stopPropagation();
@@ -120,7 +181,7 @@
       return;
     }
     cur = null; // جلوگیری از دو بار رفتن
-    setTimeout(() => { cur = Number(step.id); advance(); }, 380); // تا انیمیشن باز شدن منو تمام شود
+    setTimeout(() => { cur = Number(step.id); advance(); }, 380); // تا انیمیشن باز شدن منو/پنجره تمام شود
   };
 
   const run = (id) => {
@@ -140,18 +201,18 @@
       <div class="tour-foot">${hint}<button type="button" class="tour-exit" data-tour-exit>رد کردن آموزش</button></div>`;
     const pop = ui.querySelector('.tour-pop');
     pop.classList.remove('in');
-    // صبر تا بخش موردنظر ظاهر شود (باز شدن منو)؛ اگر پیدا نشد، مرحله رد می‌شود
+    // صبر تا بخش موردنظر ظاهر شود (باز شدن منو/پنجره)؛ اگر پیدا نشد، به مرحله‌ی برگشت یا بعدی می‌رود
     const t0 = performance.now();
     const wait = () => {
-      const el = TK.qs(step.target);
-      const r = el?.getBoundingClientRect();
-      if (!r || r.width === 0 || r.height === 0) {
-        if (performance.now() - t0 > 1800) { cur = id; advance(); return; }
+      const el = find(step.target);
+      if (!el) {
+        if (performance.now() - t0 > 1800) { if (step.back) run(step.back); else { cur = id; advance(); } return; }
         raf = requestAnimationFrame(wait);
         return;
       }
       el.scrollIntoView({ block: 'nearest' });
       cur = id;
+      if (step.action === 'submit') { form = el.closest('form'); form?.addEventListener('tk:done', onSaved); }
       void pop.offsetWidth;
       pop.classList.add('in');
       track(el);
@@ -164,12 +225,29 @@
   const track = (el) => {
     const [top, right, bottom, left] = ui.querySelectorAll('.tour-shade');
     const ring = ui.querySelector('.tour-ring'), pop = ui.querySelector('.tour-pop'), arrow = ui.querySelector('.tour-arrow');
+    let shown = new Set();
     const set = (n, x, y, w, h) => Object.assign(n.style, { left: x + 'px', top: y + 'px', width: Math.max(0, w) + 'px', height: Math.max(0, h) + 'px' });
     const frame = () => {
-      if (!document.contains(el)) { el = TK.qs(STEPS[cur]?.target || '#_'); if (!el) return; }
+      if (cur !== null && !visible(el)) {
+        const step = STEPS[cur];
+        const again = find(step.target);
+        if (again) el = again;
+        else if (step.back) { run(step.back); return; } // مثلاً پنجره‌ی تسک بسته شد
+        else { raf = requestAnimationFrame(frame); return; }
+      }
       const vw = window.innerWidth, vh = window.innerHeight, pad = 6;
-      const b = el.getBoundingClientRect();
-      const x1 = Math.max(0, b.left - pad), y1 = Math.max(0, b.top - pad), x2 = Math.min(vw, b.right + pad), y2 = Math.min(vh, b.bottom + pad);
+      let b = el.getBoundingClientRect();
+      let l = b.left, t = b.top, r = b.right, btm = b.bottom;
+      const open = new Set();
+      el.querySelectorAll(POPUPS).forEach((p) => {
+        const q = p.getBoundingClientRect();
+        if (!q.width) return;
+        open.add(p);
+        if (!shown.has(p)) p.scrollIntoView({ block: 'nearest' }); // سایه‌ها جلوی اسکرول را می‌گیرند؛ منوی تازه‌باز خودش دیده شود
+        l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); btm = Math.max(btm, q.bottom);
+      });
+      shown = open;
+      const x1 = Math.max(0, l - pad), y1 = Math.max(0, t - pad), x2 = Math.min(vw, r + pad), y2 = Math.min(vh, btm + pad);
       set(top, 0, 0, vw, y1);
       set(bottom, 0, y2, vw, vh - y2);
       set(left, 0, y1, x1, y2 - y1);
@@ -202,5 +280,5 @@
   const step = STEPS[id];
   if (!step || step.page !== boot.page) return; // مرحله‌ی صفحه‌ی دیگر: وقتی کاربر به آن صفحه برود ادامه پیدا می‌کند
   if (step.when && !step.when()) { cur = id; build(); advance(); return; }
-  run(id);
+  run(step.back && !find(step.target) ? step.back : id); // بعد از رفرش، پنجره‌ی فرم بسته است → از دکمه‌ی تسک جدید
 })();
