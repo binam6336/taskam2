@@ -10,6 +10,7 @@ use App\Core\Session;
 use App\Core\Throttle;
 use App\Core\Validate;
 use App\Models\UserModel;
+use App\Services\ProjectService;
 
 final class AuthController extends Controller
 {
@@ -76,6 +77,7 @@ final class AuthController extends Controller
         }
         $id = Auth::register(['mobile' => $mobile, 'first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $pass]);
         Audit::log($id, 'register');
+        ProjectService::createSample($id);
         Session::forget('_old');
         Auth::login(UserModel::find($id) ?? [], $req);
         Session::flash('ثبت‌نام انجام شد. حساب شما پس از تأیید مدیر فعال می‌شود.', 'success');

@@ -83,6 +83,16 @@ final class ProjectService
         return [true, $msg, $id];
     }
 
+    /** پروژه‌ی نمونه برای کاربر تازه‌ثبت‌نام‌شده تا تسک‌های اولیه را با آن ثبت کند (کاربر می‌تواند ویرایش یا حذفش کند). */
+    public static function createSample(int $uid): void
+    {
+        try {
+            self::create($uid, 'پروژه نمونه', 'این یک پروژه‌ی نمونه است تا تسک‌های اولیه‌ات را با آن ثبت کنی؛ هر وقت خواستی می‌توانی ویرایش یا حذفش کنی.', 10, [], null);
+        } catch (\Throwable $e) {
+            error_log('sample project: ' . $e->getMessage()); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
+        }
+    }
+
     public static function update(int $projectId, int $uid, string $title, string $desc, int $max, ?array $memberIds, ?array $image, ?string $priorityType = null): array
     {
         $p = DB::one('SELECT * FROM projects WHERE id = ?', [$projectId]);

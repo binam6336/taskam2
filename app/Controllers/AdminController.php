@@ -11,6 +11,7 @@ use App\Core\DB;
 use App\Core\Validate;
 use App\Models\SupportModel;
 use App\Models\UserModel;
+use App\Services\ProjectService;
 use App\Services\SupportDesk;
 
 /** پنل مدیریت: کاربران، پشتیبانی، تحلیل سیستم. */
@@ -84,6 +85,9 @@ final class AdminController extends Controller
         $status = Validate::enum($this->request->input('status'), Auth::STATUSES, 'active');
         $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_permissions' => $role === 'admin' ? $this->adminPerms() : null]);
         Audit::log($this->uid(), 'admin_user_created', ['id' => $id, 'role' => $role]);
+        if ($role === 'user') {
+            ProjectService::createSample($id);
+        }
         $this->respond(true, 'کاربر ایجاد شد.', '/admin');
     }
 
