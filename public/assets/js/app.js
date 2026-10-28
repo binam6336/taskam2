@@ -498,6 +498,42 @@
     setTimeout(() => TK.toast('برای دریافت اعلان پیام جدید و یادآوری تسک، روی زنگ بالای صفحه کلیک کنید.', 'info', 7000), 1500);
   }
 
+  /* ───── دکمه‌ی × پاک‌کردن جستجو ─────
+     روی همه‌ی فیلدهای جستجو (.search / .dx-search). جستجوی سمت سرور (فرم GET با پارامتر در آدرس): حذف پارامتر و بازگشت به همه‌ی داده‌ها
+     با حفظ بقیه‌ی فیلترها. فیلتر زنده (سمت مرورگر): خالی کردن فیلد و ارسال رویداد input تا فهرست کامل برگردد. */
+  const SEARCH_SEL = '.search > input.input, .dx-search > input.input';
+  const inUrl = (inp) => {
+    const f = inp.form;
+    return !!(f && inp.name && (f.getAttribute('method') || 'get').toLowerCase() === 'get' && new URLSearchParams(location.search).get(inp.name));
+  };
+  const clearBtn = (inp) => inp.parentElement.querySelector(':scope > .search-clear');
+  const syncClear = (inp) => { const b = clearBtn(inp); if (b) b.hidden = !(inp.value !== '' || inUrl(inp)); };
+  TK.searchClear = (root = document) => TK.qsa(SEARCH_SEL, root).forEach((inp) => {
+    if (!clearBtn(inp)) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'search-clear'; b.title = 'پاک کردن جستجو'; b.setAttribute('aria-label', 'پاک کردن جستجو');
+      b.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      inp.after(b); inp.parentElement.classList.add('has-clear');
+    }
+    syncClear(inp);
+  });
+  document.addEventListener('input', (e) => { if (e.target.matches?.(SEARCH_SEL)) syncClear(e.target); });
+  TK.on('click', '.search-clear', (e, b) => {
+    const inp = b.parentElement.querySelector('input.input');
+    if (!inp) return;
+    if (inUrl(inp)) {
+      const u = new URL(location.href);
+      u.searchParams.delete(inp.name); u.searchParams.delete('page');
+      location.href = u.toString();
+      return;
+    }
+    inp.value = '';
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    syncClear(inp); inp.focus();
+  });
+  document.addEventListener('tk:ready', () => TK.searchClear());
+  document.addEventListener('tk:live', () => TK.searchClear());
+
   /* ───── Page module loader ─────
      ماژول‌های صفحه بعد از app.js لود می‌شوند؛ پس رویداد باید بعد از اجرای همه‌ی اسکریپت‌ها (DOMContentLoaded) ارسال شود. */
   const fireReady = () => document.dispatchEvent(new CustomEvent('tk:ready'));

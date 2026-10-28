@@ -11,7 +11,7 @@ $total = array_sum(array_map('count', $columns));
         <option value="0">همه‌ی پروژه‌ها</option>
         <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
     </select>
-    <input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="جستجو در عنوان تسک‌ها…">
+    <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="جستجو در عنوان تسک‌ها…"></div>
     <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
     <button class="btn"><i class="fa-solid fa-magnifying-glass"></i> اعمال</button>
 </form>
