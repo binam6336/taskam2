@@ -5,6 +5,7 @@ namespace App\Controllers\Api\V1;
 
 use App\Core\ApiController;
 use App\Core\DB;
+use App\Core\Throttle;
 use App\Core\Validate;
 use App\Services\ColleagueService;
 
@@ -85,6 +86,10 @@ final class ColleagueApi extends ApiController
 
     public function search()
     {
+        if (!Throttle::attempt('user_lookup', (string) $this->uid, 30, 600)) {
+            header('Retry-After: 600');
+            $this->err('تعداد جستجوها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.', 429, 'RATE_LIMITED');
+        }
         $raw = trim((string) ($this->request->query['mobile'] ?? ''));
         if ($raw === '') {
             $this->err('پارامتر mobile الزامی است.', 400, 'MOBILE_REQUIRED');
@@ -98,7 +103,7 @@ final class ColleagueApi extends ApiController
             $this->err('کاربری با این شماره موبایل یافت نشد.', 404, 'USER_NOT_FOUND');
         }
         $u = $r['user'];
-        $this->ok(['user' => ['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar_url' => avatar_url($u['avatar'])],
+        $this->ok(['user' => ['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $r['already_added'] ? $u['email'] : null, 'avatar_url' => avatar_url($u['avatar'])],
             'already_added' => $r['already_added'], 'is_blocked' => !$r['accepts_requests'], 'is_blocked_by_me' => $r['is_blocked_by_me'], 'has_blocked_me' => $r['has_blocked_me']]);
     }
 

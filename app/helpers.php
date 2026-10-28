@@ -86,7 +86,12 @@ function full_url(string $path = ''): string
         return $origin . url($path);
     }
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' && env('TRUSTED_PROXY', false));
-    return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . url($path);
+    // هدر Host از کاربر می‌آید؛ فقط نام میزبان/پورت معتبر پذیرفته می‌شود (جلوگیری از تزریق Host در لینک‌ها). APP_URL را در .env تنظیم کنید.
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    if (!preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9-]{1,63}(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i', $host)) {
+        $host = (string) ($_SERVER['SERVER_NAME'] ?? 'localhost');
+    }
+    return ($https ? 'https' : 'http') . '://' . $host . url($path);
 }
 
 function asset(string $path): string

@@ -53,6 +53,15 @@ final class Auth
             self::logout();
             return self::$user = null;
         }
+        // ورود به‌جای کاربر: مدیر باید هنوز مدیرِ فعال باشد و رمزش از شروع این حالت عوض نشده باشد
+        if (self::isImpersonating()) {
+            $adm = DB::one('SELECT id, role, status, password_hash FROM users WHERE id = ? AND is_bot = 0 LIMIT 1', [(int) Session::get('imp_admin', 0)]);
+            $impPv = Session::get('imp_pv');
+            if ($adm === null || $adm['role'] !== 'admin' || $adm['status'] !== 'active' || !is_string($impPv) || !hash_equals($impPv, self::pv($adm))) {
+                self::logout();
+                return self::$user = null;
+            }
+        }
         // با تغییر رمز عبور، سایر نشست‌های همان کاربر نامعتبر می‌شوند
         if (!self::isImpersonating()) {
             $pv = self::pv($u);
@@ -135,7 +144,9 @@ final class Auth
         $win = max(1, (int) env('LOGIN_WINDOW_MINUTES', 15)) * 60;
         $keyUser = $mobile . '|' . $ip;
 
-        if (Throttle::count('login_user', $keyUser, $win) >= $max || Throttle::count('login_ip', $ip, $win) >= $max * 5) {
+        // سه سقف: موبایل+IP، کل IP، و خود حساب از همه‌ی IPها (حمله‌ی توزیع‌شده روی یک حساب)
+        if (Throttle::count('login_user', $keyUser, $win) >= $max || Throttle::count('login_ip', $ip, $win) >= $max * 5
+            || Throttle::count('login_acct', $mobile, $win) >= $max * 4) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.'];
         }
@@ -148,11 +159,13 @@ final class Auth
         if (!$valid) {
             Throttle::hit('login_user', $keyUser);
             Throttle::hit('login_ip', $ip);
+            Throttle::hit('login_acct', $mobile);
             Audit::log($u ? (int) $u['id'] : null, 'login_failed', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'شماره موبایل یا رمز عبور اشتباه است.'];
         }
 
         Throttle::clear('login_user', $keyUser);
+        Throttle::clear('login_acct', $mobile);
         if (password_needs_rehash((string) $u['password_hash'], self::algo())) {
             $u['password_hash'] = self::hash($password);      // مهم: هش جدید باید در همان $u باشد وگرنه نسخه‌ی رمز در سشن ناهمگام می‌شود و کاربر بلافاصله خارج می‌شود
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);
@@ -188,6 +201,7 @@ final class Auth
         Session::put('pv', self::pv($u));
         Session::put('ua', self::uaHash($req));
         Session::forget('imp_admin');
+        Session::forget('imp_pv');
         Session::forget('_csrf');
         DB::update('users', ['last_login_at' => date('Y-m-d H:i:s'), 'last_login_ip' => $req->ip()], 'id = ?', [(int) $u['id']]);
         Audit::log((int) $u['id'], 'login');
@@ -223,7 +237,10 @@ final class Auth
 
     public static function startImpersonation(int $adminId, int $targetId): void
     {
+        $adm = DB::one('SELECT password_hash FROM users WHERE id = ?', [$adminId]);
+        Session::regenerate();
         Session::put('imp_admin', $adminId);
+        Session::put('imp_pv', $adm ? self::pv($adm) : '');
         Session::put('uid', $targetId);
         self::$loaded = false;
         self::$user = null;
@@ -235,8 +252,10 @@ final class Auth
         $adminId = (int) Session::get('imp_admin', 0);
         if ($adminId > 0) {
             Audit::log($adminId, 'impersonate_stop', ['target' => (int) Session::get('uid', 0)]);
+            Session::regenerate();
             Session::put('uid', $adminId);
             Session::forget('imp_admin');
+            Session::forget('imp_pv');
             self::$loaded = false;
             self::$user = null;
         }

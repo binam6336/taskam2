@@ -4,12 +4,33 @@ declare(strict_types=1);
 namespace App\Core;
 
 /**
- * تغییرات افزایشی دیتابیس که اگر migration روی سرور اجرا نشده باشد، خودکار اعمال می‌شوند.
- * فقط ستون اضافه می‌کند؛ بعد از موفقیت یک فایل نشانه در storage/cache می‌نویسد تا بررسی تکرار نشود.
+ * تغییرات افزایشی دیتابیس (migrationهای ۰۰۴ به بعد) که اگر روی سرور اجرا نشده باشند خودکار اعمال می‌شوند؛
+ * تا جا انداختن یک migration دیگر به خطای ۵۰۰ ختم نشود. فقط ستون/جدول اضافه می‌کند و به داده‌ها دست نمی‌زند.
+ * بعد از موفقیت یک فایل نشانه در storage/cache نوشته می‌شود تا بررسی در هر درخواست تکرار نشود.
  */
 final class Schema
 {
     private const VERSION = '009';
+
+    /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
+    private const COLUMNS = [
+        // 004
+        ['projects', 'priority_type', "ADD COLUMN `priority_type` ENUM('category','percent') NOT NULL DEFAULT 'category' AFTER `max_members`", null],
+        ['tasks', 'priority_percent', 'ADD COLUMN `priority_percent` TINYINT UNSIGNED NULL DEFAULT NULL AFTER `priority`',
+            "UPDATE `tasks` SET `priority_percent` = CASE `priority` WHEN 'low' THEN 25 WHEN 'high' THEN 75 ELSE 50 END WHERE `priority_percent` IS NULL"],
+        ['users', 'task_link_access', "ADD COLUMN `task_link_access` ENUM('members','colleagues','me','all') NOT NULL DEFAULT 'members' AFTER `project_join_requires_approval`", null],
+        // 005
+        ['users', 'theme', "ADD COLUMN `theme` VARCHAR(20) NOT NULL DEFAULT 'dark' AFTER `quick_links`", null],
+        // 006
+        ['chat_messages', 'forwarded_from', 'ADD COLUMN `forwarded_from` INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_type`', null],
+        // 009
+        ['project_members', 'task_permissions', 'ADD COLUMN `task_permissions` TEXT NULL DEFAULT NULL AFTER `permissions`', null],
+    ];
+
+    /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */
+    private const TABLES = [
+        ['chat_history_clears', '006_chat_forward_and_clear.sql'],
+    ];
 
     public static function ensure(): void
     {
@@ -17,15 +38,46 @@ final class Schema
         if (is_file($flag)) {
             return;
         }
+        $ok = true;
         try {
-            // 009: دسترسی تسک‌ها به ازای هر پروژه
-            $has = (int) DB::value("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'project_members' AND column_name = 'task_permissions'");
-            if ($has === 0) {
-                DB::run('ALTER TABLE `project_members` ADD COLUMN `task_permissions` TEXT NULL DEFAULT NULL AFTER `permissions`');
+            $cols = [];
+            foreach (DB::all('SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE()') as $r) {
+                $cols[strtolower((string) $r['t']) . '.' . strtolower((string) $r['c'])] = true;
             }
-            @file_put_contents($flag, date('c'));
+            foreach (self::COLUMNS as [$table, $col, $ddl, $after]) {
+                if (isset($cols[$table . '.' . $col])) {
+                    continue;
+                }
+                try {
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    if ($after !== null) {
+                        DB::run($after);
+                    }
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    error_log('schema: ' . $table . '.' . $col . ' — ' . $e->getMessage());
+                }
+            }
+            foreach (self::TABLES as [$table, $file]) {
+                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) > 0) {
+                    continue;
+                }
+                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
+                if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
+                    try {
+                        DB::run($m[0]);
+                    } catch (\Throwable $e) {
+                        $ok = false;
+                        error_log('schema: ' . $table . ' — ' . $e->getMessage());
+                    }
+                }
+            }
         } catch (\Throwable $e) {
-            error_log('schema 009: ' . $e->getMessage() . ' — database/migrations/009_project_task_permissions.sql را اجرا کنید.');
+            $ok = false;
+            error_log('schema: ' . $e->getMessage());
+        }
+        if ($ok) {
+            @file_put_contents($flag, date('c'));
         }
     }
 }

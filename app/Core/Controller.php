@@ -33,6 +33,10 @@ abstract class Controller
         if ($this->request->header('X-Live') === '1') {
             $layout = null;   // تازه‌سازی زنده: فقط محتوای صفحه، بدون layout
         }
+        if ($data['currentUser'] !== null) {
+            // صفحه‌های حاوی اطلاعات کاربر در کش مرورگر/پراکسی نمی‌مانند (مثلاً دکمه‌ی Back بعد از خروج)
+            header('Cache-Control: no-store, private');
+        }
         Response::html(View::render($view, $data, $layout, $meta));
     }
 

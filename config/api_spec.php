@@ -27,6 +27,7 @@ return [
         ['code' => '*_NOT_FOUND', 'http' => 404, 'desc' => 'رکورد پیدا نشد یا به شما تعلق ندارد (مثلاً TASK_NOT_FOUND).'],
         ['code' => 'METHOD_NOT_ALLOWED', 'http' => 405, 'desc' => 'متد HTTP برای این آدرس مجاز نیست.'],
         ['code' => 'CSRF_MISMATCH', 'http' => 419, 'desc' => 'فقط در نشست مرورگر: هدر X-CSRF-Token لازم است (با Bearer نیاز نیست).'],
+        ['code' => 'RATE_LIMITED', 'http' => 429, 'desc' => 'سقف درخواست‌ها پر شده (پیش‌فرض ۱۲۰ درخواست در دقیقه برای هر کاربر، یا توکن‌های نامعتبر زیاد از یک IP)؛ هدر Retry-After زمان انتظار را می‌گوید.'],
         ['code' => 'SERVER_ERROR', 'http' => 500, 'desc' => 'خطای داخلی؛ جزئیات فقط در لاگ سرور ثبت می‌شود.'],
     ],
     'groups' => [

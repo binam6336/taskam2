@@ -37,11 +37,13 @@ final class App
         header('Referrer-Policy: strict-origin-when-cross-origin');
         header('Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()');
         header('Cross-Origin-Opener-Policy: same-origin');
+        header('Cross-Origin-Resource-Policy: same-origin');
+        header('X-Permitted-Cross-Domain-Policies: none');
         header("Content-Security-Policy: default-src 'self'; script-src 'self'; "
             . "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
             . "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; "
             . "img-src 'self' data: blob:; connect-src 'self'; media-src 'self'; object-src 'none'; "
-            . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+            . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'");
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (env('TRUSTED_PROXY', false) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
         if ($https) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');

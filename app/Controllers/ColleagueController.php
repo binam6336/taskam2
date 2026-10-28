@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\DB;
+use App\Core\Throttle;
 use App\Core\Validate;
 use App\Services\ColleagueService;
 
@@ -23,6 +24,10 @@ final class ColleagueController extends Controller
 
     public function search()
     {
+        // جلوگیری از پیمایش شماره‌ها برای پیدا کردن کاربران
+        if (!Throttle::attempt('user_lookup', (string) $this->uid(), 30, 600)) {
+            $this->fail('تعداد جستجوها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.', 429);
+        }
         $m = Validate::mobile($this->request->str('mobile', 30));
         if ($m === null) {
             $this->fail('شماره موبایل نامعتبر است (۰۹xxxxxxxxx).');

@@ -16,6 +16,8 @@ if (is_file($root . '/.env')) {
     }
 }
 header('Content-Type: text/html; charset=utf-8');
+header('X-Robots-Tag: noindex, nofollow');
+header('Cache-Control: no-store');
 if (strtolower(isset($env['APP_DEBUG']) ? $env['APP_DEBUG'] : '') !== 'true') {
     http_response_code(404);
     exit('برای استفاده از این صفحه، در .env مقدار APP_DEBUG=true بگذارید (و بعد از رفع مشکل حذفش کنید).');

@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\DB;
 use App\Core\Jalali;
+use App\Core\Throttle;
 use App\Core\Uploader;
 use App\Models\ChatModel;
 use App\Models\UserModel;
@@ -25,6 +26,14 @@ final class ChatController extends Controller
     private function isBot(int $id): bool
     {
         return (bool) DB::value('SELECT is_bot FROM users WHERE id = ?', [$id]);
+    }
+
+    /** ضد اسپم: حداکثر ۶۰ پیام (متن/فایل/بازارسال) در دقیقه برای هر کاربر */
+    private function throttleSend(int $uid): void
+    {
+        if (!Throttle::attempt('chat_send', (string) $uid, 60, 60)) {
+            $this->fail('ارسال پیام بیش از حد سریع است؛ چند ثانیه صبر کنید.', 429);
+        }
     }
 
     private function assertReceiver(int $uid, int $rid): void
@@ -51,6 +60,7 @@ final class ChatController extends Controller
         $rid = $this->request->int('receiver_id');
         $msg = $this->request->str('message', 2000);
         $this->assertReceiver($uid, $rid);
+        $this->throttleSend($uid);
         if ($msg === '') {
             $this->fail('اطلاعات ناقص');
         }
@@ -65,6 +75,7 @@ final class ChatController extends Controller
         $uid = $this->uid();
         $rid = $this->request->int('receiver_id');
         $this->assertReceiver($uid, $rid);
+        $this->throttleSend($uid);
         $f = $this->request->file('attachment');
         if ($f === null) {
             $this->fail('فایلی انتخاب نشده است.');
@@ -207,6 +218,7 @@ final class ChatController extends Controller
             $this->fail('پیام یافت نشد', 404);
         }
         $this->assertReceiver($uid, $rid);
+        $this->throttleSend($uid);
         $m = ChatModel::normalize($m);
         $file = ['forwarded_from' => $m['forwarded_from'] ?: $m['sender_id']];
         if (!empty($m['attachment'])) {
@@ -256,7 +268,8 @@ final class ChatController extends Controller
             $this->json(['status' => 'success', 'is_saved' => true, 'is_online' => true, 'last_seen' => time(), 'last_seen_text' => null, 'last_seen_absolute' => null, 'last_seen_relative' => null, 'now' => time(), 'threshold' => ChatModel::ONLINE_THRESHOLD]);
         }
         $t = DB::one("SELECT is_bot, last_seen FROM users WHERE id = ? AND status = 'active'", [$other]);
-        if ($t === null) {
+        // وضعیت آنلاین فقط برای مخاطبان (همکار یا طرف گفتگو، بدون مسدودی) — نه هر کاربری با حدس شناسه
+        if ($t === null || !ChatModel::canChat($uid, $other)) {
             $this->fail('کاربر یافت نشد', 404);
         }
         if ((int) $t['is_bot'] === 1) {
@@ -272,7 +285,11 @@ final class ChatController extends Controller
         $ids = array_slice($ids, 0, 200);
         $out = [];
         if ($ids) {
-            foreach (DB::all("SELECT id, is_bot, last_seen FROM users WHERE id IN (" . DB::in($ids) . ") AND status = 'active'", $ids) as $r) {
+            $sql = "SELECT u.id, u.is_bot, u.last_seen FROM users u WHERE u.id IN (" . DB::in($ids) . ") AND u.status = 'active'
+                AND NOT EXISTS (SELECT 1 FROM colleague_blocks b WHERE (b.blocker_user_id = ? AND b.blocked_user_id = u.id) OR (b.blocker_user_id = u.id AND b.blocked_user_id = ?))
+                AND (EXISTS (SELECT 1 FROM colleagues c WHERE (c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?))
+                  OR EXISTS (SELECT 1 FROM chat_messages m WHERE (m.sender_id = ? AND m.receiver_id = u.id) OR (m.sender_id = u.id AND m.receiver_id = ?)))";
+            foreach (DB::all($sql, array_merge($ids, [$uid, $uid, $uid, $uid, $uid, $uid])) as $r) {
                 $out[(int) $r['id']] = (int) $r['is_bot'] === 1
                     ? ['is_bot' => true, 'is_online' => false, 'last_seen' => null, 'last_seen_text' => 'ربات اطلاع‌رسانی', 'last_seen_absolute' => null, 'last_seen_relative' => null]
                     : ['is_bot' => false] + ChatModel::presence($r['last_seen'] !== null ? (int) $r['last_seen'] : null);

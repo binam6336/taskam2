@@ -292,6 +292,9 @@ final class AdminController extends Controller
     public function stopImpersonate()
     {
         Auth::stopImpersonation();
+        if ($this->request->wantsJson()) {
+            $this->ok('بازگشت به پنل مدیریت.', ['redirect' => url('/admin')]);
+        }
         $this->redirect('/admin');
     }
 }

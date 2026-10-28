@@ -9,6 +9,7 @@ use App\Core\DB;
 use App\Core\HttpException;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Throttle;
 
 /**
  * احراز هویت API:
@@ -38,7 +39,14 @@ final class ApiAuth
 
         $token = $r->bearerToken();
         if ($token !== null) {
+            // حدس زدن توکن: بعد از ۲۰ توکن نامعتبر در ۱۰ دقیقه، آن IP موقتاً مسدود می‌شود
+            $ip = $r->ip();
+            if (Throttle::count('api_bad_token', $ip, 600) >= 20) {
+                header('Retry-After: 600');
+                throw new HttpException(429, 'تعداد درخواست‌های نامعتبر زیاد است؛ چند دقیقه بعد تلاش کنید.', 'RATE_LIMITED');
+            }
             if (strlen($token) < 20 || strlen($token) > 128) {
+                Throttle::hit('api_bad_token', $ip);
                 throw new HttpException(401, 'فرمت توکن نامعتبر است.', 'TOKEN_INVALID_FORMAT');
             }
             $row = DB::one(
@@ -48,12 +56,14 @@ final class ApiAuth
                 [hash('sha256', $token)]
             );
             if ($row === null || ($row['expires_at'] !== null && strtotime((string) $row['expires_at']) < time())) {
+                Throttle::hit('api_bad_token', $ip);
                 throw new HttpException(401, 'توکن نامعتبر یا غیرفعال است.', 'TOKEN_INVALID');
             }
             if ($row['status'] !== 'active') {
                 throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
             }
             DB::run('UPDATE api_tokens SET last_used_at = NOW(), last_ip = ? WHERE id = ?', [$r->ip(), (int) $row['token_id']]);
+            self::limit((int) $row['user_id']);
             $r->params['_api_user'] = (int) $row['user_id'];
             $r->params['_api_method'] = 'token';
             return;
@@ -69,7 +79,21 @@ final class ApiAuth
         if (!$r->isSafe() && !Csrf::verify($r)) {
             throw new HttpException(419, 'توکن CSRF نامعتبر است (برای نشست مرورگر هدر X-CSRF-Token لازم است).', 'CSRF_MISMATCH');
         }
+        self::limit((int) $u['id']);
         $r->params['_api_user'] = (int) $u['id'];
         $r->params['_api_method'] = 'session';
+    }
+
+    /** سقف درخواست هر کاربر: API_RATE_LIMIT در دقیقه (پیش‌فرض ۱۲۰؛ ۰ = بدون سقف). */
+    private static function limit(int $uid): void
+    {
+        $max = (int) env('API_RATE_LIMIT', 120);
+        if ($max <= 0) {
+            return;
+        }
+        if (!Throttle::attempt('api_user', (string) $uid, $max, 60)) {
+            header('Retry-After: 60');
+            throw new HttpException(429, 'تعداد درخواست‌ها از سقف مجاز (' . $max . ' در دقیقه) بیشتر شده است؛ کمی بعد تلاش کنید.', 'RATE_LIMITED');
+        }
     }
 }
