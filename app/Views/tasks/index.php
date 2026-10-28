@@ -107,6 +107,10 @@ $this->scripts[] = 'tasks';
                 <div class="alert warning"><i class="fa-solid fa-triangle-exclamation"></i><div>برای ثبت تسک، پروژه اجباری است. <a href="<?= e(url('/projects')) ?>">ساخت پروژه</a></div></div>
                 <?php endif; ?>
                 <div class="row">
+                    <div class="field"><label>پروژه *</label><div data-rselect="project_id"></div></div>
+                    <div class="field"><label>مسئول انجام</label><div data-rselect="assignee_id"></div></div>
+                </div>
+                <div class="row">
                     <div class="field" id="prio-cat"><label>اولویت</label><select class="input" name="priority"><option value="low">کم</option><option value="medium" selected>متوسط</option><option value="high">زیاد</option></select></div>
                     <div class="field hidden" id="prio-pct"><label>اولویت <b class="prio-pct-val" id="prio-pct-val">۵۰٪</b></label>
                         <input type="range" class="prio-range" name="priority_percent" min="0" max="100" step="5" value="50" disabled aria-label="اولویت درصدی">
@@ -118,10 +122,6 @@ $this->scripts[] = 'tasks';
                 <div class="row">
                     <div class="field"><label>تاریخ سررسید</label><div data-jdate="due_date"></div></div>
                     <div class="field"><label>ساعت سررسید</label><div data-jtime="due_time"></div></div>
-                </div>
-                <div class="row">
-                    <div class="field"><label>پروژه *</label><div data-rselect="project_id"></div></div>
-                    <div class="field"><label>مسئول انجام</label><div data-rselect="assignee_id"></div></div>
                 </div>
                 <div class="field" id="task-files-field"><label>پیوست‌ها <span class="faint">(حداکثر ۱۰ مگابایت برای هر فایل)</span></label><input class="input" type="file" name="attachments[]" multiple></div>
             </div>

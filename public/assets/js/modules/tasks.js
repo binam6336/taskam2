@@ -173,10 +173,13 @@ document.addEventListener('tk:ready', () => {
 
   TK.qs('#btn-new-task')?.addEventListener('click', () => {
     TK.resetForm(form); form.priority.value = 'medium'; form.subject_id.value = '';
-    rs.assignee_id.set(cfg.me); rs.project_id.set('');
+    // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
+    const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
+    const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
+    rs.assignee_id.set(cfg.me); rs.project_id.set(pid);
     dp.set(dp.today()); tp.set('');                 // پیش‌فرض: تاریخ امروز
     setupForm('تسک جدید', '/tasks', true);
-    TK.qs('#prio-pct').classList.add('hidden'); setPrioMode('category');
+    TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
   });
 
