@@ -5,9 +5,11 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\BoardController;
+use App\Controllers\Api\V1\BoardApi;
 use App\Controllers\Api\V1\CallApi;
 use App\Controllers\Api\V1\ColleagueApi;
 use App\Controllers\Api\V1\MetaApi;
+use App\Controllers\Api\V1\LabelApi;
 use App\Controllers\Api\V1\ProjectApi;
 use App\Controllers\Api\V1\TaskApi;
 use App\Controllers\Api\V1\TextApi;
@@ -239,6 +241,16 @@ $router->group(['api'], function ($r) {
     $r->post('/colleagues/permissions', [ColleagueApi::class, 'permissions']);
     $r->post('/colleagues/block', [ColleagueApi::class, 'block']);
     $r->post('/colleagues/unblock', [ColleagueApi::class, 'unblock']);
+
+    $r->get('/labels/list', [LabelApi::class, 'list']);
+    $r->post('/labels/create', [LabelApi::class, 'create']);
+    $r->post('/labels/update', [LabelApi::class, 'update']);
+    $r->post('/labels/delete', [LabelApi::class, 'delete']);
+
+    $r->get('/board/list', [BoardApi::class, 'list']);
+    $r->get('/board/archive', [BoardApi::class, 'archive']);
+    $r->post('/board/move', [BoardApi::class, 'move']);
+    $r->post('/board/archive-done', [BoardApi::class, 'archiveDone']);
 
     $r->get('/projects/list', [ProjectApi::class, 'list']);
     $r->get('/projects/show', [ProjectApi::class, 'show']);
