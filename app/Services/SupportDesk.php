@@ -18,8 +18,11 @@ final class SupportDesk
     public static function data(bool $admin, int $uid, Request $req, ?array $ticket): array
     {
         $q = $req->query;
+        // ادمین با ورود به صفحه تیکت‌های «جدید» را می‌بیند؛ کاربر همه‌ی تیکت‌هایش را
+        $default = $admin ? 'new' : 'all';
         $params = [
-            'status' => isset(SupportModel::filters($admin)[$q['status'] ?? '']) ? (string) $q['status'] : 'all',
+            'default' => $default,
+            'status' => isset(SupportModel::filters($admin)[$q['status'] ?? '']) ? (string) $q['status'] : $default,
             'q' => mb_substr(trim((string) ($q['q'] ?? '')), 0, 100),
             'page' => max(1, (int) ($q['page'] ?? 1)),
             'per' => (int) ($q['per'] ?? 20),
@@ -58,7 +61,7 @@ final class SupportDesk
     {
         $p = array_merge($params, $override);
         $out = [];
-        if (($p['status'] ?? 'all') !== 'all') {
+        if (($p['status'] ?? 'all') !== ($p['default'] ?? 'all')) {
             $out['status'] = $p['status'];
         }
         if (($p['q'] ?? '') !== '') {

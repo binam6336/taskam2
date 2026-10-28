@@ -42,7 +42,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
             <form class="desk-search search" method="get" action="<?= e(url($base)) ?>" role="search">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input class="input" type="search" name="q" value="<?= e($params['q']) ?>" placeholder="<?= $admin ? 'جستجو: موضوع، نام، موبایل یا شماره تیکت…' : 'جستجو: موضوع یا شماره تیکت…' ?>" autocomplete="off">
-                <?php if ($params['status'] !== 'all'): ?><input type="hidden" name="status" value="<?= e($params['status']) ?>"><?php endif; ?>
+                <?php if ($params['status'] !== $params['default']): ?><input type="hidden" name="status" value="<?= e($params['status']) ?>"><?php endif; ?>
                 <?php if ($params['per'] !== 20): ?><input type="hidden" name="per" value="<?= e((string) $params['per']) ?>"><?php endif; ?>
             </form>
             <nav class="desk-filters" aria-label="فیلتر وضعیت">
@@ -54,7 +54,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
 
         <div class="desk-list" data-live="desk-list">
         <?php if (!$list['rows']): ?>
-            <div class="desk-none"><i class="fa-solid fa-inbox"></i><p><?= $params['q'] !== '' || $params['status'] !== 'all' ? 'تیکتی با این فیلتر پیدا نشد.' : ($admin ? 'هنوز تیکتی ثبت نشده است.' : 'تیکتی ندارید. هر سؤال، مشکل یا پیشنهادی دارید برای پشتیبانی بفرستید.') ?></p></div>
+            <div class="desk-none"><i class="fa-solid fa-inbox"></i><p><?= $params['q'] !== '' || $params['status'] !== 'all' ? ($params['q'] === '' && $params['status'] === 'new' ? 'تیکت جدیدی وجود ندارد؛ همه‌ی تیکت‌ها پاسخ گرفته‌اند.' : 'تیکتی با این فیلتر پیدا نشد.') : ($admin ? 'هنوز تیکتی ثبت نشده است.' : 'تیکتی ندارید. هر سؤال، مشکل یا پیشنهادی دارید برای پشتیبانی بفرستید.') ?></p></div>
         <?php endif; ?>
         <?php foreach ($list['rows'] as $t): $on = (int) $t['id'] === $tid; ?>
             <a class="tcard <?= $on ? 'active' : '' ?> <?= $t['status'] === 'closed' ? 'closed' : '' ?>" href="<?= e(url($base . '/' . $t['id']) . $qs()) ?>" <?= $on ? 'aria-current="true"' : '' ?>>
@@ -85,7 +85,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
             </span>
             <?php endif; ?>
             <form class="desk-per" method="get" action="<?= e(url($base . ($tid ? '/' . $tid : ''))) ?>">
-                <?php foreach (['status' => $params['status'] !== 'all' ? $params['status'] : '', 'q' => $params['q']] as $k => $v): if ($v !== ''): ?><input type="hidden" name="<?= e($k) ?>" value="<?= e($v) ?>"><?php endif; endforeach; ?>
+                <?php foreach (['status' => $params['status'] !== $params['default'] ? $params['status'] : '', 'q' => $params['q']] as $k => $v): if ($v !== ''): ?><input type="hidden" name="<?= e($k) ?>" value="<?= e($v) ?>"><?php endif; endforeach; ?>
                 <label class="xs muted" for="desk-per">تعداد در صفحه:</label>
                 <select class="input input-sm" id="desk-per" name="per"><?php foreach (SupportModel::PER_PAGE as $n): ?><option value="<?= $n ?>" <?= $params['per'] === $n ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select>
             </form>
