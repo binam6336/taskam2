@@ -10,7 +10,7 @@ $menu = [
     ['group' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
         ['tasks', '/tasks', 'fa-list-check', 'تسک‌ها'],
         ['soon' => true, 'icon' => 'fa-table-columns', 'label' => 'برد تیمی'],
-        ['subjects', '/subjects', 'fa-tags', 'لیبل‌ها'],
+        ['subjects', '/labels', 'fa-tags', 'لیبل‌ها'],
     ]],
     ['group' => 'requests', 'icon' => 'fa-inbox', 'label' => 'درخواست‌ها', 'items' => [
         ['calls', '/calls', 'fa-phone-volume', 'درخواست تماس'],

@@ -76,10 +76,11 @@ $router->group(['panel'], function ($r) {
     $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
 
     // موضوعات
-    $r->get('/subjects', [SubjectController::class, 'index']);
-    $r->post('/subjects', [SubjectController::class, 'store']);
-    $r->post('/subjects/{id}/update', [SubjectController::class, 'update']);
-    $r->post('/subjects/{id}/delete', [SubjectController::class, 'destroy']);
+    $r->get('/labels', [SubjectController::class, 'index']);
+    $r->post('/labels', [SubjectController::class, 'store']);
+    $r->post('/labels/{id}/update', [SubjectController::class, 'update']);
+    $r->post('/labels/{id}/delete', [SubjectController::class, 'destroy']);
+    $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
     // متن‌های آماده

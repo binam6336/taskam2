@@ -65,7 +65,7 @@ document.addEventListener('tk:ready', () => {
     const title = subjIn.value.trim();
     if (!title) { subjIn.focus(); return TK.toast('عنوان لیبل را بنویسید.', 'warning'); }
     const btn = TK.qs('[data-subj-save]', subjNew); TK.busy(btn, true);
-    const r = await TK.post('/subjects', { title, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
+    const r = await TK.post('/labels', { title, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
     TK.busy(btn, false);
     if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد لیبل', 'error');
     const opt = new Option(title, r.id);
