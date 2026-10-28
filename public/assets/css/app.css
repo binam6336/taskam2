@@ -937,3 +937,6 @@ body.page-chat .qa { display: none; }
 .pwa-steps.current { border-color: rgba(var(--accent-rgb), .4); background: var(--ok-bg); }
 .pwa-steps ol { margin: .4rem 0 0; padding-inline-start: 1.2rem; line-height: 2; color: var(--muted); font-size: .9rem; }
 @media (max-width: 600px) { .pwa-hero { flex-direction: column; text-align: center; } .pwa-hero .flex { justify-content: center; } .pwa-logo { width: 84px; height: 84px; } }
+.push-checks { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .35rem; }
+.push-checks li { line-height: 1.8; } .push-checks li.ok i { color: var(--g-400); } .push-checks li.bad { font-weight: 700; } .push-checks li.bad i { color: var(--danger); }
+.push-checks li .small { font-weight: 400; color: var(--muted); margin-inline-start: 1.4rem; }

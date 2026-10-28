@@ -26,7 +26,37 @@ final class WebPush
 
     public static function supported(): bool
     {
-        return function_exists('openssl_pkey_derive') && function_exists('hash_hkdf') && in_array('aes-128-gcm', openssl_get_cipher_methods(), true);
+        return !array_filter(self::requirements(), static fn($r) => !$r[1]);
+    }
+
+    /**
+     * پیش‌نیازهای سرور برای ارسال push، هر کدام جدا (برای نمایش علت دقیق).
+     * @return array<string,array{0:string,1:bool,2:string}> کلید => [عنوان، برقرار است؟، راه‌حل]
+     */
+    public static function requirements(): array
+    {
+        $ssl = extension_loaded('openssl');
+        $gcm = false;
+        if ($ssl) {
+            // به‌جای جستجوی نام در فهرست (که در نسخه‌های مختلف OpenSSL فرق دارد) واقعاً رمزگذاری را امتحان می‌کنیم
+            $tag = '';
+            $gcm = @openssl_encrypt('t', 'aes-128-gcm', str_repeat('k', 16), OPENSSL_RAW_DATA, str_repeat('n', 12), $tag) !== false && strlen((string) $tag) === 16;
+        }
+        $ec = false;
+        if ($ssl && function_exists('openssl_pkey_derive')) {
+            try {
+                $ec = @openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]) !== false;
+            } catch (\Throwable $e) {
+                $ec = false;
+            }
+        }
+        return [
+            'openssl' => ['افزونه‌ی PHP «openssl»', $ssl, 'از پنل هاست (Select PHP Version ← Extensions) افزونه‌ی openssl را فعال کنید.'],
+            'derive'  => ['تابع openssl_pkey_derive (PHP 7.3 به بالا)', $ssl && function_exists('openssl_pkey_derive'), 'نسخه‌ی PHP را به 8.1 یا بالاتر ارتقا دهید (یا این تابع در disable_functions غیرفعال شده است).'],
+            'ec'      => ['ساخت کلید منحنی بیضوی P-256', $ec, 'کتابخانه‌ی OpenSSL سرور از منحنی prime256v1 پشتیبانی نمی‌کند یا فایل openssl.cnf در دسترس نیست؛ از پشتیبانی هاست بخواهید OpenSSL را اصلاح کند.'],
+            'hkdf'    => ['تابع hash_hkdf', function_exists('hash_hkdf'), 'نسخه‌ی PHP را به 7.4 یا بالاتر ارتقا دهید.'],
+            'gcm'     => ['رمزگذاری AES-128-GCM', $gcm, 'نسخه‌ی OpenSSL سرور از AES-GCM پشتیبانی نمی‌کند؛ PHP/OpenSSL را به‌روز کنید.'],
+        ];
     }
 
     /** یک جفت‌کلید P-256: [pem خصوصی, کلید عمومی خام ۶۵ بایتی] */

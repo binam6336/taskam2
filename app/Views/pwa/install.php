@@ -1,4 +1,4 @@
-<?php /** @var bool $pushReady @var int $devices @var bool $https */ $this->scripts[] = 'install'; $this->boot['install'] = ['pushReady' => $pushReady, 'devices' => $devices, 'https' => $https]; ?>
+<?php /** @var bool $pushReady @var int $devices @var bool $https @var array $checks */ $this->scripts[] = 'install'; $this->boot['install'] = ['pushReady' => $pushReady, 'devices' => $devices, 'https' => $https]; ?>
 <div class="pwa-hero card mb-2">
     <div class="pwa-logo"><?= logo_svg() ?></div>
     <div class="grow">
@@ -20,7 +20,15 @@
             <button type="button" class="btn" id="push-test"><i class="fa-solid fa-paper-plane"></i> ارسال اعلان آزمایشی</button>
             <button type="button" class="btn btn-ghost" id="push-disable"><i class="fa-solid fa-bell-slash"></i> غیرفعال‌سازی</button>
         </div>
-        <p class="hint mt-1">دستگاه‌های فعال حساب شما: <b id="push-devices"><?= e(fa_num($devices)) ?></b><?php if (!$pushReady): ?> — <span class="prio-high">اعلان‌های PWA روی سرور فعال نیست (migration 007 را اجرا کنید).</span><?php endif; ?></p>
+        <p class="hint mt-1">دستگاه‌های فعال حساب شما: <b id="push-devices"><?= e(fa_num($devices)) ?></b></p>
+        <?php if (!$pushReady): ?>
+        <div class="alert error mt-1"><i class="fa-solid fa-triangle-exclamation"></i><div><b>اعلان‌ها روی سرور هنوز آماده نیست.</b> وضعیت پیش‌نیازها:
+            <ul class="push-checks">
+            <?php foreach ($checks as [$label, $ok, $fix]): ?>
+                <li class="<?= $ok ? 'ok' : 'bad' ?>"><i class="fa-solid <?= $ok ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i> <?= e($label) ?><?php if (!$ok): ?><div class="small"><?= e($fix) ?></div><?php endif; ?></li>
+            <?php endforeach; ?>
+            </ul></div></div>
+        <?php endif; ?>
     </div>
     <div class="card" id="pwa-help"><div class="card-head"><h3><i class="fa-solid fa-circle-info"></i> راهنمای نصب</h3></div>
         <div class="pwa-steps" data-os="android"><b><i class="fa-brands fa-android"></i> اندروید (کروم)</b>

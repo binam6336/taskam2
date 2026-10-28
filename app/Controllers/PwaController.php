@@ -85,6 +85,7 @@ final class PwaController extends Controller
         $admin = Auth::isAdmin($u) && !Auth::isImpersonating();
         $this->view('pwa/install', [
             'pushReady' => Push::enabled(),
+            'checks' => Push::diagnose(),
             'devices' => Push::count((int) $u['id']),
             'https' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') || in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'], true) || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1:') || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), 'localhost:'),
         ], ['title' => 'نصب نرم‌افزار', 'page' => $admin ? 'admin-install' : 'install'], $admin ? 'admin' : 'app');
@@ -95,7 +96,7 @@ final class PwaController extends Controller
     public function pushKey()
     {
         if (!Push::enabled()) {
-            $this->fail('اعلان‌های PWA روی سرور فعال نیست (migration 007 یا افزونه‌ی OpenSSL).', 503);
+            $this->fail(Push::reason(), 503);
         }
         $this->ok('', ['key' => WebPush::vapid()['public']]);
     }
@@ -103,7 +104,7 @@ final class PwaController extends Controller
     public function subscribe()
     {
         if (!Push::enabled()) {
-            $this->fail('اعلان‌های PWA روی سرور فعال نیست.', 503);
+            $this->fail(Push::reason(), 503);
         }
         $r = $this->request;
         $endpoint = trim($r->str('endpoint', 2000));

@@ -22,13 +22,55 @@ final class Push
     {
         static $ok = null;
         if ($ok === null) {
-            try {
-                $ok = WebPush::supported() && DB::value("SHOW TABLES LIKE 'push_subscriptions'") !== null;
-            } catch (\Throwable $e) {
-                $ok = false;
-            }
+            $ok = !array_filter(self::diagnose(), static fn($r) => !$r[1]);
         }
         return $ok;
+    }
+
+    /** همه‌ی پیش‌نیازها (سرور + دیتابیس) با وضعیت هر کدام: [عنوان، برقرار است؟، راه‌حل] */
+    public static function diagnose(): array
+    {
+        static $d = null;
+        if ($d !== null) {
+            return $d;
+        }
+        $d = WebPush::requirements();
+        try {
+            $table = DB::value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'push_subscriptions'");
+            $hasTable = (int) $table > 0;
+        } catch (\Throwable $e) {
+            try {
+                DB::value('SELECT 1 FROM push_subscriptions LIMIT 1');
+                $hasTable = true;
+            } catch (\Throwable $e2) {
+                $hasTable = false;
+            }
+        }
+        if (!$hasTable) {
+            // جدول فقط اضافه می‌شود و به داده‌های دیگر کاری ندارد؛ اگر کاربر دیتابیس اجازه‌ی CREATE دارد خودکار ساخته می‌شود
+            try {
+                $sql = (string) file_get_contents(BASE_PATH . '/database/migrations/007_push_subscriptions.sql');
+                $sql = trim((string) preg_replace('/^\s*--.*$/m', '', $sql));
+                if ($sql !== '') {
+                    DB::run($sql);
+                    $hasTable = true;
+                }
+            } catch (\Throwable $e) {
+                ErrorHandler::log($e);
+            }
+        }
+        $d['table'] = ['جدول push_subscriptions در دیتابیس', $hasTable, 'فایل database/migrations/007_push_subscriptions.sql را روی همین دیتابیس اجرا کنید (phpMyAdmin ← SQL).'];
+        $dir = STORAGE_PATH;
+        $keyOk = is_file($dir . '/vapid.json') || ((string) env('VAPID_PUBLIC_KEY', '') !== '' && (string) env('VAPID_PRIVATE_KEY', '') !== '') || is_writable($dir);
+        $d['keys'] = ['ذخیره‌ی کلید VAPID در پوشه‌ی storage', $keyOk, 'به پوشه‌ی storage دسترسی نوشتن (755 یا 775) بدهید، یا VAPID_PUBLIC_KEY و VAPID_PRIVATE_KEY را در .env بگذارید.'];
+        return $d;
+    }
+
+    /** متن کوتاه علت غیرفعال بودن (برای پیام خطا) */
+    public static function reason(): string
+    {
+        $bad = array_filter(self::diagnose(), static fn($r) => !$r[1]);
+        return $bad ? 'اعلان‌های PWA روی سرور فعال نیست: ' . implode('، ', array_map(static fn($r) => $r[0] . ' — ' . $r[2], $bad)) : '';
     }
 
     // ───── اشتراک‌ها ─────
