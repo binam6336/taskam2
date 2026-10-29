@@ -54,7 +54,7 @@ final class ProjectModel
 
     public static function members(int $projectId): array
     {
-        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
+        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
             FROM project_members pm INNER JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? ORDER BY pm.added_at ASC, pm.id ASC', [$projectId]);
     }
 

@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '015';
+    private const VERSION = '016';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -38,6 +38,8 @@ final class Schema
         ['tasks', 'archived_at', 'ADD COLUMN `archived_at` TIMESTAMP NULL DEFAULT NULL AFTER `board_moved_at`, ADD KEY `idx_tasks_archived` (`archived_at`)', null],
         // 014
         ['users', 'tour', "ADD COLUMN `tour` VARCHAR(20) NULL DEFAULT NULL AFTER `theme`", "UPDATE `users` SET `tour` = 'done'"],
+        // 016
+        ['project_members', 'board_limits', 'ADD COLUMN `board_limits` TEXT NULL DEFAULT NULL AFTER `board_view_users`', null],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */

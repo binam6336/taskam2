@@ -13,6 +13,7 @@ foreach ($projects as $p) {
             'board_perms' => \App\Services\Access::decode($m['board_permissions'] ?? null, array_keys($boardPermDefs)),
             'board_view' => \App\Services\Access::ids($m['board_view_users'] ?? null),
             'board_view_all' => \App\Services\Access::viewAll($m['board_view_users'] ?? null),
+            'board_limits' => (object) \App\Services\BoardService::decodeLimits($m['board_limits'] ?? null),
             'role' => (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m),
         ], $p['members']),
     ];
@@ -22,7 +23,12 @@ $roleDefs = [];
 foreach ($roles as $rk => $r) {
     $roleDefs[$rk] = ['label' => $r['label'], 'icon' => $r['icon'], 'tone' => $r['tone'], 'desc' => $r['desc'], 'pkg' => \App\Services\Access::rolePackage($rk)];
 }
-$projData = ['list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
+// وضعیت‌هایی که سقف تعداد تسک دارند (پاپ‌آپ «سقف تعداد تسک» در تب برد)
+$limitDefs = [];
+foreach (\App\Services\BoardService::LIMITED as $st) {
+    $limitDefs[$st] = \App\Services\BoardService::STATUSES[$st];
+}
+$projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
 <div class="page-head"><h2><i class="fa-solid fa-diagram-project" style="color:var(--g-400)"></i> پروژه‌ها</h2>
@@ -117,6 +123,16 @@ $this->scripts[] = 'projects';
                 <button type="button" class="check bv-toggle" id="bv-toggle" aria-expanded="false" aria-controls="bv-list"><i class="fa-solid fa-eye bv-ic"></i><div><b>مشاهده‌ی تسک‌های:</b><span id="bv-summary"></span></div><i class="fa-solid fa-chevron-down bv-chev"></i></button>
                 <div class="bv-list" id="bv-list" hidden></div>
             </div>
+            <button type="button" class="check bv-toggle mb-1" id="bl-open"><i class="fa-solid fa-gauge-high bv-ic"></i><div><b>سقف تعداد تسک</b><span id="bl-summary"></span></div><i class="fa-solid fa-chevron-left bv-chev"></i></button>
             <div id="mp-board-list" class="list"></div></div>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>
+<!-- سقف تعداد تسک عضو در ستون‌های برد -->
+<div class="modal" id="m-blimit"><div class="modal-box sm"><form id="f-blimit"><div class="modal-head"><h3><i class="fa-solid fa-gauge-high"></i> سقف تعداد تسک</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+        <p class="xs muted mb-1">حداکثر تسک‌هایی که <b id="bl-name"></b> (به‌عنوان مسئول) هم‌زمان در هر ستون برد این پروژه می‌تواند داشته باشد. اگر ستون پر باشد، کارت جدیدی به آن منتقل نمی‌شود.</p>
+        <div class="tip mb-1"><i class="fa-solid fa-lightbulb"></i> اگر فیلد خالی باشد، برای آن وضعیت محدودیتی وجود ندارد.</div>
+        <div id="bl-fields"></div>
+        <p class="xs faint mt-1">برای «برنامه‌ریزی‌نشده»، «انجام‌شده» و «آرشیو» سقف تعیین نمی‌شود.</p>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">تأیید</button></div></form></div></div>

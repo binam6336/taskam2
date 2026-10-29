@@ -26,6 +26,46 @@ final class BoardService
         'done'        => ['label' => 'انجام‌شده', 'en' => 'Done', 'icon' => 'fa-circle-check', 'tone' => 'ok', 'desc' => 'تکمیل شده و معیارهای اتمام برآورده شده'],
     ];
 
+    /** وضعیت‌هایی که برای هر عضو سقف تعداد تسک دارند (برنامه‌ریزی‌نشده، انجام‌شده و آرشیو سقف ندارند) */
+    public const LIMITED = ['todo', 'in_progress', 'blocked', 'review'];
+    public const MAX_LIMIT = 999;
+
+    /** project_members.board_limits → [status => n]؛ فقط وضعیت‌های LIMITED و اعداد ۰ تا MAX_LIMIT */
+    public static function decodeLimits(?string $raw): array
+    {
+        $a = json_decode((string) $raw, true);
+        $out = [];
+        foreach (self::LIMITED as $s) {
+            if (is_array($a) && isset($a[$s]) && is_numeric($a[$s])) {
+                $out[$s] = max(0, min(self::MAX_LIMIT, (int) $a[$s]));
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * سقف پر شده؟ تسک‌های مسئولِ این تسک (یا سازنده‌اش اگر مسئول ندارد) در همان ستون همان پروژه شمرده می‌شوند.
+     * خروجی: پیام خطا یا null
+     */
+    private static function limitError(array $t, string $status): ?string
+    {
+        if (!in_array($status, self::LIMITED, true) || empty($t['project_id'])) {
+            return null;
+        }
+        $owner = (int) ($t['assignee_id'] ?: $t['user_id']);
+        $limit = self::decodeLimits(DB::value('SELECT board_limits FROM project_members WHERE project_id = ? AND user_id = ?', [(int) $t['project_id'], $owner]))[$status] ?? null;
+        if ($limit === null) {
+            return null;
+        }
+        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND board_status = ? AND archived_at IS NULL AND id <> ?',
+            [(int) $t['project_id'], $owner, $status, (int) $t['id']]);
+        if ($n < $limit) {
+            return null;
+        }
+        $name = full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [$owner]) ?? []);
+        return 'سقف ستون «' . self::STATUSES[$status]['label'] . '» برای ' . $name . ' پر است (حداکثر ' . fa_num($limit) . ' تسک).';
+    }
+
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
 
@@ -205,6 +245,9 @@ final class BoardService
         }
         if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
             return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);
+        }
+        if ($err = self::limitError($t, $status)) {
+            return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
         $reason = trim(mb_substr($reason, 0, 255));
         $done = $status === 'done';

@@ -248,6 +248,50 @@ final class ProjectService
         return $res;
     }
 
+    /** اعتبارسنجی سقف‌ها (قبل از ذخیره‌ی هر چیز دیگری صدا زده شود): [سقف‌های تمیز، خطا یا null] */
+    public static function cleanBoardLimits(array $limits): array
+    {
+        $clean = [];
+        foreach (BoardService::LIMITED as $st) {
+            $v = $limits[$st] ?? null;
+            if ($v === null || $v === '') {
+                continue;
+            }
+            if (!is_numeric($v) || (int) $v != $v || (int) $v < 0 || (int) $v > BoardService::MAX_LIMIT) {
+                return [[], 'سقف «' . BoardService::STATUSES[$st]['label'] . '» باید عددی بین ۰ تا ' . fa_num(BoardService::MAX_LIMIT) . ' باشد.'];
+            }
+            $clean[$st] = (int) $v;
+        }
+        return [$clean, null];
+    }
+
+    /**
+     * سقف تعداد تسک‌های یک عضو در ستون‌های برد (BoardService::LIMITED)؛ مقدار خالی/null = بدون محدودیت.
+     * همان شرط ویرایش دسترسی برد: سازنده یا عضو دارای «اعطای دسترسی»؛ برای سازنده‌ی پروژه سقف تعیین نمی‌شود.
+     */
+    public static function setBoardLimits(int $projectId, int $actorId, int $memberId, array $limits): array
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($creator === 0) {
+            return [false, 'پروژه یافت نشد.'];
+        }
+        if (!Access::projectCan($projectId, $actorId, 'manage_permissions')) {
+            return [false, 'دسترسی مدیریت مجوزها را ندارید.'];
+        }
+        if ($memberId === $creator) {
+            return [false, 'برای سازنده‌ی پروژه سقف تعداد تسک تعیین نمی‌شود.'];
+        }
+        if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
+            return [false, 'کاربر عضو پروژه نیست.'];
+        }
+        [$clean, $err] = self::cleanBoardLimits($limits);
+        if ($err !== null) {
+            return [false, $err];
+        }
+        DB::run('UPDATE project_members SET board_limits = ? WHERE project_id = ? AND user_id = ?', [$clean ? json_encode($clean) : null, $projectId, $memberId]);
+        return [true, 'سقف تعداد تسک‌ها ذخیره شد.'];
+    }
+
     /**
      * اعمال یک نقش آماده (Access::ROLES) روی عضو: دسترسی تسک، پروژه، برد و «مشاهده‌ی تسک‌ها» یکجا.
      * همان قواعد اعطا: غیرسازنده فقط آنچه خودش دارد را تغییر می‌دهد (در آن صورت نتیجه ممکن است «سفارشی» شود).

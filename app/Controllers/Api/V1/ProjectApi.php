@@ -7,6 +7,7 @@ use App\Core\ApiController;
 use App\Core\DB;
 use App\Models\ProjectModel;
 use App\Services\Access;
+use App\Services\BoardService;
 use App\Services\ProjectService;
 
 final class ProjectApi extends ApiController
@@ -67,6 +68,7 @@ final class ProjectApi extends ApiController
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),
                 'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)),
                 'board_view_user_ids' => $isCreator || Access::viewAll($m['board_view_users'] ?? null) ? null : Access::ids($m['board_view_users'] ?? null),
+                'board_limits' => (object) ($isCreator ? [] : BoardService::decodeLimits($m['board_limits'] ?? null)),
                 'role' => $isCreator ? 'creator' : Access::memberRole($m), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
@@ -222,12 +224,25 @@ final class ProjectApi extends ApiController
         }
         $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
         $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : ($in['view_user_ids'] === 'all' ? 'all' : [])) : null;
+        if (array_key_exists('board_limits', $in) && ($limErr = ProjectService::cleanBoardLimits(is_array($in['board_limits']) ? $in['board_limits'] : [])[1])) {
+            $this->err($limErr, 400, 'INVALID_LIMITS');                 // سقف نامعتبر → هیچ چیز ذخیره نمی‌شود
+        }
         [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms, $view);
+        if ($ok && array_key_exists('board_limits', $in)) {
+            [$ok, $limMsg] = ProjectService::setBoardLimits($id, $this->uid, $uid, is_array($in['board_limits']) ? $in['board_limits'] : []);
+            $msg = $ok ? $msg : $limMsg;
+        }
         if (!$ok) {
             $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
         }
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'board_permissions' => Access::projectBoardPerms($id, $uid),
-            'board_view_user_ids' => self::viewIds($id, $uid)], $msg);
+            'board_view_user_ids' => self::viewIds($id, $uid), 'board_limits' => self::limits($id, $uid)], $msg);
+    }
+
+    /** سقف تسک‌های عضو در ستون‌های برد؛ شیء خالی = بدون محدودیت */
+    private static function limits(int $projectId, int $uid): object
+    {
+        return (object) BoardService::decodeLimits(DB::value('SELECT board_limits FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]));
     }
 
     private static function viewIds(int $projectId, int $uid): ?array

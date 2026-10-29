@@ -24,7 +24,9 @@ document.addEventListener('tk:ready', () => {
   const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" style="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
     <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
-    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" style="margin:2px"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" style="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}</div>`;
+    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" style="margin:2px"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" style="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}${limitChip(m.board_limits)}</div>`;
+  const limitText = (l) => Object.entries(data().limitDefs).filter(([k]) => l && l[k] !== undefined && l[k] !== '').map(([k, d]) => `${d.label}: ${TK.fa(l[k])}`).join('، ');
+  const limitChip = (l) => { const t = limitText(l); return t ? `<span class="chip" style="margin:2px" title="سقف تعداد تسک"><i class="fa-solid fa-gauge-high"></i> ${E(t)}</span>` : ''; };
   const viewSummary = (n) => (n ? `تسک‌های خودش + ${TK.fa(n)} نفر` : 'فقط تسک‌های خودش');
   const roleBadge = (k) => { const r = data().roles[k] || data().roles.custom; return `<span class="badge role-badge ${E(r.tone)}" title="${E(r.desc)}"><i class="fa-solid ${E(r.icon)}"></i> ${E(r.label)}</span>`; };
 
@@ -58,7 +60,7 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* دسترسی‌های عضو: تب «نقش کاربر» (اول)، «تسک»، «پروژه» و «برد تیمی»؛ فقط دسترسی‌هایی که خودتان دارید قابل تغییر است */
-  let target = null; const pf = TK.qs('#f-mperm');
+  let target = null, limits = {}; const pf = TK.qs('#f-mperm');
   const setTab = (name) => {
     TK.qsa('[data-ptab]', pf).forEach((b) => { const on = b.dataset.ptab === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
     TK.qsa('[data-ppanel]', pf).forEach((p) => (p.hidden = p.dataset.ppanel !== name));
@@ -114,6 +116,7 @@ document.addEventListener('tk:ready', () => {
     }).join('');
     TK.qs('#bv-list').hidden = true; TK.qs('#bv-toggle').setAttribute('aria-expanded', 'false');
     bvSync();
+    limits = { ...(m.board_limits || {}) }; blSummary();
     TK.qs('#mp-board-list').innerHTML = Object.entries(data().boardPermDefs).map(([k, d]) => box('board_permissions', k, d, m.board_perms.includes(k), p.board_perms.includes(k))).join('');
     TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => box('permissions', k, d, m.perms.includes(k), p.perms.includes(k))).join('');
     TK.qs('#mp-role-list').innerHTML = Object.entries(data().roles).filter(([k]) => k !== 'custom').map(([k, r]) => `<label class="check role-opt"><input type="radio" name="role_pick" value="${E(k)}">
@@ -123,6 +126,27 @@ document.addEventListener('tk:ready', () => {
     setTab('role');
     TK.modal.open('m-mperm');
   });
+  /* سقف تعداد تسک: پاپ‌آپ جدا؛ مقدارها با «ذخیره»ی همین پنجره‌ی دسترسی‌ها ثبت می‌شوند */
+  const blSummary = () => { TK.qs('#bl-summary').textContent = limitText(limits) || 'بدون محدودیت'; };
+  TK.on('click', '#bl-open', () => {
+    TK.qs('#bl-name').textContent = TK.qs('#mp-name').textContent;
+    TK.qs('#bl-fields').innerHTML = Object.entries(data().limitDefs).map(([k, d]) => `<div class="field bl-row"><label for="bl-${k}"><i class="fa-solid ${E(d.icon)}"></i> ${E(d.label)}</label>
+      <input class="input ltr" type="number" id="bl-${k}" name="${k}" min="0" max="999" step="1" inputmode="numeric" placeholder="بدون محدودیت" value="${limits[k] ?? ''}"></div>`).join('');
+    TK.modal.open('m-blimit');
+  });
+  TK.qs('#f-blimit').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const next = {};
+    for (const inp of TK.qsa('#bl-fields input')) {
+      const v = inp.value.trim();
+      if (v === '') continue;
+      if (!/^\d+$/.test(v) || +v > 999) { TK.toast('سقف باید عدد صحیح بین ۰ تا ۹۹۹ باشد (یا خالی برای بدون محدودیت).', 'error'); inp.focus(); return; }
+      next[inp.name] = +v;
+    }
+    limits = next; blSummary();
+    TK.modal.close('m-blimit');
+  });
+
   pf.addEventListener('submit', async (e) => {
     e.preventDefault();
     const vals = (n) => TK.qsa(`[name="${n}[]"]:checked`, pf).map((c) => c.value);
@@ -130,7 +154,7 @@ document.addEventListener('tk:ready', () => {
     const base = '/projects/' + target.pid + '/members/' + target.uid;
     const r1 = await TK.post(base + '/task-permissions', { permissions: vals('task_permissions') });
     const r2 = TK.ok(r1) ? await TK.post(base + '/permissions', { permissions: vals('permissions') }) : null;
-    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').map(Number).filter((id) => id !== target.uid) }) : null;
+    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { limits: JSON.stringify(limits), permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').map(Number).filter((id) => id !== target.uid) }) : null;
     TK.busy(btn, false);
     const ok = TK.ok(r1) && TK.ok(r2) && TK.ok(r3);
     TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r3 || r2 || r1).message || 'خطا'), ok ? 'success' : 'error');

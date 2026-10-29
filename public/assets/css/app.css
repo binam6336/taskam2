@@ -1284,3 +1284,11 @@ html[data-theme="sage"] .tour-ring { box-shadow: 0 0 0 2px var(--g-400), 0 0 0 6
 .sb-ph { border: 2px dashed rgba(var(--accent-rgb), .55); border-radius: var(--radius-sm); background: var(--ok-bg); }
 .sb-actions { flex-wrap: wrap; }
 @media (max-width: 600px) { .sb-children { margin-right: .6rem; } .sb-type { flex-basis: 80px; } }
+
+/* ───── پروژه‌ها ← دسترسی برد ← سقف تعداد تسک ───── */
+.tip { display: flex; gap: .5rem; align-items: flex-start; padding: .55rem .75rem; font-size: .8rem; line-height: 1.8; border-radius: var(--radius-sm); color: var(--text); background: var(--ok-bg); border: 1px solid rgba(var(--accent-rgb), .3); }
+.tip > i { margin-top: .3rem; color: var(--g-400); }
+.bl-row { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: .7rem; margin-bottom: .55rem; }
+.bl-row label { margin: 0; display: flex; align-items: center; gap: .45rem; }
+.bl-row label i { width: 18px; text-align: center; color: var(--g-400); }
+.bl-row input::placeholder { font-size: .78rem; direction: rtl; text-align: right; }

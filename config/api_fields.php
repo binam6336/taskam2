@@ -133,6 +133,7 @@ return [
         'my_board_permissions' => 'دسترسی شما در برد تیمی پروژه: to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any (سازنده = همه).',
         'my_board_view_user_ids' => 'اعضایی که تسک‌هایشان را در برد این پروژه می‌بینید (شامل خودتان؛ null = همه، برای سازنده).',
         'board_view_user_ids' => 'اعضایی که تسک‌هایشان در برد این عضو دیده می‌شود، علاوه بر تسک‌های خودش (null = همه‌ی اعضا).',
+        'board_limits' => 'سقف تعداد تسک‌های این عضو (بر اساس مسئول) در ستون‌های برد: {todo, in_progress, blocked, review}؛ کلید نبودن = بدون محدودیت.',
         'my_role' => 'نقش شما در این پروژه: creator, admin, unit_manager, supervisor, member, none, custom.',
         'board_permissions' => 'دسترسی عضو در برد تیمی همین پروژه: to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any (پیش‌فرض هیچ).',
         'members_count' => 'تعداد اعضای فعلی.',
