@@ -63,6 +63,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{id}/toggle', [TaskController::class, 'toggle']);
     $r->post('/tasks/{id}/delete', [TaskController::class, 'destroy']);
     $r->get('/tasks/{id}/share', [TaskController::class, 'share']);
+    $r->get('/tasks/{id}/history', [TaskController::class, 'history']);
     $r->post('/tasks/{id}/notes', [TaskController::class, 'addNote']);
     $r->post('/tasks/{id}/attachments', [TaskController::class, 'addFiles']);
     $r->post('/notes/{id}/update', [TaskController::class, 'updateNote']);

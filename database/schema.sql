@@ -233,6 +233,18 @@ CREATE TABLE `task_notes` (
   CONSTRAINT `fk_notes_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `task_events` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `task_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NULL DEFAULT NULL          COMMENT 'انجام‌دهنده‌ی تغییر',
+  `type`       VARCHAR(30) NOT NULL                     COMMENT 'title, description, priority, due, label, project, assignee, completed, reopened, board, archived, unarchived, note_edited, note_deleted, file_deleted',
+  `data`       TEXT NULL DEFAULT NULL                   COMMENT 'JSON: from/to و جزئیات',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_task_events_task` (`task_id`, `created_at`),
+  CONSTRAINT `fk_task_events_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `task_attachments` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `task_id`    INT UNSIGNED NOT NULL,

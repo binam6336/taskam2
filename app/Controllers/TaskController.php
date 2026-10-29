@@ -14,6 +14,7 @@ use App\Models\TaskModel;
 use App\Services\Access;
 use App\Services\BoardService;
 use App\Services\Priority;
+use App\Services\TaskHistory;
 use App\Services\TaskService;
 
 final class TaskController extends Controller
@@ -139,6 +140,17 @@ final class TaskController extends Controller
             $this->fail('تسک یافت نشد.', 404);
         }
         $this->ok('', ['task' => $this->detail($t, $uid)]);
+    }
+
+    /** تاریخچه‌ی تغییرات تسک (همان دسترسی مشاهده‌ی جزئیات) */
+    public function history(string $id)
+    {
+        $uid = $this->uid();
+        $t = TaskModel::find((int) $id, $uid);
+        if ($t === null || (!Access::canTask($t, $uid, 'view') && !TaskService::canViewShared($t, $uid))) {
+            $this->fail('تسک یافت نشد.', 404);
+        }
+        $this->ok('', ['items' => TaskHistory::forTask($t)]);
     }
 
     public function store()

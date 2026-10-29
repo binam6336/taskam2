@@ -237,6 +237,7 @@ final class TaskService
         }
         if ($set) {
             DB::update('tasks', $set, 'id = ?', [$id]);
+            TaskHistory::changes($t, $set, $actor);
         }
         $fresh = TaskModel::raw($id);
         if ($reassigned) {
@@ -257,6 +258,7 @@ final class TaskService
             return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
         $r = TaskModel::toggle($id);
+        TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
         return self::res(true, $r['is_completed'] ? 'تسک انجام‌شده شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
     }
 
@@ -321,6 +323,7 @@ final class TaskService
             return self::err('متن یادداشت نامعتبر است.', 'NOTE_INVALID');
         }
         DB::run('UPDATE task_notes SET note = ?, updated_at = NOW() WHERE id = ?', [$text, $noteId]);
+        TaskHistory::log((int) $n['task_id'], $actor, 'note_edited', ['author' => (int) $n['user_id']]);
         return self::res(true, 'یادداشت ویرایش شد.');
     }
 
@@ -335,6 +338,7 @@ final class TaskService
             return self::err('اجازه‌ی حذف این یادداشت را ندارید.', 'FORBIDDEN', 403);
         }
         NoteModel::deleteNote($noteId);
+        TaskHistory::log((int) $n['task_id'], $actor, 'note_deleted', ['text' => mb_substr((string) $n['note'], 0, 300)]);
         return self::res(true, 'یادداشت حذف شد.');
     }
 
@@ -360,11 +364,11 @@ final class TaskService
     public static function deleteFile(int $actor, string $kind, int $fileId): array
     {
         if ($kind === 'task') {
-            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id, t.project_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.id = ?', [$fileId]);
+            $f = DB::one('SELECT a.*, t.id AS tid, t.user_id AS owner_id, t.assignee_id, t.project_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.id = ?', [$fileId]);
             $type = 'task_attachments';
             $table = 'task_attachments';
         } else {
-            $f = DB::one('SELECT a.*, t.user_id AS owner_id, t.assignee_id, t.project_id FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.id = ?', [$fileId]);
+            $f = DB::one('SELECT a.*, t.id AS tid, t.user_id AS owner_id, t.assignee_id, t.project_id FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.id = ?', [$fileId]);
             $type = 'note_attachments';
             $table = 'note_attachments';
         }
@@ -378,6 +382,7 @@ final class TaskService
             return self::err('اجازه‌ی حذف این فایل را ندارید.', 'FORBIDDEN', 403);
         }
         DB::run("DELETE FROM `$table` WHERE id = ?", [$fileId]);
+        TaskHistory::log((int) $f['tid'], $actor, 'file_deleted', ['name' => (string) $f['file_name'], 'note' => $kind !== 'task']);
         \App\Core\Uploader::delete($type, $f['file_path']);
         return self::res(true, 'فایل حذف شد.');
     }

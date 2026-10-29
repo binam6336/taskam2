@@ -1331,3 +1331,20 @@ html[data-theme="sage"] .kb-limit-pop { box-shadow: 0 14px 30px -14px rgba(60, 8
 .ph-path { display: flex; gap: .45rem; align-items: baseline; font-weight: 700; font-size: .88rem; line-height: 1.8; }
 .ph-path i { color: var(--info); flex: none; }
 .ph-card input[name=body]::placeholder { color: var(--faint); }
+
+/* ───── تاریخچه‌ی تسک ───── */
+.detail-foot { display: flex; justify-content: flex-end; margin-top: .4rem; }
+.detail-foot .btn { color: var(--muted); } .detail-foot .btn:hover { color: var(--g-400); }
+.avatar.xs { width: 20px; height: 20px; font-size: .62rem; }
+.hist { position: relative; }
+.hist-item { position: relative; display: flex; gap: .75rem; padding-bottom: 1rem; }
+.hist-item:not(:last-child)::before { content: ''; position: absolute; top: 30px; bottom: 0; right: 14px; width: 2px; background: var(--border); }
+.hist-dot { --c: var(--muted); flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: .78rem; color: var(--c); background: color-mix(in srgb, var(--c) 15%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); position: relative; z-index: 1; }
+.hist-dot.ok { --c: var(--g-400); } .hist-dot.info { --c: var(--info); } .hist-dot.warn { --c: var(--warn); } .hist-dot.danger { --c: var(--danger); } .hist-dot.purple { --c: #a78bfa; }
+.hist-main { flex: 1; min-width: 0; padding-top: .2rem; }
+.hist-line { font-size: .86rem; line-height: 2; }
+.hist-user { display: inline-flex; align-items: center; gap: .3rem; padding: .05rem .45rem .05rem .2rem; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); font-weight: 600; font-size: .8rem; vertical-align: middle; }
+.hist-box { margin-top: .4rem; padding: .55rem .75rem; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); font-size: .84rem; line-height: 1.9; overflow-wrap: anywhere; }
+.hist-box.hist-del { text-decoration: line-through; color: var(--muted); }
+.hist-files { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+.hist-at { margin-top: .2rem; font-size: .72rem; color: var(--faint); }

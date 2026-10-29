@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '016';
+    private const VERSION = '017';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -46,6 +46,7 @@ final class Schema
     private const TABLES = [
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
         ['content_texts', '015_content_texts.sql'],
+        ['task_events', '017_task_events.sql'],
     ];
 
     public static function ensure(): void

@@ -232,6 +232,9 @@ final class BoardService
         foreach (array_chunk($ids, 500) as $chunk) {
             DB::run('UPDATE tasks SET archived_at = NOW() WHERE archived_at IS NULL AND id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk);
         }
+        foreach ($ids as $tid) {
+            TaskHistory::log($tid, $uid, 'archived');
+        }
         return self::res(true, fa_num(count($ids)) . ' تسک انجام‌شده به آرشیو منتقل شد.', '', 200, ['archived' => count($ids)]);
     }
 
@@ -269,6 +272,7 @@ final class BoardService
                 return self::res(false, $from === 'archived' ? 'تسک آرشیوشده فقط به «انجام‌شده» برمی‌گردد.' : 'فقط تسک‌های انجام‌شده آرشیو می‌شوند.', 'FORBIDDEN', 403);
             }
             DB::run('UPDATE tasks SET archived_at = ' . ($status === 'archived' ? 'NOW()' : 'NULL') . ', board_moved_at = NOW() WHERE id = ?', [$id]);
+            TaskHistory::log($id, $actor, $status === 'archived' ? 'archived' : 'unarchived');
             return self::res(true, $status === 'archived' ? 'تسک به آرشیو منتقل شد.' : 'تسک از آرشیو به «انجام‌شده» برگشت.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => true]);
         }
         if ($from === $status) {
@@ -285,6 +289,7 @@ final class BoardService
         DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?,
                    completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END WHERE id = ?',
             [$status, $status === 'blocked' && $reason !== '' ? $reason : null, $done ? 1 : 0, $done ? 1 : 0, $id]);
+        TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $status === 'blocked' && $reason !== '' ? $reason : null]);
         return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $done]);
     }
 }

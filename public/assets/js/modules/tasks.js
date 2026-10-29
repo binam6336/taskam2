@@ -277,7 +277,45 @@ document.addEventListener('tk:ready', () => {
           <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
             <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" style="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" style="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
           <button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button></div></form>` : ''}
-      <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="faint small mb-2">هنوز یادداشتی ثبت نشده است.</div>'}</div>`;
+      <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="faint small mb-2">هنوز یادداشتی ثبت نشده است.</div>'}</div>
+      <div class="detail-foot"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچه‌ی تغییرات" aria-label="تاریخچه‌ی تغییرات"><i class="fa-solid fa-clock-rotate-left"></i></button></div>`;
+  };
+
+  /* ───── تاریخچه‌ی تغییرات ───── */
+  const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
+  const q = (v) => (v ? `«${E(v)}»` : '<span class="muted">(خالی)</span>');
+  const HIST = {
+    created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
+    title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
+    priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
+    completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
+    reopened: ['fa-rotate-left', 'warn', (i) => `${who(i.actor)} تسک را به حالت انجام‌نشده برگرداند.`],
+    board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت توقف: ${E(i.data.reason)}</div>` : '')],
+    archived: ['fa-box-archive', 'muted', (i) => `${who(i.actor)} تسک را در برد به آرشیو برد.`],
+    unarchived: ['fa-box-open', 'muted', (i) => `${who(i.actor)} تسک را از آرشیو برد برگرداند.`],
+    note: ['fa-comment', 'ok', (i) => `${who(i.actor)} یک یادداشت گذاشت${i.data.edited ? ' <span class="xs faint">(ویرایش‌شده)</span>' : ''}:`, (i) => `<div class="hist-box note-body">${rich(i.data.text, names())}${(i.data.files || []).length ? `<div class="hist-files">${i.data.files.map((f) => `<span class="chip"><i class="fa-solid fa-paperclip"></i> ${E(f)}</span>`).join('')}</div>` : ''}</div>`],
+    note_edited: ['fa-pen', 'info', (i) => `${who(i.actor)} یک یادداشت را ویرایش کرد.`],
+    note_deleted: ['fa-trash', 'danger', (i) => `${who(i.actor)} یک یادداشت را حذف کرد:`, (i) => `<div class="hist-box hist-del">${E(i.data.text || '')}</div>`],
+    file: ['fa-paperclip', 'info', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را پیوست کرد.`],
+    file_deleted: ['fa-file-circle-xmark', 'danger', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را از ${i.data.note ? 'یک یادداشت' : 'پیوست‌های تسک'} حذف کرد.`],
+  };
+  const openHistory = async () => {
+    const body = TK.qs('#history-body');
+    body.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
+    TK.modal.open('m-history');
+    const r = await TK.get('/tasks/' + currentId + '/history');
+    if (!TK.ok(r)) { TK.modal.close('m-history'); return TK.toast(r.message || 'خطا', 'error'); }
+    const items = (r.items || []).slice().reverse();          // جدیدترین بالا
+    body.innerHTML = items.length ? items.map((i) => {
+      const [icon, tone, line, extra] = HIST[i.type] || ['fa-circle', 'muted', () => E(i.type)];
+      return `<div class="hist-item"><span class="hist-dot ${tone}"><i class="fa-solid ${icon}"></i></span>
+        <div class="hist-main"><div class="hist-line">${line(i)}</div>${extra ? extra(i) : ''}<div class="hist-at"><i class="fa-regular fa-clock"></i> ${E(i.at)}</div></div></div>`;
+    }).join('') : '<div class="faint small">تاریخچه‌ای ثبت نشده است.</div>';
   };
 
   const open = async (id) => {
@@ -325,6 +363,7 @@ document.addEventListener('tk:ready', () => {
   detail.addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-close')) return TK.modal.close('m-detail');
+    if (b.hasAttribute('data-detail-history')) return openHistory();
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
     if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
