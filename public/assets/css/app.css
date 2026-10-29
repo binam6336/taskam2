@@ -1292,3 +1292,16 @@ html[data-theme="sage"] .tour-ring { box-shadow: 0 0 0 2px var(--g-400), 0 0 0 6
 .bl-row label { margin: 0; display: flex; align-items: center; gap: .45rem; }
 .bl-row label i { width: 18px; text-align: center; color: var(--g-400); }
 .bl-row input::placeholder { font-size: .78rem; direction: rtl; text-align: right; }
+
+/* برد: تسک‌های کاربر بیشتر از سقف ستون (سقف بعداً کم شده) */
+.kb-col-head { position: relative; }
+.kb-limit-over .kb-col-head b { color: var(--danger); }
+.kb-limit-btn { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--danger); color: #fff; font-size: .7rem; cursor: pointer; box-shadow: 0 0 0 0 rgba(239, 68, 68, .45); animation: kb-limit-pulse 2.4s ease-in-out infinite; }
+.kb-limit-btn:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
+@keyframes kb-limit-pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, .35); } 50% { transform: scale(1.08); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); } }
+.kb-limit-pop { position: absolute; top: calc(100% + 6px); inset-inline: .5rem; z-index: 20; padding: .7rem .8rem; font-size: .8rem; line-height: 1.9; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid rgba(239, 68, 68, .45); box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .6); animation: pop .15s; }
+.kb-limit-pop[hidden] { display: none; }
+.kb-limit-pop b { display: flex; gap: .4rem; align-items: baseline; color: var(--danger); font-size: .82rem; }
+.kb-limit-pop ul { margin: .35rem 0; padding-inline-start: 1.1rem; }
+.kb-limit-pop p { margin: 0; color: var(--muted); }
+html[data-theme="sage"] .kb-limit-pop { box-shadow: 0 14px 30px -14px rgba(60, 80, 50, .45); }

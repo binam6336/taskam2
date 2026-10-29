@@ -1,5 +1,5 @@
 <?php
-/** @var array $columns @var array $statuses @var array $projects @var array $filters @var array $archive @var int $archivable */
+/** @var array $columns @var array $statuses @var array $projects @var array $filters @var array $archive @var int $archivable @var array $over ستون‌های بیشتر از سقف کاربر */
 $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
@@ -21,11 +21,19 @@ $total = array_sum(array_map('count', $columns));
 <div class="card empty"><i class="fa-solid fa-table-columns"></i><p>تسکی برای نمایش در برد نیست. این‌جا تسک‌های خودتان و تسک‌های اعضایی که مدیر پروژه در «مشاهده‌ی تسک‌های» برایتان انتخاب کرده نمایش داده می‌شوند.</p></div>
 <?php endif; ?>
 <div class="kb-board" id="kb-board">
-<?php foreach ($statuses as $key => $s): $cards = $columns[$key]; ?>
-    <section class="kb-col tone-<?= e($s['tone']) ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
+<?php foreach ($statuses as $key => $s): $cards = $columns[$key]; $ov = $over[$key] ?? []; ?>
+    <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
         <header class="kb-col-head" title="<?= e($s['desc']) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
             <div class="grow"><b><?= e($s['label']) ?></b><span><?= e($s['en']) ?></span></div>
+            <?php if ($ov): ?>
+            <button type="button" class="kb-limit-btn" data-kb-limit aria-expanded="false" aria-label="بیشتر از سقف تعداد تسک"><i class="fa-solid fa-exclamation"></i></button>
+            <div class="kb-limit-pop" role="tooltip" hidden>
+                <b><i class="fa-solid fa-triangle-exclamation"></i> تسک‌هایت از سقف تعیین‌شده برای این وضعیت بیشتر است.</b>
+                <ul><?php foreach ($ov as $o): ?><li><?= count($over[$key]) > 1 || !$filters['project'] ? e($o['project']) . ': ' : '' ?><?= e(fa_num($o['count'])) ?> تسک، سقف <?= e(fa_num($o['limit'])) ?></li><?php endforeach; ?></ul>
+                <p>تا وقتی تعدادشان کمتر از سقف نشود، نمی‌توانی تسک دیگری به «<?= e($s['label']) ?>» منتقل کنی.</p>
+            </div>
+            <?php endif; ?>
             <?php if ($key === 'done'): ?><button type="button" class="btn btn-sm kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" <?= $archivable ? '' : 'disabled' ?> title="<?= $archivable ? 'انتقال همه‌ی تسک‌های انجام‌شده به آرشیو (فقط در برد؛ روی خود تسک‌ها اثری ندارد)' : 'تسک انجام‌شده‌ای برای آرشیو نیست' ?>" aria-label="آرشیو انجام‌شده‌ها"><i class="fa-solid fa-box-archive"></i> آرشیو</button><?php endif; ?>
             <span class="kb-count"><?= e(fa_num(count($cards))) ?></span>
         </header>

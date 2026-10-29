@@ -71,6 +71,17 @@ document.addEventListener('tk:ready', () => {
   });
   TK.on('click', '[data-kb-to]', (e, b) => { const card = b.closest('.kb-card'); closeMenu(); request(card, b.dataset.kbTo); });
   document.addEventListener('click', (e) => { if (!e.target.closest('.kb-menu, [data-kb-menu]')) closeMenu(); });
+
+  /* ستون بیشتر از سقف: آیکون ! → توضیح */
+  const closeLimit = (except) => TK.qsa('.kb-limit-pop:not([hidden])').forEach((p) => { if (p !== except) { p.hidden = true; p.previousElementSibling?.setAttribute('aria-expanded', 'false'); } });
+  TK.on('click', '[data-kb-limit]', (e, b) => {
+    const pop = b.nextElementSibling;
+    closeLimit(pop);
+    pop.hidden = !pop.hidden;
+    b.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.kb-limit-pop, [data-kb-limit]')) closeLimit(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLimit(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
   /* آمدن از جزئیات تسک (?task=): کارت برجسته در وسط دید */

@@ -66,6 +66,37 @@ final class BoardService
         return 'سقف ستون «' . self::STATUSES[$status]['label'] . '» برای ' . $name . ' پر است (حداکثر ' . fa_num($limit) . ' تسک).';
     }
 
+    /**
+     * ستون‌هایی که تسک‌های خود کاربر در آن‌ها از سقفش بیشتر است (مثلاً سقف بعداً از ۱۰ به ۵ کم شده و ۷ تسک دارد).
+     * فقط پروژه‌ی فیلترشده یا همه‌ی پروژه‌های کاربر. خروجی: status => [[project, count, limit], ...]
+     */
+    public static function overLimits(int $uid, int $projectId = 0): array
+    {
+        $sql = 'SELECT pm.project_id, pm.board_limits, p.title FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.user_id = ? AND pm.board_limits IS NOT NULL';
+        $params = [$uid];
+        if ($projectId > 0) {
+            $sql .= ' AND pm.project_id = ?';
+            $params[] = $projectId;
+        }
+        $out = [];
+        foreach (DB::all($sql, $params) as $m) {
+            $limits = self::decodeLimits($m['board_limits']);
+            if (!$limits) {
+                continue;
+            }
+            $counts = [];
+            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL GROUP BY board_status', [(int) $m['project_id'], $uid]) as $r) {
+                $counts[$r['s']] = (int) $r['n'];
+            }
+            foreach ($limits as $st => $limit) {
+                if (($counts[$st] ?? 0) > $limit) {
+                    $out[$st][] = ['project' => (string) $m['title'], 'count' => $counts[$st], 'limit' => $limit];
+                }
+            }
+        }
+        return $out;
+    }
+
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
 

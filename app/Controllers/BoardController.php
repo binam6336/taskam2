@@ -31,7 +31,7 @@ final class BoardController extends Controller
         [$columns, $archivable] = BoardService::columns($uid, $f);
         $this->view('board/index', [
             'columns' => $columns, 'archivable' => $archivable, 'archive' => BoardService::archive($uid, $f),
-            'statuses' => BoardService::STATUSES, 'projects' => $projects, 'filters' => $f,
+            'statuses' => BoardService::STATUSES, 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
         ], ['title' => 'برد تیمی', 'page' => 'board', 'bodyClass' => 'page-board']);
     }
 
