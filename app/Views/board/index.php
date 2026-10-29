@@ -3,7 +3,7 @@
 $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
-<div class="page-head"><h2><i class="fa-solid fa-table-columns" style="color:var(--g-400)"></i> برد تیمی <span class="badge yellow">دمو</span></h2>
+<div class="page-head"><h2><i class="fa-solid fa-table-columns" style="color:var(--g-400)"></i> برد تیمی</h2>
     <a class="btn btn-primary" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-plus"></i> تسک جدید</a></div>
 
 <form class="kb-filters card" method="get" action="<?= e(url('/board')) ?>">

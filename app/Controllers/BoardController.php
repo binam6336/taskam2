@@ -7,7 +7,7 @@ use App\Core\Controller;
 use App\Models\TaskModel;
 use App\Services\BoardService;
 
-/** برد تیمی (کانبان) — نسخه‌ی دمو؛ هنوز در منو نیست و از آدرس /board در دسترس است. */
+/** برد تیمی (کانبان) — آدرس /board؛ نمایشش در سایدبار از «محتوا ← سایدبار» در پنل ادمین. */
 final class BoardController extends Controller
 {
     public function index()
