@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Models\ProjectModel;
+use App\Models\SubjectModel;
 use App\Models\TaskModel;
 use App\Services\BoardService;
 
@@ -32,6 +34,8 @@ final class BoardController extends Controller
         $this->view('board/index', [
             'columns' => $columns, 'archivable' => $archivable, 'archive' => BoardService::archive($uid, $f),
             'statuses' => BoardService::STATUSES, 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
+            // پنجره‌های مشاهده و ویرایش تسک داخل خود برد
+            'subjects' => SubjectModel::forUser($uid), 'taskProjects' => ProjectModel::forUser($uid), 'assignees' => TaskController::assigneeOptions($uid),
         ], ['title' => 'برد تیمی', 'page' => 'board', 'bodyClass' => 'page-board']);
     }
 

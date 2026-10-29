@@ -5,7 +5,7 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strt
             <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
                 <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>
                 <div class="kb-card-top">
-                    <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>"><?= e($t['title']) ?></a>
+                    <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>" data-open-task="<?= (int) $t['id'] ?>"><?= e($t['title']) ?></a>
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                     <?php else: ?><span class="faint xs" title="دسترسی جابه‌جایی این تسک در برد را ندارید"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
                 </div>

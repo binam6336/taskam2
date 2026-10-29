@@ -70,13 +70,13 @@ final class TaskController extends Controller
             'dueDates' => TaskModel::dueDates($uid, $scope, $done),
             'subjects' => SubjectModel::forUser($uid),
             'projects' => ProjectModel::forUser($uid),
-            'assignees' => $this->assigneeOptions($uid),
+            'assignees' => self::assigneeOptions($uid),
             'shared' => $shared,
         ], ['title' => 'تسک‌ها', 'page' => 'tasks']);
     }
 
-    /** گزینه‌های مسئول: خودم + همکاران + هم‌پروژه‌ای‌ها. */
-    private function assigneeOptions(int $uid): array
+    /** گزینه‌های مسئول: خودم + همکاران + هم‌پروژه‌ای‌ها (فرم تسک در صفحه‌ی تسک‌ها و برد). */
+    public static function assigneeOptions(int $uid): array
     {
         $rows = DB::all("SELECT DISTINCT u.id, u.first_name, u.last_name, u.mobile, u.avatar FROM users u
             WHERE u.status = 'active' AND u.is_bot = 0 AND u.id <> ? AND (

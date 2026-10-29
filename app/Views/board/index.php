@@ -77,3 +77,5 @@ $total = array_sum(array_map('count', $columns));
         <div id="kb-arch-list" class="list kb-arch-list"></div>
     </div>
 </div></div>
+
+<?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $taskProjects, 'assignees' => $assignees, 'shared' => null, 'context' => 'board']); ?>
