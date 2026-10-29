@@ -1262,3 +1262,25 @@ html[data-theme="sage"] .tour-ask { background: rgba(232, 233, 211, .55); }
 html[data-theme="sage"] .tour-done { background: rgba(232, 233, 211, .45); }
 html[data-theme="sage"] .tour-pop, html[data-theme="sage"] .tour-ask-box, html[data-theme="sage"] .tour-done-box { box-shadow: 0 18px 45px -18px rgba(60, 80, 50, .45); }
 html[data-theme="sage"] .tour-ring { box-shadow: 0 0 0 2px var(--g-400), 0 0 0 6px rgba(var(--accent-rgb), .35); }
+.nav-soon { display: flex; align-items: center; gap: .75rem; padding: .62rem .8rem; color: var(--faint); cursor: not-allowed; } .nav-soon i { width: 20px; text-align: center; }
+
+/* ───── ادمین ← محتوا ← سایدبار ───── */
+.sb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.sb-children { margin: .5rem 2.2rem 0 0; padding: .5rem; min-height: 46px; border: 1px dashed var(--border-2); border-radius: var(--radius-sm); }
+.sb-node { border-radius: var(--radius-sm); }
+.sb-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .45rem .55rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.sb-group > .sb-row { background: var(--surface-3); }
+.sb-handle { display: grid; place-items: center; width: 30px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--faint); cursor: grab; touch-action: none; }
+.sb-handle:hover { color: var(--text); background: var(--surface-3); }
+.sb-ico { width: 26px; text-align: center; color: var(--g-400); }
+.sb-row .input { width: auto; min-height: 38px; padding-block: .35rem; }
+.sb-label { flex: 1 1 150px; min-width: 0; }
+.sb-type { flex: 0 0 88px; }
+.sb-page { flex: 1 1 190px; min-width: 0; }
+.sb-url { flex: 1 1 220px; min-width: 0; }
+.sb-soon { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.sb-dragging { position: fixed; z-index: 200; pointer-events: none; opacity: .92; box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .55); }
+.sb-dragging .sb-row { border-color: rgba(var(--accent-rgb), .55); }
+.sb-ph { border: 2px dashed rgba(var(--accent-rgb), .55); border-radius: var(--radius-sm); background: var(--ok-bg); }
+.sb-actions { flex-wrap: wrap; }
+@media (max-width: 600px) { .sb-children { margin-right: .6rem; } .sb-type { flex-basis: 80px; } }

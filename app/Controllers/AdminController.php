@@ -10,6 +10,7 @@ use App\Core\Crypto;
 use App\Core\DB;
 use App\Core\Validate;
 use App\Models\ContentModel;
+use App\Models\SidebarModel;
 use App\Models\SupportModel;
 use App\Models\UserModel;
 use App\Services\ProjectService;
@@ -223,6 +224,44 @@ final class AdminController extends Controller
     }
 
     // ───── تحلیل ─────
+
+    /** محتوا ← سایدبار: چیدمان، نام و مقصد (صفحه‌ی پنل یا لینک خارجی) گزینه‌های سایدبار پنل کاربر */
+    public function contentSidebar()
+    {
+        $pages = [];
+        foreach (SidebarModel::pages() as $k => [$path, $icon, $label]) {
+            $pages[] = ['key' => $k, 'path' => $path, 'icon' => $icon, 'label' => $label];
+        }
+        $this->view('admin/content_sidebar', [
+            'menu' => SidebarModel::current(), 'pages' => $pages, 'custom' => SidebarModel::isCustom(),
+            'linkIcon' => SidebarModel::LINK_ICON, 'supportUnread' => SupportModel::unreadForAdmin(),
+        ], ['title' => 'سایدبار', 'page' => 'admin-content-sidebar'], 'admin');
+    }
+
+    public function contentSidebarSave()
+    {
+        $data = json_decode((string) $this->request->input('menu', ''), true);
+        if (!is_array($data)) {
+            $this->respond(false, 'داده‌ی سایدبار نامعتبر است.', '/admin/content/sidebar');
+        }
+        [$menu, $err] = SidebarModel::normalize($data);
+        if ($err !== null) {
+            $this->respond(false, $err, '/admin/content/sidebar');
+        }
+        if (!$menu) {
+            $this->respond(false, 'سایدبار نمی‌تواند خالی باشد.', '/admin/content/sidebar');
+        }
+        SidebarModel::save($menu, $this->uid());
+        Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user']);
+        $this->respond(true, 'سایدبار پنل کاربران ذخیره شد.', '/admin/content/sidebar');
+    }
+
+    public function contentSidebarReset()
+    {
+        SidebarModel::reset();
+        Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
+        $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
+    }
 
     /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */
     public function contentTour()

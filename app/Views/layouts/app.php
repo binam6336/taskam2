@@ -5,35 +5,7 @@ use App\Core\Session;
 $u = $currentUser;
 $name = full_name($u);
 $active = $this->page;
-$menu = [
-    ['dashboard', '/dashboard', 'fa-gauge-high', 'پیشخوان'],
-    ['group' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
-        ['tasks', '/tasks', 'fa-list-check', 'تسک‌ها'],
-        ['soon' => true, 'icon' => 'fa-table-columns', 'label' => 'برد تیمی'],
-        ['subjects', '/labels', 'fa-tags', 'لیبل‌ها'],
-    ]],
-    ['group' => 'requests', 'icon' => 'fa-inbox', 'label' => 'درخواست‌ها', 'items' => [
-        ['calls', '/calls', 'fa-phone-volume', 'درخواست تماس'],
-        ['texts', '/texts', 'fa-message', 'متن‌های آماده'],
-    ]],
-    ['group' => 'team', 'icon' => 'fa-people-group', 'label' => 'مدیریت تیم', 'items' => [
-        ['colleagues', '/colleagues', 'fa-users', 'همکاران'],
-        ['projects', '/projects', 'fa-diagram-project', 'پروژه‌ها'],
-        ['chat', '/chat', 'fa-comments', 'گفتگو'],
-    ]],
-    ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
-        ['tokens', '/tokens', 'fa-key', 'توکن API'],
-        ['docs', '/docs', 'fa-book', 'مستندات API'],
-    ]],
-    ['group' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
-        ['profile', '/profile', 'fa-user-gear', 'پروفایل'],
-        ['install', '/install', 'fa-download', 'نصب'],
-        ['tour', '/tour/start', 'fa-graduation-cap', 'آموزش'],
-    ]],
-    ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
-        ['support', '/support', 'fa-headset', 'تیکت'],
-    ]],
-];
+$menu = \App\Models\SidebarModel::nav(); // چیدمان از «محتوا ← سایدبار» در پنل ادمین (پیش‌فرض: config/sidebar.php)
 $badges = array_fill_keys(['tasks', 'colleagues', 'projects', 'chat', 'support'], 0);
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];

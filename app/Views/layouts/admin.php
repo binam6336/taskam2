@@ -12,6 +12,7 @@ $menu = [
         ['admin-users', '/admin', 'fa-users-gear', 'لیست کاربران'],
     ]],
     ['group' => 'content', 'icon' => 'fa-pen-to-square', 'label' => 'محتوا', 'items' => [
+        ['admin-content-sidebar', '/admin/content/sidebar', 'fa-bars-staggered', 'سایدبار'],
         ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
     ]],
     ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [

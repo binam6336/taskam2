@@ -7,7 +7,9 @@
   const T = boot.texts || {}; // متن‌ها از «محتوا ← تور آموزشی» در پنل ادمین (config/tour_texts.php)
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
-  const tasksGroup = () => TK.qs('#nav-g-tasks')?.closest('[data-nav-group]');
+  // جای «تسک‌ها» در سایدبار را ادمین تعیین می‌کند (محتوا ← سایدبار): داخل هر گروهی یا بیرون از گروه‌ها
+  const TASKS_LINK = '.sidebar .nav a[href$="/tasks"]';
+  const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('[data-nav-group]');
   const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
   const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
 
@@ -23,12 +25,13 @@
       text: T.step_1,
     },
     2: {
-      page: 'dashboard', target: '.nav-parent[aria-controls="nav-g-tasks"]', action: 'click', next: 3,
+      page: 'dashboard', when: () => !!tasksGroup(), action: 'click', next: 3,
+      target: () => `.nav-parent[aria-controls="${tasksGroup()?.querySelector('.nav-flyout')?.id}"]`,
       prepare: () => { if (mobile.matches && !sidebarOpen()) TK.qs('.menu-btn')?.click(); },
       text: T.step_2,
     },
     3: {
-      page: 'dashboard', target: '#nav-g-tasks a.nav-sub[href$="/tasks"]', action: 'go', next: 4,
+      page: 'dashboard', target: TASKS_LINK, action: 'go', next: 4,
       prepare: () => {
         if (mobile.matches && !sidebarOpen()) TK.qs('.menu-btn')?.click();
         const g = tasksGroup();
@@ -78,6 +81,7 @@
       },
     }),
   };
+  const sel = (step) => (typeof step.target === 'function' ? step.target() : step.target);
   const act = (step) => (typeof step.action === 'function' ? step.action() : step.action);
   const ids = Object.keys(STEPS).map(Number).sort((a, b) => a - b);
   const active = () => ids.filter((i) => !STEPS[i].when || STEPS[i].when());
@@ -181,13 +185,13 @@
 
   // در مرحله‌ی «کلیک کن» روی یک select، لیست خود مرورگر باز نشود (مرحله‌ی بعد جای آن را می‌گیرد)
   const noNative = (e) => {
-    if (cur !== null && act(STEPS[cur]) === 'click' && e.target.closest?.('select') && e.target.closest(STEPS[cur].target)) e.preventDefault();
+    if (cur !== null && act(STEPS[cur]) === 'click' && e.target.closest?.('select') && e.target.closest(sel(STEPS[cur]))) e.preventDefault();
   };
 
   const onClick = (e) => {
     if (cur === null) return;
     const step = STEPS[cur];
-    const t = e.target.closest?.(step.target);
+    const t = e.target.closest?.(sel(step));
     const action = act(step);
     if (!t || action === 'ok' || action === 'wait') return;
     if (action === 'submit') {
@@ -233,7 +237,7 @@
     // صبر تا بخش موردنظر ظاهر شود (باز شدن منو/پنجره)؛ اگر پیدا نشد، به مرحله‌ی برگشت یا بعدی می‌رود
     const t0 = performance.now();
     const wait = () => {
-      const el = find(step.target);
+      const el = find(sel(step));
       if (!el) {
         if (performance.now() - t0 > 1800) { if (step.back) run(step.back); else { cur = id; advance(); } return; }
         raf = requestAnimationFrame(wait);
@@ -260,7 +264,7 @@
       if (cur !== null && STEPS[cur].until?.()) { advance(); return; }
       if (cur !== null && !visible(el)) {
         const step = STEPS[cur];
-        const again = find(step.target);
+        const again = find(sel(step));
         if (again) el = again;
         else if (step.back) { run(step.back); return; } // مثلاً پنجره‌ی تسک بسته شد
         else { raf = requestAnimationFrame(frame); return; }
@@ -310,5 +314,5 @@
   const step = STEPS[id];
   if (!step || step.page !== boot.page) return; // مرحله‌ی صفحه‌ی دیگر: وقتی کاربر به آن صفحه برود ادامه پیدا می‌کند
   if (step.when && !step.when()) { cur = id; build(); advance(); return; }
-  run(step.back && !find(step.target) ? step.back : id); // بعد از رفرش، پنجره‌ی فرم بسته است → از دکمه‌ی تسک جدید
+  run(step.back && !find(sel(step)) ? step.back : id); // بعد از رفرش، پنجره‌ی فرم بسته است → از دکمه‌ی تسک جدید
 })();
