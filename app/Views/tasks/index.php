@@ -11,7 +11,6 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $scope === 'mine' ? 'active' : '' ?>" href="<?= e($tabUrl('mine', $status)) ?>"><i class="fa-solid fa-user-check"></i> وظایف من <span class="badge-count"><?= e(fa_num($counts['mine_open'])) ?></span></a>
         <a class="tab <?= $scope === 'others' ? 'active' : '' ?>" href="<?= e($tabUrl('others', $status)) ?>"><i class="fa-solid fa-share-nodes"></i> واگذارشده به دیگران <span class="badge-count"><?= e(fa_num($counts['others_open'])) ?></span></a>
     </div>
-    <a class="btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
     <button class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button>
 </div>
 
@@ -25,6 +24,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <?php foreach (['when', 'prio', 'project'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'created' ? 1 : 0); ?>
+        <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
         <button type="button" class="btn btn-icon t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر" aria-label="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter"></i><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
         <!-- سایدبار مخفی مرتب‌سازی و فیلتر (سمت چپ) -->
         <div class="t-drawer-back" data-drawer-close hidden></div>
