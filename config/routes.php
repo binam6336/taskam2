@@ -14,6 +14,7 @@ use App\Controllers\Api\V1\ProjectApi;
 use App\Controllers\Api\V1\TaskApi;
 use App\Controllers\Api\V1\TextApi;
 use App\Controllers\AuthController;
+use App\Controllers\CalendarController;
 use App\Controllers\CallController;
 use App\Controllers\ChatController;
 use App\Controllers\ColleagueController;
@@ -57,6 +58,8 @@ $router->group(['panel'], function ($r) {
 
     // تسک‌ها
     $r->get('/tasks', [TaskController::class, 'index']);
+    $r->get('/calendar', [CalendarController::class, 'index']);
+    $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
     $r->get('/tasks/{id}', [TaskController::class, 'show']);
     $r->post('/tasks/{id}/update', [TaskController::class, 'update']);

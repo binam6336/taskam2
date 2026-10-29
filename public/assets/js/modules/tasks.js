@@ -174,17 +174,18 @@ document.addEventListener('tk:ready', () => {
   // بدون دسترسی «تکمیل تسک»: دکمه دیده می‌شود ولی فقط پیام می‌دهد
   TK.on('click', '[data-no-complete]', (e) => { e.preventDefault(); e.stopPropagation(); TK.toast('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'error'); });
 
-  TK.qs('#btn-new-task')?.addEventListener('click', () => {
+  const openNew = (opts = {}) => {
     TK.resetForm(form); form.priority.value = 'medium'; form.subject_id.value = '';
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
     rs.assignee_id.set(cfg.me); rs.project_id.set(pid);
-    dp.set(dp.today()); tp.set('');                 // پیش‌فرض: تاریخ امروز
+    dp.set(opts.date || dp.today()); tp.set('');     // پیش‌فرض: تاریخ امروز (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
-  });
+  };
+  TK.qs('#btn-new-task')?.addEventListener('click', () => openNew());
 
   const openEdit = (d) => {
     TK.resetForm(form);
@@ -221,7 +222,17 @@ document.addEventListener('tk:ready', () => {
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
     TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); tb.submit(); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { ['when', 'prio', 'project'].forEach((n) => setHidden(n, '')); tb.submit(); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { ['when', 'prio', 'project'].forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; tb.submit(); });
+    // سایدبار مخفی مرتب‌سازی و فیلتر
+    const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
+    const setDrawer = (on) => {
+      drawer.classList.toggle('open', on); drawer.setAttribute('aria-hidden', on ? 'false' : 'true');
+      back.hidden = !on; openBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (on) drawer.querySelector('input:checked, select')?.focus({ preventScroll: true });
+    };
+    openBtn?.addEventListener('click', () => setDrawer(true));
+    TK.qsa('[data-drawer-close]', tb).forEach((b) => b.addEventListener('click', () => setDrawer(false)));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawer.classList.contains('open')) setDrawer(false); });
   }
 
   /* ───── جزئیات ───── */
@@ -327,7 +338,9 @@ document.addEventListener('tk:ready', () => {
   };
   const refresh = async () => { const r = await TK.get('/tasks/' + currentId); if (TK.ok(r)) render(r.task); };
 
-  TK.on('click', '[data-open-task]', (e, t) => { e.preventDefault(); open(t.dataset.openTask); });   // عنوان کارت برد هم لینک است (باز کردن در تب جدید)
+  TK.on('click', '[data-open-task]', (e, t) => { e.preventDefault(); open(t.dataset.openTask); });
+  // برای صفحه‌های دیگر (تقویم): باز کردن فرم تسک جدید/ویرایش و جزئیات
+  TK.tasks = { openNew, openEdit, open };   // عنوان کارت برد هم لینک است (باز کردن در تب جدید)
   if (cfg.shared) { render(cfg.shared); TK.modal.open('m-detail'); }
 
   const submit = async (f, url, after) => {

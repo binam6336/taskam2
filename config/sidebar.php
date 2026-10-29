@@ -11,6 +11,7 @@ return [
     'pages' => [
         'dashboard'  => ['/dashboard', 'fa-gauge-high', 'پیشخوان'],
         'tasks'      => ['/tasks', 'fa-list-check', 'تسک‌ها'],
+        'calendar'   => ['/calendar', 'fa-calendar-days', 'تقویم'],
         'board'      => ['/board', 'fa-table-columns', 'برد تیمی'],
         'subjects'   => ['/labels', 'fa-tags', 'لیبل‌ها'],
         'calls'      => ['/calls', 'fa-phone-volume', 'درخواست تماس'],
@@ -29,6 +30,7 @@ return [
         ['t' => 'page', 'page' => 'dashboard', 'label' => 'پیشخوان'],
         ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
             ['t' => 'page', 'page' => 'tasks', 'label' => 'تسک‌ها'],
+            ['t' => 'page', 'page' => 'calendar', 'label' => 'تقویم'],
             ['t' => 'page', 'page' => 'board', 'label' => 'برد تیمی', 'soon' => true],
             ['t' => 'page', 'page' => 'subjects', 'label' => 'لیبل‌ها'],
         ]],

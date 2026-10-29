@@ -11,6 +11,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $scope === 'mine' ? 'active' : '' ?>" href="<?= e($tabUrl('mine', $status)) ?>"><i class="fa-solid fa-user-check"></i> وظایف من <span class="badge-count"><?= e(fa_num($counts['mine_open'])) ?></span></a>
         <a class="tab <?= $scope === 'others' ? 'active' : '' ?>" href="<?= e($tabUrl('others', $status)) ?>"><i class="fa-solid fa-share-nodes"></i> واگذارشده به دیگران <span class="badge-count"><?= e(fa_num($counts['others_open'])) ?></span></a>
     </div>
+    <a class="btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
     <button class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button>
 </div>
 
@@ -23,24 +24,30 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
         <?php foreach (['when', 'prio', 'project'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
-        <div class="dropdown t-filter">
-            <button type="button" class="btn <?= $fCount ? 'btn-outline' : '' ?>" data-toggle><i class="fa-solid fa-filter"></i> فیلتر<?php if ($fCount): ?> <span class="badge-count"><?= e(fa_num($fCount)) ?></span><?php endif; ?></button>
-            <div class="dropdown-menu t-filter-menu">
-                <div class="field"><label><i class="fa-regular fa-clock"></i> بر اساس زمان</label><select class="input" data-f="when">
-                    <option value="">همه</option><option value="overdue" <?= $filters['when'] === 'overdue' ? 'selected' : '' ?>>تسک‌های عقب‌افتاده</option>
-                    <option value="today" <?= $filters['when'] === 'today' ? 'selected' : '' ?>>تسک‌های امروز</option><option value="tomorrow" <?= $filters['when'] === 'tomorrow' ? 'selected' : '' ?>>تسک‌های فردا</option>
-                    <?php $tod = date('Y-m-d'); $tom = date('Y-m-d', strtotime('+1 day')); foreach ($dueDates as $d): if ($d === $tod || $d === $tom) continue; ?>
-                        <option value="<?= e($d) ?>" <?= $filters['when'] === $d ? 'selected' : '' ?>>تسک‌های <?= e(jdate($d . ' 00:00:00', false)) ?></option>
-                    <?php endforeach; ?></select></div>
-                <div class="field"><label><i class="fa-solid fa-flag"></i> بر اساس اولویت</label><select class="input" data-f="prio">
-                    <option value="">همه</option><option value="high" <?= $filters['prio'] === 'high' ? 'selected' : '' ?>>اولویت بیشتر</option><option value="low" <?= $filters['prio'] === 'low' ? 'selected' : '' ?>>اولویت کمتر</option></select></div>
-                <div class="field"><label><i class="fa-solid fa-diagram-project"></i> بر اساس پروژه</label><select class="input" data-f="project">
-                    <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
-                <div class="flex gap-1"><button type="button" class="btn btn-primary btn-sm grow" data-f-apply>اعمال فیلتر</button><?php if ($fCount): ?><button type="button" class="btn btn-sm" data-f-clear>حذف فیلترها</button><?php endif; ?></div>
+        <?php $sCount = $fCount + ($filters['sort'] !== 'created' ? 1 : 0); ?>
+        <button type="button" class="btn btn-icon t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر" aria-label="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter"></i><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
+        <!-- سایدبار مخفی مرتب‌سازی و فیلتر (سمت چپ) -->
+        <div class="t-drawer-back" data-drawer-close hidden></div>
+        <aside class="t-drawer" id="t-drawer" aria-label="مرتب‌سازی و فیلتر" aria-hidden="true">
+            <div class="t-drawer-head"><b><i class="fa-solid fa-sliders"></i> مرتب‌سازی و فیلتر</b><button type="button" class="btn btn-ghost btn-icon btn-sm" data-drawer-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="t-drawer-body">
+                <div class="t-drawer-sec"><h4><i class="fa-solid fa-arrow-down-wide-short"></i> مرتب‌سازی</h4>
+                    <div class="t-sort-list"><?php foreach (TaskModel::SORTS as $k => $label): ?><label class="t-sort-opt"><input type="radio" name="sort" value="<?= e($k) ?>" <?= $filters['sort'] === $k ? 'checked' : '' ?>><span><?= e($label) ?></span></label><?php endforeach; ?></div></div>
+                <div class="t-drawer-sec"><h4><i class="fa-solid fa-filter"></i> فیلتر</h4>
+                    <div class="field"><label><i class="fa-regular fa-clock"></i> بر اساس زمان</label><select class="input" data-f="when">
+                        <option value="">همه</option><option value="overdue" <?= $filters['when'] === 'overdue' ? 'selected' : '' ?>>تسک‌های عقب‌افتاده</option>
+                        <option value="today" <?= $filters['when'] === 'today' ? 'selected' : '' ?>>تسک‌های امروز</option><option value="tomorrow" <?= $filters['when'] === 'tomorrow' ? 'selected' : '' ?>>تسک‌های فردا</option>
+                        <?php $tod = date('Y-m-d'); $tom = date('Y-m-d', strtotime('+1 day')); foreach ($dueDates as $d): if ($d === $tod || $d === $tom) continue; ?>
+                            <option value="<?= e($d) ?>" <?= $filters['when'] === $d ? 'selected' : '' ?>>تسک‌های <?= e(jdate($d . ' 00:00:00', false)) ?></option>
+                        <?php endforeach; ?></select></div>
+                    <div class="field"><label><i class="fa-solid fa-flag"></i> بر اساس اولویت</label><select class="input" data-f="prio">
+                        <option value="">همه</option><option value="high" <?= $filters['prio'] === 'high' ? 'selected' : '' ?>>اولویت بیشتر</option><option value="low" <?= $filters['prio'] === 'low' ? 'selected' : '' ?>>اولویت کمتر</option></select></div>
+                    <div class="field"><label><i class="fa-solid fa-diagram-project"></i> بر اساس پروژه</label><select class="input" data-f="project">
+                        <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
+                </div>
             </div>
-        </div>
-        <label class="t-sort"><i class="fa-solid fa-arrow-down-wide-short"></i><select class="input" name="sort" data-autosubmit aria-label="مرتب‌سازی">
-            <?php foreach (TaskModel::SORTS as $k => $label): ?><option value="<?= e($k) ?>" <?= $filters['sort'] === $k ? 'selected' : '' ?>>مرتب‌سازی: <?= e($label) ?></option><?php endforeach; ?></select></label>
+            <div class="t-drawer-foot"><button type="button" class="btn btn-primary grow" data-f-apply><i class="fa-solid fa-check"></i> اعمال</button><?php if ($sCount): ?><button type="button" class="btn" data-f-clear><i class="fa-solid fa-rotate-left"></i> حذف همه</button><?php endif; ?></div>
+        </aside>
     </form>
 </div>
 

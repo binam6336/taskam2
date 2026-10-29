@@ -63,6 +63,21 @@ final class TaskModel
     }
 
     /**
+     * تقویم: تسک‌های دارای سررسید در بازه‌ی [from, to].
+     * scope: mine = مسئولش منم، others = ساخته‌ی من و واگذارشده به دیگران، all = هر دو (همان دو تب صفحه‌ی تسک‌ها).
+     */
+    public static function calendar(int $uid, string $from, string $to, string $scope, bool $withDone): array
+    {
+        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $params = [$uid, $uid];
+        if ($scope === 'mine') {
+            $params = [$uid];
+        }
+        $sql = self::base() . ' WHERE ' . $where . ' AND t.due_date BETWEEN ? AND ?' . ($withDone ? '' : ' AND t.is_completed = 0') . ' ORDER BY t.due_date, t.due_time IS NULL, t.due_time, t.id LIMIT 2000';
+        return DB::all($sql, array_merge([$uid], $params, [$from, $to]));
+    }
+
+    /**
      * فهرست صفحه‌بندی‌شده.
      * @param string $scope mine = مسئول من | others = ساخته‌ی من برای دیگران
      * @param array  $f     فیلتر/مرتب‌سازی: q, sort, when (overdue|today|tomorrow|Y-m-d), prio (high|low), project
