@@ -176,6 +176,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
     $r->post('/tour', [TourController::class, 'update']);
+    $r->get('/tour/start', [TourController::class, 'start']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
     $r->get('/install', [PwaController::class, 'install']);

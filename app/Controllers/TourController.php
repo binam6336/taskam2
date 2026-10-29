@@ -22,4 +22,13 @@ final class TourController extends Controller
         }
         $this->respond(true, '', '/dashboard');
     }
+
+    /** «تنظیمات ← آموزش» در سایدبار: شروع دوباره‌ی تور از اول (مرحله‌ی منوی همبرگری فقط در موبایل نمایش داده می‌شود) */
+    public function start()
+    {
+        if (!Auth::isImpersonating()) {
+            DB::update('users', ['tour' => '1'], 'id = ?', [$this->uid()]);
+        }
+        $this->redirect('/dashboard');
+    }
 }

@@ -28,6 +28,7 @@ $menu = [
     ['group' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
         ['profile', '/profile', 'fa-user-gear', 'پروفایل'],
         ['install', '/install', 'fa-download', 'نصب'],
+        ['tour', '/tour/start', 'fa-graduation-cap', 'آموزش'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
         ['support', '/support', 'fa-headset', 'تیکت'],
