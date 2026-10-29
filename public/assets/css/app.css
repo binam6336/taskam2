@@ -1308,3 +1308,21 @@ html[data-theme="sage"] .kb-limit-pop { box-shadow: 0 14px 30px -14px rgba(60, 8
 /* تیک/دکمه‌ی تکمیل بدون دسترسی: کلیک فقط پیام می‌دهد */
 .tick.locked, .btn.locked { opacity: .45; cursor: not-allowed; }
 .tick.locked:hover { border-color: var(--border-2); }
+
+/* ───── ادمین ← محتوا ← خطاها ───── */
+.er-bar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+.er-bar .search { min-width: 220px; }
+.er-only { margin: 0; }
+.er-section[hidden], .er-card[hidden] { display: none; }
+.er-ico { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-size: .85rem; color: var(--g-400); background: var(--ok-bg); }
+.er-ico.blue { color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); }
+.er-ico.purple { color: #a78bfa; background: color-mix(in srgb, #a78bfa 14%, transparent); }
+.er-ico.yellow { color: var(--warn); background: var(--warn-bg); }
+.er-card { border-inline-start: 3px solid var(--danger); }
+.er-card.changed { border-inline-start-color: var(--warn); }
+.er-msg { display: flex; gap: .45rem; align-items: baseline; font-weight: 700; font-size: .9rem; line-height: 1.8; color: var(--text); }
+.er-msg i { color: var(--danger); flex: none; }
+.er-why { margin: .1rem 0 .6rem; font-size: .8rem; line-height: 1.9; color: var(--muted); }
+.er-why b { color: var(--text); font-weight: 600; }
+.er-vars code { margin-inline-end: .2rem; }
+.er-id { margin-inline-start: auto; }

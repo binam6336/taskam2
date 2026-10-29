@@ -11,6 +11,14 @@ final class Response
         while (ob_get_level() > 0) {
             @ob_end_clean();
         }
+        // متن خطاهایی که ادمین در «محتوا ← خطاها» ویرایش کرده
+        if (($data['status'] ?? null) === 'error' || ($data['success'] ?? null) === false) {
+            foreach (['message', 'error'] as $k) {
+                if (isset($data[$k]) && is_string($data[$k])) {
+                    $data[$k] = ErrorText::apply($data[$k]);
+                }
+            }
+        }
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');

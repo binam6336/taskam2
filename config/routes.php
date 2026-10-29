@@ -206,6 +206,8 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);
     $r->get('/admin/content/tour', [AdminController::class, 'contentTour']);
     $r->post('/admin/content/tour/{id}', [AdminController::class, 'contentTourSave']);
+    $r->get('/admin/content/errors', [AdminController::class, 'contentErrors']);
+    $r->post('/admin/content/errors/{id}', [AdminController::class, 'contentErrorSave']);
     $r->post('/admin/chat/encrypt', [AdminController::class, 'chatEncrypt']);
 });
 

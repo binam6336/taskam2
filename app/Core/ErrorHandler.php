@@ -58,6 +58,11 @@ final class ErrorHandler
 
     private static function respond(int $status, string $message, string $code, ?Throwable $debug): void
     {
+        try {
+            $message = ErrorText::apply($message);
+        } catch (Throwable $e) {
+            // متن پیش‌فرض
+        }
         while (ob_get_level() > 0) {
             @ob_end_clean();
         }

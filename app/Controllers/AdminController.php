@@ -8,6 +8,7 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Crypto;
 use App\Core\DB;
+use App\Core\ErrorText;
 use App\Core\Validate;
 use App\Models\ContentModel;
 use App\Models\SidebarModel;
@@ -261,6 +262,23 @@ final class AdminController extends Controller
         SidebarModel::reset();
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
         $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
+    }
+
+    /** محتوا ← خطاها: همه‌ی خطاهای پنل کاربر با توضیح و متن قابل ویرایش (config/error_texts.php) */
+    public function contentErrors()
+    {
+        $this->view('admin/content_errors', ['groups' => ErrorText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'خطاها', 'page' => 'admin-content-errors'], 'admin');
+    }
+
+    public function contentErrorSave(string $id)
+    {
+        $err = ErrorText::save($id, (string) $this->request->input('body', ''), $this->uid());
+        if ($err !== null) {
+            $this->respond(false, $err, '/admin/content/errors');
+        }
+        Audit::log($this->uid(), 'content_updated', ['key' => ErrorText::PREFIX . $id]);
+        $this->respond(true, 'متن خطای «' . $id . '» ذخیره شد.', '/admin/content/errors');
     }
 
     /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */

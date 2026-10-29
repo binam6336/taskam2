@@ -106,27 +106,27 @@ final class Uploader
     {
         $orig = mb_substr(basename((string) $file['name']), 0, 200, 'UTF-8');
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
-            return ['ok' => false, 'error' => $orig . ' (خطا در آپلود)'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (خطا در آپلود)')];
         }
         $size = (int) $file['size'];
         if ($size <= 0 || $size > $max) {
-            return ['ok' => false, 'error' => $orig . ' (حجم نامعتبر؛ حداکثر ' . human_size($max) . ')'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (حجم نامعتبر؛ حداکثر ' . human_size($max) . ')')];
         }
         if (!is_uploaded_file((string) $file['tmp_name'])) {
-            return ['ok' => false, 'error' => $orig . ' (آپلود نامعتبر)'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (آپلود نامعتبر)')];
         }
         $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
         if (!isset($types[$ext])) {
-            return ['ok' => false, 'error' => $orig . ' (فرمت مجاز نیست)'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (فرمت مجاز نیست)')];
         }
         $mime = self::mime((string) $file['tmp_name']);
         if (!in_array($mime, $types[$ext], true)) {
-            return ['ok' => false, 'error' => $orig . ' (محتوای فایل با پسوند مطابقت ندارد)'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (محتوای فایل با پسوند مطابقت ندارد)')];
         }
         $name = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
         $dest = self::dir($type) . '/' . $name;
         if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
-            return ['ok' => false, 'error' => $orig . ' (خطا در ذخیره)'];
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (خطا در ذخیره)')];
         }
         @chmod($dest, 0640);
         return ['ok' => true, 'name' => $name, 'original' => $orig, 'size' => $size, 'ext' => $ext, 'mime' => $mime];
@@ -139,25 +139,25 @@ final class Uploader
     public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152): array
     {
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
-            return ['ok' => false, 'error' => 'خطا در آپلود تصویر.'];
+            return ['ok' => false, 'error' => ErrorText::apply('خطا در آپلود تصویر.')];
         }
         if ((int) $file['size'] <= 0 || (int) $file['size'] > $maxBytes) {
-            return ['ok' => false, 'error' => 'حجم تصویر نباید بیشتر از ' . human_size($maxBytes) . ' باشد.'];
+            return ['ok' => false, 'error' => ErrorText::apply('حجم تصویر نباید بیشتر از ' . human_size($maxBytes) . ' باشد.')];
         }
         if (!is_uploaded_file((string) $file['tmp_name'])) {
-            return ['ok' => false, 'error' => 'آپلود نامعتبر.'];
+            return ['ok' => false, 'error' => ErrorText::apply('آپلود نامعتبر.')];
         }
         if (!function_exists('imagecreatetruecolor')) {
-            return ['ok' => false, 'error' => 'پردازش تصویر (GD) روی سرور فعال نیست.'];
+            return ['ok' => false, 'error' => ErrorText::apply('پردازش تصویر (GD) روی سرور فعال نیست.')];
         }
         $mime = self::mime((string) $file['tmp_name']);
         $map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
         if (!isset($map[$mime])) {
-            return ['ok' => false, 'error' => 'فرمت تصویر باید JPG، PNG، GIF یا WebP باشد.'];
+            return ['ok' => false, 'error' => ErrorText::apply('فرمت تصویر باید JPG، PNG، GIF یا WebP باشد.')];
         }
         $info = @getimagesize((string) $file['tmp_name']);
         if ($info === false || $info[0] < 10 || $info[1] < 10 || $info[0] > 4000 || $info[1] > 4000 || ($info[0] * $info[1]) > 16000000) {
-            return ['ok' => false, 'error' => 'ابعاد تصویر باید بین ۱۰ و ۴۰۰۰ پیکسل باشد.'];
+            return ['ok' => false, 'error' => ErrorText::apply('ابعاد تصویر باید بین ۱۰ و ۴۰۰۰ پیکسل باشد.')];
         }
         if ($mime === 'image/jpeg') {
             $src = @imagecreatefromjpeg((string) $file['tmp_name']);
@@ -169,7 +169,7 @@ final class Uploader
             $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp((string) $file['tmp_name']) : false;
         }
         if (!$src) {
-            return ['ok' => false, 'error' => 'خطا در پردازش تصویر.'];
+            return ['ok' => false, 'error' => ErrorText::apply('خطا در پردازش تصویر.')];
         }
         $ext = $map[$mime];
         if ($ext === 'webp' && !function_exists('imagewebp')) {
@@ -192,7 +192,7 @@ final class Uploader
         }
         imagedestroy($src);
         if (!$ok) {
-            return ['ok' => false, 'error' => 'خطا در ذخیره‌ی تصویر.'];
+            return ['ok' => false, 'error' => ErrorText::apply('خطا در ذخیره‌ی تصویر.')];
         }
         @chmod($dest, 0640);
         return ['ok' => true, 'name' => $name];

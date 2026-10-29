@@ -40,8 +40,23 @@
   TK.ok = (r) => r && (r.status === 'success' || r.success === true);
 
   /* ───── Toast ───── */
+  // متن خطاهایی که ادمین در «محتوا ← خطاها» ویرایش کرده ({name} = مقدار متغیر پیام اصلی)
+  const errRules = (TK.boot().errs || []).map(([def, txt]) => {
+    const vars = [...def.matchAll(/\{([a-z]+)\}/g)].map((m) => m[1]);
+    const re = vars.length ? new RegExp('^' + def.split(/(\{[a-z]+\})/).map((p) => (/^\{[a-z]+\}$/.test(p) ? '(.+?)' : p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('') + '$', 's') : null;
+    return { def, txt, re, vars };
+  });
+  TK.errText = (msg) => {
+    for (const r of errRules) {
+      if (!r.re) { if (msg === r.def) return r.txt; continue; }
+      const m = String(msg).match(r.re);
+      if (m) return r.vars.reduce((t, v, i) => t.split('{' + v + '}').join(m[i + 1]), r.txt);
+    }
+    return msg;
+  };
   TK.toast = (msg, type = 'success', ms = 4200) => {
     if (!msg) return;
+    if (type === 'error' || type === 'warning') msg = TK.errText(String(msg));
     let box = TK.qs('.toasts');
     if (!box) { box = document.createElement('div'); box.className = 'toasts'; document.body.appendChild(box); }
     const icon = { success: 'fa-circle-check', error: 'fa-circle-xmark', warning: 'fa-triangle-exclamation', info: 'fa-circle-info' }[type] || 'fa-circle-info';

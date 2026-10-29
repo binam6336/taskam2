@@ -14,6 +14,7 @@ $menu = [
     ['group' => 'content', 'icon' => 'fa-pen-to-square', 'label' => 'محتوا', 'items' => [
         ['admin-content-sidebar', '/admin/content/sidebar', 'fa-bars-staggered', 'سایدبار'],
         ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
+        ['admin-content-errors', '/admin/content/errors', 'fa-triangle-exclamation', 'خطاها'],
     ]],
     ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
         ['docs', '/docs', 'fa-book', 'مستندات API'],

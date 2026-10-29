@@ -175,6 +175,9 @@ final class Session
     public static function flash(string $message, string $type = 'success'): void
     {
         self::start();
+        if ($type === 'error' || $type === 'warning') {
+            $message = ErrorText::apply($message);
+        }
         $_SESSION['_flash'][] = ['message' => $message, 'type' => $type];
     }
 
