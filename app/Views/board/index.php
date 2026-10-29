@@ -11,7 +11,7 @@ $total = array_sum(array_map('count', $columns));
         <option value="0">همه‌ی پروژه‌ها</option>
         <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
     </select>
-    <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="جستجو در عنوان تسک‌ها…"></div>
+    <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>"></div>
     <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
     <button class="btn"><i class="fa-solid fa-magnifying-glass"></i> اعمال</button>
 </form>
@@ -65,7 +65,7 @@ $total = array_sum(array_map('count', $columns));
 <div class="modal" id="m-kb-block"><div class="modal-box sm"><form id="f-kb-block">
     <div class="modal-head"><h3><i class="fa-solid fa-ban" style="color:var(--danger)"></i> علت توقف</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div class="field"><label>چرا این تسک متوقف شده؟ (اختیاری)</label>
-        <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="مثلاً: منتظر تأیید طراحی / وابسته به تسک دیگر / مشکل فنی سرور"></textarea></div></div>
+        <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_block')) ?>"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-danger">انتقال به مسدودشده</button></div>
 </form></div></div>
 
@@ -73,7 +73,7 @@ $total = array_sum(array_map('count', $columns));
 <div class="modal" id="m-kb-archive"><div class="modal-box lg">
     <div class="modal-head"><h3><i class="fa-solid fa-box-archive"></i> آرشیو تسک‌ها <span class="badge" id="kb-arch-count"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-        <div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="kb-arch-q" placeholder="جستجو در آرشیو…" autocomplete="off"></div>
+        <div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="kb-arch-q" placeholder="<?= e(ph('board_archive')) ?>" autocomplete="off"></div>
         <div id="kb-arch-list" class="list kb-arch-list"></div>
     </div>
 </div></div>

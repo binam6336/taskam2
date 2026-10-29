@@ -50,7 +50,7 @@ $bad = static fn(string $m, string $c) => ['success' => false, 'status' => 'erro
 <h2 class="dx-h">۵) آزمایش توکن</h2>
 <div class="card flat">
     <p class="small muted">توکن را وارد کنید تا با <code>GET /me</code> بررسی شود (توکن فقط در حافظه‌ی همین تب می‌ماند).</p>
-    <div class="flex gap-1"><input class="input ltr" id="tok-input" type="password" placeholder="tk_…" autocomplete="off"><button class="btn btn-primary" id="tok-test"><i class="fa-solid fa-plug-circle-check"></i> آزمایش</button></div>
+    <div class="flex gap-1"><input class="input ltr" id="tok-input" type="password" placeholder="<?= e(ph('docs_auth_token')) ?>" autocomplete="off"><button class="btn btn-primary" id="tok-test"><i class="fa-solid fa-plug-circle-check"></i> آزمایش</button></div>
     <div class="mt-1" id="tok-out" hidden><div class="small muted mb-1">وضعیت: <span class="badge" id="tok-status"></span></div><?= '<div class="codebox"><pre class="code" id="tok-pre"></pre></div>' ?></div>
 </div>
 

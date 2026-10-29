@@ -50,4 +50,4 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 </div>
 
 <div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="09123456789" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>
+    <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('colleague_mobile')) ?>" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>

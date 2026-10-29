@@ -312,3 +312,9 @@ function user_theme(?array $u): string
     $t = (string) ($u['theme'] ?? 'dark');
     return isset(themes()[$t]) ? $t : 'dark';
 }
+
+/** متن placeholder یک فیلد (قابل ویرایش در «محتوا ← Placeholder» پنل ادمین؛ config/placeholder_texts.php) */
+function ph(string $id): string
+{
+    return \App\Core\PlaceholderText::get($id);
+}

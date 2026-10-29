@@ -40,7 +40,7 @@ $typeFa = ['integer' => 'int', 'string' => 'str', 'boolean' => 'bool', 'array' =
 
             <h2 class="dx-h">امتحان زنده</h2>
             <form class="card flat" data-try>
-                <div class="field"><label>توکن</label><input class="input ltr" type="password" data-token placeholder="tk_… (برای این تب ذخیره می‌شود)" autocomplete="off"></div>
+                <div class="field"><label>توکن</label><input class="input ltr" type="password" data-token placeholder="<?= e(ph('docs_try_token')) ?>" autocomplete="off"></div>
                 <?php foreach ($ep['params'] as $pr): ?>
                     <div class="try-row"><label class="small ltr"><?= e($pr['name']) ?><?= $pr['required'] ? ' *' : '' ?></label><input class="input ltr" data-in="<?= e($pr['in']) ?>" data-name="<?= e($pr['name']) ?>" data-type="<?= e($pr['type']) ?>" placeholder="<?= e($pr['type']) ?>"></div>
                 <?php endforeach; ?>

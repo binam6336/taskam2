@@ -34,11 +34,11 @@ document.addEventListener('tk:ready', () => {
   /* ───── انتخابگرها ───── */
   const mk = (name, options, placeholder, square) => TK.rselect(TK.qs(`[data-rselect="${name}"]`, form), { name, options, placeholder, square });
   const rs = {
-    assignee_id: mk('assignee_id', (cfg.assignees || []).map((a) => ({ value: a.id, label: a.name, img: a.avatar })), 'انتخاب مسئول', false),
-    project_id: mk('project_id', (cfg.projects || []).map((p) => ({ value: p.id, label: p.title, img: p.image })), 'انتخاب پروژه', true),
+    assignee_id: mk('assignee_id', (cfg.assignees || []).map((a) => ({ value: a.id, label: a.name, img: a.avatar })), TK.ph('task_assignee', 'انتخاب مسئول'), false),
+    project_id: mk('project_id', (cfg.projects || []).map((p) => ({ value: p.id, label: p.title, img: p.image })), TK.ph('task_project', 'انتخاب پروژه'), true),
   };
-  const dp = TK.datepicker(TK.qs('[data-jdate="due_date"]', form), { name: 'due_date', placeholder: 'انتخاب تاریخ (شمسی)' });
-  const tp = TK.timepicker(TK.qs('[data-jtime="due_time"]', form), { name: 'due_time', placeholder: 'انتخاب ساعت' });
+  const dp = TK.datepicker(TK.qs('[data-jdate="due_date"]', form), { name: 'due_date', placeholder: TK.ph('task_due_date', 'انتخاب تاریخ (شمسی)') });
+  const tp = TK.timepicker(TK.qs('[data-jtime="due_time"]', form), { name: 'due_time', placeholder: TK.ph('task_due_time', 'انتخاب ساعت') });
   const canCreate = (cfg.projects || []).length > 0;
 
   /* ───── اولویت: دسته‌بندی یا درصدی (بر اساس نوع اولویت پروژه) ───── */
@@ -84,7 +84,7 @@ document.addEventListener('tk:ready', () => {
     pop.className = 'link-pop'; pop.hidden = true;
     pop.innerHTML = `<div class="link-pop-head"><i class="fa-solid fa-link"></i><span>برای این لینک عنوان بگذارید</span></div>
       <div class="link-pop-url ltr"></div>
-      <div class="flex gap-1"><input class="input" maxlength="200" placeholder="مثلاً: صفحه‌ی تیکت در میزیتو"><button type="button" class="btn btn-primary btn-sm" data-lp-ok><i class="fa-solid fa-check"></i> ثبت</button></div>
+      <div class="flex gap-1"><input class="input" maxlength="200" placeholder="${TK.esc(TK.ph('task_link_title', 'مثلاً: صفحه‌ی تیکت در میزیتو'))}"><button type="button" class="btn btn-primary btn-sm" data-lp-ok><i class="fa-solid fa-check"></i> ثبت</button></div>
       <button type="button" class="btn btn-ghost btn-xs mt-1" data-lp-skip>بدون عنوان بماند</button>`;
     ta.parentElement.style.position = 'relative';
     ta.parentElement.appendChild(pop);
@@ -272,7 +272,7 @@ document.addEventListener('tk:ready', () => {
       ${t.can.edit_info ? `<form id="f-task-upload" class="flex gap-1 mt-1 mb-2" enctype="multipart/form-data"><input class="input" type="file" name="attachments[]" multiple required><button class="btn btn-sm"><i class="fa-solid fa-upload"></i> آپلود</button></form>` : ''}
       <hr>
       <h4><i class="fa-regular fa-comments" style="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
-      ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)"></textarea>
+      ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
         <div class="flex gap-1 mt-1 wrap items-center"><input class="input grow" type="file" name="attachments[]" multiple>
           <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
             <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" style="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" style="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>

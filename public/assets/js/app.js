@@ -13,6 +13,8 @@
   TK.boot = () => { try { return JSON.parse(TK.qs('#boot')?.textContent || '{}') || {}; } catch { return {}; } };
   TK.on = (ev, sel, fn) => document.addEventListener(ev, (e) => { const t = e.target.closest?.(sel); if (t) fn(e, t); });
   TK.debounce = (fn, ms = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  // متن placeholder فیلدها که ادمین در «محتوا ← Placeholder» ویرایش کرده (boot.ph فقط ویرایش‌شده‌ها را دارد)
+  TK.ph = (id, def) => { const m = TK.boot().ph; return (m && typeof m[id] === 'string') ? m[id] : def; };
   TK.initial = (n) => (String(n || '').trim()[0] || '؟');
 
   /* ───── HTTP ───── */

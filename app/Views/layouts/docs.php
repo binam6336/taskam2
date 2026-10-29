@@ -15,7 +15,7 @@ $isActive = static fn(string $k): string => $current === $k ? ' active' : '';
         <a href="<?= e(url('/docs/authentication')) ?>" class="<?= $current === 'auth' ? 'on' : '' ?>"><i class="fa-solid fa-key"></i> ارسال توکن</a>
         <a href="<?= e(url('/docs/errors')) ?>" class="<?= $current === 'errors' ? 'on' : '' ?>"><i class="fa-solid fa-triangle-exclamation"></i> کد خطاها</a>
     </nav>
-    <div class="dx-search"><i class="fa-solid fa-magnifying-glass"></i><input id="dx-q" class="input" placeholder="جستجو در مستندات…  ( / )" autocomplete="off"><div class="dx-results" id="dx-results" hidden></div></div>
+    <div class="dx-search"><i class="fa-solid fa-magnifying-glass"></i><input id="dx-q" class="input" placeholder="<?= e(ph('docs_search')) ?>" autocomplete="off"><div class="dx-results" id="dx-results" hidden></div></div>
     <a class="btn btn-sm btn-primary dx-panel" href="<?= e(url($loggedIn ? '/tokens' : '/login')) ?>"><i class="fa-solid fa-key"></i> <?= $loggedIn ? 'ساخت توکن' : 'ورود به پنل' ?></a>
 </header>
 <div class="dx-wrap">

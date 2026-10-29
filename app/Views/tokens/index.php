@@ -15,7 +15,7 @@ $base = rtrim(full_url('api/v1'), '/');
 <div class="grid grid-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-plus"></i> ساخت توکن جدید</h3><span class="badge"><?= e(fa_num(count($tokens))) ?> / <?= e(fa_num($max)) ?></span></div>
         <form method="post" action="<?= e(url('/tokens')) ?>"><?= csrf_field() ?>
-            <div class="field"><label>نام توکن</label><input class="input" name="name" maxlength="100" placeholder="مثلاً ربات تلگرام"></div>
+            <div class="field"><label>نام توکن</label><input class="input" name="name" maxlength="100" placeholder="<?= e(ph('token_name')) ?>"></div>
             <div class="field"><label>انقضا</label><select class="input" name="expires_days"><option value="0">بدون انقضا</option><option value="30">۳۰ روز</option><option value="90">۹۰ روز</option><option value="365">۱ سال</option></select></div>
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> ساخت توکن</button></form>
         <div class="callout warn mt-2 small"><i class="fa-solid fa-shield-halved"></i> توکن مانند رمز عبور است. فقط هش آن در سرور ذخیره می‌شود و بعد از ساخت قابل بازیابی نیست.</div></div>

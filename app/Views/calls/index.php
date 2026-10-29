@@ -37,7 +37,7 @@ $card = static function (array $c) use ($edit): void { ?>
     </div>
     <button class="btn btn-primary" id="btn-new-call"><i class="fa-solid fa-plus"></i> درخواست جدید</button>
 </div>
-<form method="get" class="search mb-2" style="max-width:420px"><input type="hidden" name="tab" value="<?= e($tab) ?>"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="نام، موبایل یا فروشگاه…"></form>
+<form method="get" class="search mb-2" style="max-width:420px"><input type="hidden" name="tab" value="<?= e($tab) ?>"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('calls_search')) ?>"></form>
 <div data-live="c-list">
 <?php if (!$calls): ?><div class="card empty"><i class="fa-solid fa-phone-volume"></i><p>درخواستی وجود ندارد.</p></div>
 <?php else: ?><div class="grid grid-auto"><?php foreach ($calls as $c) { $card($c); } ?></div>
@@ -53,7 +53,7 @@ $card = static function (array $c) use ($edit): void { ?>
         <div class="modal-head"><h3><i class="fa-solid fa-phone-volume"></i> درخواست تماس</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
         <div class="modal-body">
             <div class="row"><div class="field"><label>نام *</label><input class="input" name="first_name" maxlength="150" required></div><div class="field"><label>نام خانوادگی *</label><input class="input" name="last_name" maxlength="150" required></div></div>
-            <div class="row"><div class="field"><label>موبایل *</label><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="09123456789" required></div><div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email"></div></div>
+            <div class="row"><div class="field"><label>موبایل *</label><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('calls_mobile')) ?>" required></div><div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email"></div></div>
             <div class="row"><div class="field"><label>فروشگاه</label><input class="input" name="store" maxlength="255"></div><div class="field"><label>وب‌سایت</label><input class="input ltr" name="website" maxlength="255"></div></div>
             <div class="field"><label>مسئول پیگیری</label><select class="input" name="assignee_id"><option value="">خودم</option><?php foreach ($assignees as $a): ?><option value="<?= (int) $a['id'] ?>"><?= e($a['name']) ?></option><?php endforeach; ?></select></div>
             <div class="field"><label>توضیحات</label><textarea class="input" name="description" rows="3"></textarea></div>

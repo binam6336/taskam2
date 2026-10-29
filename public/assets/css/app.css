@@ -1326,3 +1326,8 @@ html[data-theme="sage"] .kb-limit-pop { box-shadow: 0 14px 30px -14px rgba(60, 8
 .er-why b { color: var(--text); font-weight: 600; }
 .er-vars code { margin-inline-end: .2rem; }
 .er-id { margin-inline-start: auto; }
+/* ادمین ← محتوا ← Placeholder */
+.ph-card { border-inline-start-color: var(--info); }
+.ph-path { display: flex; gap: .45rem; align-items: baseline; font-weight: 700; font-size: .88rem; line-height: 1.8; }
+.ph-path i { color: var(--info); flex: none; }
+.ph-card input[name=body]::placeholder { color: var(--faint); }

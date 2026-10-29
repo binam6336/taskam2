@@ -32,7 +32,7 @@ $this->scripts[] = 'tasks';
     <form method="get" class="t-toolbar" id="t-toolbar">
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
         <?php foreach (['when', 'prio', 'project'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
-        <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="جستجو در عنوان و توضیحات…"></div>
+        <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <div class="dropdown t-filter">
             <button type="button" class="btn <?= $fCount ? 'btn-outline' : '' ?>" data-toggle><i class="fa-solid fa-filter"></i> فیلتر<?php if ($fCount): ?> <span class="badge-count"><?= e(fa_num($fCount)) ?></span><?php endif; ?></button>
             <div class="dropdown-menu t-filter-menu">
@@ -103,7 +103,7 @@ $this->scripts[] = 'tasks';
             <div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> <span id="task-modal-title">تسک جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
             <div class="modal-body">
                 <div class="field" data-tour="title"><label>عنوان *</label><input class="input" name="title" maxlength="255" required></div>
-                <div class="field" data-tour="desc"><label>توضیحات</label><textarea class="input" name="description" rows="3" data-linkify placeholder="می‌توانید لینک (http/https) هم وارد کنید؛ برایش عنوان می‌پرسیم."></textarea></div>
+                <div class="field" data-tour="desc"><label>توضیحات</label><textarea class="input" name="description" rows="3" data-linkify placeholder="<?= e(ph('task_desc')) ?>"></textarea></div>
                 <?php if (!$projects): ?>
                 <div class="alert warning"><i class="fa-solid fa-triangle-exclamation"></i><div>برای ثبت تسک، پروژه اجباری است. <a href="<?= e(url('/projects')) ?>">ساخت پروژه</a></div></div>
                 <?php endif; ?>
@@ -118,7 +118,7 @@ $this->scripts[] = 'tasks';
                         <div class="prio-scale"><span>کم</span><span>متوسط</span><span>زیاد</span></div></div>
                     <div class="field" data-tour="label"><label><i class="fa-solid fa-tag"></i> لیبل *</label>
                         <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id" required><option value="">— انتخاب لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
-                            <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="عنوان لیبل جدید" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
+                            <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="<?= e(ph('task_label_new')) ?>" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
                 <div class="row">
                     <div class="field" data-tour="due"><label>تاریخ سررسید</label><div data-jdate="due_date"></div></div>

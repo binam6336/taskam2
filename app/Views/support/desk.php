@@ -41,7 +41,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
             </div>
             <form class="desk-search search" method="get" action="<?= e(url($base)) ?>" role="search">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="input" type="search" name="q" value="<?= e($params['q']) ?>" placeholder="<?= $admin ? 'جستجو: موضوع، نام، موبایل یا شماره تیکت…' : 'جستجو: موضوع یا شماره تیکت…' ?>" autocomplete="off">
+                <input class="input" type="search" name="q" value="<?= e($params['q']) ?>" placeholder="<?= e($admin ? 'جستجو: موضوع، نام، موبایل یا شماره تیکت…' : ph('support_search')) ?>" autocomplete="off">
                 <?php if ($params['status'] !== $params['default']): ?><input type="hidden" name="status" value="<?= e($params['status']) ?>"><?php endif; ?>
                 <?php if ($params['per'] !== 20): ?><input type="hidden" name="per" value="<?= e((string) $params['per']) ?>"><?php endif; ?>
             </form>
@@ -166,7 +166,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
             </div>
             <div class="desk-input">
                 <label class="btn btn-icon desk-attach" title="پیوست فایل (حداکثر ۱۰ مگابایت)"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachment" id="desk-file" hidden></label>
-                <textarea class="input" name="message" id="desk-text" rows="1" maxlength="<?= SupportModel::MSG_MAX ?>" placeholder="<?= $admin ? 'پاسخ خود را بنویسید…' : 'متن پیام خود را بنویسید…' ?>"></textarea>
+                <textarea class="input" name="message" id="desk-text" rows="1" maxlength="<?= SupportModel::MSG_MAX ?>" placeholder="<?= e($admin ? 'پاسخ خود را بنویسید…' : ph('support_reply')) ?>"></textarea>
                 <button class="desk-send" type="submit" aria-label="ارسال"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </form>
@@ -176,7 +176,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
         <?php endif; ?>
 
         <div class="desk-pop" id="desk-texts" hidden>
-            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input input-sm" id="desk-texts-q" placeholder="جستجو در متن‌های آماده…" autocomplete="off"></div>
+            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input input-sm" id="desk-texts-q" placeholder="<?= e(ph('support_texts')) ?>" autocomplete="off"></div>
             <div class="desk-pop-list" id="desk-texts-list"></div>
             <a class="xs" href="<?= e(url('/texts')) ?>"><i class="fa-solid fa-gear"></i> مدیریت متن‌های آماده</a>
         </div>
@@ -198,9 +198,9 @@ $badgeHtml = static function (array $t) use ($admin): string {
 <div class="modal" id="m-support"><div class="modal-box"><form method="post" action="<?= e(url('/support')) ?>" enctype="multipart/form-data" data-ajax><?= csrf_field() ?>
     <div class="modal-head"><h3><i class="fa-solid fa-headset"></i> تیکت پشتیبانی جدید</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-        <div class="field"><label>موضوع *</label><input class="input" name="subject" maxlength="255" required placeholder="مثلاً: مشکل در آپلود فایل"></div>
+        <div class="field"><label>موضوع *</label><input class="input" name="subject" maxlength="255" required placeholder="<?= e(ph('support_subject')) ?>"></div>
         <div class="field"><label>اولویت</label><select class="input" name="priority"><?php foreach ($priorities as $k => $v): ?><option value="<?= e($k) ?>" <?= $k === 'medium' ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select></div>
-        <div class="field"><label>پیام *</label><textarea class="input" name="message" rows="5" maxlength="<?= SupportModel::MSG_MAX ?>" required placeholder="مشکل یا درخواست خود را با جزئیات بنویسید…"></textarea></div>
+        <div class="field"><label>پیام *</label><textarea class="input" name="message" rows="5" maxlength="<?= SupportModel::MSG_MAX ?>" required placeholder="<?= e(ph('support_body')) ?>"></textarea></div>
         <div class="field"><label>پیوست (اختیاری)</label><input class="input" type="file" name="attachment"><div class="hint">تصویر، PDF، ورد، اکسل یا ZIP — حداکثر ۱۰ مگابایت</div></div>
     </div>
     <div class="modal-foot"><button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت تیکت</button></div></form></div></div>

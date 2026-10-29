@@ -1,6 +1,6 @@
 <?php /** @var array $texts */ $this->boot['texts'] = $texts; $this->scripts[] = 'texts'; ?>
 <div class="page-head">
-    <div class="search grow" style="max-width:420px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="جستجو در عنوان و متن…"></div>
+    <div class="search grow" style="max-width:420px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>"></div>
     <button class="btn btn-primary" id="btn-new-text"><i class="fa-solid fa-plus"></i> متن جدید</button>
 </div>
 <p class="muted small mb-2"><i class="fa-solid fa-circle-info"></i> با کشیدن و رها کردن کارت‌ها ترتیب را تغییر دهید؛ با کلیک روی «کپی» متن در کلیپ‌بورد قرار می‌گیرد.</p>

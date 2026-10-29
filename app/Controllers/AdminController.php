@@ -9,6 +9,7 @@ use App\Core\Controller;
 use App\Core\Crypto;
 use App\Core\DB;
 use App\Core\ErrorText;
+use App\Core\PlaceholderText;
 use App\Core\Validate;
 use App\Models\ContentModel;
 use App\Models\SidebarModel;
@@ -262,6 +263,23 @@ final class AdminController extends Controller
         SidebarModel::reset();
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
         $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
+    }
+
+    /** محتوا ← Placeholder: متن راهنمای فیلدهای پنل کاربر با مسیر هر کدام (config/placeholder_texts.php) */
+    public function contentPlaceholders()
+    {
+        $this->view('admin/content_placeholders', ['groups' => PlaceholderText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'Placeholder', 'page' => 'admin-content-ph'], 'admin');
+    }
+
+    public function contentPlaceholderSave(string $id)
+    {
+        $err = PlaceholderText::save($id, (string) $this->request->input('body', ''), $this->uid());
+        if ($err !== null) {
+            $this->respond(false, $err, '/admin/content/placeholders');
+        }
+        Audit::log($this->uid(), 'content_updated', ['key' => PlaceholderText::PREFIX . $id]);
+        $this->respond(true, 'متن «' . $id . '» ذخیره شد.', '/admin/content/placeholders');
     }
 
     /** محتوا ← خطاها: همه‌ی خطاهای پنل کاربر با توضیح و متن قابل ویرایش (config/error_texts.php) */
