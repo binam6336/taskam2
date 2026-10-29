@@ -19,9 +19,9 @@ $this->scripts[] = 'calendar';
         </div>
         <div class="cal-tools">
             <div class="cal-seg" role="group" aria-label="تسک‌های نمایش‌داده‌شده">
-                <button type="button" data-cal-scope="all" class="on">همه</button>
-                <button type="button" data-cal-scope="mine">وظایف من</button>
+                <button type="button" data-cal-scope="mine" class="on">وظایف من</button>
                 <button type="button" data-cal-scope="others">واگذارشده</button>
+                <button type="button" data-cal-scope="all">همه</button>
             </div>
             <label class="check cal-done"><input type="checkbox" id="cal-done"><div><b>انجام‌شده‌ها</b></div></label>
         </div>

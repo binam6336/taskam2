@@ -10,16 +10,16 @@ document.addEventListener('tk:ready', () => {
   const isoOf = (jy, jm, jd) => J.iso(...J.j2g(jy, jm, jd));
   const today = J.today(), todayIso = isoOf(...today);
 
-  // وضعیت از آدرس (?m=1405-8&scope=mine&done=1) تا رفرش/برگشت همان ماه را نشان دهد
+  // وضعیت از آدرس (?m=1405-8&scope=all&done=1) تا رفرش/برگشت همان ماه را نشان دهد؛ پیش‌فرض دامنه: وظایف من
   const qs = new URLSearchParams(location.search);
   const [qy, qm] = (qs.get('m') || '').split('-').map(Number);
-  const st = { y: qy > 1300 && qm >= 1 && qm <= 12 ? qy : today[0], m: qy > 1300 && qm >= 1 && qm <= 12 ? qm : today[1], scope: ['mine', 'others'].includes(qs.get('scope')) ? qs.get('scope') : 'all', done: qs.get('done') === '1' };
+  const st = { y: qy > 1300 && qm >= 1 && qm <= 12 ? qy : today[0], m: qy > 1300 && qm >= 1 && qm <= 12 ? qm : today[1], scope: ['all', 'others'].includes(qs.get('scope')) ? qs.get('scope') : 'mine', done: qs.get('done') === '1' };
   let items = [], byDay = {}, openDay = null, range = null;
 
   const syncUrl = () => {
     const p = new URLSearchParams();
     if (st.y !== today[0] || st.m !== today[1]) p.set('m', st.y + '-' + st.m);
-    if (st.scope !== 'all') p.set('scope', st.scope);
+    if (st.scope !== 'mine') p.set('scope', st.scope);
     if (st.done) p.set('done', '1');
     history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : ''));
   };
