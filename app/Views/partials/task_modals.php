@@ -24,7 +24,7 @@ $this->scripts[] = 'tasks';
             <?= csrf_field() ?>
             <div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> <span id="task-modal-title">تسک جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
             <div class="modal-body">
-                <div class="field" data-tour="title"><label>عنوان *</label><input class="input" name="title" maxlength="255" required></div>
+                <div class="field" data-tour="title"><label>عنوان *</label><input class="input" name="title" maxlength="255" required placeholder="<?= e(ph('task_title')) ?>"></div>
                 <div class="field" data-tour="desc"><label>توضیحات</label><textarea class="input" name="description" rows="3" data-linkify placeholder="<?= e(ph('task_desc')) ?>"></textarea></div>
                 <?php if (!$projects): ?>
                 <div class="alert warning"><i class="fa-solid fa-triangle-exclamation"></i><div>برای ثبت تسک، پروژه اجباری است. <a href="<?= e(url('/projects')) ?>">ساخت پروژه</a></div></div>
