@@ -69,7 +69,7 @@ $this->scripts[] = 'tasks';
         ];
         ?>
     <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?>" id="task-<?= (int) $t['id'] ?>">
-        <button class="tick <?= $isDone ? 'on' : '' ?>" <?= $can['complete'] ? 'data-post="' . e(url('/tasks/' . $t['id'] . '/toggle')) . '"' : 'disabled' ?> title="<?= $isDone ? 'بازگشت به انجام‌نشده' : 'انجام شد' ?>"><i class="fa-solid fa-check"></i></button>
+        <button class="tick <?= $isDone ? 'on' : '' ?><?= $can['complete'] ? '' : ' locked' ?>" <?= $can['complete'] ? 'data-post="' . e(url('/tasks/' . $t['id'] . '/toggle')) . '"' : 'data-no-complete aria-disabled="true"' ?> title="<?= $isDone ? 'بازگشت به انجام‌نشده' : 'انجام شد' ?>"><i class="fa-solid fa-check"></i></button>
         <div class="grow">
             <div class="item-title" data-open-task="<?= (int) $t['id'] ?>"><?= e($t['title']) ?></div>
             <div class="item-meta">

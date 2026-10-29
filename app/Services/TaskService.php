@@ -254,7 +254,7 @@ final class TaskService
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
         if (!Access::canTask($t, $actor, 'complete')) {
-            return self::err('اجازه‌ی تغییر وضعیت این تسک را ندارید.', 'FORBIDDEN', 403);
+            return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
         $r = TaskModel::toggle($id);
         return self::res(true, $r['is_completed'] ? 'تسک انجام‌شده شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);

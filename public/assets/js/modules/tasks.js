@@ -171,6 +171,9 @@ document.addEventListener('tk:ready', () => {
     subjMode(false); descLinks.reset();
   };
 
+  // بدون دسترسی «تکمیل تسک»: دکمه دیده می‌شود ولی فقط پیام می‌دهد
+  TK.on('click', '[data-no-complete]', (e) => { e.preventDefault(); e.stopPropagation(); TK.toast('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'error'); });
+
   TK.qs('#btn-new-task')?.addEventListener('click', () => {
     TK.resetForm(form); form.priority.value = 'medium'; form.subject_id.value = '';
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
@@ -260,7 +263,8 @@ document.addEventListener('tk:ready', () => {
         <dt>ایجاد</dt><dd>${E(t.created_fa)}</dd>${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
       </dl>
       <div class="flex gap-1 wrap mb-2">
-        ${t.can.complete ? `<button class="btn btn-sm ${t.is_completed ? '' : 'btn-primary'}" data-detail-toggle><i class="fa-solid fa-check"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>` : ''}
+        ${t.can.complete ? `<button class="btn btn-sm ${t.is_completed ? '' : 'btn-primary'}" data-detail-toggle><i class="fa-solid fa-check"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`
+          : `<button class="btn btn-sm locked" data-no-complete aria-disabled="true"><i class="fa-solid fa-lock"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`}
         <button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button>
       </div>
       <h4><i class="fa-solid fa-paperclip" style="color:var(--g-400)"></i> پیوست‌های تسک</h4>
