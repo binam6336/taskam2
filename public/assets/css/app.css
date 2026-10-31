@@ -1461,3 +1461,12 @@ html[data-theme="sage"] .t-drawer { box-shadow: 18px 0 40px -22px rgba(60, 80, 5
 .pd-note { grid-column: 1 / -1; line-height: 1.7; }
 .pd-env { font-size: .72rem; padding: .05rem .35rem; border-radius: 6px; background: var(--surface-2); }
 @media (max-width: 600px) { .pd-row { grid-template-columns: 1fr; } .pd-value { text-align: right; } }
+
+/* برد تیمی: اسکرول افقی با کشیدن موس روی فضای خالی (دسکتاپ) */
+@media (hover: hover) and (pointer: fine) {
+  .kb-board { cursor: grab; }
+  .kb-board .kb-card:not([draggable="true"]), .kb-board .kb-col-head { cursor: default; }
+  .kb-board button, .kb-board a { cursor: pointer; }
+}
+.kb-board.kb-panning { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.kb-board.kb-panning * { cursor: grabbing !important; }

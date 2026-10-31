@@ -3,6 +3,39 @@ document.addEventListener('tk:ready', () => {
   const statuses = (() => { try { return JSON.parse(TK.qs('#kb-data').textContent).statuses; } catch { return {}; } })();
   const E = TK.esc;
 
+  /* اسکرول افقی برد با کشیدن موس روی فضای خالی (دسکتاپ). کارت‌ها، دکمه‌ها و فیلدها مستثنا هستند تا کشیدن کارت و کلیک‌ها مثل قبل کار کنند. */
+  let pan = null;
+  const NO_PAN = '.kb-card, button, a, input, select, textarea, label, [data-kb-limit], .kb-limit-pop, .kb-col-head';
+  document.addEventListener('mousedown', (e) => {
+    const board = e.target.closest?.('#kb-board');
+    if (!board || e.button !== 0 || e.target.closest(NO_PAN) || board.scrollWidth <= board.clientWidth) return;
+    pan = { board, x: e.clientX, left: board.scrollLeft, moved: false };
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!pan) return;
+    const dx = e.clientX - pan.x;
+    if (!pan.moved) {
+      if (Math.abs(dx) < 5) return;                       // کلیک ساده اسکرول حساب نمی‌شود
+      pan.moved = true; pan.board.classList.add('kb-panning');
+    }
+    pan.board.scrollLeft = pan.left - dx;
+    e.preventDefault();                                   // انتخاب متن هنگام کشیدن
+  });
+  const endPan = () => {
+    if (!pan) return;
+    if (pan.moved) {
+      const b = pan.board;
+      b.classList.remove('kb-panning');
+      // کلیکِ پایان کشیدن روی چیزی اثر نگذارد (فقط همان کلیک بلافاصله بعد از رها کردن)
+      const eat = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      window.addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', eat, { capture: true }), 0);
+    }
+    pan = null;
+  };
+  document.addEventListener('mouseup', endPan);
+  window.addEventListener('blur', endPan);
+
   /* شمارنده‌ی ستون‌ها بعد از هر جابه‌جایی */
   const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => { c.querySelector('.kb-count').textContent = TK.fa(c.querySelectorAll('.kb-card').length); });
 
