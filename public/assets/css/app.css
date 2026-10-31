@@ -1537,3 +1537,19 @@ a.card.stat:hover { border-color: rgba(var(--accent-rgb), .5); transform: transl
 .st-btn.st-off:not(:disabled):hover, .st-btn.st-off.on { color: var(--warn); border-color: rgba(251, 191, 36, .5); background: var(--warn-bg); }
 .st-btn.st-block:not(:disabled):hover, .st-btn.st-block.on { color: var(--danger); border-color: rgba(248, 113, 113, .5); background: var(--danger-bg); }
 .st-btn.on:disabled { opacity: 1; cursor: default; }
+
+/* جزئیات تسک: ویرایش سریع از روی نشان‌ها */
+.qe-row { position: relative; }
+.qe-chip { display: inline-flex; align-items: center; gap: .2rem; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 99px; }
+.qe-chip .qe-ic { font-size: .6rem; color: var(--faint); opacity: 0; width: 0; overflow: hidden; transition: opacity .15s, width .15s; }
+.qe-chip:hover .qe-ic, .qe-chip.on .qe-ic, .qe-chip:focus-visible .qe-ic { opacity: 1; width: .8rem; }
+.qe-chip:hover > .badge, .qe-chip:hover > .chip, .qe-chip.on > .badge, .qe-chip.on > .chip { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .45); }
+.qe-pop { position: absolute; z-index: 30; min-width: 230px; max-width: min(320px, 100%); padding: .6rem; border-radius: 12px; background: var(--surface); border: 1px solid var(--border-2); box-shadow: 0 12px 34px rgba(0, 0, 0, .35); display: flex; flex-direction: column; gap: .3rem; animation: fade .12s; }
+.qe-h { font-size: .78rem; color: var(--muted); margin-bottom: .15rem; }
+.qe-list { display: flex; flex-direction: column; gap: .2rem; max-height: 240px; overflow: auto; }
+.qe-opt { display: flex; align-items: center; gap: .45rem; width: 100%; text-align: start; padding: .4rem .5rem; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; }
+.qe-opt:hover { background: rgba(var(--accent-rgb), .08); }
+.qe-opt.on { border-color: rgba(var(--accent-rgb), .5); background: rgba(var(--accent-rgb), .1); }
+.qe-due { display: flex; flex-direction: column; gap: .4rem; }
+.qe-foot { display: flex; gap: .4rem; margin-top: .3rem; }
+.qe-reason { display: flex; gap: .4rem; margin-top: .2rem; } .qe-reason[hidden] { display: none; }

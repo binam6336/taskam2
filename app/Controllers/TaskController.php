@@ -168,6 +168,13 @@ final class TaskController extends Controller
         $this->ok('', ['task' => $this->detail($t, $uid)]);
     }
 
+    /** تغییر وضعیت بورد از جزئیات تسک */
+    public function status(string $id)
+    {
+        $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+    }
+
     /** «انتقال به مرحله‌ی بعد» در جزئیات تسک (همان قواعد بورد: دسترسی مرحله‌ها، تکمیل و سقف ستون) */
     public function advance(string $id)
     {

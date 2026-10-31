@@ -258,7 +258,17 @@ final class BoardService
         $next = self::NEXT[$st] ?? null;
         $can = $next !== null && in_array($next, Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)), true)
             && ($next !== 'done' || Access::canTask($t, $uid, 'complete'));
+        // مقصدهای مجاز برای پنجره‌ی تغییر وضعیت (انجام‌شده فقط با مجوز تکمیل)
+        $targets = [];
+        if ($st !== 'archived') {
+            foreach (Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)) as $k) {
+                if ($k !== 'done' || Access::canTask($t, $uid, 'complete')) {
+                    $targets[] = ['key' => $k, 'label' => self::STATUSES[$k]['label'], 'icon' => self::STATUSES[$k]['icon'], 'tone' => self::STATUSES[$k]['tone']];
+                }
+            }
+        }
         return [
+            'targets' => $targets, 'lock' => $targets ? null : self::lockReason($t, $uid, $st),
             'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
             'next' => $next, 'next_label' => $next !== null ? self::STATUSES[$next]['label'] : null,
             'can_next' => $can, 'lock_reason' => $next !== null && !$can ? self::lockReason($t, $uid, $st, $next) : null,
@@ -294,6 +304,19 @@ final class BoardService
             return 'برای انتقال از «' . $from . '» به «' . self::STATUSES[$to]['label'] . '» دسترسی «' . $perm . '» لازم است که در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
         }
         return 'دسترسی‌های بورد شما در پروژه‌ی «' . $ptitle . '» اجازه‌ی جابه‌جایی کارت از مرحله‌ی «' . $from . '» را نمی‌دهد.' . $ask;
+    }
+
+    /** تغییر وضعیت بورد از جزئیات تسک (پنجره‌ی کوچک روی نشان وضعیت)؛ همان قواعد بورد، بدون نیاز به دیدن کارت در بورد */
+    public static function setStatus(int $actor, int $id, string $status, string $reason = ''): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if ($status === 'archived' || !empty($t['archived_at'])) {
+            return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
+        }
+        return self::move($actor, $id, $status, $reason, true);
     }
 
     /** انتقال تسک به مرحله‌ی بعد از جزئیات تسک ($from = وضعیتی که کاربر دیده بود، تا دو کلیک پشت‌سرهم دو مرحله جلو نبرد) */

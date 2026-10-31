@@ -266,7 +266,112 @@ document.addEventListener('tk:ready', () => {
       : `<button class="btn btn-sm locked" data-lock-reason="${E(b.lock_reason || '')}" aria-disabled="true"><i class="fa-solid fa-lock"></i> ${txt}</button>`;
   };
 
+  /* ───── ویرایش سریع از روی نشان‌ها (اولویت، وضعیت بورد، لیبل، پروژه، سررسید) ───── */
+  const qe = (key, can, html, title) => (can ? `<button type="button" class="qe-chip" data-qe="${key}" title="${E(title)} (برای تغییر کلیک کنید)">${html}<i class="fa-solid fa-pen qe-ic"></i></button>` : html);
+  const chipsHtml = (t) => {
+    const c = t.can || {}, b = t.board;
+    const st = b ? `<span class="badge board-st tone-${E(b.tone)}" title="وضعیت در بورد پروژه"><i class="fa-solid ${E(b.icon)}"></i> ${E(b.label)}</span>`
+      : `<span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`;
+    const lbl = t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" style="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>`
+      : (c.edit_meta ? '<span class="chip faint"><i class="fa-solid fa-tag"></i> بدون لیبل</span>' : '');
+    const prj = t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : '';
+    const due = t.due_fa ? `<span class="chip"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa)}</span>`
+      : (c.edit_due ? '<span class="chip faint"><i class="fa-regular fa-calendar"></i> بدون سررسید</span>' : '');
+    // وضعیت: با مقصد مجاز قابل تغییر؛ بدون مقصد، کلیک دلیل قفل را نشان می‌دهد
+    const stChip = b && b.targets?.length ? qe('status', true, st, 'وضعیت بورد')
+      : b && b.lock && b.status !== 'archived' ? `<button type="button" class="qe-chip" data-lock-reason="${E(b.lock)}" title="چرا نمی‌توانم وضعیت را تغییر دهم؟">${st}<i class="fa-solid fa-lock qe-ic"></i></button>` : st;
+    return qe('priority', c.edit_meta, prioBadge(t), 'اولویت') + stChip + (lbl ? qe('label', c.edit_meta, lbl, 'لیبل') : '')
+      + (prj ? qe('project', c.change_project, prj, 'پروژه') : '') + (due ? qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید') : '');
+  };
+
+  let qePop = null;
+  const qeClose = () => { qePop?.remove(); qePop = null; TK.qsa('.qe-chip.on', detail).forEach((x) => x.classList.remove('on')); };
+  const qeSave = async (url, data, btn) => {
+    TK.busy(btn, true);
+    const r = await TK.post(url, data);
+    TK.busy(btn, false);
+    TK.toast(r.message || (TK.ok(r) ? 'ذخیره شد.' : 'خطا'), TK.ok(r) ? 'success' : 'error');
+    if (TK.ok(r)) { qeClose(); await refresh(); TK.reload(); }
+  };
+  const qeUpdate = (data, btn) => qeSave('/tasks/' + currentId + '/update', data, btn);
+  const opt = (attrs, html, on = false) => `<button type="button" class="qe-opt${on ? ' on' : ''}" ${attrs}>${html}</button>`;
+  const qeOpen = (chip) => {
+    const t = current, key = chip.dataset.qe;
+    if (qePop && chip.classList.contains('on')) return qeClose();
+    qeClose();
+    chip.classList.add('on');
+    const row = chip.closest('.qe-row');
+    qePop = document.createElement('div');
+    qePop.className = 'qe-pop';
+    let body = '';
+    if (key === 'priority') {
+      if (t.priority_type === 'percent') {
+        const p = t.priority_percent ?? PCT[t.priority] ?? 50;
+        body = `<div class="qe-h">اولویت <b data-qe-pv>${F(p)}٪</b></div><input type="range" class="prio-range" min="0" max="100" step="5" value="${p}" data-qe-range>
+          <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-pct>ذخیره</button></div>`;
+      } else {
+        body = '<div class="qe-h">اولویت</div>' + Object.entries(PR).map(([k, [l, cl]]) => opt(`data-qe-prio="${k}"`, `<span class="badge ${cl}">${l}</span>`, t.priority === k)).join('');
+      }
+    } else if (key === 'status') {
+      body = `<div class="qe-h">انتقال در بورد از «${E(t.board.label)}» به:</div>` + t.board.targets.map((x) => opt(`data-qe-status="${E(x.key)}"`, `<span class="badge board-st tone-${E(x.tone)}"><i class="fa-solid ${E(x.icon)}"></i> ${E(x.label)}</span>`)).join('')
+        + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت توقف (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
+    } else if (key === 'label') {
+      body = '<div class="qe-h">لیبل</div><div class="qe-list">' + opt('data-qe-label=""', '<i class="fa-solid fa-ban faint"></i> بدون لیبل', !t.subject_id)
+        + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" style="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, Number(t.subject_id) === Number(x.id))).join('') + '</div>';
+    } else if (key === 'project') {
+      body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, Number(t.project_id) === x.id)).join('') + '</div>';
+    } else if (key === 'due') {
+      body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-date></div><div data-qe-time></div></div>
+        <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-due>ذخیره</button>${t.due_date ? '<button type="button" class="btn btn-sm" data-qe-clear-due>حذف سررسید</button>' : ''}</div>`;
+    }
+    qePop.innerHTML = body;
+    row.appendChild(qePop);
+    // زیر همان نشان (راست‌چین)، بدون بیرون زدن از ردیف
+    const rw = row.clientWidth, pw = Math.min(qePop.offsetWidth, rw);
+    const right = Math.max(0, Math.min(rw - (chip.offsetLeft + chip.offsetWidth), rw - pw));
+    qePop.style.top = (chip.offsetTop + chip.offsetHeight + 6) + 'px';
+    qePop.style.right = right + 'px';
+    if (key === 'due') {
+      const d = TK.datepicker(TK.qs('[data-qe-date]', qePop), { name: 'qe_due_date', placeholder: 'انتخاب تاریخ' });
+      const h = TK.timepicker(TK.qs('[data-qe-time]', qePop), { name: 'qe_due_time', placeholder: 'ساعت (اختیاری)' });
+      d.set(t.due_date || ''); h.set(t.due_time || '');
+      qePop.dataset.ready = '1';
+      qePop._pick = { d, h };
+    }
+    if (key === 'priority' && t.priority_type === 'percent') {
+      const rg = TK.qs('[data-qe-range]', qePop), pv = TK.qs('[data-qe-pv]', qePop);
+      const paint = () => { pv.textContent = F(rg.value) + '٪'; rg.style.setProperty('--pc', prioColor(Number(rg.value))); };
+      rg.addEventListener('input', paint); paint();
+    }
+  };
+  detail.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-qe]');
+    if (chip) { e.stopPropagation(); return qeOpen(chip); }
+    const p = e.target.closest('.qe-pop'); if (!p) return;
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.qePrio) return qeUpdate({ priority: b.dataset.qePrio }, b);
+    if (b.hasAttribute('data-qe-save-pct')) return qeUpdate({ priority_percent: TK.qs('[data-qe-range]', p).value }, b);
+    if (b.dataset.qeLabel !== undefined) return qeUpdate({ subject_id: b.dataset.qeLabel }, b);
+    if (b.dataset.qeProject) return qeUpdate({ project_id: b.dataset.qeProject }, b);
+    if (b.hasAttribute('data-qe-save-due')) {
+      const { d, h } = p._pick; const dv = d.get(), hv = h.get();
+      if (hv && !dv) return TK.toast('اول تاریخ را انتخاب کنید.', 'warning');
+      return qeUpdate({ due_date: dv, due_time: dv ? hv : '' }, b);
+    }
+    if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '' }, b);
+    if (b.dataset.qeStatus) {
+      if (b.dataset.qeStatus === 'blocked') { const r = TK.qs('.qe-reason', p); r.hidden = false; TK.qs('[data-qe-reason]', r).focus(); return; }
+      return qeSave('/tasks/' + currentId + '/status', { status: b.dataset.qeStatus }, b);
+    }
+    if (b.hasAttribute('data-qe-block')) return qeSave('/tasks/' + currentId + '/status', { status: 'blocked', reason: TK.qs('[data-qe-reason]', p).value }, b);
+  });
+  // بستن پنجره‌ی کوچک با کلیک بیرون یا Escape (لیست باز تاریخ/ساعت داخل خود پنجره است)
+  document.addEventListener('click', (e) => { if (qePop && document.contains(e.target) && !e.target.closest('.qe-pop, [data-qe]')) qeClose(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && qePop) { e.stopPropagation(); qeClose(); } }, true);
+  TK.qs('#m-detail')?.addEventListener('tk:close', qeClose);
+
   const render = (t) => {
+    qeClose();
     currentId = t.id; current = t;
     const canEdit = t.can.edit;
     detail.innerHTML = `
@@ -276,11 +381,8 @@ document.addEventListener('tk:ready', () => {
         ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
         <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="flex wrap gap-1 mb-2">
-        ${prioBadge(t)}
-        ${t.board ? `<span class="badge board-st tone-${E(t.board.tone)}" title="وضعیت در بورد پروژه"><i class="fa-solid ${E(t.board.icon)}"></i> ${E(t.board.label)}</span>` : `<span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`}
-        ${t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" style="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>` : ''}${t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : ''}
-        ${t.due_fa ? `<span class="chip"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa)}</span>` : ''}
+      <div class="flex wrap gap-1 mb-2 qe-row">
+        ${chipsHtml(t)}
       </div>
       ${t.description ? `<div class="card flat mb-2 note-body">${rich(t.description)}</div>` : ''}
       <dl class="kv small mb-2">
