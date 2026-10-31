@@ -80,7 +80,7 @@ final class ProfileController extends Controller
         TokenModel::revokeAll((int) $u['id']);              // توکن‌های API هم باطل می‌شوند
         Throttle::clear('pwd_change', (string) $u['id']);
         Audit::log((int) $u['id'], 'password_changed');
-        $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند و توکن‌های API غیرفعال شدند.', '/profile');
+        $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند و توکن‌های API حذف شدند.', '/profile');
     }
 
     public function avatar()

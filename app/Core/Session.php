@@ -22,7 +22,7 @@ final class Session
     public static function isHttps(): bool
     {
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (env('TRUSTED_PROXY', false) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+            || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     }
 
     public static function cookiePath(): string

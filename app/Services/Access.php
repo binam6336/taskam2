@@ -307,13 +307,11 @@ final class Access
         if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1", [$assigneeId])) {
             return false;
         }
-        if (DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . self::approvedSql('c') . ' LIMIT 1', [$actorId, $assigneeId])) {
-            return true;
+        // تسک/رکورد پروژه‌دار فقط به اعضای همان پروژه واگذار می‌شود (همکارِ غیرعضو محتوای تسک پروژه را نبیند)
+        if ($projectId !== null) {
+            return self::isProjectMember($projectId, $actorId) && self::isProjectMember($projectId, $assigneeId);
         }
-        if ($projectId !== null && self::isProjectMember($projectId, $actorId)) {
-            return (bool) DB::value('SELECT 1 FROM projects p WHERE p.id = ? AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) LIMIT 1', [$projectId, $assigneeId, $assigneeId]);
-        }
-        return false;
+        return (bool) DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . self::approvedSql('c') . ' LIMIT 1', [$actorId, $assigneeId]);
     }
 
     /** مجوزهای پروژه‌ی کاربر (سازنده = همه). */

@@ -16,6 +16,11 @@ final class AuthController extends Controller
 {
     public function showLogin()
     {
+        // هر بازدید بدون کوکی یک نشست مهمان (ردیف user_sessions) می‌سازد؛ از هر IP حداکثر ۶۰ نشست جدید در دقیقه
+        if (!Session::hasCookie() && !\App\Core\Throttle::attempt('guest_session', $this->request->ip(), 60, 60)) {
+            header('Retry-After: 60');
+            $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
+        }
         $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به تسکام'], 'auth');
     }
 

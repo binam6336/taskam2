@@ -108,6 +108,16 @@ final class Push
         return (int) DB::value('SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?', [$uid]) >= self::MAX_DEVICES;
     }
 
+    /**
+     * اشتراکی که مال کاربر دیگری است فقط وقتی به این کاربر منتقل می‌شود که کلیدهای مرورگر (p256dh/auth) هم همان باشد
+     * (یعنی واقعاً همان مرورگر است، مثلاً خروج یک کاربر و ورود دیگری)؛ دانستن آدرس endpoint به‌تنهایی کافی نیست.
+     */
+    public static function canClaim(int $uid, string $endpoint, string $p256dh, string $auth): bool
+    {
+        $r = DB::one('SELECT user_id, p256dh, auth FROM push_subscriptions WHERE endpoint_hash = ?', [hash('sha256', $endpoint)]);
+        return $r === null || (int) $r['user_id'] === $uid || (hash_equals((string) $r['p256dh'], $p256dh) && hash_equals((string) $r['auth'], $auth));
+    }
+
     public static function subscribe(int $uid, string $endpoint, string $p256dh, string $auth, string $ua): void
     {
         DB::run('INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent, fail_count) VALUES (?, ?, ?, ?, ?, ?, 0)

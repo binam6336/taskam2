@@ -48,7 +48,7 @@ final class App
             . "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; "
             . "img-src 'self' data: blob:; connect-src 'self'; media-src 'self'; object-src 'none'; "
             . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'");
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (env('TRUSTED_PROXY', false) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
         if ($https) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
         }

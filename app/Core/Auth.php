@@ -188,8 +188,18 @@ final class Auth
         if (!$trusted) {
             Throttle::hit('login_acct', $mobile);
         }
-        if (Throttle::count('login_user', $keyUser, $win) > $max || Throttle::count('login_ip', $ip, $win) > $max * 5
-            || (!$trusted && Throttle::count('login_acct', $mobile, $win) > $max * 4)) {
+        // قفل حساب: بعد از ۲۰ تلاش ناموفق (از هر دستگاه/IP) ورود به حساب ۳۰ دقیقه بسته است؛ دستگاه مورد اعتماد صاحب حساب مستثناست
+        if (!$trusted && Throttle::count('login_lock', $mobile, self::LOCK_SECONDS) > 0) {
+            Audit::log(null, 'login_locked', ['mobile' => $mobile]);
+            return ['ok' => false, 'message' => 'به‌دلیل تلاش‌های ناموفق زیاد، ورود به این حساب ۳۰ دقیقه قفل شده است.'];
+        }
+        if (!$trusted && Throttle::count('login_acct', $mobile, $win) > $max * 4) {
+            Throttle::hit('login_lock', $mobile);
+            Throttle::clear('login_acct', $mobile);
+            Audit::log(null, 'login_locked', ['mobile' => $mobile, 'start' => true]);
+            return ['ok' => false, 'message' => 'به‌دلیل تلاش‌های ناموفق زیاد، ورود به این حساب ۳۰ دقیقه قفل شده است.'];
+        }
+        if (Throttle::count('login_user', $keyUser, $win) > $max || Throttle::count('login_ip', $ip, $win) > $max * 5) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.'];
         }
@@ -206,13 +216,14 @@ final class Auth
 
         Throttle::clear('login_user', $keyUser);
         Throttle::clear('login_acct', $mobile);
+        Throttle::clear('login_lock', $mobile);                // ورود موفق صاحب حساب (از دستگاه مورد اعتماد) قفل را برمی‌دارد
         Throttle::undo('login_ip', $ip);                       // ورود موفق از سهمیه‌ی IP (مثلاً دفتر با NAT مشترک) کم نکند
         if (password_needs_rehash((string) $u['password_hash'], self::algo())) {
             $u['password_hash'] = self::hash($password);      // مهم: هش جدید باید در همان $u باشد وگرنه نسخه‌ی رمز در سشن ناهمگام می‌شود و کاربر بلافاصله خارج می‌شود
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);
         }
         self::login($u, $req, $remember);
-        self::trustDevice($mobile);
+        self::trustDevice($mobile, $u);
         return ['ok' => true, 'message' => '', 'user' => $u];
     }
 
@@ -236,37 +247,62 @@ final class Auth
         return $k;
     }
 
-    private static function deviceSig(string $mobile): string
+    private const TRUST_DAYS = 90;
+    /** مدت قفل حساب بعد از تلاش‌های ناموفق زیاد */
+    private const LOCK_SECONDS = 1800;
+
+    /**
+     * امضای «دستگاه مورد اعتماد»: موبایل + نسخه‌ی رمز (pv) + تاریخ انقضا.
+     * با تغییر رمز همه‌ی این کوکی‌ها باطل می‌شوند و بدون دسترسی به هش رمز در دیتابیس، حتی با کلید امضا هم جعل نمی‌شوند.
+     */
+    private static function deviceSig(string $mobile, string $pv, int $exp): string
     {
-        return hash_hmac('sha256', 'trusted-device|' . $mobile, self::deviceKey());
+        return hash_hmac('sha256', 'trusted-device|' . $mobile . '|' . $pv . '|' . $exp, self::deviceKey());
     }
 
-    /** @return string[] امضاهای ذخیره‌شده در کوکی (حداکثر ۵ حساب در یک دستگاه) */
-    private static function deviceSigs(): array
+    /** @return array<int,array{0:int,1:string}> ورودی‌های کوکی [انقضا، امضا] (حداکثر ۵ حساب در یک دستگاه) */
+    private static function deviceEntries(): array
     {
-        $raw = (string) ($_COOKIE[self::TRUST_COOKIE] ?? '');
-        return array_slice(array_filter(explode('.', $raw), static fn($x) => preg_match('/^[a-f0-9]{64}$/', $x) === 1), 0, 5);
+        $out = [];
+        foreach (explode('~', (string) ($_COOKIE[self::TRUST_COOKIE] ?? '')) as $x) {
+            if (preg_match('/^(\d{10})\.([a-f0-9]{64})$/', $x, $m) && (int) $m[1] > time()) {
+                $out[] = [(int) $m[1], $m[2]];
+            }
+        }
+        return array_slice($out, 0, 5);
     }
 
     private static function trustedDevice(string $mobile): bool
     {
-        $sig = self::deviceSig($mobile);
-        foreach (self::deviceSigs() as $s) {
-            if (hash_equals($sig, $s)) {
+        $entries = self::deviceEntries();
+        if (!$entries) {
+            return false;
+        }
+        $hash = DB::value('SELECT password_hash FROM users WHERE mobile = ? AND is_bot = 0 LIMIT 1', [$mobile]);
+        if (!is_string($hash)) {
+            return false;
+        }
+        $pv = self::pv(['password_hash' => $hash]);
+        foreach ($entries as [$exp, $sig]) {
+            if (hash_equals(self::deviceSig($mobile, $pv, $exp), $sig)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static function trustDevice(string $mobile): void
+    private static function trustDevice(string $mobile, array $u): void
     {
         if (headers_sent()) {
             return;
         }
-        $sigs = array_values(array_unique(array_merge([self::deviceSig($mobile)], self::deviceSigs())));
-        setcookie(self::TRUST_COOKIE, implode('.', array_slice($sigs, 0, 5)), [
-            'expires' => time() + 180 * 86400, 'path' => Session::cookiePath(), 'domain' => '',
+        $exp = time() + self::TRUST_DAYS * 86400;
+        $list = [$exp . '.' . self::deviceSig($mobile, self::pv($u), $exp)];
+        foreach (self::deviceEntries() as [$e, $s]) {
+            $list[] = $e . '.' . $s;
+        }
+        setcookie(self::TRUST_COOKIE, implode('~', array_slice(array_values(array_unique($list)), 0, 5)), [
+            'expires' => $exp, 'path' => Session::cookiePath(), 'domain' => '',
             'secure' => Session::isHttps(), 'httponly' => true, 'samesite' => 'Lax',
         ]);
     }

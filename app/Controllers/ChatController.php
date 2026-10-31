@@ -224,6 +224,14 @@ final class ChatController extends Controller
         $m = ChatModel::normalize($m);
         $file = ['forwarded_from' => $m['forwarded_from'] ?: $m['sender_id']];
         if (!empty($m['attachment'])) {
+            // بازارسال فایل هم کپی جدید روی دیسک است: همان سقف تعداد و سهمیه‌ی روزانه‌ی آپلود
+            $orig = (string) ($m['attachment_name'] ?? 'فایل');
+            if (!\App\Core\Throttle::attempt('upload', (string) $uid, 60, 3600)) {
+                $this->fail($orig . ' (تعداد آپلودها زیاد است؛ کمی بعد دوباره تلاش کنید)', 429);
+            }
+            if (Uploader::usedToday($uid) + (int) $m['attachment_size'] > Uploader::dailyQuota()) {
+                $this->fail($orig . ' (سهمیه‌ی آپلود امروز شما تمام شده است)', 429);
+            }
             $src = Uploader::path('chat_files', (string) $m['attachment']);
             if ($src === null) {
                 $this->fail('فایل این پیام دیگر موجود نیست');

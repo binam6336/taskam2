@@ -68,6 +68,10 @@ final class ColleagueService
             return null;
         }
         $id = (int) $u['id'];
+        // کاربری که «دریافت درخواست همکاری» را خاموش کرده در جستجو پیدا نمی‌شود (نام و عکسش دیده نشود)، مگر همکار تأییدشده باشد
+        if ((int) $u['allow_colleague_requests'] !== 1 && !Access::isColleague($uid, $id)) {
+            return null;
+        }
         $s = DB::one('SELECT (SELECT COUNT(*) FROM colleagues WHERE user_id = ? AND colleague_user_id = ?) AS already_added,
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?) AS has_blocked_me,

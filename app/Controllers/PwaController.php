@@ -90,7 +90,7 @@ final class PwaController extends Controller
             'pushReady' => Push::enabled(),
             'checks' => Push::diagnose(),
             'devices' => Push::count((int) $u['id']),
-            'https' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') || in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'], true) || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1:') || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), 'localhost:'),
+            'https' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') || in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'], true) || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1:') || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), 'localhost:'),
         ], ['title' => 'نصب نرم‌افزار', 'page' => $admin ? 'admin-install' : 'install'], $admin ? 'admin' : 'app');
     }
 
@@ -114,6 +114,9 @@ final class PwaController extends Controller
         $p256dh = trim($r->str('p256dh', 255));
         $auth = trim($r->str('auth', 64));
         if (!Push::allowedEndpoint($endpoint) || strlen(WebPush::unb64u($p256dh)) !== 65 || strlen(WebPush::unb64u($auth)) < 16) {
+            $this->fail('اطلاعات اشتراک اعلان نامعتبر است.');
+        }
+        if (!Push::canClaim($this->uid(), $endpoint, $p256dh, $auth)) {
             $this->fail('اطلاعات اشتراک اعلان نامعتبر است.');
         }
         if (Push::atLimit($this->uid(), $endpoint)) {

@@ -39,6 +39,7 @@ final class TokenController extends Controller
 
     public function toggle(string $id)
     {
+        $this->denyImpersonation('/tokens');
         $uid = $this->uid();
         $n = DB::run('UPDATE api_tokens SET is_active = 1 - is_active WHERE id = ? AND user_id = ?', [(int) $id, $uid]);
         $this->respond($n > 0, $n > 0 ? 'وضعیت توکن تغییر کرد.' : 'توکن یافت نشد.', '/tokens');
@@ -46,6 +47,7 @@ final class TokenController extends Controller
 
     public function destroy(string $id)
     {
+        $this->denyImpersonation('/tokens');
         $uid = $this->uid();
         $n = DB::run('DELETE FROM api_tokens WHERE id = ? AND user_id = ?', [(int) $id, $uid]);
         if ($n > 0) {

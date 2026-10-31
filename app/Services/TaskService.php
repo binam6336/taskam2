@@ -27,6 +27,9 @@ final class TaskService
 
     private static function assigneeAllowed(int $ownerId, int $actorId, int $assigneeId, ?int $projectId): bool
     {
+        if ($projectId !== null) {
+            return Access::isProjectMember($projectId, $assigneeId);       // مسئول تسک پروژه فقط از اعضای همان پروژه
+        }
         return $assigneeId === $ownerId || $assigneeId === $actorId
             || Access::canAssignTo($ownerId, $assigneeId, $projectId)
             || Access::canAssignTo($actorId, $assigneeId, $projectId);
@@ -91,7 +94,7 @@ final class TaskService
             return self::err('برای واگذاری تسک به عضو دیگر، دسترسی «تغییر مسئول» در این پروژه لازم است؛ تسک را برای خودتان بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
         }
         if (!self::assigneeAllowed($actor, $actor, $assignee, $projectId)) {
-            return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (باید همکار شما یا هم‌پروژه باشد).', 'ASSIGNEE_INVALID', 403);
+            return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (مسئول تسک پروژه باید عضو همان پروژه باشد).', 'ASSIGNEE_INVALID', 403);
         }
 
         $id = TaskModel::create([
@@ -329,6 +332,11 @@ final class TaskService
         if ($n === null) {
             return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
         }
+        // نویسنده/صاحب تسک فقط تا وقتی هنوز به تسک دسترسی دارد (مثلاً بعد از حذف از پروژه نه)
+        $task = TaskModel::raw((int) $n['task_id']);
+        if ($task === null || !Access::canTask($task, $actor, 'view')) {
+            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
+        }
         if ((int) $n['user_id'] !== $actor && (int) $n['task_owner_id'] !== $actor) {
             return self::err('فقط نویسنده‌ی یادداشت یا صاحب تسک می‌تواند آن را ویرایش کند.', 'FORBIDDEN', 403);
         }
@@ -348,6 +356,9 @@ final class TaskService
             return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
         }
         $task = TaskModel::raw((int) $n['task_id']);
+        if ($task === null || !Access::canTask($task, $actor, 'view')) {
+            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
+        }
         if ((int) $n['user_id'] !== $actor && !Access::canTask($task, $actor, 'edit_meta')) {
             return self::err('اجازه‌ی حذف این یادداشت را ندارید.', 'FORBIDDEN', 403);
         }
@@ -390,6 +401,9 @@ final class TaskService
             return self::err('فایل یافت نشد.', 'FILE_NOT_FOUND', 404);
         }
         $row = ['user_id' => $f['owner_id'], 'assignee_id' => $f['assignee_id'], 'project_id' => $f['project_id']];
+        if (!Access::canTask($row, $actor, 'view')) {
+            return self::err('فایل یافت نشد.', 'FILE_NOT_FOUND', 404);   // بعد از از دست دادن دسترسی به تسک، فایل خودش را هم حذف نمی‌کند
+        }
         // پیوست تسک: آپلودکننده یا دارنده‌ی «ویرایش اطلاعات تسک» — پیوست یادداشت: آپلودکننده یا سازنده‌ی تسک/پروژه
         $allowed = (int) $f['user_id'] === $actor || Access::canTask($row, $actor, $kind === 'task' ? 'edit_info' : 'edit_meta');
         if (!$allowed) {

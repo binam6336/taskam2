@@ -165,7 +165,8 @@ final class Request
 
     public function ip(): string
     {
-        if (env('TRUSTED_PROXY', false)) {
+        $remote = (string) ($this->server['REMOTE_ADDR'] ?? '0.0.0.0');
+        if (self::fromTrustedProxy($remote)) {
             $h = $this->header('CF-Connecting-IP') ?: $this->header('X-Forwarded-For');
             if ($h) {
                 $ip = trim(explode(',', $h)[0]);
@@ -174,7 +175,65 @@ final class Request
                 }
             }
         }
-        return (string) ($this->server['REMOTE_ADDR'] ?? '0.0.0.0');
+        return $remote;
+    }
+
+    /** محدوده‌های IP کلودفلر (https://www.cloudflare.com/ips/) برای TRUSTED_PROXY=cloudflare */
+    private const CLOUDFLARE = [
+        '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18',
+        '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+        '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+        '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+    ];
+
+    /**
+     * هدرهای IP واقعی/HTTPS فقط وقتی پذیرفته می‌شوند که درخواست واقعاً از پراکسی مورد اعتماد آمده باشد (وگرنه هر کس IP خودش را جعل می‌کند):
+     * TRUSTED_PROXY=cloudflare → فقط IPهای کلودفلر؛ true → فقط فهرست TRUSTED_PROXY_IPS (IP یا CIDR با کاما)،
+     * و اگر فهرست خالی باشد فقط پراکسی محلی (loopback/شبکه‌ی خصوصی، مثل Nginx روی همان سرور).
+     */
+    public static function fromTrustedProxy(?string $remote = null): bool
+    {
+        $mode = strtolower(trim((string) env('TRUSTED_PROXY', 'false')));
+        if (in_array($mode, ['', 'false', '0', 'off', 'no'], true)) {
+            return false;
+        }
+        $remote = $remote ?? (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($mode === 'cloudflare') {
+            $list = self::CLOUDFLARE;
+        } else {
+            $list = array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXY_IPS', '')))));
+            if (!$list) {
+                return filter_var($remote, FILTER_VALIDATE_IP) !== false
+                    && filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+            }
+        }
+        foreach ($list as $cidr) {
+            if (self::inCidr($remote, $cidr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static function inCidr(string $ip, string $cidr): bool
+    {
+        [$net, $bits] = array_pad(explode('/', $cidr, 2), 2, null);
+        $a = @inet_pton($ip);
+        $b = @inet_pton((string) $net);
+        if ($a === false || $b === false || strlen($a) !== strlen($b)) {
+            return false;
+        }
+        $bits = $bits === null ? strlen($a) * 8 : (int) $bits;
+        $bytes = intdiv($bits, 8);
+        if (substr($a, 0, $bytes) !== substr($b, 0, $bytes)) {
+            return false;
+        }
+        $rem = $bits % 8;
+        if ($rem === 0) {
+            return true;
+        }
+        $mask = (0xFF << (8 - $rem)) & 0xFF;
+        return (ord($a[$bytes]) & $mask) === (ord($b[$bytes]) & $mask);
     }
 
     /**

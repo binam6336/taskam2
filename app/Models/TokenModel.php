@@ -26,9 +26,9 @@ final class TokenModel
         return ['id' => $id, 'token' => $raw];
     }
 
-    /** غیرفعال کردن همه‌ی توکن‌های کاربر (بعد از تغییر رمز) */
+    /** ابطال همه‌ی توکن‌های کاربر بعد از تغییر رمز: حذف کامل (با دکمه‌ی «فعال‌سازی» قابل برگشت نیست) */
     public static function revokeAll(int $uid): void
     {
-        DB::run('UPDATE api_tokens SET is_active = 0 WHERE user_id = ?', [$uid]);
+        DB::run('DELETE FROM api_tokens WHERE user_id = ?', [$uid]);
     }
 }

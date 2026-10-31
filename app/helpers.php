@@ -85,7 +85,7 @@ function full_url(string $path = ''): string
         $origin = ($p['scheme'] ?? 'https') . '://' . ($p['host'] ?? 'localhost') . (isset($p['port']) ? ':' . $p['port'] : '');
         return $origin . url($path);
     }
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' && env('TRUSTED_PROXY', false));
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     // هدر Host از کاربر می‌آید؛ فقط نام میزبان/پورت معتبر پذیرفته می‌شود (جلوگیری از تزریق Host در لینک‌ها). APP_URL را در .env تنظیم کنید.
     $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
     if (!preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9-]{1,63}(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i', $host)) {
