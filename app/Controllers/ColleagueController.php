@@ -19,6 +19,7 @@ final class ColleagueController extends Controller
             'incoming' => ColleagueService::incomingRequests($uid),
             'outgoing' => ColleagueService::outgoingRequests($uid),
             'blocked' => ColleagueService::blocked($uid),
+            'followers' => ColleagueService::followers($uid),
             'addProjects' => self::addableProjects($uid),
         ], ['title' => 'همکاران', 'page' => 'colleagues']);
     }
@@ -83,6 +84,13 @@ final class ColleagueController extends Controller
     {
         $n = DB::run('DELETE FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$this->uid(), (int) $userId]);
         $n > 0 ? $this->ok('همکار حذف شد.') : $this->fail('همکار یافت نشد.', 404);
+    }
+
+    /** خارج شدن از لیست همکاران کسی که من را همکار کرده (تب «کسانی که مرا همکار کرده‌اند») */
+    public function removeFollower(string $userId)
+    {
+        [$ok, $msg] = ColleagueService::removeFollower($this->uid(), (int) $userId);
+        $ok ? $this->ok($msg) : $this->fail($msg, 404);
     }
 
     public function block(string $userId)

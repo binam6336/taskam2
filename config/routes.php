@@ -112,6 +112,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues/requests/{id}/accept', [ColleagueController::class, 'accept']);
     $r->post('/colleagues/requests/{id}/reject', [ColleagueController::class, 'reject']);
     $r->post('/colleagues/{userId}/remove', [ColleagueController::class, 'remove']);
+    $r->post('/colleagues/followers/{userId}/remove', [ColleagueController::class, 'removeFollower']);
     $r->post('/colleagues/{userId}/block', [ColleagueController::class, 'block']);
     $r->post('/colleagues/{userId}/unblock', [ColleagueController::class, 'unblock']);
 
@@ -252,6 +253,7 @@ $router->group(['api'], function ($r) {
 
     $r->get('/colleagues/list', [ColleagueApi::class, 'list']);
     $r->get('/colleagues/followers', [ColleagueApi::class, 'followers']);
+    $r->post('/colleagues/followers/remove', [ColleagueApi::class, 'followerRemove']);
     $r->get('/colleagues/blocked', [ColleagueApi::class, 'blocked']);
     $r->get('/colleagues/show', [ColleagueApi::class, 'show']);
     $r->get('/colleagues/stats', [ColleagueApi::class, 'stats']);

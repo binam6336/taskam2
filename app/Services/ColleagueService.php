@@ -45,6 +45,45 @@ final class ColleagueService
         return array_fill_keys(array_map(static fn($r) => (int) $r['id'], $ids), true);
     }
 
+    /**
+     * کسانی که این کاربر را همکار خود کرده‌اند (ردیف colleagues با colleague_user_id = من).
+     * mutual = من هم آن‌ها را همکار کرده‌ام؛ approved = همکاری با رضایت من (درخواستش را پذیرفته‌ام یا خودم هم اضافه‌اش کرده‌ام).
+     */
+    public static function followers(int $uid): array
+    {
+        $rows = DB::all("SELECT c.id AS row_id, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar,
+              (SELECT COUNT(*) FROM colleagues m WHERE m.user_id = ? AND m.colleague_user_id = u.id) AS mutual,
+              (SELECT COUNT(*) FROM colleague_requests r WHERE r.requester_id = u.id AND r.target_id = ? AND r.status = 'accepted') AS accepted,
+              (SELECT COUNT(*) FROM colleague_requests r WHERE r.requester_id = ? AND r.target_id = u.id AND r.status = 'pending') AS my_pending,
+              (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me
+            FROM colleagues c INNER JOIN users u ON u.id = c.user_id
+            WHERE c.colleague_user_id = ? AND u.status = 'active' AND u.is_bot = 0 ORDER BY c.created_at DESC, c.id DESC", [$uid, $uid, $uid, $uid, $uid]);
+        foreach ($rows as &$r) {
+            $r['mutual'] = (int) $r['mutual'] > 0;
+            $r['approved'] = $r['mutual'] || (int) $r['accepted'] > 0;
+            $r['my_pending'] = (int) $r['my_pending'] > 0;
+            $r['is_blocked_by_me'] = (int) $r['is_blocked_by_me'] > 0;
+            if (!$r['approved']) {
+                $r['mobile'] = mask_mobile($r['mobile']);      // همکاری یک‌طرفه‌ی قدیمی بدون رضایت من
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * حذف خودم از لیست همکاران یک نفر (لغو همکاری‌ای که او با من دارد).
+     * دسترسی‌هایی که از همکاری می‌آید (واگذاری تسک، دیدن موبایل کامل، افزودن من به پروژه) از او گرفته می‌شود؛ عضویت‌های فعلی پروژه دست نمی‌خورد.
+     */
+    public static function removeFollower(int $uid, int $followerId): array
+    {
+        $n = DB::run('DELETE FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$followerId, $uid]);
+        if ($n === 0) {
+            return [false, 'این کاربر شما را در لیست همکارانش ندارد.'];
+        }
+        DB::run("DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'accepted'", [$followerId, $uid]);
+        return [true, 'از لیست همکاران این کاربر خارج شدید.'];
+    }
+
     public static function incomingRequests(int $uid): array
     {
         return DB::all("SELECT r.id, r.created_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar FROM colleague_requests r INNER JOIN users u ON u.id = r.requester_id WHERE r.target_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC", [$uid]);
@@ -101,6 +140,15 @@ final class ColleagueService
         $t = DB::one("SELECT id, allow_colleague_requests FROM users WHERE id = ? AND status = 'active' AND is_bot = 0", [$targetId]);
         if ($t === null) {
             return [false, 'کاربر مورد نظر معتبر نیست.', ''];
+        }
+        if (DB::value('SELECT 1 FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$uid, $targetId])) {
+            return [false, 'این کاربر قبلاً در لیست همکاران شماست.', ''];
+        }
+        // طرف مقابل خودش قبلاً من را همکار کرده (همکاری تأییدشده): رضایتش معلوم است، مستقیم اضافه می‌شود
+        if (DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . Access::approvedSql('c'), [$targetId, $uid])) {
+            DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [$uid, $targetId]);
+            DB::run("DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending'", [$uid, $targetId]);
+            return [true, 'همکار به لیست شما اضافه شد.', 'added'];
         }
         if ((int) $t['allow_colleague_requests'] !== 1) {
             return [false, 'این کاربر دریافت درخواست همکاری را غیرفعال کرده است.', ''];

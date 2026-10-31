@@ -52,10 +52,20 @@ final class ColleagueApi extends ApiController
     public function followers()
     {
         [$limit, $offset] = $this->paging();
-        $rows = DB::all("SELECT c.id AS row_id, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar
-            FROM colleagues c INNER JOIN users u ON u.id = c.user_id WHERE c.colleague_user_id = ? AND u.status = 'active' ORDER BY c.created_at DESC LIMIT ? OFFSET ?", [$this->uid, $limit, $offset]);
-        $out = array_map(static fn($r) => ['row_id' => (int) $r['row_id']] + self::person($r) + ['added_at' => $r['added_at']], $rows);
+        $rows = array_slice(ColleagueService::followers($this->uid), $offset, $limit);
+        $out = array_map(static fn($r) => ['row_id' => (int) $r['row_id']] + self::person($r) + ['added_at' => $r['added_at'], 'is_mutual' => $r['mutual'], 'is_blocked_by_me' => $r['is_blocked_by_me']], $rows);
         $this->ok(['count' => count($out), 'limit' => $limit, 'offset' => $offset, 'followers' => $out]);
+    }
+
+    /** خارج شدن از لیست همکاران یک کاربر (کسی که من را همکار کرده) */
+    public function followerRemove()
+    {
+        $uid = (int) $this->request->input('user_id', 0);
+        if ($uid <= 0) {
+            $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
+        }
+        [$ok, $msg] = ColleagueService::removeFollower($this->uid, $uid);
+        $ok ? $this->ok(['user_id' => $uid], $msg) : $this->err($msg, 404, 'FOLLOWER_NOT_FOUND');
     }
 
     public function blocked()
