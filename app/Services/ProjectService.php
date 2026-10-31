@@ -250,14 +250,14 @@ final class ProjectService
     }
 
     /**
-     * دسترسی یک عضو در برد تیمی این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک.
+     * دسترسی یک عضو در بورد پروژه این پروژه (پیش‌فرض هیچ)؛ همان قواعد اعطای دسترسی تسک.
      * $viewUsers (اختیاری): اعضایی که تسک‌هایشان در برد او دیده شود، یا 'all' = همه‌ی اعضا (حتی اعضای بعدی)؛
      * غیرسازنده فقط اعضایی را که خودش می‌بیند انتخاب/حذف می‌کند و «همه» را فقط اگر خودش همه را ببیند.
      * @param int[]|string|null $viewUsers
      */
     public static function setBoardPermissions(int $projectId, int $actorId, int $memberId, array $perms, $viewUsers = null): array
     {
-        $res = self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی برد تیمی ذخیره شد.');
+        $res = self::setMemberPerms('board_permissions', Access::BOARD_PERMS, [Access::class, 'projectBoardPerms'], $projectId, $actorId, $memberId, $perms, 'دسترسی بورد پروژه ذخیره شد.');
         if (!$res[0] || $viewUsers === null) {
             return $res;
         }

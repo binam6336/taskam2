@@ -7,7 +7,7 @@ use App\Core\ApiController;
 use App\Models\TaskModel;
 use App\Services\BoardService;
 
-/** برد تیمی (کانبان): ستون‌ها، جابه‌جایی و آرشیو — با همان دسترسی‌ها و قواعد پنل */
+/** بورد پروژه (کانبان): ستون‌ها، جابه‌جایی و آرشیو — با همان دسترسی‌ها و قواعد پنل */
 final class BoardApi extends ApiController
 {
     /** تسک + فیلدهای برد؛ allowed_moves = ستون‌هایی که کاربر اجازه‌ی انتقال کارت به آن‌ها را دارد */

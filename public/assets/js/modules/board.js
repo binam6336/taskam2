@@ -57,7 +57,7 @@ document.addEventListener('tk:ready', () => {
     TK.reload();                               // علت توقف، مرتب‌سازی و شمارنده‌ها از سرور
   };
 
-  /* مقصدهای مجاز هر کارت (طبق دسترسی برد تیمی) از سرور می‌آید؛ «مسدودشده» علت توقف می‌پرسد */
+  /* مقصدهای مجاز هر کارت (طبق دسترسی بورد پروژه) از سرور می‌آید؛ «مسدودشده» علت توقف می‌پرسد */
   const allowed = (card, status) => (card.dataset.moves || '').split(' ').includes(status);
   let pending = null; const bf = TK.qs('#f-kb-block');
   const request = (card, status) => {

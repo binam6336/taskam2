@@ -219,7 +219,7 @@ final class ProjectApi extends ApiController
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'task_permissions' => Access::projectTaskPerms($id, $uid)], $msg);
     }
 
-    /** دسترسی یک عضو در برد تیمی این پروژه: to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any */
+    /** دسترسی یک عضو در بورد پروژه این پروژه: to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any */
     public function memberBoardPermissions()
     {
         $id = $this->pid();

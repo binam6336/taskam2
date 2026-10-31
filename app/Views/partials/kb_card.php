@@ -1,5 +1,5 @@
 <?php
-/** کارت برد تیمی. @var array $t @var string $key @var array $filters */
+/** کارت بورد پروژه. @var array $t @var string $key @var array $filters */
 $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strtotime($t['due_date'] . ' ' . ($t['due_time'] ?: '23:59:59')) < time();
 ?>
             <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>

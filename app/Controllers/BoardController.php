@@ -9,7 +9,7 @@ use App\Models\SubjectModel;
 use App\Models\TaskModel;
 use App\Services\BoardService;
 
-/** برد تیمی (کانبان) — آدرس /board؛ نمایشش در سایدبار از «محتوا ← سایدبار» در پنل ادمین. */
+/** بورد پروژه (کانبان) — آدرس /board؛ نمایشش در سایدبار از «محتوا ← سایدبار» در پنل ادمین. */
 final class BoardController extends Controller
 {
     public function index()
@@ -25,7 +25,7 @@ final class BoardController extends Controller
         $ft = $focus > 0 ? TaskModel::raw($focus) : null;
         if ($ft === null || !BoardService::canSee($ft, $uid)) {
             if ($focus > 0) {
-                $this->flash('این تسک در برد تیمی شما نمایش داده نمی‌شود.', 'error');
+                $this->flash('این تسک در بورد پروژه شما نمایش داده نمی‌شود.', 'error');
             }
             $focus = 0;
         }
@@ -37,7 +37,7 @@ final class BoardController extends Controller
             'statuses' => BoardService::STATUSES, 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
             // پنجره‌های مشاهده و ویرایش تسک داخل خود برد
             'subjects' => SubjectModel::forUser($uid), 'taskProjects' => ProjectModel::forUser($uid), 'assignees' => TaskController::assigneeOptions($uid),
-        ], ['title' => 'برد تیمی', 'page' => 'board', 'bodyClass' => 'page-board']);
+        ], ['title' => 'بورد پروژه', 'page' => 'board', 'bodyClass' => 'page-board']);
     }
 
     /** فیلترهای برد از query یا بدنه‌ی درخواست (پروژه فقط اگر کاربر عضوش باشد). */

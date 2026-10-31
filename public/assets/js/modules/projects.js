@@ -20,7 +20,7 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#proj-title-h').textContent = 'پروژه جدید'; TK.qs('#members-field').classList.remove('hidden'); memberChecks(); TK.modal.open('m-project');
   });
 
-  /* ستون دسترسی‌ها: سه گروه تسک، پروژه و برد تیمی */
+  /* ستون دسترسی‌ها: سه گروه تسک، پروژه و بورد پروژه */
   const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" style="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
     <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
@@ -39,7 +39,7 @@ document.addEventListener('tk:ready', () => {
       <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>دسترسی‌ها</th><th></th></tr></thead><tbody>
       ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)} ${m.is_creator ? '<span class="badge green">سازنده</span>' : roleBadge(m.role)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
         <td>${m.is_creator ? '<span class="faint small">همه‌ی دسترسی‌ها</span>' : permCell(m)}</td>
-        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="دسترسی‌های تسک، پروژه و برد تیمی"><i class="fa-solid fa-key"></i></button>` : ''}
+        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="دسترسی‌های تسک، پروژه و بورد پروژه"><i class="fa-solid fa-key"></i></button>` : ''}
           ${!m.is_creator && can('remove_member') ? `<button class="btn btn-xs btn-danger" data-post="${TK.url('/projects/' + id + '/members/' + m.id + '/remove')}" data-confirm="«${E(m.name)}» از پروژه حذف شود؟"><i class="fa-solid fa-user-minus"></i></button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>`;
     TK.modal.open('m-members');
@@ -59,7 +59,7 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open('m-project');
   });
 
-  /* دسترسی‌های عضو: تب «نقش کاربر» (اول)، «تسک»، «پروژه» و «برد تیمی»؛ فقط دسترسی‌هایی که خودتان دارید قابل تغییر است */
+  /* دسترسی‌های عضو: تب «نقش کاربر» (اول)، «تسک»، «پروژه» و «بورد پروژه»؛ فقط دسترسی‌هایی که خودتان دارید قابل تغییر است */
   let target = null, limits = {}; const pf = TK.qs('#f-mperm');
   const setTab = (name) => {
     TK.qsa('[data-ptab]', pf).forEach((b) => { const on = b.dataset.ptab === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });

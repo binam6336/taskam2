@@ -1,6 +1,6 @@
 <?php
 /**
- * پنجره‌های تسک (ایجاد/ویرایش و جزئیات) + داده‌ی ماژول tasks.js؛ در صفحه‌ی تسک‌ها و برد تیمی.
+ * پنجره‌های تسک (ایجاد/ویرایش و جزئیات) + داده‌ی ماژول tasks.js؛ در صفحه‌ی تسک‌ها و بورد پروژه.
  * @var array $subjects @var array $projects @var array $assignees @var ?array $shared
  * @var string $context (اختیاری) 'board' = داخل برد: دکمه‌ی «نمایش در برد» در جزئیات نیست
  */

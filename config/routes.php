@@ -74,7 +74,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/files/{kind}/{id}/delete', [TaskController::class, 'deleteFile']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
 
-    // برد تیمی (کانبان، دمو)
+    // بورد پروژه (کانبان، دمو)
     $r->get('/board', [BoardController::class, 'index']);
     $r->post('/board/tasks/{id}/move', [BoardController::class, 'move']);
     $r->get('/board/archive', [BoardController::class, 'archive']);

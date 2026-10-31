@@ -264,7 +264,7 @@ final class TaskService
         if (!Access::canTask($t, $actor, 'complete')) {
             return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
-        // تسک پروژه‌دار: یک مسیر واحد با برد تیمی (مجوزهای مراحل برد و سقف ستون‌ها هم اعمال می‌شود)
+        // تسک پروژه‌دار: یک مسیر واحد با بورد پروژه (مجوزهای مراحل برد و سقف ستون‌ها هم اعمال می‌شود)
         if ($t['project_id'] !== null) {
             $to = (int) $t['is_completed'] === 1 ? 'review' : 'done';
             $m = BoardService::move($actor, $id, $to, '', true);

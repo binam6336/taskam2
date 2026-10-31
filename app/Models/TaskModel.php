@@ -163,14 +163,14 @@ final class TaskModel
 
     public static function create(array $d): int
     {
-        // تسک جدید در برد تیمی از «برنامه‌ریزی‌نشده» (Backlog) شروع می‌شود
+        // تسک جدید در بورد پروژه از «برنامه‌ریزی‌نشده» (Backlog) شروع می‌شود
         $d += ['board_status' => 'backlog', 'board_moved_at' => date('Y-m-d H:i:s')];
         $id = DB::insert('tasks', $d);
         self::ensureShareToken($id);
         return $id;
     }
 
-    /** کارت‌های برد تیمی: WHERE آماده با پارامترهایش (اولین پارامتر = بیننده برای دسترسی تسک). */
+    /** کارت‌های بورد پروژه: WHERE آماده با پارامترهایش (اولین پارامتر = بیننده برای دسترسی تسک). */
     public static function board(string $where, array $params, int $limit = 600): array
     {
         return DB::all(self::base() . ' WHERE ' . $where . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT " . max(1, $limit), $params);
@@ -196,7 +196,7 @@ final class TaskModel
     public static function toggle(int $id): array
     {
         $done = (int) DB::value('SELECT is_completed FROM tasks WHERE id = ?', [$id]) === 1;
-        // وضعیت برد تیمی همگام می‌ماند: تکمیل = done، بازگشت = todo
+        // وضعیت بورد پروژه همگام می‌ماند: تکمیل = done، بازگشت = todo
         if ($done) {
             DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = 'todo', board_moved_at = NOW(), archived_at = NULL WHERE id = ?", [$id]);
         } else {
