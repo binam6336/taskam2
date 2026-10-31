@@ -5,6 +5,9 @@
 --  همه‌ی زمان‌ها نسبت به لحظه‌ی اجرا (NOW) ساخته می‌شوند تا داده همیشه تازه باشد.
 --  اجرای دوباره امن است: کاربران قبلی با همین شماره‌ها و همه‌ی داده‌هایشان اول حذف می‌شوند.
 --  پیش‌نیاز: schema.sql و migrationهای ۰۰۴ تا ۰۰۶ اجرا شده باشند.
+--  امنیت: فقط برای محیط آزمایشی؛ هرگز روی سرور واقعی اجرا نکنید (رمز ضعیف و ثابت).
+--  کاربران با وضعیت «در انتظار» ساخته می‌شوند و تا مدیر از پنل فعالشان نکند وارد نمی‌شوند.
+--  اگر قبلاً روی تولید اجرا شده: DELETE FROM users WHERE mobile LIKE '0999186733%';
 -- ============================================================================
 SET NAMES utf8mb4;
 SET time_zone = '+03:30';
@@ -15,17 +18,17 @@ DELETE t FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.mobile IN ('09991
 DELETE FROM users WHERE mobile IN ('09991867331', '09991867332', '09991867333', '09991867334', '09991867335', '09991867336');
 
 -- ───── کاربران ─────
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867331', 'بهراد', 'کیانی', 'behrad.kiani@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 4490, NOW() - INTERVAL 2459 MINUTE, NOW() - INTERVAL 288000 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867331', 'بهراد', 'کیانی', 'behrad.kiani@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 4490, NOW() - INTERVAL 2459 MINUTE, NOW() - INTERVAL 288000 MINUTE);
 SET @m = LAST_INSERT_ID();
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867332', 'نیلوفر', 'احمدی', 'niloofar.ahmadi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 4045, NOW() - INTERVAL 2554 MINUTE, NOW() - INTERVAL 273600 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867332', 'نیلوفر', 'احمدی', 'niloofar.ahmadi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 4045, NOW() - INTERVAL 2554 MINUTE, NOW() - INTERVAL 273600 MINUTE);
 SET @u1 = LAST_INSERT_ID();
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867333', 'آرش', 'رضایی', 'arash.rezaei@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 1612, NOW() - INTERVAL 1416 MINUTE, NOW() - INTERVAL 273600 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867333', 'آرش', 'رضایی', 'arash.rezaei@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 1612, NOW() - INTERVAL 1416 MINUTE, NOW() - INTERVAL 273600 MINUTE);
 SET @u2 = LAST_INSERT_ID();
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867334', 'مریم', 'حسینی', 'maryam.hosseini@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 827, NOW() - INTERVAL 2261 MINUTE, NOW() - INTERVAL 273600 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867334', 'مریم', 'حسینی', 'maryam.hosseini@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 827, NOW() - INTERVAL 2261 MINUTE, NOW() - INTERVAL 273600 MINUTE);
 SET @u3 = LAST_INSERT_ID();
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867335', 'سینا', 'محمدی', 'sina.mohammadi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 2475, NOW() - INTERVAL 408 MINUTE, NOW() - INTERVAL 273600 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867335', 'سینا', 'محمدی', 'sina.mohammadi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 2475, NOW() - INTERVAL 408 MINUTE, NOW() - INTERVAL 273600 MINUTE);
 SET @u4 = LAST_INSERT_ID();
-INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867336', 'الهام', 'کریمی', 'elham.karimi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'active', 1, 'members', 'dark', UNIX_TIMESTAMP() - 6266, NOW() - INTERVAL 2672 MINUTE, NOW() - INTERVAL 273600 MINUTE);
+INSERT INTO users (mobile, first_name, last_name, email, password_hash, role, status, allow_colleague_requests, task_link_access, theme, last_seen, last_login_at, created_at) VALUES ('09991867336', 'الهام', 'کریمی', 'elham.karimi@example.com', '$2y$12$ohJa4lcL4qpZ.sLAjnxOaupnLDFsKxpd5cPIembXxFKb/2RDX1AAW', 'user', 'pending', 1, 'members', 'dark', UNIX_TIMESTAMP() - 6266, NOW() - INTERVAL 2672 MINUTE, NOW() - INTERVAL 273600 MINUTE);
 SET @u5 = LAST_INSERT_ID();
 
 -- ───── همکاران (دوطرفه) ─────

@@ -147,7 +147,10 @@ final class TaskController extends Controller
     {
         $uid = $this->uid();
         $t = TaskModel::find((int) $id, $uid);
-        if ($t === null || (!Access::canTask($t, $uid, 'view') && !TaskService::canViewShared($t, $uid))) {
+        // نمای اشتراکی فقط با خود توکن لینک (نه شناسه‌ی عددی) مجاز است
+        $tok = Validate::shareToken((string) ($this->request->query['token'] ?? ''));
+        $viaLink = $t !== null && $tok !== null && $t['share_token'] && hash_equals((string) $t['share_token'], $tok) && TaskService::canViewShared($t, $uid);
+        if ($t === null || (!Access::canTask($t, $uid, 'view') && !$viaLink)) {
             $this->fail('تسک یافت نشد.', 404);
         }
         $this->ok('', ['items' => TaskHistory::forTask($t)]);

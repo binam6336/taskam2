@@ -75,6 +75,39 @@ final class Push
 
     // ───── اشتراک‌ها ─────
 
+    /** حداکثر دستگاه‌های اعلان هر کاربر */
+    public const MAX_DEVICES = 10;
+    /** فقط سرویس‌های شناخته‌شده‌ی Web Push (جلوگیری از SSRF به آدرس‌های داخلی) */
+    private const HOSTS = ['fcm.googleapis.com', 'android.googleapis.com', 'updates.push.services.mozilla.com'];
+    private const HOST_SUFFIXES = ['.push.services.mozilla.com', '.push.apple.com', '.notify.windows.com'];
+
+    public static function allowedEndpoint(string $endpoint): bool
+    {
+        $u = parse_url($endpoint);
+        if (!is_array($u) || strtolower((string) ($u['scheme'] ?? '')) !== 'https' || isset($u['user']) || isset($u['pass']) || (isset($u['port']) && (int) $u['port'] !== 443)) {
+            return false;
+        }
+        $host = strtolower((string) ($u['host'] ?? ''));
+        if (in_array($host, self::HOSTS, true)) {
+            return true;
+        }
+        foreach (self::HOST_SUFFIXES as $sfx) {
+            if (str_ends_with($host, $sfx)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** اشتراک جدید (نه به‌روزرسانی همان دستگاه) بیش از سقف است؟ */
+    public static function atLimit(int $uid, string $endpoint): bool
+    {
+        if (DB::value('SELECT 1 FROM push_subscriptions WHERE endpoint_hash = ? AND user_id = ?', [hash('sha256', $endpoint), $uid])) {
+            return false;
+        }
+        return (int) DB::value('SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?', [$uid]) >= self::MAX_DEVICES;
+    }
+
     public static function subscribe(int $uid, string $endpoint, string $p256dh, string $auth, string $ua): void
     {
         DB::run('INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent, fail_count) VALUES (?, ?, ?, ?, ?, ?, 0)
@@ -137,7 +170,8 @@ final class Push
     /** @return int تعداد دستگاه‌هایی که پیام را پذیرفتند */
     private static function deliver(int $uid, array $n): int
     {
-        $subs = DB::all('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?', [$uid]);
+        $subs = array_values(array_filter(DB::all('SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?', [$uid]),
+            static fn($s) => self::allowedEndpoint((string) $s['endpoint'])));   // اشتراک‌های قدیمیِ میزبان غیرمجاز ارسال نمی‌شوند
         if (!$subs) {
             return 0;
         }

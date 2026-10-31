@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const VERSION = '017';
+    public const VERSION = '017';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [

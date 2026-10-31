@@ -21,8 +21,8 @@ final class TaskApi extends ApiController
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null,
             'project_title' => $t['project_title'] ?? null, 'subject_title' => $t['subject_title'] ?? null, 'subject_color' => $t['subject_color'] ?? null,
             'board_status' => !empty($t['archived_at']) ? 'archived' : ($t['board_status'] ?? null),
-            'assignee_first_name' => $t['assignee_first_name'] ?? null, 'assignee_last_name' => $t['assignee_last_name'] ?? null, 'assignee_mobile' => $t['assignee_mobile'] ?? null,
-            'creator_first_name' => $t['creator_first_name'] ?? null, 'creator_last_name' => $t['creator_last_name'] ?? null, 'creator_mobile' => $t['creator_mobile'] ?? null,
+            'assignee_first_name' => $t['assignee_first_name'] ?? null, 'assignee_last_name' => $t['assignee_last_name'] ?? null, 'assignee_mobile' => mask_mobile($t['assignee_mobile'] ?? null),
+            'creator_first_name' => $t['creator_first_name'] ?? null, 'creator_last_name' => $t['creator_last_name'] ?? null, 'creator_mobile' => mask_mobile($t['creator_mobile'] ?? null),
             'notes_count' => (int) ($t['notes_count'] ?? 0), 'attachments_count' => (int) ($t['attachments_count'] ?? 0),
         ];
     }

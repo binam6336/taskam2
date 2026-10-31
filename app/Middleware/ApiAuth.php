@@ -21,7 +21,14 @@ final class ApiAuth
 {
     public static function cors(): void
     {
-        header('Access-Control-Allow-Origin: ' . (string) env('API_CORS_ORIGIN', '*'));
+        // CORS فقط برای دامنه‌های تعریف‌شده در API_CORS_ORIGIN (چند دامنه با کاما؛ «*» فقط اگر صریحاً تنظیم شود). خالی = بدون CORS
+        $allowed = array_values(array_filter(array_map('trim', explode(',', (string) env('API_CORS_ORIGIN', '')))));
+        $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+        if (in_array('*', $allowed, true)) {
+            header('Access-Control-Allow-Origin: *');
+        } elseif ($origin !== '' && in_array(rtrim($origin, '/'), array_map(static fn($o) => rtrim($o, '/'), $allowed), true)) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+        }
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: Authorization, X-API-Key, Content-Type, Accept, X-CSRF-Token');
         header('Access-Control-Max-Age: 600');

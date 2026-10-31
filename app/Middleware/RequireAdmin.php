@@ -22,7 +22,10 @@ final class RequireAdmin
             Auth::stopImpersonation();
             $u = Auth::user();
         }
-        if ($u['role'] !== 'admin' || Auth::isImpersonating()) {
+        if ($u['status'] !== 'active' && $u['role'] === 'admin' && !Auth::isImpersonating() && !$r->wantsJson()) {
+            Response::redirect('/pending');                   // مدیر مسدود/غیرفعال‌شده
+        }
+        if ($u['role'] !== 'admin' || $u['status'] !== 'active' || Auth::isImpersonating()) {
             throw new HttpException(403, 'دسترسی به این بخش مجاز نیست.', 'FORBIDDEN');
         }
     }

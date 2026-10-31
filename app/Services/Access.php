@@ -158,11 +158,12 @@ final class Access
     public static function taskPerms(array $task, int $uid): array
     {
         $all = array_merge(['view'], array_keys(self::TASK_PERMS), self::TASK_OWNER_ONLY);
-        if ((int) $task['user_id'] === $uid) {
+        $pid = (int) ($task['project_id'] ?? 0);
+        // سازنده‌ی تسک فقط تا وقتی عضو پروژه است امتیاز کامل دارد (بعد از خروج/حذف از پروژه، هیچ)
+        if ((int) $task['user_id'] === $uid && ($pid === 0 || self::isProjectMember($pid, $uid))) {
             return $all;
         }
         $out = [];
-        $pid = (int) ($task['project_id'] ?? 0);
         if ($pid > 0) {
             [$creator, $perms] = self::projectRole($pid, $uid);
             if ($creator === $uid) {
@@ -210,12 +211,12 @@ final class Access
         return $creator === $uid ? array_keys(self::BOARD_PERMS) : $board;
     }
 
-    /** دسترسی‌های برد کاربر روی یک تسک: سازنده‌ی تسک و سازنده‌ی پروژه همه؛ بقیه طبق عضویتشان در پروژه. */
+    /**
+     * دسترسی‌های برد کاربر روی یک تسک: سازنده‌ی پروژه همه؛ بقیه (حتی سازنده‌ی خود تسک) طبق نقششان در پروژه،
+     * تا ساختن تسک راهی برای دور زدن مراحل برد نباشد.
+     */
     public static function boardPerms(array $task, int $uid): array
     {
-        if ((int) $task['user_id'] === $uid) {
-            return array_keys(self::BOARD_PERMS);
-        }
         $pid = (int) ($task['project_id'] ?? 0);
         return $pid > 0 ? self::projectBoardPerms($pid, $uid) : [];
     }

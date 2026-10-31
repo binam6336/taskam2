@@ -60,9 +60,15 @@ final class ProjectApi extends ApiController
     private function members(int $id): array
     {
         $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$id]);
+        // موبایل و ایمیل کامل فقط برای سازنده و دارندگان manage_permissions (و اطلاعات خود کاربر)
+        $full = $creator === $this->uid || in_array('manage_permissions', Access::projectPerms($id, $this->uid), true);
         $out = [];
         foreach (ProjectModel::members($id) as $m) {
             $isCreator = (int) $m['user_id'] === $creator;
+            if (!$full && (int) $m['user_id'] !== $this->uid) {
+                $m['mobile'] = mask_mobile($m['mobile']);
+                $m['email'] = null;
+            }
             $out[] = ['member_row_id' => (int) $m['member_row_id'], 'user_id' => (int) $m['user_id'], 'full_name' => full_name($m), 'first_name' => $m['first_name'], 'last_name' => $m['last_name'], 'mobile' => $m['mobile'], 'email' => $m['email'], 'avatar_url' => avatar_url($m['avatar']),
                 'permissions' => $isCreator ? array_keys(Access::PROJECT_PERMS) : Access::decode($m['permissions'], array_keys(Access::PROJECT_PERMS)),
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),

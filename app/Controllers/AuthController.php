@@ -72,16 +72,17 @@ final class AuthController extends Controller
         if (!hash_equals($pass, $confirm)) {
             $fail('تکرار رمز عبور مطابقت ندارد.');
         }
+        // پاسخ ثبت‌نام برای شماره/ایمیل تکراری و جدید یکسان است تا نشود وجود حساب‌ها را با فرم ثبت‌نام شمارش کرد
         if (UserModel::mobileExists($mobile) || ($email !== '' && UserModel::emailExists($email))) {
-            $fail('این شماره موبایل یا ایمیل قبلاً ثبت شده است.');
+            Audit::log(null, 'register_duplicate', ['mobile' => $mobile]);
+        } else {
+            $id = Auth::register(['mobile' => $mobile, 'first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $pass]);
+            Audit::log($id, 'register');
+            ProjectService::createSample($id);
         }
-        $id = Auth::register(['mobile' => $mobile, 'first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $pass]);
-        Audit::log($id, 'register');
-        ProjectService::createSample($id);
         Session::forget('_old');
-        Auth::login(UserModel::find($id) ?? [], $req);
-        Session::flash('ثبت‌نام انجام شد. حساب شما پس از تأیید مدیر فعال می‌شود.', 'success');
-        $this->redirect('/pending');
+        Session::flash('درخواست ثبت‌نام ثبت شد. با شماره موبایل و رمز خود وارد شوید؛ حساب پس از تأیید مدیر فعال می‌شود.', 'success');
+        $this->redirect('/login');
     }
 
     public function logout()
@@ -95,7 +96,7 @@ final class AuthController extends Controller
     public function pending()
     {
         $u = $this->user();
-        if ($u['status'] === 'active' || $u['role'] === 'admin') {
+        if ($u['status'] === 'active') {
             $this->redirect('/');
         }
         $this->view('auth/pending', ['status' => $u['status']], ['title' => 'وضعیت حساب'], 'auth');
@@ -113,7 +114,7 @@ final class AuthController extends Controller
         if ($u === null) {
             $this->redirect('/login');
         }
-        if ($u['role'] === 'admin' && !Auth::isImpersonating()) {
+        if ($u['role'] === 'admin' && $u['status'] === 'active' && !Auth::isImpersonating()) {
             $this->redirect('/admin');
         }
         $this->redirect($u['status'] === 'active' ? '/dashboard' : '/pending');

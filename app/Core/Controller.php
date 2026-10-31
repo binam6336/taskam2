@@ -90,6 +90,14 @@ abstract class Controller
         Response::redirect($redirectTo);
     }
 
+    /** کارهای حساس حساب (رمز، اطلاعات، توکن API) در حالت ورود مدیر به‌جای کاربر ممنوع است. */
+    protected function denyImpersonation(string $redirectTo): void
+    {
+        if (Auth::isImpersonating()) {
+            $this->respond(false, 'این عملیات در حالت ورود به‌جای کاربر مجاز نیست.', $redirectTo);
+        }
+    }
+
     protected function abort(int $status, string $message = '', string $code = 'ERROR')
     {
         throw new HttpException($status, $message !== '' ? $message : 'درخواست نامعتبر است.', $code);

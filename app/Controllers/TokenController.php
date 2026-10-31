@@ -23,6 +23,7 @@ final class TokenController extends Controller
 
     public function store()
     {
+        $this->denyImpersonation('/tokens');
         $uid = $this->uid();
         $name = $this->request->str('name', 100) ?: 'بدون نام';
         if ((int) DB::value('SELECT COUNT(*) FROM api_tokens WHERE user_id = ?', [$uid]) >= TokenModel::MAX_PER_USER) {

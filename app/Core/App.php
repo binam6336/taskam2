@@ -23,7 +23,10 @@ final class App
                 ErrorHandler::log($e);
             }
         });
-        Schema::ensure();
+        // SCHEMA_AUTO=false: مهاجرت خودکار در درخواست وب خاموش است (کاربر DB برنامه بدون ALTER/CREATE؛ مهاجرت با php bin/migrate.php)
+        if (filter_var(env('SCHEMA_AUTO', true), FILTER_VALIDATE_BOOLEAN)) {
+            Schema::ensure();
+        }
         $router = new Router();
         require BASE_PATH . '/config/routes.php';
         $router->dispatch($req);

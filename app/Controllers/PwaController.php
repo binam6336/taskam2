@@ -113,8 +113,11 @@ final class PwaController extends Controller
         $endpoint = trim($r->str('endpoint', 2000));
         $p256dh = trim($r->str('p256dh', 255));
         $auth = trim($r->str('auth', 64));
-        if (!preg_match('#^https://#', $endpoint) || strlen(WebPush::unb64u($p256dh)) !== 65 || strlen(WebPush::unb64u($auth)) < 16) {
+        if (!Push::allowedEndpoint($endpoint) || strlen(WebPush::unb64u($p256dh)) !== 65 || strlen(WebPush::unb64u($auth)) < 16) {
             $this->fail('اطلاعات اشتراک اعلان نامعتبر است.');
+        }
+        if (Push::atLimit($this->uid(), $endpoint)) {
+            $this->fail('حداکثر ' . fa_num(Push::MAX_DEVICES) . ' دستگاه می‌توانند اعلان بگیرند؛ ابتدا اعلان یکی از دستگاه‌های قبلی را غیرفعال کنید.');
         }
         Push::subscribe($this->uid(), $endpoint, $p256dh, $auth, (string) ($r->header('User-Agent') ?? ''));
         $this->ok('اعلان‌ها روی این دستگاه فعال شد.', ['devices' => Push::count($this->uid())]);
@@ -130,6 +133,9 @@ final class PwaController extends Controller
 
     public function test()
     {
+        if (!\App\Core\Throttle::attempt('push_test', (string) $this->uid(), 5, 600)) {
+            $this->fail('اعلان آزمایشی را چند دقیقه بعد دوباره امتحان کنید.', 429);
+        }
         $n = Push::test($this->uid());
         if ($n === 0) {
             $this->fail('هیچ دستگاهی اعلان را دریافت نکرد. ابتدا «فعال‌سازی اعلان‌ها» را بزنید.');

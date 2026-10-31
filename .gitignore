@@ -6,3 +6,4 @@ storage/uploads/*
 storage/uploads/*/*
 !storage/**/.gitkeep
 storage/vapid.json
+*.zip

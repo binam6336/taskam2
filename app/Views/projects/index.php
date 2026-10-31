@@ -5,8 +5,9 @@ foreach ($projects as $p) {
     $boot[(int) $p['id']] = [
         'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
         'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'board_perms' => $p['board_perms'], 'board_view' => $p['board_view'], 'pending' => $p['pending_ids'],
+        // موبایل کامل اعضا فقط برای سازنده و دارندگان «اعطای دسترسی»؛ بقیه نسخه‌ی ماسک‌شده (و شماره‌ی خودشان)
         'members' => array_map(static fn($m) => [
-            'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']),
+            'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $p['is_creator'] || in_array('manage_permissions', (array) $p['perms'], true) || (int) $m['user_id'] === (int) ($currentUser['id'] ?? 0) ? $m['mobile'] : mask_mobile($m['mobile']), 'avatar' => avatar_url($m['avatar']),
             'is_creator' => (int) $m['user_id'] === (int) $p['user_id'],
             'perms' => \App\Services\Access::decode($m['permissions'], array_keys($permDefs)),
             'task_perms' => \App\Services\Access::decode($m['task_permissions'] ?? null, array_keys($taskPermDefs)),

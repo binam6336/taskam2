@@ -17,7 +17,10 @@ final class Auth
 
     public const STATUSES = ['pending', 'active', 'deactivated', 'blocked'];
 
-    public static function hash(string $password): string
+    public static function hash(
+        #[\SensitiveParameter]
+        string $password
+    ): string
     {
         if (defined('PASSWORD_ARGON2ID')) {
             return password_hash($password, PASSWORD_ARGON2ID);
@@ -108,6 +111,9 @@ final class Auth
         return $id > 0 ? DB::one('SELECT id, first_name, last_name, mobile FROM users WHERE id = ? AND role = \'admin\'', [$id]) : null;
     }
 
+    /** دسترسی‌های مدیران (مدیر کل همه را دارد). impersonate و edit_content از v3.25 جدا شدند. */
+    public const ADMIN_PERMS = ['add_user', 'delete_user', 'toggle_status', 'edit_user', 'impersonate', 'edit_content'];
+
     /** مدیر کل = اولین کاربر admin. */
     public static function superAdminId(): int
     {
@@ -121,10 +127,10 @@ final class Auth
             return [];
         }
         if ((int) $u['id'] === self::superAdminId()) {
-            return ['add_user', 'delete_user', 'toggle_status', 'edit_user'];
+            return self::ADMIN_PERMS;
         }
         $p = json_decode((string) ($u['admin_permissions'] ?? '[]'), true);
-        return is_array($p) ? array_values(array_intersect($p, ['add_user', 'delete_user', 'toggle_status', 'edit_user'])) : [];
+        return is_array($p) ? array_values(array_intersect($p, self::ADMIN_PERMS)) : [];
     }
 
     public static function adminCan(string $perm): bool
@@ -137,16 +143,24 @@ final class Auth
      * تلاش برای ورود.
      * @return array{ok:bool,message:string,user?:array}
      */
-    public static function attempt(string $mobile, string $password, Request $req, bool $remember = false): array
+    public static function attempt(
+        string $mobile,
+        #[\SensitiveParameter]
+        string $password,
+        Request $req,
+        bool $remember = false
+    ): array
     {
         $ip = $req->ip();
         $max = max(3, (int) env('LOGIN_MAX_ATTEMPTS', 5));
         $win = max(1, (int) env('LOGIN_WINDOW_MINUTES', 15)) * 60;
         $keyUser = $mobile . '|' . $ip;
 
-        // سه سقف: موبایل+IP، کل IP، و خود حساب از همه‌ی IPها (حمله‌ی توزیع‌شده روی یک حساب)
+        // سه سقف: موبایل+IP، کل IP، و خود حساب از همه‌ی IPها (حمله‌ی توزیع‌شده روی یک حساب).
+        // سقف حساب روی دستگاهی که قبلاً با همین حساب موفق وارد شده اعمال نمی‌شود تا مهاجم نتواند حساب دیگران را قفل کند.
+        $trusted = self::trustedDevice($mobile);
         if (Throttle::count('login_user', $keyUser, $win) >= $max || Throttle::count('login_ip', $ip, $win) >= $max * 5
-            || Throttle::count('login_acct', $mobile, $win) >= $max * 4) {
+            || (!$trusted && Throttle::count('login_acct', $mobile, $win) >= $max * 4)) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.'];
         }
@@ -171,7 +185,63 @@ final class Auth
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);
         }
         self::login($u, $req, $remember);
+        self::trustDevice($mobile);
         return ['ok' => true, 'message' => '', 'user' => $u];
+    }
+
+    // ───── دستگاه مورد اعتماد (کوکی امضاشده بعد از ورود موفق) ─────
+
+    private const TRUST_COOKIE = 'tk_td';
+
+    private static function deviceKey(): string
+    {
+        $k = (string) env('APP_KEY', '');
+        if (strlen($k) >= 16) {
+            return $k;
+        }
+        $file = BASE_PATH . '/storage/cache/device.key';
+        $k = is_file($file) ? (string) file_get_contents($file) : '';
+        if (strlen($k) < 32) {
+            $k = bin2hex(random_bytes(32));
+            @file_put_contents($file, $k, LOCK_EX);
+            @chmod($file, 0600);
+        }
+        return $k;
+    }
+
+    private static function deviceSig(string $mobile): string
+    {
+        return hash_hmac('sha256', 'trusted-device|' . $mobile, self::deviceKey());
+    }
+
+    /** @return string[] امضاهای ذخیره‌شده در کوکی (حداکثر ۵ حساب در یک دستگاه) */
+    private static function deviceSigs(): array
+    {
+        $raw = (string) ($_COOKIE[self::TRUST_COOKIE] ?? '');
+        return array_slice(array_filter(explode('.', $raw), static fn($x) => preg_match('/^[a-f0-9]{64}$/', $x) === 1), 0, 5);
+    }
+
+    private static function trustedDevice(string $mobile): bool
+    {
+        $sig = self::deviceSig($mobile);
+        foreach (self::deviceSigs() as $s) {
+            if (hash_equals($sig, $s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function trustDevice(string $mobile): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+        $sigs = array_values(array_unique(array_merge([self::deviceSig($mobile)], self::deviceSigs())));
+        setcookie(self::TRUST_COOKIE, implode('.', array_slice($sigs, 0, 5)), [
+            'expires' => time() + 180 * 86400, 'path' => Session::cookiePath(), 'domain' => '',
+            'secure' => Session::isHttps(), 'httponly' => true, 'samesite' => 'Lax',
+        ]);
     }
 
     private static function uaHash(Request $req): string

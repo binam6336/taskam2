@@ -319,7 +319,7 @@ document.addEventListener('tk:ready', () => {
     const body = TK.qs('#history-body');
     body.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
     TK.modal.open('m-history');
-    const r = await TK.get('/tasks/' + currentId + '/history');
+    const r = await TK.get('/tasks/' + currentId + '/history' + (current?.share_token ? '?token=' + encodeURIComponent(current.share_token) : ''));
     if (!TK.ok(r)) { TK.modal.close('m-history'); return TK.toast(r.message || 'خطا', 'error'); }
     const items = (r.items || []).slice().reverse();          // جدیدترین بالا
     body.innerHTML = items.length ? items.map((i) => {

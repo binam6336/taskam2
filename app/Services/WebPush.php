@@ -180,7 +180,7 @@ final class WebPush
             curl_close($ch);
             return $code;
         }
-        $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $body, 'timeout' => 8, 'ignore_errors' => true]]);
+        $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $body, 'timeout' => 8, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0]]);
         @file_get_contents($sub['endpoint'], false, $ctx);
         return isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m) ? (int) $m[1] : 0;
     }

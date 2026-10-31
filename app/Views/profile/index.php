@@ -48,7 +48,7 @@ $this->scripts[] = 'profile';
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-user-shield"></i> حریم خصوصی</h3></div>
         <form method="post" action="<?= e(url('/profile/privacy')) ?>" data-ajax data-keep-open><?= csrf_field() ?>
             <label class="check mb-1"><input type="checkbox" name="allow_colleague_requests" value="1" <?= (int) $u['allow_colleague_requests'] === 1 ? 'checked' : '' ?>><div><b>دریافت درخواست همکاری</b><span>دیگران بتوانند شما را با شماره موبایل پیدا و اضافه کنند.</span></div></label>
-            <label class="check mb-2"><input type="checkbox" name="project_join_requires_approval" value="1" <?= (int) $u['project_join_requires_approval'] === 1 ? 'checked' : '' ?>><div><b>تأیید دستی عضویت</b><span>افزودن به پروژه یا لیست همکاران فقط پس از تأیید شما انجام شود.</span></div></label>
+            <label class="check mb-2"><input type="checkbox" name="project_join_requires_approval" value="1" <?= (int) $u['project_join_requires_approval'] === 1 ? 'checked' : '' ?>><div><b>تأیید دستی عضویت</b><span>افزودن به پروژه فقط پس از تأیید شما انجام شود (درخواست همکاری همیشه نیاز به تأیید شما دارد).</span></div></label>
             <button class="btn btn-primary">ذخیره</button></form></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> امنیت تسک‌ها</h3></div>
         <form method="post" action="<?= e(url('/profile/task-security')) ?>" data-ajax data-keep-open><?= csrf_field() ?>

@@ -19,13 +19,13 @@ final class Session
         return max(5, (int) env('SESSION_IDLE_MINUTES', 60)) * 60;
     }
 
-    private static function isHttps(): bool
+    public static function isHttps(): bool
     {
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
             || (env('TRUSTED_PROXY', false) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     }
 
-    private static function cookiePath(): string
+    public static function cookiePath(): string
     {
         return base_url() === '' ? '/' : base_url() . '/';
     }
@@ -66,7 +66,48 @@ final class Session
         ]);
         session_start();
         self::$started = true;
+        // شناسه‌ی قدیمیِ چرخانده‌شده: فقط چند دقیقه (برای درخواست‌های هم‌زمان) معتبر است
+        if (isset($_SESSION['_destroyed']) && (int) $_SESSION['_destroyed'] < time() - 180) {
+            $_SESSION = [];
+        }
         self::enforceLifetime();
+        self::rotate();
+    }
+
+    /**
+     * چرخش دوره‌ای شناسه‌ی نشست واردشده (هر ۶ ساعت فعالیت) تا شناسه‌ی لورفته مدت طولانی (مثلاً ۳۰ روزِ «مرا به خاطر بسپار») کار نکند.
+     * الگوی امن PHP: نشست قدیم علامت می‌خورد و فقط کوتاه‌مدت معتبر می‌ماند.
+     */
+    private static function rotate(): void
+    {
+        if (empty($_SESSION['uid']) || isset($_SESSION['_destroyed']) || self::isBackground() || headers_sent()) {
+            return;
+        }
+        $now = time();
+        $rot = (int) ($_SESSION['_rot'] ?? 0);
+        if ($rot === 0) {
+            $_SESSION['_rot'] = $now;
+            return;
+        }
+        if ($now - $rot < 6 * 3600) {
+            return;
+        }
+        $data = $_SESSION;
+        $new = session_create_id();
+        if (!is_string($new) || $new === '') {
+            return;
+        }
+        $_SESSION['_destroyed'] = $now;
+        session_commit();
+        ini_set('session.use_strict_mode', '0');
+        session_id($new);
+        session_start();                                   // strict_mode در درخواست بعدی دوباره در start() روشن می‌شود
+        $_SESSION = $data;
+        $_SESSION['_rot'] = $now;
+        $life = (int) ($_SESSION['_life'] ?? 0);
+        if ($life > 0) {
+            self::sendCookie($life);
+        }
     }
 
     /** درخواست‌های پس‌زمینه (polling) نباید نشست غیرفعال را زنده نگه دارند. */
@@ -132,6 +173,8 @@ final class Session
     {
         self::start();
         session_regenerate_id(true);
+        $_SESSION['_rot'] = time();
+        unset($_SESSION['_destroyed']);
     }
 
     public static function destroy(): void

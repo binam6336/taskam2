@@ -14,6 +14,8 @@ final class ErrorHandler
         error_reporting(E_ALL);
         ini_set('display_errors', '0');
         ini_set('log_errors', '0');
+        // آرگومان توابع (رمز عبور، رمز DB و …) در trace استثناها و لاگ ذخیره نشود
+        ini_set('zend.exception_ignore_args', '1');
 
         // هشدار/نوتیس/deprecated: در حالت debug استثنا (برای کشف باگ)، در تولید فقط لاگ (پایداری سرویس)
         set_error_handler(static function (int $no, string $msg, string $file, int $line) use ($debug): bool {

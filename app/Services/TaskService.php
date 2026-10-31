@@ -257,6 +257,16 @@ final class TaskService
         if (!Access::canTask($t, $actor, 'complete')) {
             return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
+        // تسک پروژه‌دار: یک مسیر واحد با برد تیمی (مجوزهای مراحل برد و سقف ستون‌ها هم اعمال می‌شود)
+        if ($t['project_id'] !== null) {
+            $to = (int) $t['is_completed'] === 1 ? 'review' : 'done';
+            $m = BoardService::move($actor, $id, $to, '', true);
+            if (!$m['ok']) {
+                return $m;
+            }
+            $done = $to === 'done';
+            return self::res(true, $done ? 'تسک انجام‌شده شد.' : 'تسک به «در انتظار بررسی» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+        }
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
         return self::res(true, $r['is_completed'] ? 'تسک انجام‌شده شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);

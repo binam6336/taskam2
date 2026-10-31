@@ -253,13 +253,14 @@ final class BoardService
     }
 
     /** انتقال کارت به ستون دیگر. */
-    public static function move(int $actor, int $id, string $status, string $reason = ''): array
+    /** $fromTask: از تیک «انجام شد» در لیست تسک‌ها (دیدن تسک قبلاً با مجوز view بررسی شده؛ دیدن کارت در برد لازم نیست) */
+    public static function move(int $actor, int $id, string $status, string $reason = '', bool $fromTask = false): array
     {
         if (!isset(self::STATUSES[$status]) && $status !== 'archived') {
             return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
         }
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::canBoardView($t, $actor)) {
+        if ($t === null || (!$fromTask && !Access::canBoardView($t, $actor))) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
         $from = self::status($t);
@@ -277,6 +278,9 @@ final class BoardService
         }
         if ($from === $status) {
             return self::res(true, 'تسک همین حالا در «' . self::STATUSES[$status]['label'] . '» است.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+        }
+        if ($status === 'done' && !Access::canTask($t, $actor, 'complete')) {
+            return self::res(false, 'شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
         if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
             return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);

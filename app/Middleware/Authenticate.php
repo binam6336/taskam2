@@ -8,7 +8,7 @@ use App\Core\HttpException;
 use App\Core\Request;
 use App\Core\Response;
 
-/** کاربر واردشده با وضعیت active (یا ادمین). */
+/** کاربر واردشده با وضعیت active (مدیر مسدود/غیرفعال هم استثنا ندارد). */
 final class Authenticate
 {
     public static function handle(Request $r): void
@@ -20,7 +20,7 @@ final class Authenticate
             }
             Response::redirect('/login');
         }
-        if ($u['status'] !== 'active' && $u['role'] !== 'admin') {
+        if ($u['status'] !== 'active') {
             if ($r->wantsJson()) {
                 throw new HttpException(403, 'حساب کاربری شما فعال نیست.', 'ACCOUNT_INACTIVE');
             }

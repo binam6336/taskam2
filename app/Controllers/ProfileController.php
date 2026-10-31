@@ -10,6 +10,7 @@ use App\Core\DB;
 use App\Core\Throttle;
 use App\Core\Uploader;
 use App\Core\Validate;
+use App\Models\TokenModel;
 use App\Models\UserModel;
 use App\Services\TaskService;
 
@@ -32,6 +33,7 @@ final class ProfileController extends Controller
 
     public function updateInfo()
     {
+        $this->denyImpersonation('/profile');
         $u = $this->user();
         $r = $this->request;
         $first = $r->str('first_name', 100);
@@ -52,6 +54,7 @@ final class ProfileController extends Controller
 
     public function updatePassword()
     {
+        $this->denyImpersonation('/profile');
         $u = $this->user();
         $r = $this->request;
         $cur = (string) $r->input('current_password', '');
@@ -74,9 +77,10 @@ final class ProfileController extends Controller
         }
         DB::update('users', ['password_hash' => Auth::hash($new)], 'id = ?', [(int) $u['id']]);
         Auth::refreshPasswordVersion((int) $u['id']);
+        TokenModel::revokeAll((int) $u['id']);              // توکن‌های API هم باطل می‌شوند
         Throttle::clear('pwd_change', (string) $u['id']);
         Audit::log((int) $u['id'], 'password_changed');
-        $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند.', '/profile');
+        $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند و توکن‌های API غیرفعال شدند.', '/profile');
     }
 
     public function avatar()

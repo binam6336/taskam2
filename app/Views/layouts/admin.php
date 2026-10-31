@@ -28,6 +28,9 @@ $menu = [
         ['admin-support', '/admin/support', 'fa-headset', 'تیکت‌ها'],
     ]],
 ];
+if (!\App\Core\Auth::adminCan('edit_content')) {
+    $menu = array_values(array_filter($menu, static fn($m) => ($m['group'] ?? '') !== 'content'));
+}
 $badges = ['admin-support' => (int) ($supportUnread ?? 0)];
 $badgeAs = ['admin-support' => 'support'];
 ?>

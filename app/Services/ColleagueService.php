@@ -20,11 +20,29 @@ final class ColleagueService
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = u.id AND cb.blocked_user_id = ?) AS has_blocked_me
             FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE $w ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid], $p, [$limit, $offset]));
+        $ok = self::approvedIds($uid);
         foreach ($rows as &$r) {
             $r['is_blocked_by_me'] = (int) $r['is_blocked_by_me'] > 0;
             $r['has_blocked_me'] = (int) $r['has_blocked_me'] > 0;
+            // همکاری‌های قدیمیِ یک‌طرفه (بدون تأیید طرف مقابل): ایمیل پنهان و موبایل ماسک
+            $r['approved'] = isset($ok[(int) $r['user_id']]);
+            if (!$r['approved']) {
+                $r['mobile'] = mask_mobile($r['mobile']);
+                $r['email'] = null;
+            }
         }
         return $rows;
+    }
+
+    /**
+     * همکارانی که طرف مقابل رضایت داده: درخواست همکاری را پذیرفته یا خودش هم این کاربر را همکار کرده.
+     * @return array<int,true>
+     */
+    public static function approvedIds(int $uid): array
+    {
+        $ids = DB::all("SELECT target_id AS id FROM colleague_requests WHERE requester_id = ? AND status = 'accepted'
+            UNION SELECT user_id AS id FROM colleagues WHERE colleague_user_id = ?", [$uid, $uid]);
+        return array_fill_keys(array_map(static fn($r) => (int) $r['id'], $ids), true);
     }
 
     public static function incomingRequests(int $uid): array
@@ -57,11 +75,18 @@ final class ColleagueService
         return ['user' => $u, 'already_added' => (int) ($s['already_added'] ?? 0) > 0, 'is_blocked_by_me' => (int) ($s['is_blocked_by_me'] ?? 0) > 0, 'has_blocked_me' => (int) ($s['has_blocked_me'] ?? 0) > 0, 'has_pending_request' => (int) ($s['has_pending_request'] ?? 0) > 0, 'accepts_requests' => (int) $u['allow_colleague_requests'] === 1];
     }
 
-    /** @return array{0:bool,1:string,2:string} [ok, message, state(added|pending)] */
+    /**
+     * افزودن همکار همیشه درخواستی است و فقط با تأیید طرف مقابل انجام می‌شود
+     * (مگر او قبلاً به همین کاربر درخواست داده باشد که در این صورت همان پذیرفته می‌شود).
+     * @return array{0:bool,1:string,2:string} [ok, message, state(added|pending)]
+     */
     public static function add(int $uid, int $targetId): array
     {
         if ($targetId <= 0 || $targetId === $uid) {
             return [false, 'شناسه‌ی همکار نامعتبر است.', ''];
+        }
+        if (!\App\Core\Throttle::attempt('colleague_add', (string) $uid, 20, 3600)) {
+            return [false, 'تعداد درخواست‌های همکاری زیاد است؛ یک ساعت بعد دوباره تلاش کنید.', ''];
         }
         if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?', [$uid, $targetId])) {
             return [false, 'شما این کاربر را مسدود کرده‌اید؛ ابتدا از مسدودها خارجش کنید.', ''];
@@ -69,7 +94,7 @@ final class ColleagueService
         if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?', [$targetId, $uid])) {
             return [false, 'این کاربر شما را مسدود کرده است.', ''];
         }
-        $t = DB::one("SELECT id, first_name, last_name, mobile, allow_colleague_requests, project_join_requires_approval FROM users WHERE id = ? AND status = 'active' AND is_bot = 0", [$targetId]);
+        $t = DB::one("SELECT id, allow_colleague_requests FROM users WHERE id = ? AND status = 'active' AND is_bot = 0", [$targetId]);
         if ($t === null) {
             return [false, 'کاربر مورد نظر معتبر نیست.', ''];
         }
@@ -79,13 +104,17 @@ final class ColleagueService
         if (DB::value('SELECT 1 FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$uid, $targetId])) {
             return [false, 'این کاربر قبلاً در لیست همکاران شماست.', ''];
         }
-        if ((int) $t['project_join_requires_approval'] === 1) {
-            DB::run('DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ?', [$uid, $targetId]);
-            DB::insert('colleague_requests', ['requester_id' => $uid, 'target_id' => $targetId, 'status' => 'pending']);
-            return [true, 'درخواست همکاری برای ' . full_name($t) . ' ارسال شد و در انتظار تأیید ایشان است.', 'pending'];
+        // طرف مقابل قبلاً درخواست داده: رضایت دوطرفه وجود دارد
+        $theirs = (int) DB::value("SELECT id FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1", [$targetId, $uid]);
+        if ($theirs > 0) {
+            self::respond($theirs, $uid, true);
+            DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [$uid, $targetId]);
+            DB::run("DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending'", [$uid, $targetId]);
+            return [true, 'همکار به لیست شما اضافه شد.', 'added'];
         }
-        DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [$uid, $targetId]);
-        return [true, 'همکار به لیست شما اضافه شد.', 'added'];
+        DB::run('DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ?', [$uid, $targetId]);
+        DB::insert('colleague_requests', ['requester_id' => $uid, 'target_id' => $targetId, 'status' => 'pending']);
+        return [true, 'درخواست همکاری ارسال شد و پس از تأیید طرف مقابل، به لیست همکاران شما اضافه می‌شود.', 'pending'];
     }
 
     public static function respond(int $requestId, int $uid, bool $accept): array

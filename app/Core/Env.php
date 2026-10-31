@@ -26,7 +26,7 @@ final class Env
                 $end = strrpos($v, $q);
                 $v = $end > 0 ? substr($v, 1, $end - 1) : substr($v, 1);
             } else {
-                $v = trim((string) preg_replace('/\s+#.*$/', '', $v));
+                $v = $v !== '' && $v[0] === '#' ? '' : trim((string) preg_replace('/\s+#.*$/', '', $v));   // مقدار خالی + توضیح
             }
             self::$vars[$k] = $v;
         }

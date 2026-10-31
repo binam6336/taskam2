@@ -103,7 +103,8 @@ final class ChatController extends Controller
             $this->fail('دسترسی ندارید', 403);
         }
         $this->touch($uid);
-        if ($other !== $uid) {
+        // GET است؛ «خوانده‌شده» فقط برای درخواست خود برنامه (با توکن CSRF) ثبت می‌شود، نه لینک از سایت دیگر
+        if ($other !== $uid && \App\Core\Csrf::verify($r)) {
             ChatModel::markRead($uid, $other);
         }
         $limit = max(5, min(100, (int) ($r->query['limit'] ?? 30)));

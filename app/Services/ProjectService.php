@@ -156,6 +156,40 @@ final class ProjectService
         return [true, 'پروژه به‌روزرسانی شد.'];
     }
 
+    /**
+     * غیرسازنده فقط روی اعضایی کار می‌کند که دسترسی‌شان (پروژه، تسک، برد) زیرمجموعه‌ی سخت‌گیرانه‌ی دسترسی خودش باشد؛
+     * یعنی عضو هم‌رده یا بالاتر را نمی‌تواند حذف کند یا مجوزهایش را تغییر دهد. روی خودش هم کار نمی‌کند.
+     */
+    public static function canManageMember(int $projectId, int $actorId, int $memberId): bool
+    {
+        // نتیجه در طول همین درخواست ثابت می‌ماند (ذخیره‌ی چندمرحله‌ای مثل نقش یا برد + سقف، وسط کار رد نشود)
+        static $memo = [];
+        $k = "$projectId:$actorId:$memberId";
+        return $memo[$k] ??= self::outranks($projectId, $actorId, $memberId);
+    }
+
+    private static function outranks(int $projectId, int $actorId, int $memberId): bool
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($actorId === $creator) {
+            return true;
+        }
+        if ($memberId === $actorId || $memberId === $creator) {
+            return false;
+        }
+        $sets = [[Access::projectPerms($projectId, $actorId), Access::projectPerms($projectId, $memberId)],
+                 [Access::projectTaskPerms($projectId, $actorId), Access::projectTaskPerms($projectId, $memberId)],
+                 [Access::projectBoardPerms($projectId, $actorId), Access::projectBoardPerms($projectId, $memberId)]];
+        $strict = false;
+        foreach ($sets as [$mine, $theirs]) {
+            if (array_diff($theirs, $mine)) {
+                return false;                                  // عضو دسترسی‌ای دارد که بازیگر ندارد
+            }
+            $strict = $strict || (bool) array_diff($mine, $theirs);
+        }
+        return $strict;
+    }
+
     public static function removeMember(int $projectId, int $actorId, int $memberId): array
     {
         $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
@@ -167,6 +201,9 @@ final class ProjectService
         }
         if ($memberId === $creator) {
             return [false, 'سازنده‌ی پروژه قابل حذف نیست.'];
+        }
+        if (DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]) && !self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
         }
         $n = DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
         return $n > 0 ? [true, 'کاربر از پروژه حذف شد.'] : [false, 'کاربر عضو پروژه نیست.'];
@@ -184,6 +221,9 @@ final class ProjectService
         }
         if ($memberId === $creator) {
             return [false, 'مجوزهای سازنده قابل تغییر نیست.'];
+        }
+        if (!self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
         }
         $old = Access::decode((string) DB::value('SELECT permissions FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]), array_keys(Access::PROJECT_PERMS));
         if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
@@ -281,6 +321,9 @@ final class ProjectService
         if ($memberId === $creator) {
             return [false, 'برای سازنده‌ی پروژه سقف تعداد تسک تعیین نمی‌شود.'];
         }
+        if (!self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
+        }
         if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
             return [false, 'کاربر عضو پروژه نیست.'];
         }
@@ -327,6 +370,9 @@ final class ProjectService
         }
         if ($memberId === $creator) {
             return [false, 'سازنده‌ی پروژه همیشه همه‌ی دسترسی‌ها را دارد.'];
+        }
+        if (!self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
         }
         $row = DB::one('SELECT `' . $column . '` AS v FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
         if ($row === null) {

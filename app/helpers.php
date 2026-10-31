@@ -318,3 +318,10 @@ function ph(string $id): string
 {
     return \App\Core\PlaceholderText::get($id);
 }
+
+/** نمایش بخشی از موبایل (برای جاهایی که کاربر هنوز رضایت به دیده‌شدن شماره‌اش نداده): 0912***4567 */
+function mask_mobile(?string $m): ?string
+{
+    $m = (string) $m;
+    return $m === '' ? null : (strlen($m) > 7 ? substr($m, 0, 4) . '***' . substr($m, -4) : '***');
+}

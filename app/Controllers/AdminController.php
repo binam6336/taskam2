@@ -21,7 +21,8 @@ use App\Services\SupportDesk;
 /** پنل مدیریت: کاربران، پشتیبانی، تحلیل سیستم. */
 final class AdminController extends Controller
 {
-    private const PERMS = ['add_user' => 'افزودن کاربر', 'edit_user' => 'ویرایش کاربر', 'toggle_status' => 'تغییر وضعیت', 'delete_user' => 'حذف کاربر'];
+    private const PERMS = ['add_user' => 'افزودن کاربر', 'edit_user' => 'ویرایش کاربر', 'toggle_status' => 'تغییر وضعیت', 'delete_user' => 'حذف کاربر',
+        'impersonate' => 'ورود به پنل کاربر', 'edit_content' => 'ویرایش محتوا (سایدبار، تور، Placeholder، خطاها)'];
 
     private function isSuper(): bool
     {
@@ -122,6 +123,9 @@ final class AdminController extends Controller
             $d['admin_permissions'] = $role === 'admin' ? $this->adminPerms() : null;
         }
         DB::update('users', $d, 'id = ?', [(int) $id]);
+        if ($pass !== '') {
+            \App\Models\TokenModel::revokeAll((int) $id);   // با تغییر رمز، توکن‌های API قبلی باطل می‌شوند
+        }
         Audit::log($this->uid(), 'admin_user_updated', ['id' => (int) $id, 'password' => $pass !== '']);
         $this->respond(true, 'اطلاعات کاربر ذخیره شد.', '/admin');
     }
@@ -159,6 +163,7 @@ final class AdminController extends Controller
 
     public function impersonate(string $id)
     {
+        $this->need('impersonate');
         $t = UserModel::find((int) $id);
         if ($t === null || $t['role'] === 'admin' || $t['status'] !== 'active' || (int) $t['is_bot'] === 1) {
             $this->respond(false, 'فقط کاربران عادیِ فعال قابل ورود هستند.', '/admin');
@@ -230,6 +235,7 @@ final class AdminController extends Controller
     /** محتوا ← سایدبار: چیدمان، نام و مقصد (صفحه‌ی پنل یا لینک خارجی) گزینه‌های سایدبار پنل کاربر */
     public function contentSidebar()
     {
+        $this->need('edit_content');
         $pages = [];
         foreach (SidebarModel::pages() as $k => [$path, $icon, $label]) {
             $pages[] = ['key' => $k, 'path' => $path, 'icon' => $icon, 'label' => $label];
@@ -242,6 +248,7 @@ final class AdminController extends Controller
 
     public function contentSidebarSave()
     {
+        $this->need('edit_content');
         $data = json_decode((string) $this->request->input('menu', ''), true);
         if (!is_array($data)) {
             $this->respond(false, 'داده‌ی سایدبار نامعتبر است.', '/admin/content/sidebar');
@@ -260,6 +267,7 @@ final class AdminController extends Controller
 
     public function contentSidebarReset()
     {
+        $this->need('edit_content');
         SidebarModel::reset();
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
         $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
@@ -268,12 +276,14 @@ final class AdminController extends Controller
     /** محتوا ← Placeholder: متن راهنمای فیلدهای پنل کاربر با مسیر هر کدام (config/placeholder_texts.php) */
     public function contentPlaceholders()
     {
+        $this->need('edit_content');
         $this->view('admin/content_placeholders', ['groups' => PlaceholderText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'Placeholder', 'page' => 'admin-content-ph'], 'admin');
     }
 
     public function contentPlaceholderSave(string $id)
     {
+        $this->need('edit_content');
         $err = PlaceholderText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/placeholders');
@@ -285,12 +295,14 @@ final class AdminController extends Controller
     /** محتوا ← خطاها: همه‌ی خطاهای پنل کاربر با توضیح و متن قابل ویرایش (config/error_texts.php) */
     public function contentErrors()
     {
+        $this->need('edit_content');
         $this->view('admin/content_errors', ['groups' => ErrorText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'خطاها', 'page' => 'admin-content-errors'], 'admin');
     }
 
     public function contentErrorSave(string $id)
     {
+        $this->need('edit_content');
         $err = ErrorText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/errors');
@@ -302,12 +314,14 @@ final class AdminController extends Controller
     /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */
     public function contentTour()
     {
+        $this->need('edit_content');
         $this->view('admin/content_tour', ['groups' => ContentModel::tourForAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'تور آموزشی', 'page' => 'admin-content-tour'], 'admin');
     }
 
     public function contentTourSave(string $id)
     {
+        $this->need('edit_content');
         if (!array_key_exists($id, ContentModel::tourDefs())) {
             $this->respond(false, 'متن یافت نشد.', '/admin/content/tour');
         }

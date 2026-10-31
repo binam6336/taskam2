@@ -32,7 +32,7 @@ $me = (int) $currentUser['id'];
                     <?php foreach ($stLbl as $k => [$l]): if ($k === $u['status']) { continue; } ?><button data-post="<?= e(url('/admin/users/' . $u['id'] . '/status')) ?>" data-data='<?= e(json_encode(['status' => $k])) ?>'><?= e($l) ?></button><?php endforeach; ?></div></div>
             <?php endif; ?>
             <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button class="btn btn-xs btn-icon" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= (int) $u['id'] ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
-            <?php if (!$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
+            <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
             <?php if ($can('delete_user') && !$protected): ?><button class="btn btn-xs btn-icon btn-danger" data-post="<?= e(url('/admin/users/' . $u['id'] . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟" title="حذف"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
         </div></td></tr>
 <?php endforeach; ?></tbody></table></div>

@@ -73,6 +73,10 @@ final class ColleagueApi extends ApiController
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = u.id AND blocked_user_id = ?) AS has_blocked_me
             FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.id = ?', [$this->uid, $this->uid, (int) $r['id']]);
+        if (!isset(ColleagueService::approvedIds($this->uid)[(int) $c['user_id']])) {
+            $c['mobile'] = mask_mobile($c['mobile']);       // همکاری یک‌طرفه‌ی قدیمی
+            $c['email'] = null;
+        }
         $this->ok(['row_id' => (int) $c['row_id']] + self::person($c) + ['added_at' => $c['added_at'], 'is_blocked_by_me' => (int) $c['is_blocked_by_me'] > 0, 'has_blocked_me' => (int) $c['has_blocked_me'] > 0]);
     }
 
@@ -103,7 +107,7 @@ final class ColleagueApi extends ApiController
             $this->err('کاربری با این شماره موبایل یافت نشد.', 404, 'USER_NOT_FOUND');
         }
         $u = $r['user'];
-        $this->ok(['user' => ['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $r['already_added'] ? $u['email'] : null, 'avatar_url' => avatar_url($u['avatar'])],
+        $this->ok(['user' => ['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $r['already_added'] && isset(ColleagueService::approvedIds($this->uid)[(int) $u['id']]) ? $u['email'] : null, 'avatar_url' => avatar_url($u['avatar'])],
             'already_added' => $r['already_added'], 'is_blocked' => !$r['accepts_requests'], 'is_blocked_by_me' => $r['is_blocked_by_me'], 'has_blocked_me' => $r['has_blocked_me']]);
     }
 
