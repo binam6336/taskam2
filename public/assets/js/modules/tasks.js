@@ -18,16 +18,18 @@ document.addEventListener('tk:ready', () => {
   const LINK_RE = /\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
   const rich = (text, names = []) => {
     const src = String(text || ''); let out = '', last = 0, m;
+    // منشن فقط روی بخش‌های متنی (نه داخل HTML لینک‌های ساخته‌شده) اعمال می‌شود
+    const list = [...new Set(names.filter(Boolean).map(E))].sort((a, b) => b.length - a.length);
+    const mentionRe = list.length ? new RegExp('@(' + list.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g') : null;
+    const txt = (s) => (mentionRe ? E(s).replace(mentionRe, '<span class="mention">@$1</span>') : E(s));
     LINK_RE.lastIndex = 0;
     while ((m = LINK_RE.exec(src))) {
-      out += E(src.slice(last, m.index));
+      out += txt(src.slice(last, m.index));
       const url = m[2] || m[3], label = m[1] || m[3];
       out += `<a href="${E(url)}" target="_blank" rel="noopener noreferrer" class="rich-link" title="${E(url)}"><i class="fa-solid fa-arrow-up-right-from-square"></i>${E(label)}</a>`;
       last = m.index + m[0].length;
     }
-    out += E(src.slice(last));
-    const list = [...new Set(names.filter(Boolean).map(E))].sort((a, b) => b.length - a.length);
-    if (list.length) out = out.replace(new RegExp('@(' + list.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g'), '<span class="mention">@$1</span>');
+    out += txt(src.slice(last));
     return out;
   };
 

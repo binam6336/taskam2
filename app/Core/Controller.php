@@ -98,6 +98,15 @@ abstract class Controller
         }
     }
 
+    /** محدودیت نرخ مسیرهای سنگین پنل (به ازای کاربر)؛ بیش از سقف = ۴۲۹ */
+    protected function rateLimit(string $bucket, int $max, int $windowSeconds = 60): void
+    {
+        if (!Throttle::attempt($bucket, (string) $this->uid(), $max, $windowSeconds)) {
+            header('Retry-After: ' . $windowSeconds);
+            throw new HttpException(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
+        }
+    }
+
     protected function abort(int $status, string $message = '', string $code = 'ERROR')
     {
         throw new HttpException($status, $message !== '' ? $message : 'درخواست نامعتبر است.', $code);

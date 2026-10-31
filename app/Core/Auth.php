@@ -158,9 +158,15 @@ final class Auth
 
         // سه سقف: موبایل+IP، کل IP، و خود حساب از همه‌ی IPها (حمله‌ی توزیع‌شده روی یک حساب).
         // سقف حساب روی دستگاهی که قبلاً با همین حساب موفق وارد شده اعمال نمی‌شود تا مهاجم نتواند حساب دیگران را قفل کند.
+        // اول ثبت، بعد شمارش (Race): ده‌ها درخواست هم‌زمان هم فقط به اندازه‌ی سقف حدس می‌زنند. ورود موفق ثبت‌ها را برمی‌دارد.
         $trusted = self::trustedDevice($mobile);
-        if (Throttle::count('login_user', $keyUser, $win) >= $max || Throttle::count('login_ip', $ip, $win) >= $max * 5
-            || (!$trusted && Throttle::count('login_acct', $mobile, $win) >= $max * 4)) {
+        Throttle::hit('login_user', $keyUser);
+        Throttle::hit('login_ip', $ip);
+        if (!$trusted) {
+            Throttle::hit('login_acct', $mobile);
+        }
+        if (Throttle::count('login_user', $keyUser, $win) > $max || Throttle::count('login_ip', $ip, $win) > $max * 5
+            || (!$trusted && Throttle::count('login_acct', $mobile, $win) > $max * 4)) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.'];
         }
@@ -171,15 +177,13 @@ final class Auth
         $valid = password_verify($password, $u['password_hash'] ?? $dummy) && $u !== null;
 
         if (!$valid) {
-            Throttle::hit('login_user', $keyUser);
-            Throttle::hit('login_ip', $ip);
-            Throttle::hit('login_acct', $mobile);
             Audit::log($u ? (int) $u['id'] : null, 'login_failed', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => 'شماره موبایل یا رمز عبور اشتباه است.'];
         }
 
         Throttle::clear('login_user', $keyUser);
         Throttle::clear('login_acct', $mobile);
+        Throttle::undo('login_ip', $ip);                       // ورود موفق از سهمیه‌ی IP (مثلاً دفتر با NAT مشترک) کم نکند
         if (password_needs_rehash((string) $u['password_hash'], self::algo())) {
             $u['password_hash'] = self::hash($password);      // مهم: هش جدید باید در همان $u باشد وگرنه نسخه‌ی رمز در سشن ناهمگام می‌شود و کاربر بلافاصله خارج می‌شود
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);

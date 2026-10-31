@@ -120,9 +120,14 @@ final class ColleagueApi extends ApiController
             if ($m === null) {
                 $this->err('mobile یا user_id معتبر الزامی است.', 400, 'MOBILE_REQUIRED');
             }
+            // همان سقف جستجوی کاربر (۳۰ در ۱۰ دقیقه)؛ برای شماره‌ی ثبت‌نشده هم همان پاسخ «درخواست ارسال شد» (ضد شمارش شماره‌ها)
+            if (!Throttle::attempt('user_lookup', (string) $this->uid, 30, 600)) {
+                header('Retry-After: 600');
+                $this->err('تعداد جستجوها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.', 429, 'RATE_LIMITED');
+            }
             $target = (int) DB::value("SELECT id FROM users WHERE mobile = ? AND status = 'active' AND is_bot = 0", [$m]);
             if ($target <= 0) {
-                $this->err('کاربری با این شماره موبایل یافت نشد.', 404, 'USER_NOT_FOUND');
+                $this->ok(['row_id' => null, 'user_id' => null, 'created_at' => null, 'state' => 'pending', 'requires_approval' => true], 'درخواست همکاری ارسال شد و پس از تأیید طرف مقابل، به لیست همکاران شما اضافه می‌شود.');
             }
         }
         [$ok, $msg, $state] = ColleagueService::add($this->uid, $target);

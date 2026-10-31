@@ -80,7 +80,7 @@ final class ChatController extends Controller
         if ($f === null) {
             $this->fail('فایلی انتخاب نشده است.');
         }
-        $r = Uploader::saveAttachment($f, 'chat_files', 'chat' . $uid, Uploader::CHAT_TYPES, 50 * 1024 * 1024);
+        $r = Uploader::saveAttachment($f, 'chat_files', 'chat' . $uid, Uploader::CHAT_TYPES, max(1, (int) env('CHAT_FILE_MAX_MB', 20)) * 1024 * 1024, $uid);
         if (!$r['ok']) {
             $this->fail($r['error']);
         }
@@ -115,6 +115,7 @@ final class ChatController extends Controller
 
     public function search()
     {
+        $this->rateLimit('chat_search', 10);                    // جستجو در پیام‌های رمزشده سنگین است
         $uid = $this->uid();
         $q = mb_substr(trim((string) ($this->request->query['q'] ?? '')), 0, 100);
         if (mb_strlen($q) < 2) {

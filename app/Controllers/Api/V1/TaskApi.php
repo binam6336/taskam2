@@ -43,7 +43,8 @@ final class TaskApi extends ApiController
             $this->err('تسک یافت نشد.', 404, 'TASK_NOT_FOUND');
         }
         $out = self::format($t);
-        $out['notes'] = DB::all('SELECT tn.id, tn.user_id, tn.note, tn.created_at, u.first_name, u.last_name, u.mobile FROM task_notes tn LEFT JOIN users u ON u.id = tn.user_id WHERE tn.task_id = ? ORDER BY tn.created_at DESC, tn.id DESC', [$id]);
+        $out['notes'] = array_map(static fn($n) => ['mobile' => mask_mobile($n['mobile'])] + $n,     // موبایل نویسنده‌ی یادداشت ماسک‌شده
+            DB::all('SELECT tn.id, tn.user_id, tn.note, tn.created_at, u.first_name, u.last_name, u.mobile FROM task_notes tn LEFT JOIN users u ON u.id = tn.user_id WHERE tn.task_id = ? ORDER BY tn.created_at DESC, tn.id DESC', [$id]));
         $this->ok($out);
     }
 

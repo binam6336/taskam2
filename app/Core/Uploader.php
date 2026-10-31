@@ -102,11 +102,39 @@ final class Uploader
      * ذخیره‌ی یک فایل پیوست.
      * @return array{ok:bool,error?:string,name?:string,original?:string,size?:int,ext?:string,mime?:string}
      */
-    public static function saveAttachment(array $file, string $type, string $prefix, array $types = self::ATTACH_TYPES, int $max = self::ATTACH_MAX): array
+    /** سهمیه‌ی روزانه‌ی آپلود هر کاربر (مگابایت، همه‌ی بخش‌ها روی هم: چت، تسک، یادداشت، تیکت) */
+    public static function dailyQuota(): int
+    {
+        return max(10, (int) env('UPLOAD_DAILY_MB', 500)) * 1024 * 1024;
+    }
+
+    /** حجم آپلودهای ۲۴ ساعت اخیر کاربر */
+    public static function usedToday(int $uid): int
+    {
+        $since = date('Y-m-d H:i:s', time() - 86400);
+        return (int) DB::value('SELECT
+              (SELECT COALESCE(SUM(attachment_size), 0) FROM chat_messages WHERE sender_id = ? AND created_at > ?)
+            + (SELECT COALESCE(SUM(file_size), 0) FROM task_attachments WHERE user_id = ? AND created_at > ?)
+            + (SELECT COALESCE(SUM(file_size), 0) FROM note_attachments WHERE user_id = ? AND created_at > ?)
+            + (SELECT COALESCE(SUM(attachment_size), 0) FROM support_messages WHERE sender_id = ? AND created_at > ?)', [$uid, $since, $uid, $since, $uid, $since, $uid, $since]);
+    }
+
+    /**
+     * @param int|null $uid با شناسه‌ی کاربر: سهمیه‌ی حجم روزانه و حداکثر ۶۰ فایل در ساعت هم بررسی می‌شود (جلوی پر کردن دیسک)
+     */
+    public static function saveAttachment(array $file, string $type, string $prefix, array $types = self::ATTACH_TYPES, int $max = self::ATTACH_MAX, ?int $uid = null): array
     {
         $orig = mb_substr(basename((string) $file['name']), 0, 200, 'UTF-8');
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'error' => ErrorText::apply($orig . ' (خطا در آپلود)')];
+        }
+        if ($uid !== null) {
+            if (!Throttle::attempt('upload', (string) $uid, 60, 3600)) {
+                return ['ok' => false, 'error' => ErrorText::apply($orig . ' (تعداد آپلودها زیاد است؛ کمی بعد دوباره تلاش کنید)')];
+            }
+            if (self::usedToday($uid) + (int) $file['size'] > self::dailyQuota()) {
+                return ['ok' => false, 'error' => ErrorText::apply($orig . ' (سهمیه‌ی آپلود امروز شما تمام شده است)')];
+            }
         }
         $size = (int) $file['size'];
         if ($size <= 0 || $size > $max) {

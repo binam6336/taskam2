@@ -14,6 +14,7 @@ final class BoardController extends Controller
 {
     public function index()
     {
+        $this->rateLimit('heavy_board', 60);
         $uid = $this->uid();
         $q = $this->request->query;
         $projects = BoardService::projects($uid);
@@ -52,6 +53,7 @@ final class BoardController extends Controller
     /** همه‌ی آرشیو (پاپ‌آپ «مشاهده بیشتر») با همان فیلترهای برد */
     public function archive()
     {
+        $this->rateLimit('heavy_board_archive', 60);
         $uid = $this->uid();
         $res = BoardService::archive($uid, $this->filters($uid), 0);
         $items = array_map(static fn($t) => [

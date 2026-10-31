@@ -26,6 +26,7 @@ final class CalendarController extends Controller
     /** GET /calendar/data?from=YYYY-MM-DD&to=YYYY-MM-DD&scope=all|mine|others&done=0|1 */
     public function data()
     {
+        $this->rateLimit('heavy_calendar', 60);
         $uid = $this->uid();
         $q = $this->request->query;
         $from = Validate::date((string) ($q['from'] ?? ''));

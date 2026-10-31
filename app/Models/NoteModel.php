@@ -11,7 +11,7 @@ final class NoteModel
 {
     public static function forTask(int $taskId): array
     {
-        $notes = DB::all('SELECT n.*, u.first_name, u.last_name, u.mobile, u.avatar FROM task_notes n INNER JOIN users u ON u.id = n.user_id WHERE n.task_id = ? ORDER BY n.created_at ASC, n.id ASC', [$taskId]);
+        $notes = DB::all('SELECT n.*, u.first_name, u.last_name, u.avatar FROM task_notes n INNER JOIN users u ON u.id = n.user_id WHERE n.task_id = ? ORDER BY n.created_at ASC, n.id ASC', [$taskId]);
         if (!$notes) {
             return [];
         }
@@ -55,7 +55,7 @@ final class NoteModel
         $saved = [];
         $errors = [];
         foreach (array_slice($files, 0, 10) as $f) {
-            $r = Uploader::saveAttachment($f, $type, $kind . $uid);
+            $r = Uploader::saveAttachment($f, $type, $kind . $uid, Uploader::ATTACH_TYPES, Uploader::ATTACH_MAX, $uid);
             if (!$r['ok']) {
                 $errors[] = $r['error'];
                 continue;

@@ -28,14 +28,20 @@ final class Throttle
         DB::run('DELETE FROM rate_limits WHERE bucket = ? AND `key` = ?', [$bucket, self::k($key)]);
     }
 
-    /** ثبت تلاش و بررسی سقف؛ true یعنی مجاز است. */
+    /**
+     * ثبت تلاش و بررسی سقف؛ true یعنی مجاز است.
+     * اول ثبت، بعد شمارش (شامل همین درخواست): درخواست‌های هم‌زمان نمی‌توانند همه شمارنده‌ی خالی را ببینند و سقف را دور بزنند.
+     */
     public static function attempt(string $bucket, string $key, int $max, int $windowSeconds): bool
     {
-        if (self::count($bucket, $key, $windowSeconds) >= $max) {
-            return false;
-        }
         self::hit($bucket, $key);
-        return true;
+        return self::count($bucket, $key, $windowSeconds) <= $max;
+    }
+
+    /** برداشتن آخرین ثبت (مثلاً تلاشی که موفق شد و نباید از سهمیه کم کند) */
+    public static function undo(string $bucket, string $key): void
+    {
+        DB::run('DELETE FROM rate_limits WHERE bucket = ? AND `key` = ? ORDER BY id DESC LIMIT 1', [$bucket, self::k($key)]);
     }
 
     private static function k(string $key): string

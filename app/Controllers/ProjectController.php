@@ -131,6 +131,7 @@ final class ProjectController extends Controller
 
     public function analytics(string $id)
     {
+        $this->rateLimit('heavy_analytics', 30);
         $uid = $this->uid();
         $p = ProjectModel::find((int) $id);
         if ($p === null || !Access::isProjectMember((int) $id, $uid)) {
@@ -149,6 +150,7 @@ final class ProjectController extends Controller
     /** داده‌ی نمودار مقایسه‌ی سرعت انجام (AJAX). */
     public function speed(string $id)
     {
+        $this->rateLimit('heavy_analytics', 30);
         $uid = $this->uid();
         if (ProjectModel::find((int) $id) === null || !Access::isProjectMember((int) $id, $uid) || !Access::projectCan((int) $id, $uid, 'view_analytics')) {
             $this->fail('دسترسی مشاهده‌ی تحلیل‌های این پروژه را ندارید.', 403);

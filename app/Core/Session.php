@@ -72,6 +72,50 @@ final class Session
         }
         self::enforceLifetime();
         self::rotate();
+        if (random_int(1, 100) === 1) {
+            self::sweep($savePath);
+        }
+    }
+
+    /**
+     * پاک‌سازی فایل‌های نشست (به GC سرور تکیه نمی‌کنیم؛ روی Debian/Ubuntu خاموش است):
+     * نشست مهمان (بدون uid) بعد از ۲ ساعت، نشست واردشده بعد از مدت مجازش (_life) و هر فایلی بعد از سقف «مرا به خاطر بسپار».
+     * حداکثر هر ۱۰ دقیقه یک بار و حداکثر ۵۰۰۰ فایل در هر اجرا.
+     */
+    private static function sweep(string $dir): void
+    {
+        $flag = $dir . '/.sweep';
+        $now = time();
+        if (is_file($flag) && $now - (int) @filemtime($flag) < 600) {
+            return;
+        }
+        @touch($flag);
+        $max = self::rememberSeconds() + 86400;
+        $n = 0;
+        foreach ((array) @glob($dir . '/sess_*', GLOB_NOSORT) as $f) {
+            if (++$n > 5000) {
+                break;
+            }
+            if ($f === $dir . '/sess_' . session_id()) {
+                continue;
+            }
+            $age = $now - (int) @filemtime($f);
+            if ($age < 7200) {
+                continue;
+            }
+            $del = $age > $max;
+            if (!$del) {
+                $data = (string) @file_get_contents($f, false, null, 0, 4096);
+                if (strpos($data, 'uid|') === false) {
+                    $del = true;                                  // مهمان قدیمی (فقط توکن CSRF/فلش)
+                } elseif (preg_match('/_life\|i:(\d+)/', $data, $m) && $age > (int) $m[1] + 3600) {
+                    $del = true;                                  // نشست منقضی‌شده
+                }
+            }
+            if ($del) {
+                @unlink($f);
+            }
+        }
     }
 
     /**
@@ -189,9 +233,32 @@ final class Session
         self::$started = false;
     }
 
+    /** مرورگر کوکی نشست فرستاده است؟ */
+    public static function hasCookie(): bool
+    {
+        return isset($_COOKIE['taskam_sid']) && $_COOKIE['taskam_sid'] !== '';
+    }
+
+    public static function isActive(): bool
+    {
+        return self::$started && session_status() === PHP_SESSION_ACTIVE;
+    }
+
+    /** خواندن بدون کوکی نشست، نشست (و فایل) جدید نمی‌سازد */
+    private static function lazy(): bool
+    {
+        if (self::$started || self::hasCookie()) {
+            self::start();
+            return true;
+        }
+        return false;
+    }
+
     public static function get(string $key, $default = null)
     {
-        self::start();
+        if (!self::lazy()) {
+            return $default;
+        }
         return $_SESSION[$key] ?? $default;
     }
 
@@ -203,7 +270,9 @@ final class Session
 
     public static function forget(string $key): void
     {
-        self::start();
+        if (!self::lazy()) {
+            return;
+        }
         unset($_SESSION[$key]);
     }
 

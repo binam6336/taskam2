@@ -189,7 +189,7 @@ final class SupportModel
     {
         $att = [];
         if ($file !== null) {
-            $r = Uploader::saveAttachment($file, 'support_files', 'sup' . (int) $ticket['id']);
+            $r = Uploader::saveAttachment($file, 'support_files', 'sup' . (int) $ticket['id'], Uploader::ATTACH_TYPES, Uploader::ATTACH_MAX, $role === 'admin' ? null : $senderId);
             if (!$r['ok']) {
                 return [false, (string) $r['error']];
             }
