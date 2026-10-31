@@ -292,6 +292,9 @@ document.addEventListener('tk:ready', () => {
           <button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button></div></form>` : ''}
       <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="faint small mb-2">هنوز یادداشتی ثبت نشده است.</div>'}</div>
       <div class="detail-foot"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچه‌ی تغییرات" aria-label="تاریخچه‌ی تغییرات"><i class="fa-solid fa-clock-rotate-left"></i></button></div>`;
+    // لینک در یادداشت: همان پاپ‌اور عنوان‌گذاری توضیحات (نمایش [عنوان](لینک) به‌صورت لینک قابل کلیک با rich())
+    const noteTa = TK.qs('#f-note textarea', detail);
+    if (noteTa) linkify(noteTa);
   };
 
   /* ───── تاریخچه‌ی تغییرات ───── */
@@ -388,7 +391,8 @@ document.addEventListener('tk:ready', () => {
     if (b.dataset.delFile) { if (!(await TK.confirm('این فایل حذف شود؟'))) return; const r = await TK.post('/files/' + b.dataset.delFile + '/delete'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
     if (b.dataset.editNote) {
       const box = TK.qs('#note-' + b.dataset.editNote), p = box.querySelector('[data-note-text]'), old = p.dataset.raw;
-      p.innerHTML = `<textarea class="input" rows="3">${E(old)}</textarea><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
+      p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3">${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
+      linkify(p.querySelector('textarea'));
     }
     if (b.dataset.saveNote) { const ta = b.closest('.note').querySelector('textarea'); const r = await TK.post('/notes/' + b.dataset.saveNote + '/update', { note: ta.value }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
     if (b.hasAttribute('data-cancel-note')) refresh();
