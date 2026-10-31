@@ -4,7 +4,7 @@ $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
 <div class="page-head"><h2><i class="fa-solid fa-table-columns" style="color:var(--g-400)"></i> بورد پروژه</h2>
-    <a class="btn btn-primary" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-plus"></i> تسک جدید</a></div>
+    <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button></div>
 
 <form class="kb-filters card" method="get" action="<?= e(url('/board')) ?>">
     <select class="input" name="project" data-autosubmit data-logo-select>
