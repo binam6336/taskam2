@@ -10,6 +10,10 @@ final class App
     {
         $req = Request::capture();
         self::securityHeaders();
+        // SCHEMA_AUTO=false: مهاجرت خودکار در درخواست وب خاموش است (کاربر DB برنامه بدون ALTER/CREATE؛ مهاجرت با php bin/migrate.php)
+        if (filter_var(env('SCHEMA_AUTO', true), FILTER_VALIDATE_BOOLEAN)) {
+            Schema::ensure();
+        }
         // نشست فقط اگر مرورگر کوکی نشست دارد از ابتدا باز می‌شود؛ برای مهمان در اولین نوشتن (توکن CSRF فرم‌ها، پیام فلش) ساخته می‌شود.
         // درخواست‌های API با توکن Bearer اصلاً نشست ندارند. (جلوی ساخت یک فایل نشست به ازای هر درخواست ناشناس را می‌گیرد)
         if (!($req->isApi() && $req->bearerToken() !== null) && Session::hasCookie()) {
@@ -24,10 +28,6 @@ final class App
                 ErrorHandler::log($e);
             }
         });
-        // SCHEMA_AUTO=false: مهاجرت خودکار در درخواست وب خاموش است (کاربر DB برنامه بدون ALTER/CREATE؛ مهاجرت با php bin/migrate.php)
-        if (filter_var(env('SCHEMA_AUTO', true), FILTER_VALIDATE_BOOLEAN)) {
-            Schema::ensure();
-        }
         $router = new Router();
         require BASE_PATH . '/config/routes.php';
         $router->dispatch($req);

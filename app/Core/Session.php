@@ -48,11 +48,15 @@ final class Session
         ini_set('session.sid_bits_per_character', '6');
 
         $savePath = STORAGE_PATH . '/cache/sessions';
-        if (!is_dir($savePath)) {
-            @mkdir($savePath, 0700, true);
-        }
-        if (is_dir($savePath) && is_writable($savePath)) {
-            session_save_path($savePath);
+        if (self::usesDb()) {
+            session_set_save_handler(new DbSessionHandler(), true);
+        } else {
+            if (!is_dir($savePath)) {
+                @mkdir($savePath, 0700, true);
+            }
+            if (is_dir($savePath) && is_writable($savePath)) {
+                session_save_path($savePath);
+            }
         }
 
         session_name('taskam_sid');
@@ -73,7 +77,41 @@ final class Session
         self::enforceLifetime();
         self::rotate();
         if (random_int(1, 100) === 1) {
-            self::sweep($savePath);
+            try {
+                self::usesDb() ? DbSessionHandler::sweep() : self::sweep($savePath);
+            } catch (\Throwable $e) {
+                ErrorHandler::log($e);
+            }
+        }
+    }
+
+    /**
+     * محل ذخیره‌ی نشست: SESSION_DRIVER=db (پیش‌فرض، جدول user_sessions) یا file.
+     * اگر جدول هنوز ساخته نشده (بدون مجوز CREATE)، فایل.
+     */
+    public static function usesDb(): bool
+    {
+        static $db = null;
+        if ($db !== null) {
+            return $db;
+        }
+        if (strtolower((string) env('SESSION_DRIVER', 'db')) !== 'db') {
+            return $db = false;
+        }
+        $flag = STORAGE_PATH . '/cache/sessions-db';
+        if (is_file($flag)) {
+            return $db = true;
+        }
+        try {
+            DB::value('SELECT 1 FROM user_sessions LIMIT 1');
+            @file_put_contents($flag, date('c'));
+            // فایل‌های نشست قدیمی دیگر استفاده نمی‌شوند؛ پاک می‌شوند تا روی دیسک (و در بکاپ/zip) نمانند
+            foreach ((array) @glob(STORAGE_PATH . '/cache/sessions/sess_*', GLOB_NOSORT) as $f) {
+                @unlink($f);
+            }
+            return $db = true;
+        } catch (\Throwable $e) {
+            return $db = false;
         }
     }
 

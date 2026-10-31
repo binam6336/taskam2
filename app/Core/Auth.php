@@ -44,12 +44,16 @@ final class Auth
         if ($id <= 0) {
             return self::$user = null;
         }
-        // اتصال سشن به مرورگر (کاهش ریسک سرقت سشن)
-        $ua = self::uaHash(Request::capture());
+        // اتصال نشست به دستگاه ورود: مرورگر + شبکه (دو بخش اول IP). استفاده از همین نشست روی دستگاه دیگر = نابودی کامل نشست
+        $req = Request::capture();
+        $ua = self::uaHash($req);
         $bound = Session::get('ua');
-        if ($bound !== null && !hash_equals((string) $bound, $ua)) {
-            self::logout();
-            return self::$user = null;
+        if (($bound !== null && !hash_equals((string) $bound, $ua)) || !self::sameNetwork($req)) {
+            Audit::log($id, 'session_device_mismatch', ['ip' => $req->ip(), 'login_ip' => DbSessionHandler::binding()['ip'] ?? Session::get('ipf')]);
+            Session::destroy();                               // ردیف/فایل نشست حذف می‌شود؛ دستگاه اصلی هم باید دوباره وارد شود
+            Session::flash('این نشست روی دستگاه یا شبکه‌ی دیگری استفاده شد و برای امنیت باطل شد. دوباره وارد شوید.', 'error');
+            self::$user = null;
+            return null;
         }
         $u = DB::one('SELECT * FROM users WHERE id = ? AND is_bot = 0 LIMIT 1', [$id]);
         if ($u === null) {
@@ -75,6 +79,25 @@ final class Auth
             }
         }
         return self::$user = $u;
+    }
+
+    /**
+     * درخواست از همان شبکه‌ی ورود است؟ SESSION_IP_BIND: prefix (پیش‌فرض، دو بخش اول IP)، full (IP کامل) یا off.
+     * مرجع: ستون‌های ip/ip_prefix جدول user_sessions؛ در حالت نشست فایلی، مقدارهای ذخیره‌شده در خود نشست.
+     */
+    private static function sameNetwork(Request $req): bool
+    {
+        $mode = strtolower((string) env('SESSION_IP_BIND', 'prefix'));
+        if ($mode === 'off') {
+            return true;
+        }
+        $b = DbSessionHandler::binding();
+        $ip = $b['ip'] ?? Session::get('ipf');
+        $prefix = $b['ip_prefix'] ?? Session::get('ipp');
+        if ($ip === null || $prefix === null) {
+            return false;                                     // نشست بدون اتصال دستگاه (قدیمی) پذیرفته نمی‌شود
+        }
+        return $mode === 'full' ? hash_equals((string) $ip, $req->ip()) : hash_equals((string) $prefix, $req->ipPrefix());
     }
 
     public static function id(): ?int
@@ -264,6 +287,9 @@ final class Auth
         $u = DB::one('SELECT password_hash FROM users WHERE id = ?', [$userId]);
         if ($u) {
             Session::put('pv', self::pv($u));
+            if (Session::usesDb() && session_id() !== '') {
+                DbSessionHandler::destroyOthers($userId, session_id());   // نشست‌های دستگاه‌های دیگر همان لحظه حذف می‌شوند
+            }
         }
     }
 
@@ -274,6 +300,10 @@ final class Auth
         Session::remember($remember);
         Session::put('pv', self::pv($u));
         Session::put('ua', self::uaHash($req));
+        // دستگاه ورود: IP کامل و دو بخش اول آن در جدول user_sessions (و در خود نشست برای حالت فایلی)
+        Session::put('ipf', $req->ip());
+        Session::put('ipp', $req->ipPrefix());
+        DbSessionHandler::bind($req->ip(), $req->ipPrefix(), $req->userAgent());
         Session::forget('imp_admin');
         Session::forget('imp_pv');
         Session::forget('_csrf');

@@ -177,6 +177,23 @@ final class Request
         return (string) ($this->server['REMOTE_ADDR'] ?? '0.0.0.0');
     }
 
+    /**
+     * دو بخش اول IP (شبکه‌ی دستگاه): 5.120.33.7 → 5.120؛ IPv6: دو گروه اول (2a01:5ec0).
+     */
+    public function ipPrefix(?string $ip = null): string
+    {
+        $ip = $ip ?? $this->ip();
+        if (preg_match('/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/i', $ip, $m)) {
+            return $m[1] . '.' . $m[2];
+        }
+        $bin = @inet_pton($ip);
+        if ($bin !== false && strlen($bin) === 16) {
+            $g = unpack('n8', $bin);
+            return dechex($g[1]) . ':' . dechex($g[2]);
+        }
+        return $ip;
+    }
+
     public function userAgent(): string
     {
         return mb_substr((string) ($this->server['HTTP_USER_AGENT'] ?? ''), 0, 255, 'UTF-8');

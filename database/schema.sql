@@ -75,6 +75,23 @@ CREATE TABLE `api_tokens` (
   CONSTRAINT `fk_api_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- نشست‌ها (هش شناسه + اتصال به دستگاه ورود)
+CREATE TABLE `user_sessions` (
+  `id_hash`       CHAR(64) NOT NULL                 COMMENT 'SHA-256 شناسه‌ی نشست (خود شناسه ذخیره نمی‌شود)',
+  `user_id`       INT UNSIGNED NULL DEFAULT NULL    COMMENT 'NULL = مهمان (فقط توکن CSRF/پیام)',
+  `data`          MEDIUMBLOB NOT NULL,
+  `ip`            VARCHAR(45) NULL DEFAULT NULL     COMMENT 'IP کامل دستگاه هنگام ورود',
+  `ip_prefix`     VARCHAR(45) NULL DEFAULT NULL     COMMENT 'دو بخش اول IP هنگام ورود (مثلاً 5.120)',
+  `user_agent`    VARCHAR(255) NULL DEFAULT NULL    COMMENT 'مرورگر هنگام ورود',
+  `life`          INT UNSIGNED NOT NULL DEFAULT 0   COMMENT 'ثانیه‌ی مجاز بدون فعالیت',
+  `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_activity` INT UNSIGNED NOT NULL             COMMENT 'Unix time آخرین درخواست',
+  PRIMARY KEY (`id_hash`),
+  KEY `idx_us_user` (`user_id`),
+  KEY `idx_us_activity` (`last_activity`),
+  CONSTRAINT `fk_us_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `rate_limits` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `bucket`     VARCHAR(32) NOT NULL,
