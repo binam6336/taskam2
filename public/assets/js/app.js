@@ -5,6 +5,7 @@
   const meta = (n) => document.querySelector(`meta[name="${n}"]`)?.content || '';
   TK.base = meta('base-url');
   TK.csrf = meta('csrf-token');
+  TK.afterSwap = [];                                       // کارهای هسته که بعد از هر جابه‌جایی نرم صفحه دوباره اجرا می‌شوند
   TK.url = (p) => TK.base + '/' + String(p).replace(/^\//, '');
   TK.qs = (s, r = document) => r.querySelector(s);
   TK.qsa = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -109,10 +110,10 @@
     TK.toast('کپی شد', 'success', 1600);
   };
   TK.after = (r, el) => {
-    if (r && r.redirect) { setTimeout(() => (location.href = r.redirect), 350); return; }
+    if (r && r.redirect) { setTimeout(() => TK.visit(r.redirect), 350); return; }
     const mode = el?.dataset.after || 'reload';
     if (mode === 'reload') setTimeout(() => TK.reload(), 250);
-    else if (mode.startsWith('redirect:')) setTimeout(() => (location.href = TK.url(mode.slice(9))), 450);
+    else if (mode.startsWith('redirect:')) setTimeout(() => TK.visit(TK.url(mode.slice(9))), 450);
   };
 
   /* ───── انتخابگر با لوگو/آواتار (جایگزین <select> برای کاربر و پروژه) ───── */
@@ -161,7 +162,7 @@
   TK.on('click', '[data-close]', (e, t) => { e.preventDefault(); TK.modal.close(t.closest('.modal')); });
   TK.on('mousedown', '.modal', (e, t) => { if (e.target === t) TK.modal.close(t); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = TK.qsa('.modal.open').pop(); if (m) TK.modal.close(m); TK.qsa('.dropdown.open,.qa.open').forEach((d) => d.classList.remove('open')); } });
-  TK.on('change', '[data-autosubmit]', (e, t) => t.form.submit());
+  TK.on('change', '[data-autosubmit]', (e, t) => (t.form.requestSubmit ? t.form.requestSubmit() : t.form.submit()));
   TK.on('click', '[data-copy]', (e, t) => TK.copy(t.dataset.copy));
   TK.on('click', '[data-copy-target]', (e, t) => TK.copy(TK.qs(t.dataset.copyTarget)?.innerText || ''));
   TK.on('click', '.dropdown > [data-toggle]', (e, t) => { e.stopPropagation(); const d = t.parentElement; const was = d.classList.contains('open'); TK.qsa('.dropdown.open').forEach((x) => x.classList.remove('open')); if (!was) d.classList.add('open'); });
@@ -201,7 +202,8 @@
     const g = TK.qs('[data-nav-group].open');
     if (g && !navMobile.matches) { navClose(g); g.querySelector('.nav-parent').focus(); }
   });
-  TK.qs('.sidebar .nav')?.addEventListener('scroll', () => { if (!navMobile.matches) navCloseAll(); }, { passive: true });
+  const navScroll = () => TK.qs('.sidebar .nav')?.addEventListener('scroll', () => { if (!navMobile.matches) navCloseAll(); }, { passive: true });
+  navScroll();
   window.addEventListener('resize', () => { if (!navMobile.matches) TK.qsa('[data-nav-group].open').forEach(navPlace); });
   const navSync = () => {
     navCloseAll();
@@ -209,6 +211,7 @@
   };
   navMobile.addEventListener?.('change', navSync);
   navSync();
+  TK.afterSwap.push(navScroll, navSync);
 
   TK.on('submit', 'form[data-ajax]', async (e, form) => {
     e.preventDefault();
@@ -251,9 +254,10 @@
     TK.modal.open(m);
   });
 
-  // فلش‌های سرور → toast
-  const flash = TK.boot().flash || [];
-  flash.forEach((f) => TK.toast(f.message, f.type));
+  // فلش‌های سرور → toast (بعد از هر جابه‌جایی نرم صفحه هم)
+  TK.showFlash = () => (TK.boot().flash || []).forEach((f) => TK.toast(f.message, f.type));
+  TK.showFlash();
+  TK.afterSwap.push(TK.showFlash);
 
   /* ───── Charts (SVG) ───── */
   // رنگ اول از تم فعال (--g-500) خوانده می‌شود تا نمودارها با تم روشن/تیره هماهنگ باشند
@@ -391,7 +395,7 @@
     },
     /** همگام‌سازی روزانه‌ی اشتراک با سرور (اگر مرورگر اشتراک را عوض کرده باشد) */
     async sync() {
-      if (!boot.live || !TK.pwa.pushSupported() || Notification.permission !== 'granted') return;
+      if (!TK.boot().live || !TK.pwa.pushSupported() || Notification.permission !== 'granted') return;
       const sub = await TK.pwa.subscription(); if (!sub) return;
       const [ep, at] = String(ls.get('tk_push_sync') || '').split('|');
       if (ep === sub.endpoint && Date.now() - Number(at || 0) < 864e5) return;
@@ -463,10 +467,11 @@
       } catch { /* شبکه */ } finally { TK.live.busy = false; }
     },
     async poll() {
-      if (!boot.live) return;
-      const KEY = 'tk_last_msg_' + (boot.live.uid || 0);
+      const live = TK.boot().live;                       // بعد از جابه‌جایی نرم، scope صفحه‌ی جدید
+      if (!live) return;
+      const KEY = 'tk_last_msg_' + (live.uid || 0);
       const last = ls.get(KEY);
-      const params = { scope: boot.live.scope || '' };
+      const params = { scope: live.scope || '' };
       if (last === null) params.baseline = 1; else params.last_msg = last;
       const r = await TK.get('/live/poll', params);
       if (!r || r.status !== 'success') return;
@@ -508,7 +513,7 @@
   }
 
   /* مجوز اعلان مرورگر: دکمه‌ی زنگ بالای صفحه */
-  const bell = TK.qs('#notif-btn');
+  let bell = TK.qs('#notif-btn');
   const paintBell = () => {
     if (!bell) return;
     const supported = 'Notification' in window, p = supported ? Notification.permission : 'denied';
@@ -517,6 +522,7 @@
     bell.title = p === 'granted' ? 'اعلان‌های مرورگر فعال است (کلیک: اعلان آزمایشی)' : p === 'denied' ? 'اعلان‌ها مسدود است' : 'فعال‌سازی اعلان مرورگر';
   };
   paintBell();
+  TK.afterSwap.push(() => { bell = TK.qs('#notif-btn'); paintBell(); });
   TK.on('click', '#notif-btn', async () => {
     if (!('Notification' in window)) return TK.toast('مرورگر شما از اعلان پشتیبانی نمی‌کند.', 'warning');
     if (Notification.permission === 'denied') return TK.toast('اعلان‌ها در مرورگر مسدود است؛ از آیکن قفل کنار آدرس، اعلان‌ها را «مجاز» کنید.', 'warning', 7000);
@@ -562,7 +568,7 @@
     if (inUrl(inp)) {
       const u = new URL(location.href);
       u.searchParams.delete(inp.name); u.searchParams.delete('page');
-      location.href = u.toString();
+      TK.visit(u.toString());
       return;
     }
     inp.value = '';
@@ -572,9 +578,169 @@
   document.addEventListener('tk:ready', () => TK.searchClear());
   document.addEventListener('tk:live', () => TK.searchClear());
 
+  /* ───── نوار پیشرفت باریک سبز بالای صفحه ───── */
+  TK.progress = (() => {
+    let bar = null, timer = null, val = 0;
+    const el = () => {
+      if (!bar || !bar.isConnected) { bar = document.createElement('div'); bar.id = 'tk-progress'; bar.innerHTML = '<i></i>'; document.body.appendChild(bar); }
+      return bar;
+    };
+    const set = (v) => { val = v; el().firstChild.style.transform = `scaleX(${v})`; };
+    return {
+      start() {
+        clearInterval(timer); const b = el(); b.classList.remove('done'); b.classList.add('on'); set(0.08);
+        // پیشروی آهسته تا ~۹۰٪ تا پاسخ برسد
+        timer = setInterval(() => set(val + (0.9 - val) * 0.12), 180);
+      },
+      done() { clearInterval(timer); if (!bar) return; set(1); bar.classList.add('done'); setTimeout(() => bar && bar.classList.remove('on', 'done'), 320); },
+    };
+  })();
+
+  /*
+   * ───── ناوبری نرم (بدون بارگذاری کامل صفحه) ─────
+   * کلیک روی لینک‌های داخلی پنل و فرم‌های GET: صفحه‌ی بعد با fetch گرفته و فقط <body> عوض می‌شود (CSS، app.js و حالت مرورگر می‌مانند).
+   * هنگام hover روی لینک، صفحه از قبل گرفته می‌شود تا کلیک تقریباً بی‌انتظار باشد.
+   * اسکریپت‌های بعد از app.js (widgets و ماژول‌های صفحه) دوباره اجرا می‌شوند؛ شنونده‌های document/window و setIntervalهایی که
+   * آن‌ها ساخته‌اند هنگام ترک صفحه حذف می‌شوند تا تکراری نشوند. هر جا شک باشد (layout یا نسخه‌ی app.js متفاوت، redirect، خطا) بارگذاری معمولی.
+   */
+  const nativeAdd = EventTarget.prototype.addEventListener;
+  const nativeInterval = window.setInterval.bind(window);
+  const pageScope = { on: false, listeners: [], intervals: [] };
+  EventTarget.prototype.addEventListener = function (type, fn, opts) {
+    if (pageScope.on && (this === document || this === window)) pageScope.listeners.push([this, type, fn, opts]);
+    return nativeAdd.call(this, type, fn, opts);
+  };
+  window.setInterval = function (...args) {
+    const id = nativeInterval(...args);
+    if (pageScope.on) pageScope.intervals.push(id);
+    return id;
+  };
+  const teardown = () => {
+    pageScope.listeners.forEach(([t, type, fn, o]) => t.removeEventListener(type, fn, o));
+    pageScope.intervals.forEach((id) => clearInterval(id));
+    pageScope.listeners = []; pageScope.intervals = [];
+    TK.state.chatUser = null;
+    // تابع‌هایی که ماژول صفحه روی TK عوض کرده (مثلاً TK.reload در تقویم) به نسخه‌ی هسته برمی‌گردند و افزوده‌های صفحه حذف می‌شوند
+    if (coreTK) {
+      Object.keys(TK).forEach((k) => { if (!(k in coreTK)) delete TK[k]; });
+      Object.entries(coreTK).forEach(([k, v]) => { if (k !== 'csrf') TK[k] = v; });
+    }
+  };
+  let coreTK = null;
+
+  const SKIP = /^\/(?:files|api|logout|tour|docs|install|push|service-worker|manifest|offline|assets)(?:\/|$)|\.(?:pdf|zip|rar|7z|png|jpe?g|gif|webp|svg|csv|xlsx?|docx?|txt)$/i;
+  const basePath = new URL(TK.base || '/', location.origin).pathname.replace(/\/$/, '');
+  const navUrl = (href) => {
+    let u;
+    try { u = new URL(href, location.href); } catch { return null; }
+    if (u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return null;
+    const path = basePath && u.pathname.startsWith(basePath) ? u.pathname.slice(basePath.length) || '/' : u.pathname;
+    if (basePath && !u.pathname.startsWith(basePath)) return null;
+    if (SKIP.test(path)) return null;
+    if (u.hash && u.pathname === location.pathname && u.search === location.search) return null;   // پرش داخل همین صفحه
+    return u;
+  };
+  const linkOk = (a, e) => a && a.href && !a.hasAttribute('download') && (!a.target || a.target === '_self') && !a.closest('[data-no-nav]')
+    && !(e && (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) && navUrl(a.getAttribute('href') ? a.href : '');
+
+  const cache = new Map();                                 // پیش‌گرفته‌ها: url → { t, p }
+  const get = (url) => {
+    const hit = cache.get(url);
+    if (hit && Date.now() - hit.t < 15000) { cache.delete(url); return hit.p; }
+    return fetch(url, { credentials: 'same-origin', redirect: 'manual', headers: { Accept: 'text/html', 'X-Soft-Nav': '1' } })
+      .then(async (res) => ({ res, html: res.type === 'opaqueredirect' ? '' : await res.text() }));
+  };
+  const prefetch = (url) => {
+    if (cache.has(url) || cache.size > 20) return;
+    const p = get(url);
+    cache.set(url, { t: Date.now(), p });
+    p.catch(() => cache.delete(url));
+  };
+
+  const layoutOf = (doc) => doc.body?.dataset.layout || '';
+  const appSrc = (doc) => [...doc.querySelectorAll('script[src]')].find((s) => /\/js\/app\.js/.test(s.getAttribute('src')))?.getAttribute('src') || '';
+  const APP_SRC = appSrc(document);                       // نسخه‌ی app.js همین صفحه (بعد از جابه‌جایی‌ها دیگر در DOM نیست)
+  let navSeq = 0;
+
+  TK.visit = async (href, { push = true, scroll = 0 } = {}) => {
+    const u = navUrl(href);
+    if (!u || !document.body.dataset.layout) { location.href = href; return; }
+    const url = u.toString(), seq = ++navSeq;
+    TK.progress.start();
+    let out;
+    try { out = await get(url); } catch { location.href = url; return; }
+    if (seq !== navSeq) return;                            // کلیک جدیدتری آمده
+    const { res, html } = out;
+    const type = res.headers.get('content-type') || '';
+    if (res.type === 'opaqueredirect' || !type.includes('text/html') || res.status >= 500 || !html) { location.href = url; return; }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    if (layoutOf(doc) !== layoutOf(document) || appSrc(doc) !== APP_SRC) { location.href = url; return; }
+
+    if (push) history.replaceState({ ...(history.state || {}), tkScroll: window.scrollY }, '');
+    TK.qsa('.modal.open').forEach((m) => m.classList.remove('open'));
+    document.body.style.overflow = '';
+    teardown();
+
+    // سر صفحه: عنوان، تم، توکن CSRF
+    document.title = doc.title;
+    ['data-theme', 'lang', 'dir'].forEach((k) => { const v = doc.documentElement.getAttribute(k); if (v !== null) document.documentElement.setAttribute(k, v); });
+    const csrf = doc.querySelector('meta[name="csrf-token"]')?.content;
+    if (csrf) { TK.csrf = csrf; const m = document.querySelector('meta[name="csrf-token"]'); if (m) m.content = csrf; }
+
+    // بدنه: اسکریپت‌های فایل جدا می‌شوند تا به ترتیب دوباره اجرا شوند؛ toastها و نوار پیشرفت می‌مانند
+    const srcs = [...doc.body.querySelectorAll('script[src]')].map((sc) => { const v = sc.getAttribute('src'); sc.remove(); return v; })
+      .filter((v) => !/\/js\/app\.js/.test(v));
+    const keep = TK.qsa('body > .toasts, body > #tk-progress');
+    document.body.className = doc.body.className;
+    [...doc.body.attributes].forEach((a) => document.body.setAttribute(a.name, a.value));
+    document.body.replaceChildren(...[...doc.body.childNodes].map((n) => document.adoptNode(n)), ...keep);
+
+    if (push) history.pushState({ tk: 1 }, '', res.url && !res.redirected ? url : url);
+    window.scrollTo(0, scroll);
+
+    pageScope.on = true;
+    for (const src of srcs) {
+      await new Promise((ok) => { const sc = document.createElement('script'); sc.src = src; sc.async = false; sc.onload = sc.onerror = ok; document.body.appendChild(sc); });
+    }
+    TK.afterSwap.forEach((fn) => { try { fn(); } catch (err) { console.error(err); } });
+    document.dispatchEvent(new CustomEvent('tk:ready'));
+    TK.progress.done();
+  };
+
+  if (document.body?.dataset.layout) {
+    history.scrollRestoration = 'manual';
+    if (!history.state?.tk) history.replaceState({ ...(history.state || {}), tk: 1 }, '');
+    TK.on('click', 'a[href]', (e, a) => { if (!linkOk(a, e)) return; e.preventDefault(); TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); TK.visit(a.href); });
+    // فرم‌های GET (جستجو و فیلترها) هم بدون بارگذاری
+    TK.on('submit', 'form', (e, f) => {
+      if (e.defaultPrevented || f.hasAttribute('data-ajax') || (f.getAttribute('method') || 'get').toLowerCase() !== 'get' || f.closest('[data-no-nav]')) return;
+      const u = navUrl(f.getAttribute('action') || location.pathname); if (!u) return;
+      e.preventDefault();
+      const q = new URLSearchParams(); new FormData(f, e.submitter).forEach((v, k) => typeof v === 'string' && q.append(k, v));
+      u.search = q.toString();
+      TK.visit(u.toString());
+    });
+    // پیش‌گرفتن صفحه با hover/لمس (کمترین انتظار هنگام کلیک)
+    let hoverT = null;
+    document.addEventListener('mouseover', (e) => {
+      const a = e.target.closest?.('a[href]'); if (!linkOk(a)) return;
+      clearTimeout(hoverT); hoverT = setTimeout(() => prefetch(navUrl(a.href).toString()), 65);
+    });
+    document.addEventListener('mouseout', (e) => { if (e.target.closest?.('a[href]')) clearTimeout(hoverT); });
+    document.addEventListener('touchstart', (e) => { const a = e.target.closest?.('a[href]'); if (linkOk(a)) prefetch(navUrl(a.href).toString()); }, { passive: true });
+    window.addEventListener('popstate', (e) => TK.visit(location.href, { push: false, scroll: e.state?.tkScroll || 0 }));
+    // بارگذاری معمولی (لینک‌های خارج از ناوبری نرم، فرم‌های POST) هم نوار پیشرفت دارد
+    window.addEventListener('beforeunload', () => TK.progress.start());
+    window.addEventListener('pageshow', (e) => { if (e.persisted) TK.progress.done(); });
+  } else {
+    TK.visit = (href) => { location.href = href; };
+  }
+
   /* ───── Page module loader ─────
-     ماژول‌های صفحه بعد از app.js لود می‌شوند؛ پس رویداد باید بعد از اجرای همه‌ی اسکریپت‌ها (DOMContentLoaded) ارسال شود. */
+     ماژول‌های صفحه بعد از app.js لود می‌شوند؛ پس رویداد باید بعد از اجرای همه‌ی اسکریپت‌ها (DOMContentLoaded) ارسال شود.
+     از این‌جا به بعد شنونده‌های document/window و setIntervalها مال «صفحه» هستند (widgets و ماژول‌ها) و با ترک صفحه حذف می‌شوند. */
   const fireReady = () => document.dispatchEvent(new CustomEvent('tk:ready'));
+  if (document.body?.dataset.layout) { coreTK = { ...TK }; pageScope.on = true; }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fireReady);
   else setTimeout(fireReady, 0);
 })();

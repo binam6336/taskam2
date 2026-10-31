@@ -93,7 +93,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && desk.classList.contains('list-open')) setList(false); });
 
   /* ───── تعداد در صفحه ───── */
-  TK.qs('#desk-per')?.addEventListener('change', (e) => e.target.form.submit());
+  TK.qs('#desk-per')?.addEventListener('change', (e) => (e.target.form.requestSubmit ? e.target.form.requestSubmit() : e.target.form.submit()));
 
   /* ───── به‌روزرسانی دستی ───── */
   TK.on('click', '#desk-refresh', async (e, b) => {

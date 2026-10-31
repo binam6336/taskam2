@@ -223,8 +223,8 @@ document.addEventListener('tk:ready', () => {
   const tb = TK.qs('#t-toolbar');
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
-    TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); tb.submit(); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { ['when', 'prio', 'project'].forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; tb.submit(); });
+    TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { ['when', 'prio', 'project'].forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {
