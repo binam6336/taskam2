@@ -247,9 +247,9 @@ final class Auth
         return $k;
     }
 
-    private const TRUST_DAYS = 90;
+    public const TRUST_DAYS = 90;
     /** مدت قفل حساب بعد از تلاش‌های ناموفق زیاد */
-    private const LOCK_SECONDS = 1800;
+    public const LOCK_SECONDS = 1800;
 
     /**
      * امضای «دستگاه مورد اعتماد»: موبایل + نسخه‌ی رمز (pv) + تاریخ انقضا.

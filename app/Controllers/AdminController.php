@@ -337,6 +337,13 @@ final class AdminController extends Controller
         $this->respond(true, 'متن «' . $id . '» ذخیره شد.', '/admin/content/tour');
     }
 
+    /** تنظیمات ← مستندات پنل: محدودیت‌ها و قواعد امنیتی مهم (App\Services\PanelDocs) */
+    public function panelDocs()
+    {
+        $this->view('admin/panel_docs', ['cards' => \App\Services\PanelDocs::cards(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'مستندات پنل', 'page' => 'admin-panel-docs'], 'admin');
+    }
+
     public function analysis()
     {
         $c = static fn(string $sql): int => (int) DB::value($sql);

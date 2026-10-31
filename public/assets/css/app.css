@@ -1446,3 +1446,18 @@ html[data-theme="sage"] .t-drawer { box-shadow: 18px 0 40px -22px rgba(60, 80, 5
 .cal-task-act { flex: none; display: flex; gap: .35rem; }
 .cal-empty { text-align: center; padding: 1.4rem 0 .6rem; color: var(--muted); } .cal-empty i { font-size: 2rem; color: var(--g-400); }
 @media (max-width: 560px) { .cal-task { flex-wrap: wrap; } .cal-task-act { width: 100%; justify-content: flex-end; } }
+
+/* ───── پنل مدیر: مستندات پنل ───── */
+.pd-nav { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pd-nav .chip { text-decoration: none; }
+.pd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr)); gap: 1rem; align-items: start; }
+.pd-card { scroll-margin-top: 80px; }
+.pd-desc { margin: -.4rem 0 .8rem; }
+.pd-rows { display: flex; flex-direction: column; }
+.pd-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem 1rem; padding: .6rem 0; border-top: 1px solid var(--border); }
+.pd-row:first-child { border-top: 0; padding-top: 0; }
+.pd-label { font-weight: 600; font-size: .9rem; }
+.pd-value { color: var(--g-400); font-weight: 700; font-size: .9rem; text-align: left; }
+.pd-note { grid-column: 1 / -1; line-height: 1.7; }
+.pd-env { font-size: .72rem; padding: .05rem .35rem; border-radius: 6px; background: var(--surface-2); }
+@media (max-width: 600px) { .pd-row { grid-template-columns: 1fr; } .pd-value { text-align: right; } }

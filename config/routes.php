@@ -205,6 +205,7 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/support/{id}/status', [AdminController::class, 'supportStatus']);
     $r->post('/admin/support/{id}/delete', [AdminController::class, 'supportDelete']);
     $r->get('/admin/analysis', [AdminController::class, 'analysis']);
+    $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);
