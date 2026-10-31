@@ -161,6 +161,10 @@ final class Access
         $pid = (int) ($task['project_id'] ?? 0);
         // سازنده‌ی تسک فقط تا وقتی عضو پروژه است امتیاز کامل دارد (بعد از خروج/حذف از پروژه، هیچ)
         if ((int) $task['user_id'] === $uid && ($pid === 0 || self::isProjectMember($pid, $uid))) {
+            // تغییر مسئولِ تسکی که خودش ساخته هم فقط با مجوز «تغییر مسئول» در پروژه (جلوی دور زدن محدودیت واگذاری)
+            if ($pid > 0 && !in_array('reassign', self::projectTaskPerms($pid, $uid), true)) {
+                return array_values(array_diff($all, ['reassign']));
+            }
             return $all;
         }
         $out = [];
@@ -267,9 +271,21 @@ final class Access
         return $scope === null || ($assignee > 0 && in_array($assignee, $scope, true));
     }
 
+    /**
+     * شرط SQL «ردیف همکاری تأییدشده» برای جدول colleagues با نام مستعار $c:
+     * طرف مقابل درخواست را پذیرفته یا خودش هم این کاربر را همکار کرده است.
+     * ردیف‌های یک‌طرفه‌ی قدیمی (قبل از v3.25) بدون رضایت طرف مقابل، دسترسی‌ای نمی‌دهند.
+     */
+    public static function approvedSql(string $c = 'c'): string
+    {
+        return "(EXISTS (SELECT 1 FROM colleague_requests cq WHERE cq.requester_id = $c.user_id AND cq.target_id = $c.colleague_user_id AND cq.status = 'accepted')
+            OR EXISTS (SELECT 1 FROM colleagues cr WHERE cr.user_id = $c.colleague_user_id AND cr.colleague_user_id = $c.user_id))";
+    }
+
+    /** همکاری تأییدشده بین دو نفر (در هر جهت) */
     public static function isColleague(int $a, int $b): bool
     {
-        return (bool) DB::value('SELECT 1 FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?) LIMIT 1', [$a, $b, $b, $a]);
+        return (bool) DB::value('SELECT 1 FROM colleagues c WHERE ((c.user_id = ? AND c.colleague_user_id = ?) OR (c.user_id = ? AND c.colleague_user_id = ?)) AND ' . self::approvedSql('c') . ' LIMIT 1', [$a, $b, $b, $a]);
     }
 
     public static function isBlockedBetween(int $a, int $b): bool
@@ -291,7 +307,7 @@ final class Access
         if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1", [$assigneeId])) {
             return false;
         }
-        if (DB::value('SELECT 1 FROM colleagues WHERE user_id = ? AND colleague_user_id = ? LIMIT 1', [$actorId, $assigneeId])) {
+        if (DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . self::approvedSql('c') . ' LIMIT 1', [$actorId, $assigneeId])) {
             return true;
         }
         if ($projectId !== null && self::isProjectMember($projectId, $actorId)) {

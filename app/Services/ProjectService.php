@@ -24,7 +24,7 @@ final class ProjectService
         if ($u['status'] !== 'active') {
             return [false, 'کاربر فعال نیست.', 'USER_NOT_ACTIVE'];
         }
-        if (!DB::value('SELECT 1 FROM colleagues WHERE user_id = ? AND colleague_user_id = ?', [$actorId, $targetId])) {
+        if (!DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . Access::approvedSql('c'), [$actorId, $targetId])) {
             return [false, 'این کاربر در لیست همکاران شما نیست.', 'NOT_A_COLLEAGUE'];
         }
         if (DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $targetId])) {
@@ -144,7 +144,8 @@ final class ProjectService
             }
             if (in_array('remove_member', $perms, true)) {
                 foreach (array_diff($have, $want) as $mid) {
-                    if ($mid !== $creator && $mid !== $uid) {
+                    // همان قاعده‌ی دکمه‌ی حذف: غیرسازنده فقط اعضای با دسترسی کمتر از خودش را حذف می‌کند
+                    if ($mid !== $creator && $mid !== $uid && self::canManageMember($projectId, $uid, $mid)) {
                         DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $mid]);
                     }
                 }

@@ -288,7 +288,7 @@ final class ChatController extends Controller
         if ($ids) {
             $sql = "SELECT u.id, u.is_bot, u.last_seen FROM users u WHERE u.id IN (" . DB::in($ids) . ") AND u.status = 'active'
                 AND NOT EXISTS (SELECT 1 FROM colleague_blocks b WHERE (b.blocker_user_id = ? AND b.blocked_user_id = u.id) OR (b.blocker_user_id = u.id AND b.blocked_user_id = ?))
-                AND (EXISTS (SELECT 1 FROM colleagues c WHERE (c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?))
+                AND (EXISTS (SELECT 1 FROM colleagues c WHERE ((c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?)) AND " . \App\Services\Access::approvedSql('c') . ")
                   OR EXISTS (SELECT 1 FROM chat_messages m WHERE (m.sender_id = ? AND m.receiver_id = u.id) OR (m.sender_id = u.id AND m.receiver_id = ?)))";
             foreach (DB::all($sql, array_merge($ids, [$uid, $uid, $uid, $uid, $uid, $uid])) as $r) {
                 $out[(int) $r['id']] = (int) $r['is_bot'] === 1

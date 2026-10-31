@@ -74,6 +74,7 @@ final class AuthController extends Controller
         }
         // پاسخ ثبت‌نام برای شماره/ایمیل تکراری و جدید یکسان است تا نشود وجود حساب‌ها را با فرم ثبت‌نام شمارش کرد
         if (UserModel::mobileExists($mobile) || ($email !== '' && UserModel::emailExists($email))) {
+            Auth::hash($pass);                                 // هش ساختگی: زمان پاسخ هم مثل ثبت‌نام واقعی باشد
             Audit::log(null, 'register_duplicate', ['mobile' => $mobile]);
         } else {
             $id = Auth::register(['mobile' => $mobile, 'first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $pass]);

@@ -63,6 +63,7 @@ CREATE TABLE `api_tokens` (
   `name`         VARCHAR(100) NOT NULL DEFAULT 'بدون نام',
   `token_hash`   CHAR(64) NOT NULL                 COMMENT 'SHA-256 توکن (خود توکن ذخیره نمی‌شود)',
   `token_prefix` VARCHAR(16) NOT NULL              COMMENT 'چند نویسه‌ی ابتدایی برای شناسایی در پنل',
+  `scope`        ENUM('read','write') NOT NULL DEFAULT 'write' COMMENT 'read = فقط خواندن',
   `last_used_at` TIMESTAMP NULL DEFAULT NULL,
   `last_ip`      VARCHAR(45) NULL DEFAULT NULL,
   `is_active`    TINYINT(1) NOT NULL DEFAULT 1,

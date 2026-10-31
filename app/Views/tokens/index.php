@@ -17,6 +17,7 @@ $base = rtrim(full_url('api/v1'), '/');
         <form method="post" action="<?= e(url('/tokens')) ?>"><?= csrf_field() ?>
             <div class="field"><label>نام توکن</label><input class="input" name="name" maxlength="100" placeholder="<?= e(ph('token_name')) ?>"></div>
             <div class="field"><label>انقضا</label><select class="input" name="expires_days"><option value="0">بدون انقضا</option><option value="30">۳۰ روز</option><option value="90" selected>۹۰ روز</option><option value="365">۱ سال</option></select></div>
+            <div class="field"><label>سطح دسترسی</label><select class="input" name="scope"><option value="write" selected>خواندن و نوشتن</option><option value="read">فقط خواندن (فقط درخواست‌های GET)</option></select></div>
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> ساخت توکن</button></form>
         <div class="callout warn mt-2 small"><i class="fa-solid fa-shield-halved"></i> توکن مانند رمز عبور است. فقط هش آن در سرور ذخیره می‌شود و بعد از ساخت قابل بازیابی نیست.</div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-terminal"></i> شروع سریع</h3></div>
@@ -28,9 +29,10 @@ $base = rtrim(full_url('api/v1'), '/');
 
 <div class="card mt-2"><div class="card-head"><h3><i class="fa-solid fa-list"></i> توکن‌های شما</h3></div>
 <?php if (!$tokens): ?><p class="muted">هنوز توکنی نساخته‌اید.</p><?php else: ?>
-<div class="table-wrap"><table class="table"><thead><tr><th>نام</th><th>شروع توکن</th><th>آخرین استفاده</th><th>انقضا</th><th>وضعیت</th><th></th></tr></thead><tbody>
+<div class="table-wrap"><table class="table"><thead><tr><th>نام</th><th>شروع توکن</th><th>دسترسی</th><th>آخرین استفاده</th><th>انقضا</th><th>وضعیت</th><th></th></tr></thead><tbody>
 <?php foreach ($tokens as $t): $expired = $t['expires_at'] && strtotime($t['expires_at']) < time(); ?>
     <tr><td class="bold"><?= e($t['name']) ?></td><td><code><?= e($t['token_prefix']) ?>…</code></td>
+        <td><?= ($t['scope'] ?? 'write') === 'read' ? '<span class="badge">فقط خواندن</span>' : '<span class="badge yellow">خواندن و نوشتن</span>' ?></td>
         <td class="small muted"><?= $t['last_used_at'] ? e(time_ago($t['last_used_at'])) . ' <span class="ltr xs">(' . e($t['last_ip']) . ')</span>' : 'هرگز' ?></td>
         <td class="small"><?= $t['expires_at'] ? e(jdate($t['expires_at'], false)) : '—' ?></td>
         <td><?php if ($expired): ?><span class="badge red">منقضی</span><?php elseif ((int) $t['is_active'] === 1): ?><span class="badge green">فعال</span><?php else: ?><span class="badge">غیرفعال</span><?php endif; ?></td>

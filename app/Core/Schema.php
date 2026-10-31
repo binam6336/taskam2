@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '017';
+    public const VERSION = '018';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -40,6 +40,8 @@ final class Schema
         ['users', 'tour', "ADD COLUMN `tour` VARCHAR(20) NULL DEFAULT NULL AFTER `theme`", "UPDATE `users` SET `tour` = 'done'"],
         // 016
         ['project_members', 'board_limits', 'ADD COLUMN `board_limits` TEXT NULL DEFAULT NULL AFTER `board_view_users`', null],
+        // 018
+        ['api_tokens', 'scope', "ADD COLUMN `scope` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `token_prefix`", null],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */

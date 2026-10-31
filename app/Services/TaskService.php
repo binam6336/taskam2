@@ -86,6 +86,10 @@ final class TaskService
             return self::err('پروژه‌ی انتخاب‌شده معتبر نیست یا عضو آن نیستید.', 'PROJECT_INVALID');
         }
         $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
+        // واگذاری تسک جدید به دیگران فقط با مجوز «تغییر مسئول» در همین پروژه (سازنده‌ی پروژه همیشه)
+        if ($assignee !== $actor && !in_array('reassign', Access::projectTaskPerms($projectId, $actor), true)) {
+            return self::err('برای واگذاری تسک به عضو دیگر، دسترسی «تغییر مسئول» در این پروژه لازم است؛ تسک را برای خودتان بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
+        }
         if (!self::assigneeAllowed($actor, $actor, $assignee, $projectId)) {
             return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (باید همکار شما یا هم‌پروژه باشد).', 'ASSIGNEE_INVALID', 403);
         }

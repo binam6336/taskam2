@@ -42,7 +42,7 @@ final class CallController extends Controller
             'new' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 0', [$uid, $uid]),
             'done' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 1', [$uid, $uid]),
         ];
-        $assignees = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ? AND u.status = 'active' ORDER BY u.first_name", [$uid]);
+        $assignees = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ? AND u.status = 'active' AND " . Access::approvedSql('c') . " ORDER BY u.first_name", [$uid]);
         $this->view('calls/index', [
             'calls' => $res['rows'], 'total' => $res['total'], 'tab' => $tab, 'pg' => $page, 'pages' => max(1, (int) ceil($res['total'] / self::PER_PAGE)),
             'q' => $q, 'counts' => $counts, 'shared' => $shared,

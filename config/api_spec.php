@@ -24,6 +24,7 @@ return [
     'errors' => [
         ['code' => 'UNAUTHORIZED / TOKEN_INVALID', 'http' => 401, 'desc' => 'توکن ارسال نشده، نامعتبر، غیرفعال یا منقضی است.'],
         ['code' => 'ACCOUNT_INACTIVE', 'http' => 403, 'desc' => 'حساب صاحب توکن فعال نیست.'],
+        ['code' => 'TOKEN_READ_ONLY', 'http' => 403, 'desc' => 'توکن «فقط خواندن» است و فقط درخواست‌های GET را می‌پذیرد (سطح دسترسی هنگام ساخت توکن در پنل انتخاب می‌شود).'],
         ['code' => 'FORBIDDEN', 'http' => 403, 'desc' => 'دسترسی لازم برای این عملیات را ندارید (مثلاً دسترسی تسک در آن پروژه برایتان فعال نشده).'],
         ['code' => 'ENDPOINT_REMOVED', 'http' => 410, 'desc' => 'این endpoint حذف شده است؛ پیام خطا جایگزین آن را می‌گوید (مثلاً /colleagues/permissions از v3.0).'],
         ['code' => 'INVALID_ID', 'http' => 400, 'desc' => 'شناسه ارسال نشده یا نامعتبر است.'],

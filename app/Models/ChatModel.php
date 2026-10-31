@@ -20,7 +20,7 @@ final class ChatModel
         if (DB::value('SELECT 1 FROM colleague_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?) LIMIT 1', [$a, $b, $b, $a])) {
             return false;
         }
-        if (DB::value('SELECT 1 FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?) LIMIT 1', [$a, $b, $b, $a])) {
+        if (\App\Services\Access::isColleague($a, $b)) {
             return true;
         }
         return (bool) DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$a, $b, $b, $a]);
@@ -191,8 +191,8 @@ final class ChatModel
               (SELECT MAX(cm.created_at) FROM chat_messages cm WHERE ((cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm.id', 'u.id') . ") AS last_msg_time
             FROM users u
             WHERE u.id <> ? AND u.status = 'active' AND (
-                EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = u.id)
-             OR EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = u.id AND c.colleague_user_id = ?)
+                EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = u.id AND " . \App\Services\Access::approvedSql('c') . ")
+             OR EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = u.id AND c.colleague_user_id = ? AND " . \App\Services\Access::approvedSql('c') . ")
              OR EXISTS (SELECT 1 FROM chat_messages cm2 WHERE ((cm2.sender_id = u.id AND cm2.receiver_id = ?) OR (cm2.sender_id = ? AND cm2.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm2.id', 'u.id') . "))
             ORDER BY (last_msg_time IS NULL) ASC, last_msg_time DESC, u.first_name ASC", [$me, $me, $me, $me, $me, $me, $me, $me, $me, $me]);
         foreach ($rows as &$r) {
@@ -202,6 +202,9 @@ final class ChatModel
             $r['unread_count'] = (int) $r['unread_count'];
             $r['is_bot'] = (int) $r['is_bot'] === 1;
             $r['avatar_url'] = avatar_url($r['avatar']);
+            if (!$r['is_bot'] && !\App\Services\Access::isColleague($me, $r['user_id'])) {
+                $r['mobile'] = mask_mobile($r['mobile']);          // فقط همکار تأییدشده شماره‌ی کامل را می‌بیند
+            }
         }
         return $rows;
     }

@@ -57,7 +57,7 @@ final class ApiAuth
                 throw new HttpException(401, 'فرمت توکن نامعتبر است.', 'TOKEN_INVALID_FORMAT');
             }
             $row = DB::one(
-                'SELECT t.id AS token_id, t.user_id, t.expires_at, u.status
+                'SELECT t.id AS token_id, t.user_id, t.expires_at, t.scope, u.status
                    FROM api_tokens t INNER JOIN users u ON u.id = t.user_id
                   WHERE t.token_hash = ? AND t.is_active = 1 AND u.is_bot = 0 LIMIT 1',
                 [hash('sha256', $token)]
@@ -68,6 +68,9 @@ final class ApiAuth
             }
             if ($row['status'] !== 'active') {
                 throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
+            }
+            if (($row['scope'] ?? 'write') === 'read' && !$r->isSafe()) {
+                throw new HttpException(403, 'این توکن فقط خواندنی است و اجازه‌ی تغییر داده ندارد.', 'TOKEN_READ_ONLY');
             }
             DB::run('UPDATE api_tokens SET last_used_at = NOW(), last_ip = ? WHERE id = ?', [$r->ip(), (int) $row['token_id']]);
             self::limit((int) $row['user_id']);

@@ -31,7 +31,7 @@ final class TokenController extends Controller
         }
         $days = $this->request->int('expires_days', 0);
         $exp = $days > 0 && $days <= 3650 ? date('Y-m-d H:i:s', time() + $days * 86400) : null;
-        $t = TokenModel::create($uid, $name, $exp);
+        $t = TokenModel::create($uid, $name, $exp, $this->request->str('scope') === 'read' ? 'read' : 'write');
         Audit::log($uid, 'token_created', ['id' => $t['id']]);
         Session::put('new_token', $t['token']);
         $this->redirect('/tokens');

@@ -81,7 +81,7 @@ final class TaskController extends Controller
     {
         $rows = DB::all("SELECT DISTINCT u.id, u.first_name, u.last_name, u.mobile, u.avatar FROM users u
             WHERE u.status = 'active' AND u.is_bot = 0 AND u.id <> ? AND (
-              u.id IN (SELECT colleague_user_id FROM colleagues WHERE user_id = ?)
+              u.id IN (SELECT c.colleague_user_id FROM colleagues c WHERE c.user_id = ? AND " . Access::approvedSql('c') . ")
               OR u.id IN (SELECT pm2.user_id FROM project_members pm2 WHERE pm2.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?))
             ) ORDER BY u.first_name, u.last_name", [$uid, $uid, $uid]);
         $me = DB::one('SELECT id, first_name, last_name, mobile, avatar FROM users WHERE id = ?', [$uid]);
