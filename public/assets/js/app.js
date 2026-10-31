@@ -87,6 +87,22 @@
     TK.modal.open(m);
   });
 
+  // پنجره‌ی توضیح ساده (مثلاً دلیل قفل بودن تغییر وضعیت تسک)؛ عنصرش در صورت نبود (بعد از جابه‌جایی صفحه) ساخته می‌شود
+  TK.info = (message, { title = 'توضیح', icon = 'fa-circle-info' } = {}) => {
+    let m = document.getElementById('tk-info');
+    if (!m) {
+      m = document.createElement('div');
+      m.className = 'modal'; m.id = 'tk-info';
+      m.innerHTML = '<div class="modal-box sm"><div class="modal-body center"><div class="info-ico"><i class="fa-solid"></i></div><h3 class="mt-1" data-title></h3><p class="muted" data-msg style="line-height:1.9"></p><button type="button" class="btn btn-primary mt-1" data-close>متوجه شدم</button></div></div>';
+      document.body.appendChild(m);
+    }
+    m.querySelector('.info-ico i').className = 'fa-solid ' + icon;
+    m.querySelector('[data-title]').textContent = title;
+    m.querySelector('[data-msg]').textContent = message;
+    TK.modal.open(m);
+  };
+  TK.on('click', '[data-lock-reason]', (e, t) => { e.preventDefault(); e.stopPropagation(); TK.info(t.dataset.lockReason, { title: t.dataset.lockTitle || 'چرا نمی‌توانید وضعیت را تغییر دهید؟', icon: 'fa-lock' }); });
+
   /* ───── Form helpers ───── */
   TK.fillForm = (form, data = {}) => {
     TK.qsa('[name]', form).forEach((el) => {
@@ -99,6 +115,17 @@
     });
   };
   TK.resetForm = (form) => { form.reset(); TK.qsa('input[type=hidden]:not([name=_csrf]):not([data-keep])', form).forEach((i) => (i.value = '')); };
+  // انتخاب فایل با دکمه‌ی آیکونی (.file-pick): نام فایل‌های انتخاب‌شده کنار دکمه
+  const fileNames = (inp) => {
+    const out = inp.closest('.file-pick-row')?.querySelector('[data-file-names]');
+    if (!out) return;
+    const f = [...(inp.files || [])];
+    out.textContent = !f.length ? '' : f.length === 1 ? f[0].name : TK.fa(f.length) + ' فایل انتخاب شد';
+    out.title = f.map((x) => x.name).join('\n');
+    inp.closest('.file-pick')?.classList.toggle('has-files', f.length > 0);
+  };
+  TK.on('change', '.file-pick input[type=file]', (e, t) => fileNames(t));
+  document.addEventListener('reset', (e) => setTimeout(() => TK.qsa('.file-pick input[type=file]', e.target).forEach(fileNames)), true);
   TK.busy = (btn, on) => {
     if (!btn) return;
     if (on) { btn.dataset.html = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
@@ -448,7 +475,7 @@
     sig: null, busy: false, skip: false,
     has: () => !!TK.qs('[data-live]'),
     async refresh() {
-      if (TK.live.busy) return;
+      if (TK.live.busy) { TK.live.again = true; return; }    // درخواست هم‌زمان گم نشود (مثلاً تغییر وضعیت وسط poll): بعد از این یکی دوباره
       TK.live.busy = true;
       try {
         const res = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Live': '1', Accept: 'text/html' }, credentials: 'same-origin' });
@@ -464,7 +491,10 @@
           if (next.innerHTML !== el.innerHTML) { el.innerHTML = next.innerHTML; changed.push(el.dataset.live); }
         });
         if (changed.length) document.dispatchEvent(new CustomEvent('tk:live', { detail: { regions: changed } }));
-      } catch { /* شبکه */ } finally { TK.live.busy = false; }
+      } catch { /* شبکه */ } finally {
+        TK.live.busy = false;
+        if (TK.live.again) { TK.live.again = false; TK.live.refresh(); }
+      }
     },
     async poll() {
       const live = TK.boot().live;                       // بعد از جابه‌جایی نرم، scope صفحه‌ی جدید
@@ -640,7 +670,8 @@
     if (u.hash && u.pathname === location.pathname && u.search === location.search) return null;   // پرش داخل همین صفحه
     return u;
   };
-  const linkOk = (a, e) => a && a.href && !a.hasAttribute('download') && (!a.target || a.target === '_self') && !a.closest('[data-no-nav]')
+  // لینک تسک (data-open-task) در صفحه‌ای که پنجره‌ی جزئیات تسک دارد (TK.tasks)، همان‌جا باز می‌شود نه با ناوبری
+  const linkOk = (a, e) => a && a.href && !a.hasAttribute('download') && (!a.target || a.target === '_self') && !a.closest('[data-no-nav]') && !(a.hasAttribute('data-open-task') && TK.tasks)
     && !(e && (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) && navUrl(a.getAttribute('href') ? a.href : '');
 
   const cache = new Map();                                 // پیش‌گرفته‌ها: url → { t, p }

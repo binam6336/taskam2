@@ -12,6 +12,9 @@
   const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('[data-nav-group]');
   const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
   const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
+  // فیلدهای داخل «گزینه‌های بیشتر»: اگر بخش بسته بود (مثلاً ادامه‌ی تور بعد از رفرش) باز می‌شود
+  const openMore = () => { const b = TK.qs('#f-task [data-more-toggle]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); };
+  const more = (name, text, extra = {}) => field(name, text, { prepare: openMore, ...extra });
 
   /* مرحله‌ها با شماره‌ی ثابت (همان که ذخیره می‌شود).
      page: صفحه‌ای که مرحله در آن اجرا می‌شود | when: شرط نمایش | target: بخشی که به آن اشاره می‌شود (اولین مورد نمایان)
@@ -46,10 +49,15 @@
     5: field('title', T.step_5, { next: 6 }),
     6: field('desc', T.step_6, { next: 7 }),
     7: field('project', T.step_7, { next: 8 }),
-    8: field('assignee', T.step_8, { next: 9 }),
-    9: field('priority', T.step_9, { next: 10 }),
+    8: field('assignee', T.step_8, { next: 17 }),
+    // گزینه‌های بیشتر (اولویت، لیبل، سررسید، پیوست) پشت این دکمه‌اند؛ با کلیک کاربر باز و تور ادامه پیدا می‌کند
+    17: field('more', T.step_17, {
+      action: 'click', next: 9,
+      prepare: () => { const b = TK.qs('#f-task [data-more-toggle]'); if (b?.getAttribute('aria-expanded') === 'true') b.click(); }, // بسته تا کلیک کاربر بازش کند
+    }),
+    9: more('priority', T.step_9, { next: 10 }),
     // بدون لیبل: کلیک روی لیبل → مرحله‌ی ساخت اولین لیبل؛ با لیبل موجود: انتخاب از لیست و «فهمیدم»
-    10: field('label', T.step_10, {
+    10: more('label', T.step_10, {
       action: () => (hasLabels() ? 'ok' : 'click'), next: () => (hasLabels() ? 12 : 11),
     }),
     11: {
@@ -65,25 +73,26 @@
       },
       until: () => { const v = TK.qs('#f-task [name=subject_id]')?.value; return !!v && v !== '__new'; }, // لیبل ساخته و انتخاب شد
     },
-    12: field('due', T.step_12, { next: 13 }),
-    13: field('time', T.step_13, { next: 14 }),
-    14: field('files', T.step_14, { next: 15 }),
+    12: more('due', T.step_12, { next: 13 }),
+    13: more('time', T.step_13, { next: 14 }),
+    14: more('files', T.step_14, { next: 15 }),
     15: field('save', T.step_15, {
-      action: 'submit', next: 16, celebrate: T.task_created,
+      action: 'submit', next: 0, celebrate: T.task_created,
       // فیلد اجباری خالی → برگشت به مرحله‌ی همان فیلد و بعد از آن دوباره همین‌جا
       check: () => {
         const f = TK.qs('#f-task');
         if (!f.elements.title.value.trim()) return 5;
         if (!f.elements.project_id.value) return 7;
-        const subj = f.elements.subject_id;
-        if (!subj.value || subj.value === '__new') return hasLabels() ? 10 : 11; // بدون لیبل → مستقیم ساخت لیبل
+        if (f.elements.subject_id.value === '__new') return 11;   // وسط ساخت لیبل جدید (لیبل اختیاری است)
         return 0;
       },
     }),
   };
   const sel = (step) => (typeof step.target === 'function' ? step.target() : step.target);
   const act = (step) => (typeof step.action === 'function' ? step.action() : step.action);
-  const ids = Object.keys(STEPS).map(Number).sort((a, b) => a - b);
+  // ترتیب نمایش (شماره‌ی مرحله ثابت می‌ماند؛ مرحله‌ی ۱۷ «گزینه‌های بیشتر» بعد از ۸ آمده؛ ۱۶ = وضعیت قدیمی پایان تور، استفاده نشود)
+  const ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 17, 9, 10, 11, 12, 13, 14, 15];
+  const ids = ORDER.filter((i) => STEPS[i]);
   const active = () => ids.filter((i) => !STEPS[i].when || STEPS[i].when());
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const find = (sel) => TK.qsa(sel).find(visible) || null;

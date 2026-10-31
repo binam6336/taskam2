@@ -15,7 +15,7 @@ final class BoardApi extends ApiController
     {
         return TaskApi::format($t) + [
             'blocked_reason' => $t['blocked_reason'] ?? null, 'board_moved_at' => $t['board_moved_at'] ?? null,
-            'archived_at' => $t['archived_at'] ?? null, 'allowed_moves' => array_values($t['moves'] ?? []),
+            'archived_at' => $t['archived_at'] ?? null, 'allowed_moves' => array_values($t['moves'] ?? []), 'lock_reason' => $t['lock_reason'] ?? null,
         ];
     }
 

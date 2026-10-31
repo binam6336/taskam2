@@ -97,6 +97,9 @@ final class BoardService
         return $out;
     }
 
+    /** مرحله‌ی بعدی هر وضعیت (دکمه‌ی «انتقال به …» در جزئیات تسک) */
+    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress'];
+
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
 
@@ -136,6 +139,7 @@ final class BoardService
     {
         $t['moves'] = self::targets($t, $uid, $st);
         $t['can_move'] = $t['moves'] !== [];
+        $t['lock_reason'] = $t['can_move'] ? null : self::lockReason($t, $uid, $st);
         $t['is_focus'] = (int) $t['id'] === $focus;
         $t['token'] = $t['share_token'] ?: TaskModel::ensureShareToken((int) $t['id']);
         return $t;
@@ -244,6 +248,70 @@ final class BoardService
             return 'archived';
         }
         return isset(self::STATUSES[$t['board_status'] ?? '']) ? $t['board_status'] : ((int) $t['is_completed'] === 1 ? 'done' : 'todo');
+    }
+
+    /** وضعیت بورد تسک برای جزئیات: وضعیت فعلی، مرحله‌ی بعد، اجازه‌ی انتقال یا دلیل قفل بودن */
+    public static function taskState(array $t, int $uid): array
+    {
+        $st = self::status($t);
+        $info = self::STATUSES[$st] ?? ['label' => 'آرشیو', 'icon' => 'fa-box-archive', 'tone' => 'muted'];
+        $next = self::NEXT[$st] ?? null;
+        $can = $next !== null && in_array($next, Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)), true)
+            && ($next !== 'done' || Access::canTask($t, $uid, 'complete'));
+        return [
+            'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
+            'next' => $next, 'next_label' => $next !== null ? self::STATUSES[$next]['label'] : null,
+            'can_next' => $can, 'lock_reason' => $next !== null && !$can ? self::lockReason($t, $uid, $st, $next) : null,
+        ];
+    }
+
+    /**
+     * چرا کاربر نمی‌تواند وضعیت این تسک را عوض کند (قفل روی کارت بورد / دکمه‌ی «انتقال به …»).
+     * $to: مقصد مشخص (اختیاری)؛ بدون آن، دلیل کلی قفل بودن کارت.
+     */
+    public static function lockReason(array $t, int $uid, string $st, ?string $to = null): string
+    {
+        static $owners = [];
+        $pid = (int) ($t['project_id'] ?? 0);
+        if ($pid <= 0) {
+            return 'این تسک به پروژه‌ای وصل نیست؛ جابه‌جایی در بورد فقط برای تسک‌های پروژه و طبق دسترسی اعضا ممکن است. تسک را در یک پروژه قرار دهید.';
+        }
+        if (!isset($owners[$pid])) {
+            $p = DB::one('SELECT p.title, u.first_name, u.last_name FROM projects p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$pid]);
+            $owners[$pid] = [$p['title'] ?? '', $p ? full_name($p) : ''];
+        }
+        [$ptitle, $owner] = $owners[$pid];
+        $ask = $owner !== '' ? ' برای گرفتن دسترسی با مدیر پروژه (' . $owner . ') هماهنگ کنید.' : '';
+        $from = self::STATUSES[$st]['label'] ?? 'آرشیو';
+        if ($to === 'done' && !Access::canTask($t, $uid, 'complete')) {
+            return 'دسترسی «تکمیل تسک» در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
+        }
+        if (Access::boardPerms($t, $uid) === []) {
+            return 'در پروژه‌ی «' . $ptitle . '» هیچ دسترسی جابه‌جایی کارت در بورد به شما داده نشده است؛ فقط می‌توانید کارت را ببینید.' . $ask;
+        }
+        if ($to !== null && isset(self::STATUSES[$to])) {
+            $perm = Access::BOARD_PERMS[Access::boardMovePerm($st, $to)]['label'] ?? '';
+            return 'برای انتقال از «' . $from . '» به «' . self::STATUSES[$to]['label'] . '» دسترسی «' . $perm . '» لازم است که در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
+        }
+        return 'دسترسی‌های بورد شما در پروژه‌ی «' . $ptitle . '» اجازه‌ی جابه‌جایی کارت از مرحله‌ی «' . $from . '» را نمی‌دهد.' . $ask;
+    }
+
+    /** انتقال تسک به مرحله‌ی بعد از جزئیات تسک ($from = وضعیتی که کاربر دیده بود، تا دو کلیک پشت‌سرهم دو مرحله جلو نبرد) */
+    public static function advance(int $actor, int $id, string $from): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        $st = self::status($t);
+        if ($from !== '' && $from !== $st) {
+            return self::res(false, 'وضعیت این تسک در این فاصله تغییر کرده است؛ جزئیات را دوباره باز کنید.', 'STATUS_CHANGED', 409);
+        }
+        $next = self::NEXT[$st] ?? null;
+        if ($next === null) {
+            return self::res(false, 'این تسک مرحله‌ی بعدی در بورد ندارد.', 'NO_NEXT', 422);
+        }
+        return self::move($actor, $id, $next, '', true);
     }
 
     /** آیا تسک در برد کاربر دیده می‌شود؟ (برای آیکون «نمایش در برد» در جزئیات تسک) */

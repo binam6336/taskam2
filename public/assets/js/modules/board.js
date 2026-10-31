@@ -121,6 +121,26 @@ document.addEventListener('tk:ready', () => {
   const f = TK.qs('.kb-card.kb-focus');
   if (f) setTimeout(() => f.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }), 150);
 
+  /* ───── فیلترها بدون دکمه (AJAX): فقط بخش برد از سرور تازه می‌شود و آدرس صفحه هم به‌روز می‌ماند ───── */
+  const ff = TK.qs('.kb-filters');
+  if (ff) {
+    let seq = 0;
+    const apply = async () => {
+      const q = new URLSearchParams();
+      new FormData(ff).forEach((v, k) => { if (typeof v === 'string' && v.trim() !== '' && !(k === 'project' && v === '0')) q.set(k, v.trim()); });
+      history.replaceState(history.state, '', TK.url('/board') + (q.toString() ? '?' + q : ''));   // کارت برجسته (?task=) با فیلتر جدید کنار می‌رود
+      const my = ++seq;
+      while (TK.live.busy) await new Promise((r) => setTimeout(r, 40));
+      if (my !== seq) return;                                        // تغییر جدیدتری در راه است
+      const body = TK.qs('[data-live="board-body"]');
+      body?.classList.add('kb-loading'); TK.progress.start();
+      await TK.live.refresh();
+      body?.classList.remove('kb-loading'); TK.progress.done();
+    };
+    ff.addEventListener('submit', (e) => { e.preventDefault(); apply(); });
+    ff.querySelector('[name=q]')?.addEventListener('input', TK.debounce(apply, 350));
+  }
+
   /* ───── آرشیو ───── */
   const filters = () => { const u = new URLSearchParams(location.search); return { project: u.get('project') || '', mine: u.get('mine') || '', q: u.get('q') || '' }; };
 

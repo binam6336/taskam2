@@ -107,6 +107,21 @@ final class ProjectController extends Controller
         $this->respond($ok, $msg, '/projects');
     }
 
+    /** افزودن همکار به پروژه (از کارت همکار در صفحه‌ی همکاران)؛ همان قواعد API: دسترسی add_member، همکار تأییدشده، ظرفیت و تأیید دستی */
+    public function addMember(string $id)
+    {
+        $pid = (int) $id;
+        $target = $this->request->int('user_id');
+        if (ProjectModel::find($pid) === null || !Access::isProjectMember($pid, $this->uid())) {
+            $this->respond(false, 'پروژه یافت نشد.', '/colleagues');
+        }
+        if (!Access::projectCan($pid, $this->uid(), 'add_member')) {
+            $this->respond(false, 'شما دسترسی افزودن کاربر ندارید.', '/colleagues');
+        }
+        [$ok, $msg, $state] = ProjectService::invite($pid, $this->uid(), $target);
+        $this->respond($ok, $msg, '/colleagues', ['state' => $state]);
+    }
+
     public function removeMember(string $id, string $userId)
     {
         [$ok, $msg] = ProjectService::removeMember((int) $id, $this->uid(), (int) $userId);

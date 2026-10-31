@@ -65,6 +65,7 @@ $this->scripts[] = 'projects';
         <div class="progress mb-2"><div style="width:<?= $pct ?>%"></div></div>
         <div class="flex gap-1 wrap">
             <button class="btn btn-sm" data-project="<?= (int) $p['id'] ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
+            <a class="btn btn-sm" href="<?= e(url('/board?project=' . $p['id'])) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
             <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . $p['id'] . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a><?php endif; ?>
             <?php if (!$p['is_creator']): ?>
                 <?php if ((int) $p['is_blocked_by_me'] > 0): ?><button class="btn btn-sm" data-post="<?= e(url('/projects/' . $p['id'] . '/unblock')) ?>">رفع مسدودی</button>
@@ -108,15 +109,18 @@ $this->scripts[] = 'projects';
 <!-- مدیریت اعضا -->
 <div class="modal" id="m-members"><div class="modal-box lg"><div class="modal-head"><h3><i class="fa-solid fa-users"></i> <span id="mem-title"></span></h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div id="mem-body"></div></div></div></div>
+<div class="modal" id="m-mdetail"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-id-badge"></i> دسترسی‌های <span id="md-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" id="md-body"></div></div></div>
 <div class="modal" id="m-mperm"><div class="modal-box"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی‌های <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-        <div class="tabs perm-tabs" role="tablist">
+        <div class="tabs perm-tabs" role="tablist" hidden>
             <button type="button" class="tab active" role="tab" data-ptab="role" aria-selected="true"><i class="fa-solid fa-id-badge"></i> نقش کاربر</button>
             <button type="button" class="tab" role="tab" data-ptab="task" aria-selected="false"><i class="fa-solid fa-list-check"></i> دسترسی‌های تسک</button>
             <button type="button" class="tab" role="tab" data-ptab="project" aria-selected="false"><i class="fa-solid fa-diagram-project"></i> دسترسی‌های پروژه</button>
             <button type="button" class="tab" role="tab" data-ptab="board" aria-selected="false"><i class="fa-solid fa-table-columns"></i> دسترسی بورد پروژه</button>
         </div>
-        <div data-ppanel="role"><p class="xs muted mb-1">نقش‌ها پکیج‌های آماده‌ی دسترسی‌اند و برای هر پروژه جدا تعیین می‌شوند. با انتخاب نقش، تب‌های تسک، پروژه و برد پر می‌شوند؛ هر تغییر دستی بعدی نقش را «سفارشی» می‌کند.</p><div id="mp-role-list" class="list"></div></div>
+        <div data-ppanel="role"><p class="xs muted mb-1">نقش‌ها پکیج‌های آماده‌ی دسترسی‌اند و برای هر پروژه جدا تعیین می‌شوند. با انتخاب نقش، تب‌های تسک، پروژه و برد پر می‌شوند؛ هر تغییر دستی بعدی نقش را «سفارشی» می‌کند.</p><div id="mp-role-list" class="list"></div>
+            <button type="button" class="more-toggle mt-1" id="mp-customize" aria-expanded="false"><i class="fa-solid fa-chevron-down"></i> شخصی‌سازی دسترسی‌ها (تسک، پروژه، بورد)</button></div>
         <div data-ppanel="task" hidden><p class="xs muted mb-1">کارهایی که این عضو روی تسک‌های <b id="mp-project"></b> می‌تواند انجام دهد (پیش‌فرض: هیچ). تسک‌هایی که خودش ساخته همیشه در اختیار خودش است.</p><div id="mp-task-list" class="list"></div></div>
         <div data-ppanel="project" hidden><p class="xs muted mb-1">مدیریت خود پروژه: ویرایش، اعضا، اعطای دسترسی و تحلیل‌ها.</p><div id="mp-list" class="list"></div></div>
         <div data-ppanel="board" hidden><p class="xs muted mb-1">کارهایی که این عضو در بورد پروژه این پروژه می‌تواند انجام دهد (پیش‌فرض: هیچ؛ جدا از دسترسی تسک). هر جابه‌جایی فقط از یک مرحله به مرحله‌ی بعد است، مگر «جابه‌جایی آزاد».</p>

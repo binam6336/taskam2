@@ -36,15 +36,28 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#mem-title').textContent = p.title;
     TK.qs('#mem-body').innerHTML = `
       <div class="flex gap-1 wrap mb-2">${can('edit_project') || can('add_member') || can('remove_member') ? `<button class="btn btn-primary btn-sm" data-edit-proj="${id}"><i class="fa-solid fa-pen"></i> ویرایش اطلاعات و اعضا</button>` : ''}</div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>دسترسی‌ها</th><th></th></tr></thead><tbody>
-      ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)} ${m.is_creator ? '<span class="badge green">سازنده</span>' : roleBadge(m.role)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
-        <td>${m.is_creator ? '<span class="faint small">همه‌ی دسترسی‌ها</span>' : permCell(m)}</td>
-        <td class="nowrap">${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="دسترسی‌های تسک، پروژه و بورد پروژه"><i class="fa-solid fa-key"></i></button>` : ''}
+      <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>نقش</th><th></th></tr></thead><tbody>
+      ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
+        <td>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</td>
+        <td class="nowrap"><button class="btn btn-xs" data-mdetail="${id}:${m.id}" title="جزئیات دسترسی‌ها" aria-label="جزئیات دسترسی‌ها"><i class="fa-solid fa-eye"></i></button>
+          ${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="تغییر نقش و دسترسی‌ها" aria-label="تغییر نقش و دسترسی‌ها"><i class="fa-solid fa-key"></i></button>` : ''}
           ${!m.is_creator && can('remove_member') ? `<button class="btn btn-xs btn-danger" data-post="${TK.url('/projects/' + id + '/members/' + m.id + '/remove')}" data-confirm="«${E(m.name)}» از پروژه حذف شود؟"><i class="fa-solid fa-user-minus"></i></button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>`;
     TK.modal.open('m-members');
   };
   TK.on('click', '[data-project]', (e, t) => manage(t.dataset.project));
+
+  /* جزئیات دسترسی‌های یک عضو (در فهرست اعضا فقط نشان نقش دیده می‌شود) */
+  TK.on('click', '[data-mdetail]', (e, t) => {
+    const [pid, uid] = t.dataset.mdetail.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
+    TK.qs('#md-name').textContent = m.name;
+    TK.qs('#md-body').innerHTML = `<div class="flex items-center gap-1 mb-2"><span class="avatar">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>
+        <div><b>${E(m.name)}</b><div class="xs muted ltr">${E(m.mobile)}</div></div><span class="grow"></span>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</div>
+      ${m.is_creator ? '<p class="muted small">سازنده‌ی پروژه همه‌ی دسترسی‌ها را دارد.</p>' : `<p class="xs muted mb-1">${E((data().roles[m.role] || data().roles.custom).desc)}</p>${permCell(m)}`}
+      ${!m.is_creator && p.perms.includes('manage_permissions') ? `<div class="mt-2"><button class="btn btn-sm" data-mperm="${pid}:${uid}" data-close-detail><i class="fa-solid fa-key"></i> تغییر نقش و دسترسی‌ها</button></div>` : ''}`;
+    TK.modal.open('m-mdetail');
+  });
+  TK.on('click', '[data-close-detail]', () => TK.modal.close('m-mdetail'));
 
   TK.on('click', '[data-edit-proj]', (e, t) => {
     const p = data().list[t.dataset.editProj]; TK.modal.close('m-members');
@@ -66,6 +79,13 @@ document.addEventListener('tk:ready', () => {
     TK.qsa('[data-ppanel]', pf).forEach((p) => (p.hidden = p.dataset.ppanel !== name));
   };
   TK.on('click', '[data-ptab]', (e, b) => setTab(b.dataset.ptab));
+  // پیش‌فرض فقط «نقش کاربر» دیده می‌شود؛ تب‌های تسک، پروژه و بورد با «شخصی‌سازی» باز می‌شوند
+  const setCustom = (on) => {
+    TK.qs('.perm-tabs', pf).hidden = !on;
+    const b = TK.qs('#mp-customize', pf); b.setAttribute('aria-expanded', on ? 'true' : 'false'); b.classList.toggle('open', on);
+    if (!on) setTab('role');
+  };
+  TK.on('click', '#mp-customize', () => { const on = TK.qs('.perm-tabs', pf).hidden; setCustom(on); if (on) setTab('task'); });
   const bvAll = () => TK.qs('#bv-all', pf), bvOthers = () => TK.qsa('.bv-member', pf);   // سایر اعضا (بدون خودِ عضو و ردیف «همه»)
   const bvSync = () => {
     const all = bvAll()?.checked;
@@ -123,7 +143,7 @@ document.addEventListener('tk:ready', () => {
         <div><b><span class="badge role-badge ${E(r.tone)}"><i class="fa-solid ${E(r.icon)}"></i> ${E(r.label)}</span></b><span>${E(r.desc)}</span></div></label>`).join('')
       + `<div class="alert info hidden" id="role-custom"><i class="fa-solid fa-sliders"></i><div>نقش فعلی: <b>سفارشی</b> — دسترسی‌ها دستی تنظیم شده‌اند. با انتخاب یک نقش، همه‌ی دسترسی‌ها با پکیج آن جایگزین می‌شود.</div></div>`;
     bvSync(); roleSync();
-    setTab('role');
+    setCustom(false);
     TK.modal.open('m-mperm');
   });
   /* سقف تعداد تسک: پاپ‌آپ جدا؛ مقدارها با «ذخیره»ی همین پنجره‌ی دسترسی‌ها ثبت می‌شوند */

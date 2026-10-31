@@ -42,7 +42,7 @@ final class ProjectService
             DB::run("INSERT IGNORE INTO project_join_requests (project_id, user_id, invited_by, status) VALUES (?, ?, ?, 'pending')", [$projectId, $targetId, $actorId]);
             return [true, 'درخواست عضویت ارسال شد و در انتظار تأیید کاربر است.', 'requested'];
         }
-        DB::run('INSERT IGNORE INTO project_members (project_id, user_id, permissions) VALUES (?, ?, ?)', [$projectId, $targetId, '[]']);
+        Access::addMemberWithDefaultRole($projectId, $targetId);      // نقش پیش‌فرض: «عضو»
         return [true, 'کاربر به پروژه اضافه شد.', 'added'];
     }
 
@@ -438,7 +438,7 @@ final class ProjectService
                 return [false, 'ظرفیت پروژه تکمیل است. با سازنده‌ی پروژه تماس بگیرید.'];
             }
             DB::transaction(static function () use ($pid, $uid, $requestId): void {
-                DB::run('INSERT IGNORE INTO project_members (project_id, user_id, permissions) VALUES (?, ?, ?)', [$pid, $uid, '[]']);
+                Access::addMemberWithDefaultRole($pid, $uid);                // نقش پیش‌فرض: «عضو»
                 DB::run("UPDATE project_join_requests SET status = 'accepted', resolved_at = NOW() WHERE id = ?", [$requestId]);
             });
             return [true, 'عضویت شما در پروژه تأیید شد.'];

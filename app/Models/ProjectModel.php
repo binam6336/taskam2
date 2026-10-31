@@ -79,13 +79,13 @@ final class ProjectModel
     public static function analytics(int $projectId): array
     {
         $totals = DB::one("SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done, COALESCE(SUM(is_completed = 0),0) open,
-              COALESCE(SUM(is_completed = 0 AND due_date IS NOT NULL AND due_date < CURDATE()),0) overdue,
+              COALESCE(SUM(is_completed = 0 AND due_date IS NOT NULL AND TIMESTAMP(due_date, COALESCE(due_time, '23:59:59')) < NOW()),0) overdue,
               COALESCE(SUM(priority='high'),0) high, COALESCE(SUM(priority='medium'),0) medium, COALESCE(SUM(priority='low'),0) low,
               AVG(CASE WHEN is_completed = 1 AND completed_at > created_at THEN TIMESTAMPDIFF(MINUTE, created_at, completed_at) END)/60 avg_hours
             FROM tasks WHERE project_id = ?", [$projectId]) ?? [];
         $perMember = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar,
               COUNT(t.id) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(t.is_completed = 0),0) open,
-              COALESCE(SUM(t.is_completed = 0 AND t.due_date IS NOT NULL AND t.due_date < CURDATE()),0) overdue
+              COALESCE(SUM(t.is_completed = 0 AND t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()),0) overdue
             FROM project_members pm INNER JOIN users u ON u.id = pm.user_id
             LEFT JOIN tasks t ON t.project_id = pm.project_id AND t.assignee_id = u.id
             WHERE pm.project_id = ? GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY done DESC, total DESC", [$projectId]);

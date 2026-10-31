@@ -14,6 +14,17 @@ final class SubjectModel
         '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#64748b',
     ];
 
+    /** لیبل‌های پیش‌فرض هر کاربر جدید (عنوان => رنگ) */
+    public const DEFAULTS = ['پیگیری' => '#3b82f6', 'امکان‌سنجی' => '#8b5cf6', 'فوری' => '#ef4444'];
+
+    /** ساخت لیبل‌های پیش‌فرض برای کاربر تازه‌ساخته */
+    public static function seedDefaults(int $uid): void
+    {
+        foreach (self::DEFAULTS as $title => $color) {
+            DB::insert('subjects', ['user_id' => $uid, 'title' => $title, 'color' => $color]);
+        }
+    }
+
     public static function forUser(int $uid): array
     {
         return DB::all('SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = s.id) AS tasks_count FROM subjects s WHERE s.user_id = ? ORDER BY s.title', [$uid]);

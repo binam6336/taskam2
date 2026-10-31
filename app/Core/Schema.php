@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '019';
+    public const VERSION = '020';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -50,6 +50,7 @@ final class Schema
         ['content_texts', '015_content_texts.sql'],
         ['task_events', '017_task_events.sql'],
         ['user_sessions', '019_user_sessions.sql'],
+        ['task_mentions', '020_task_mentions.sql'],
     ];
 
     public static function ensure(): void

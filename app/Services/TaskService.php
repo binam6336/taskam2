@@ -73,12 +73,9 @@ final class TaskService
             $time = null;
         }
 
-        // لیبل و پروژه اجباری‌اند
-        $subjectId = (int) ($in['subject_id'] ?? 0);
-        if ($subjectId <= 0) {
-            return self::err('انتخاب لیبل الزامی است.', 'SUBJECT_REQUIRED');
-        }
-        if (SubjectModel::owned($subjectId, $actor) === null) {
+        // لیبل اختیاری، پروژه اجباری
+        $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
+        if ($subjectId !== null && SubjectModel::owned($subjectId, $actor) === null) {
             return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
         }
         $projectId = (int) ($in['project_id'] ?? 0);
@@ -188,11 +185,8 @@ final class TaskService
             }
         }
         if ($has('subject_id')) {
-            $sid = (int) $in['subject_id'];
-            if ($sid <= 0) {
-                return self::err('انتخاب لیبل الزامی است.', 'SUBJECT_REQUIRED');
-            }
-            if (SubjectModel::owned($sid, (int) $t['user_id']) === null && SubjectModel::owned($sid, $actor) === null) {
+            $sid = (int) $in['subject_id'] ?: null;      // خالی = حذف لیبل
+            if ($sid !== null && SubjectModel::owned($sid, (int) $t['user_id']) === null && SubjectModel::owned($sid, $actor) === null) {
                 return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
             }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
@@ -292,6 +286,12 @@ final class TaskService
         return self::res(true, 'تسک حذف شد.', '', 200, ['id' => $id]);
     }
 
+    /** منشن‌های دیده‌نشده‌ی کاربر در این تسک → دیده‌شده (با باز کردن جزئیات تسک) */
+    public static function markMentionsSeen(int $taskId, int $uid): void
+    {
+        DB::run('UPDATE task_mentions SET seen_at = NOW() WHERE task_id = ? AND user_id = ? AND seen_at IS NULL', [$taskId, $uid]);
+    }
+
     public static function addNote(int $actor, int $taskId, string $text, array $files = [], array $mentions = []): array
     {
         $t = TaskModel::raw($taskId);
@@ -316,6 +316,7 @@ final class TaskService
         $allowed = $t['project_id'] ? array_column(self::mentionable((int) $t['project_id'], $actor), 'id') : [];
         $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
         foreach ($mentioned as $uid) {
+            DB::insert('task_mentions', ['task_id' => $taskId, 'note_id' => $nid, 'user_id' => $uid, 'actor_id' => $actor]);
             Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
         }
         foreach (array_unique(array_filter([(int) $t['user_id'], (int) $t['assignee_id']])) as $uid) {

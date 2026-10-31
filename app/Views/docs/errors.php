@@ -8,5 +8,5 @@
 <?php foreach ($spec['errors'] as $i => $er): ?>
     <tr><td><?= e(fa_num($i + 1)) ?></td><td><code><?= e($er['code']) ?></code></td><td><span class="badge <?= $er['http'] >= 500 ? 'red' : 'yellow' ?>"><?= e($er['http']) ?></span></td><td><?= e($er['desc']) ?></td></tr>
 <?php endforeach; ?></tbody></table>
-<div class="callout"><b>اعتبارسنجی:</b> خطای ورودی‌ها با HTTP ۴۰۰ و شناسه‌ی ناموجود با ۴۰۴ برمی‌گردد. کدهایی مثل <code>TITLE_REQUIRED</code>، <code>SUBJECT_REQUIRED</code>، <code>PROJECT_REQUIRED</code>، <code>DUE_DATE_INVALID</code> و <code>ASSIGNEE_INVALID</code> در پیام و کد، دلیل دقیق را مشخص می‌کنند.</div>
+<div class="callout"><b>اعتبارسنجی:</b> خطای ورودی‌ها با HTTP ۴۰۰ و شناسه‌ی ناموجود با ۴۰۴ برمی‌گردد. کدهایی مثل <code>TITLE_REQUIRED</code>، <code>PROJECT_REQUIRED</code>، <code>DUE_DATE_INVALID</code> و <code>ASSIGNEE_INVALID</code> در پیام و کد، دلیل دقیق را مشخص می‌کنند.</div>
 </article>

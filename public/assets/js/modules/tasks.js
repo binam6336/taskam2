@@ -165,6 +165,10 @@ document.addEventListener('tk:ready', () => {
     else if (n === 'priority') { form.priority.dataset.locked = off ? '1' : ''; form.priority.disabled = off; range.disabled = off; }
     else { const el = form.elements[n]; if (el) el.disabled = off; }
   });
+  // گزینه‌های بیشتر (اولویت، لیبل، سررسید، پیوست): پیش‌فرض بسته؛ با کلیک روی فلش/متن باز می‌شود
+  const moreBtn = TK.qs('[data-more-toggle]', form), moreBox = TK.qs('#task-more');
+  const setMore = (on) => { moreBox.hidden = !on; moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false'); moreBtn.classList.toggle('open', on); };
+  moreBtn.addEventListener('click', () => setMore(moreBox.hidden));
   const setupForm = (title, action, files) => {
     TK.qs('#task-modal-title').textContent = title;
     form.setAttribute('action', TK.url(action));
@@ -183,7 +187,7 @@ document.addEventListener('tk:ready', () => {
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
     rs.assignee_id.set(cfg.me); rs.project_id.set(pid);
     dp.set(opts.date || dp.today()); tp.set('');     // پیش‌فرض: تاریخ امروز (در تقویم: روز انتخاب‌شده)
-    setupForm('تسک جدید', '/tasks', true);
+    setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
   };
@@ -191,7 +195,7 @@ document.addEventListener('tk:ready', () => {
 
   const openEdit = (d) => {
     TK.resetForm(form);
-    setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false);
+    setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
     rs.assignee_id.set(d.assignee_id ?? cfg.me); rs.project_id.set(d.project_id ?? '');
@@ -208,12 +212,11 @@ document.addEventListener('tk:ready', () => {
   };
   TK.on('click', '[data-edit-task]', (e, t) => openEdit(JSON.parse(t.dataset.editTask)));
 
-  /* اعتبارسنجی سمت کاربر: لیبل و پروژه اجباری‌اند (قبل از ارسال AJAX) */
+  /* اعتبارسنجی سمت کاربر: پروژه اجباری است، لیبل اختیاری (قبل از ارسال AJAX) */
   form.addEventListener('submit', (e) => {
     const missing = [];
     if (tp.get() && !dp.get() && !dp.input.disabled) dp.set(dp.today());   // ساعت بدون تاریخ → امروز
-    if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); return TK.toast('لیبل جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
-    if (!form.subject_id.disabled && !form.subject_id.value) missing.push('لیبل');
+    if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); setMore(true); return TK.toast('لیبل جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
     if (!rs.project_id.input.disabled && !rs.project_id.get()) { rs.project_id.invalid(); missing.push('پروژه'); }
     if (!canCreate && form.getAttribute('action') === TK.url('/tasks')) missing.push('پروژه (ابتدا بسازید)');
     if (missing.length) { e.preventDefault(); e.stopPropagation(); TK.toast('انتخاب ' + missing.join(' و ') + ' الزامی است.', 'error'); }
@@ -224,7 +227,7 @@ document.addEventListener('tk:ready', () => {
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
     TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { ['when', 'prio', 'project'].forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio'] : ['when', 'prio', 'project']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {
@@ -254,6 +257,15 @@ document.addEventListener('tk:ready', () => {
 
   const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id, _id: t.id, _can: t.can });
 
+  // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
+  const nextBtn = (b) => {
+    if (!b || !b.next || b.next === 'done') return '';
+    const txt = `انتقال به «${E(b.next_label)}»`;
+    return b.can_next
+      ? `<button class="btn btn-sm" data-detail-advance="${E(b.status)}"><i class="fa-solid fa-arrow-left"></i> ${txt}</button>`
+      : `<button class="btn btn-sm locked" data-lock-reason="${E(b.lock_reason || '')}" aria-disabled="true"><i class="fa-solid fa-lock"></i> ${txt}</button>`;
+  };
+
   const render = (t) => {
     currentId = t.id; current = t;
     const canEdit = t.can.edit;
@@ -266,7 +278,7 @@ document.addEventListener('tk:ready', () => {
       </div>
       <div class="flex wrap gap-1 mb-2">
         ${prioBadge(t)}
-        <span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>
+        ${t.board ? `<span class="badge board-st tone-${E(t.board.tone)}" title="وضعیت در بورد پروژه"><i class="fa-solid ${E(t.board.icon)}"></i> ${E(t.board.label)}</span>` : `<span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`}
         ${t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" style="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>` : ''}${t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : ''}
         ${t.due_fa ? `<span class="chip"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa)}</span>` : ''}
       </div>
@@ -278,15 +290,16 @@ document.addEventListener('tk:ready', () => {
       <div class="flex gap-1 wrap mb-2">
         ${t.can.complete ? `<button class="btn btn-sm ${t.is_completed ? '' : 'btn-primary'}" data-detail-toggle><i class="fa-solid fa-check"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`
           : `<button class="btn btn-sm locked" data-no-complete aria-disabled="true"><i class="fa-solid fa-lock"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`}
+        ${nextBtn(t.board)}
         <button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button>
       </div>
       <h4><i class="fa-solid fa-paperclip" style="color:var(--g-400)"></i> پیوست‌های تسک</h4>
       <div id="task-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div>
-      ${t.can.edit_info ? `<form id="f-task-upload" class="flex gap-1 mt-1 mb-2" enctype="multipart/form-data"><input class="input" type="file" name="attachments[]" multiple required><button class="btn btn-sm"><i class="fa-solid fa-upload"></i> آپلود</button></form>` : ''}
+      ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row mt-1 mb-2" enctype="multipart/form-data"><label class="btn btn-icon btn-sm file-pick" title="افزودن فایل به پیوست‌ها" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden data-auto-upload></label><span class="file-pick-names faint small" data-file-names></span></form>` : ''}
       <hr>
       <h4><i class="fa-regular fa-comments" style="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
       ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
-        <div class="flex gap-1 mt-1 wrap items-center"><input class="input grow" type="file" name="attachments[]" multiple>
+        <div class="flex gap-1 mt-1 wrap items-center file-pick-row"><label class="btn btn-icon file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label><span class="file-pick-names faint small grow" data-file-names></span>
           <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
             <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" style="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" style="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
           <button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button></div></form>` : ''}
@@ -347,16 +360,19 @@ document.addEventListener('tk:ready', () => {
   // برای صفحه‌های دیگر (تقویم): باز کردن فرم تسک جدید/ویرایش و جزئیات
   TK.tasks = { openNew, openEdit, open };   // عنوان کارت برد هم لینک است (باز کردن در تب جدید)
   if (cfg.shared) { render(cfg.shared); TK.modal.open('m-detail'); }
+  // پیشخوان: بعد از بستن جزئیات، باکس‌ها (منشن دیده‌شده، تسک انجام‌شده) تازه شوند
+  if (cfg.context === 'dashboard') TK.qs('#m-detail').addEventListener('tk:close', () => TK.reload());
 
   const submit = async (f, url, after) => {
     const btn = f.querySelector('button.btn-primary') || f.querySelector('button'); TK.busy(btn, true);
+    const pick = btn ? null : f.querySelector('.file-pick'); pick?.classList.add('is-busy');   // آپلود خودکار پیوست
     const fd = new FormData(f);
     if (f.id === 'f-note') {
       const text = String(fd.get('note') || '');
       [...mentioned].filter(([, n]) => text.includes('@' + n)).forEach(([id]) => fd.append('mentions[]', id));
     }
     const r = await TK.http(url, { method: 'POST', form: fd });
-    TK.busy(btn, false);
+    TK.busy(btn, false); pick?.classList.remove('is-busy');
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
     if (TK.ok(r)) { mentioned.clear(); const errs = r.upload_errors || r.data?.upload_errors; if (errs?.length) TK.toast(errs.join('، '), 'warning', 7000); await after(); TK.reload(); }
   };
@@ -373,6 +389,10 @@ document.addEventListener('tk:ready', () => {
     mentioned.set(String(id), name);
   };
 
+  // پیوست تسک: با انتخاب فایل از دکمه‌ی آیکونی، بلافاصله آپلود می‌شود
+  detail.addEventListener('change', (e) => {
+    if (e.target.matches('[data-auto-upload]') && e.target.files.length) submit(e.target.form, '/tasks/' + currentId + '/attachments', refresh);
+  });
   detail.addEventListener('submit', (e) => {
     e.preventDefault();
     if (e.target.id === 'f-note') submit(e.target, '/tasks/' + currentId + '/notes', refresh);
@@ -385,6 +405,7 @@ document.addEventListener('tk:ready', () => {
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
     if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
+    if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); await refresh(); if (TK.ok(r)) TK.reload(); return; }
     if (b.hasAttribute('data-detail-toggle')) { const r = await TK.post('/tasks/' + currentId + '/toggle'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.dataset.delNote) { if (!(await TK.confirm('این یادداشت و فایل‌های آن حذف شود؟'))) return; const r = await TK.post('/notes/' + b.dataset.delNote + '/delete'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { refresh(); TK.reload(); } }

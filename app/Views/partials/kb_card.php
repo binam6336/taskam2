@@ -7,7 +7,7 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strt
                 <div class="kb-card-top">
                     <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>" data-open-task="<?= (int) $t['id'] ?>"><?= e($t['title']) ?></a>
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                    <?php else: ?><span class="faint xs" title="دسترسی جابه‌جایی این تسک در برد را ندارید"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
+                    <?php else: ?><button type="button" class="btn btn-ghost btn-icon btn-xs kb-lock" data-lock-reason="<?= e((string) ($t['lock_reason'] ?? 'دسترسی جابه‌جایی این تسک در بورد را ندارید.')) ?>" title="چرا نمی‌توانم وضعیت را تغییر دهم؟" aria-label="دلیل قفل بودن تغییر وضعیت"><i class="fa-solid fa-lock"></i></button><?php endif; ?>
                 </div>
                 <?php if ($key === 'blocked' && $t['blocked_reason']): ?><div class="kb-reason"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
                 <div class="kb-meta">

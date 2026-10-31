@@ -1478,3 +1478,62 @@ html[data-theme="sage"] .t-drawer { box-shadow: 18px 0 40px -22px rgba(60, 80, 5
 #tk-progress.done { opacity: 0; transition: opacity .3s ease .15s; }
 #tk-progress > i { display: block; height: 100%; transform: scaleX(0); transform-origin: right; transition: transform .2s ease; background: linear-gradient(90deg, #4ade80, #22c55e 60%, #16a34a); box-shadow: 0 0 8px rgba(34, 197, 94, .7), 0 0 2px rgba(34, 197, 94, .9); border-radius: 0 0 2px 2px; }
 html[dir="ltr"] #tk-progress > i { transform-origin: left; }
+
+/* ───── فرم تسک: گزینه‌های بیشتر و دکمه‌ی آیکونی پیوست ───── */
+.more-toggle{display:inline-flex;align-items:center;gap:.45rem;background:none;border:0;color:var(--g-400);font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;padding:.35rem .1rem;margin:.1rem 0 .5rem}
+.more-toggle i{transition:transform .2s;font-size:.75rem;width:1.5rem;height:1.5rem;display:inline-grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--g-400) 14%,transparent)}
+.more-toggle.open i{transform:rotate(180deg)}
+.more-toggle:hover{color:var(--g-300,var(--g-400))}
+.task-more{border-top:1px dashed var(--border);padding-top:.75rem}
+.file-pick-row{display:flex;align-items:center;gap:.5rem;min-width:0}
+.file-pick{position:relative;cursor:pointer}
+.file-pick.has-files{color:var(--g-400);border-color:var(--g-400)}
+.file-pick.is-busy{pointer-events:none;opacity:.55}
+.file-pick.is-busy i{animation:spin .8s linear infinite}
+.file-pick-names{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* وضعیت بورد در جزئیات تسک و پنجره‌ی توضیح (TK.info) */
+.badge.board-st { --tone: var(--muted); color: var(--tone); border-color: color-mix(in srgb, var(--tone) 40%, transparent); background: color-mix(in srgb, var(--tone) 12%, transparent); }
+.badge.board-st.tone-info { --tone: var(--info); } .badge.board-st.tone-warn { --tone: var(--warn); } .badge.board-st.tone-danger { --tone: var(--danger); }
+.badge.board-st.tone-purple { --tone: #a78bfa; } .badge.board-st.tone-ok { --tone: var(--g-400); }
+#tk-info .info-ico { width: 3.2rem; height: 3.2rem; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 1.35rem; color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+#tk-info h3 { font-size: 1rem; }
+.kb-lock { color: var(--warn); } .kb-lock:hover { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+[data-live="board-body"].kb-loading { opacity: .55; transition: opacity .15s; pointer-events: none; }
+
+/* ───── پیشخوان: خوش‌آمد، کارهای مهم، منتظر اقدام ───── */
+.dash-hello { padding: 1.1rem 1.3rem; border-radius: var(--radius, 14px); border: 1px solid rgba(var(--accent-rgb), .25); background: linear-gradient(135deg, rgba(var(--accent-rgb), .14), transparent 70%), var(--surface); }
+.dash-hello h2 { margin: 0 0 .3rem; font-size: 1.25rem; }
+.dash-hello p { margin: 0; color: var(--muted); }
+.dash-main { align-items: start; }
+.dash-focus { border-color: rgba(var(--accent-rgb), .35); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .08), var(--glow); }
+.dash-sec + .dash-sec { margin-top: 1rem; padding-top: .9rem; border-top: 1px dashed var(--border); }
+.dash-sec-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .55rem; }
+.dash-sec-head b { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
+.dash-sec-head b.text-danger { color: var(--danger); }
+.dash-none { padding: .3rem .2rem; }
+.dash-tasks { display: flex; flex-direction: column; gap: .35rem; }
+.dash-task { display: flex; align-items: center; gap: .55rem; padding: .5rem .65rem; border-radius: 10px; background: var(--surface-2, var(--surface)); border: 1px solid var(--border); color: var(--text); text-decoration: none; font-size: .88rem; min-width: 0; transition: border-color .15s, background .15s; }
+.dash-task:hover { border-color: rgba(var(--accent-rgb), .5); background: rgba(var(--accent-rgb), .06); }
+.dash-task-dot { width: .55rem; height: .55rem; border-radius: 50%; flex: none; background: var(--warn); }
+.dash-task.p-high .dash-task-dot { background: var(--danger); } .dash-task.p-low .dash-task-dot { background: var(--g-500); }
+.dash-task-proj { font-size: .72rem; color: var(--muted); max-width: 35%; }
+.dash-task-due { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+.dash-task-due.late { color: var(--danger); font-weight: 700; }
+.dash-wait .list .item { padding: .45rem .3rem; }
+.dash-wait-item { color: var(--text); text-decoration: none; border-radius: 10px; }
+.dash-wait-item:hover { background: rgba(var(--accent-rgb), .06); }
+.min0 { min-width: 0; }
+@media (max-width: 560px) { .dash-task-proj { display: none; } }
+.perm-tabs[hidden], .task-more[hidden] { display: none; }
+.t-proj-head h2 { margin: .25rem 0 0; font-size: 1.15rem; display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+a.card.stat { color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+a.card.stat:hover { border-color: rgba(var(--accent-rgb), .5); transform: translateY(-2px); }
+.an-member-link { color: inherit; text-decoration: none; } .an-member-link:hover b, .an-member-link:hover { color: var(--g-300); }
+
+/* پنل ادمین ← کاربران: سه دکمه‌ی تغییر وضعیت (تیک، ضربدر، مسدود) */
+.st-btns { display: inline-flex; gap: .25rem; }
+.st-btn.st-ok:not(:disabled):hover, .st-btn.st-ok.on { color: var(--g-300); border-color: rgba(var(--accent-rgb), .55); background: var(--ok-bg); }
+.st-btn.st-off:not(:disabled):hover, .st-btn.st-off.on { color: var(--warn); border-color: rgba(251, 191, 36, .5); background: var(--warn-bg); }
+.st-btn.st-block:not(:disabled):hover, .st-btn.st-block.on { color: var(--danger); border-color: rgba(248, 113, 113, .5); background: var(--danger-bg); }
+.st-btn.on:disabled { opacity: 1; cursor: default; }

@@ -50,15 +50,27 @@ final class TaskModel
         'subject'  => 'لیبل',
     ];
 
-    /** شرط WHERE مشترک فهرست و فیلترها. */
-    private static function scopeWhere(int $uid, string $scope, bool $completed): array
+    /**
+     * شرط WHERE مشترک فهرست و فیلترها.
+     * scope: mine | others | project (همه‌ی تسک‌های یک پروژه؛ از «تحلیل پروژه»، شناسه در $projectId)
+     * $completed: null = همه (انجام‌شده و نشده)
+     */
+    private static function scopeWhere(int $uid, string $scope, ?bool $completed, int $projectId = 0): array
     {
-        $where = $scope === 'mine'
-            ? 't.assignee_id = ?'
-            : '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))';
-        $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
-        $where .= ' AND t.is_completed = ?';
-        $params[] = $completed ? 1 : 0;
+        if ($scope === 'project') {
+            $where = 't.project_id = ?';
+            $params = [$projectId];
+        } elseif ($scope === 'mine') {
+            $where = 't.assignee_id = ?';
+            $params = [$uid];
+        } else {
+            $where = '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))';
+            $params = [$uid, $uid];
+        }
+        if ($completed !== null) {
+            $where .= ' AND t.is_completed = ?';
+            $params[] = $completed ? 1 : 0;
+        }
         return [$where, $params];
     }
 
@@ -83,9 +95,13 @@ final class TaskModel
      * @param array  $f     فیلتر/مرتب‌سازی: q, sort, when (overdue|today|tomorrow|Y-m-d), prio (high|low), project
      * @return array{rows:array,total:int}
      */
-    public static function paginate(int $uid, string $scope, bool $completed, int $limit, int $offset, array $f = []): array
+    public static function paginate(int $uid, string $scope, ?bool $completed, int $limit, int $offset, array $f = []): array
     {
-        [$where, $params] = self::scopeWhere($uid, $scope, $completed);
+        [$where, $params] = self::scopeWhere($uid, $scope, $completed, (int) ($f['project'] ?? 0));
+        if (!empty($f['assignee'])) {
+            $where .= ' AND t.assignee_id = ?';
+            $params[] = (int) $f['assignee'];
+        }
         $q = (string) ($f['q'] ?? '');
         if ($q !== '') {
             $where .= ' AND (t.title LIKE ? OR t.description LIKE ?)';
@@ -134,9 +150,9 @@ final class TaskModel
     }
 
     /** تاریخ‌های سررسید موجود در همین بخش (برای فیلتر «تسک‌های فلان روز»). */
-    public static function dueDates(int $uid, string $scope, bool $completed): array
+    public static function dueDates(int $uid, string $scope, ?bool $completed, int $projectId = 0): array
     {
-        [$where, $params] = self::scopeWhere($uid, $scope, $completed);
+        [$where, $params] = self::scopeWhere($uid, $scope, $completed, $projectId);
         return DB::column('SELECT DISTINCT t.due_date FROM tasks t WHERE ' . $where . ' AND t.due_date IS NOT NULL ORDER BY t.due_date LIMIT 60', $params);
     }
 
@@ -235,6 +251,45 @@ final class TaskModel
     }
 
     // ───── آمار داشبورد ─────
+
+    /** شرط «عقب‌افتاده» (همان فیلتر when=overdue صفحه‌ی تسک‌ها) */
+    private const OVERDUE = "t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
+
+    /**
+     * پیشخوان: تسک‌های امروز (سررسید امروز که هنوز دیر نشده) و عقب‌افتاده‌ی کاربر (مسئول = خودش، انجام‌نشده).
+     * @return array{today:array, overdue:array, today_count:int, overdue_count:int}
+     */
+    public static function focus(int $uid, int $limit = 12): array
+    {
+        $today = 't.assignee_id = ? AND t.is_completed = 0 AND t.due_date = CURDATE() AND NOT (' . self::OVERDUE . ')';
+        $late = 't.assignee_id = ? AND t.is_completed = 0 AND ' . self::OVERDUE;
+        $rows = static function (string $where, string $order) use ($uid, $limit): array {
+            $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
+            foreach ($list as &$t) {
+                $t['share_token'] = $t['share_token'] ?: self::ensureShareToken((int) $t['id']);
+            }
+            return $list;
+        };
+        return [
+            'today' => $rows($today, 't.due_time IS NULL, t.due_time, t.id'),
+            'overdue' => $rows($late, 't.due_date, t.due_time IS NULL, t.due_time, t.id'),
+            'today_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $today, [$uid]),
+            'overdue_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $late, [$uid]),
+        ];
+    }
+
+    /** پیشخوان ← منتظر اقدام: منشن‌های دیده‌نشده، پیام‌های خوانده‌نشده‌ی چت (به تفکیک فرستنده) */
+    public static function waiting(int $uid): array
+    {
+        $mentions = DB::all('SELECT m.id, m.task_id, m.created_at, t.title, t.share_token, u.first_name, u.last_name, u.avatar
+            FROM task_mentions m INNER JOIN tasks t ON t.id = m.task_id LEFT JOIN users u ON u.id = m.actor_id
+            WHERE m.user_id = ? AND m.seen_at IS NULL ORDER BY m.id DESC LIMIT 10', [$uid]);
+        $chats = DB::all('SELECT c.sender_id, COUNT(*) AS cnt, MAX(c.id) AS last_id, MAX(c.created_at) AS last_at, u.first_name, u.last_name, u.avatar, u.is_bot
+            FROM chat_messages c INNER JOIN users u ON u.id = c.sender_id
+            WHERE c.receiver_id = ? AND c.is_read = 0 AND c.sender_id <> c.receiver_id
+            GROUP BY c.sender_id, u.first_name, u.last_name, u.avatar, u.is_bot ORDER BY last_id DESC LIMIT 10', [$uid]);
+        return ['mentions' => $mentions, 'chats' => $chats];
+    }
 
     public static function dashboard(int $uid): array
     {

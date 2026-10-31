@@ -13,7 +13,6 @@ $total = array_sum(array_map('count', $columns));
     </select>
     <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>"></div>
     <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
-    <button class="btn"><i class="fa-solid fa-magnifying-glass"></i> اعمال</button>
 </form>
 
 <div data-live="board-body">

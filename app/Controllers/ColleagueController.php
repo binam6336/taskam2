@@ -19,7 +19,24 @@ final class ColleagueController extends Controller
             'incoming' => ColleagueService::incomingRequests($uid),
             'outgoing' => ColleagueService::outgoingRequests($uid),
             'blocked' => ColleagueService::blocked($uid),
+            'addProjects' => self::addableProjects($uid),
         ], ['title' => 'همکاران', 'page' => 'colleagues']);
+    }
+
+    /** «افزودن به پروژه» روی کارت همکار: پروژه‌هایی که کاربر اجازه‌ی افزودن عضو در آن‌ها را دارد + اعضا/در انتظارهای هرکدام */
+    private static function addableProjects(int $uid): array
+    {
+        $out = [];
+        foreach (\App\Models\ProjectModel::forUser($uid) as $p) {
+            $pid = (int) $p['id'];
+            if (!\App\Services\Access::projectCan($pid, $uid, 'add_member')) {
+                continue;
+            }
+            $members = array_map('intval', \App\Core\DB::column('SELECT user_id FROM project_members WHERE project_id = ?', [$pid]));
+            $out[] = ['id' => $pid, 'title' => $p['title'], 'image' => project_image_url($p['profile_image'] ?? null),
+                'members' => $members, 'pending' => \App\Models\ProjectModel::pendingUserIds($pid), 'full' => count($members) >= (int) $p['max_members']];
+        }
+        return $out;
     }
 
     public function search()

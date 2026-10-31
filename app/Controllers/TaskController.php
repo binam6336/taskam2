@@ -26,8 +26,9 @@ final class TaskController extends Controller
         $uid = $this->uid();
         $r = $this->request;
         $scope = $r->query['scope'] ?? 'mine';
-        $scope = $scope === 'others' ? 'others' : 'mine';
-        $done = ($r->query['status'] ?? 'open') === 'done';
+        $scope = in_array($scope, ['others', 'project'], true) ? $scope : 'mine';
+        $statusQ = (string) ($r->query['status'] ?? 'open');
+        $done = $statusQ === 'done';
         $q = trim((string) ($r->query['q'] ?? ''));
         $page = max(1, (int) ($r->query['page'] ?? 1));
         $sort = (string) ($r->query['sort'] ?? 'created');
@@ -36,14 +37,36 @@ final class TaskController extends Controller
         $when = in_array($when, ['overdue', 'today', 'tomorrow'], true) || Validate::date($when) !== null ? $when : '';
         $prio = in_array($r->query['prio'] ?? '', ['high', 'low'], true) ? (string) $r->query['prio'] : '';
         $proj = max(0, (int) ($r->query['project'] ?? 0));
-        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj];
-        $res = TaskModel::paginate($uid, $scope, $done, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
+        // «تسک‌های پروژه» (آمدن از کارت‌ها و عملکرد اعضای «تحلیل پروژه»): فقط با دسترسی مشاهده‌ی تحلیل همان پروژه
+        $projScope = null;
+        $assignee = 0;
+        if ($scope === 'project') {
+            $pr = $proj > 0 ? ProjectModel::find($proj) : null;
+            if ($pr === null || !Access::isProjectMember($proj, $uid) || !Access::projectCan($proj, $uid, 'view_analytics')) {
+                $this->flash('دسترسی مشاهده‌ی همه‌ی تسک‌های این پروژه را ندارید.', 'error');
+                $this->redirect('/tasks');
+            }
+            $assignee = max(0, (int) ($r->query['assignee'] ?? 0));
+            $an = $assignee > 0 ? DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [$assignee]) : null;
+            if ($an === null) {
+                $assignee = 0;
+            }
+            $projScope = ['id' => $proj, 'title' => $pr['title'], 'assignee' => $assignee, 'assignee_name' => $an ? full_name($an) : null];
+        }
+        $completed = $scope === 'project' && $statusQ === 'all' ? null : $done;
+        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee];
+        $res = TaskModel::paginate($uid, $scope, $completed, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
         $pages = max(1, (int) ceil($res['total'] / self::PER_PAGE));
         foreach ($res['rows'] as &$t) {
             $t['can'] = TaskService::effective($t, $uid);
         }
         unset($t);
 
+        if ($projScope !== null) {
+            $pc = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done FROM tasks WHERE project_id = ?' . ($assignee ? ' AND assignee_id = ?' : ''), $assignee ? [$proj, $assignee] : [$proj]);
+            $projScope['counts'] = ['all' => (int) $pc['total'], 'done' => (int) $pc['done'], 'open' => (int) $pc['total'] - (int) $pc['done']];
+            $projScope['status'] = $completed === null ? 'all' : ($done ? 'done' : 'open');
+        }
         $counts = [
             'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0', [$uid]),
             'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1', [$uid]),
@@ -57,6 +80,7 @@ final class TaskController extends Controller
         if ($tok !== null) {
             $t = TaskModel::findByToken($tok, $uid);
             if ($t !== null && TaskService::canViewShared($t, $uid)) {
+                TaskService::markMentionsSeen((int) $t['id'], $uid);
                 $shared = $this->detail($t, $uid);
             } else {
                 // خطای دسترسی و بازگشت به تسک‌های خود کاربر
@@ -68,7 +92,7 @@ final class TaskController extends Controller
         $this->view('tasks/index', [
             'tasks' => $res['rows'], 'total' => $res['total'], 'page' => $page, 'pages' => $pages,
             'scope' => $scope, 'done' => $done, 'q' => $q, 'counts' => $counts, 'filters' => $filters,
-            'dueDates' => TaskModel::dueDates($uid, $scope, $done),
+            'dueDates' => TaskModel::dueDates($uid, $scope, $completed, $proj), 'projScope' => $projScope,
             'subjects' => SubjectModel::forUser($uid),
             'projects' => ProjectModel::forUser($uid),
             'assignees' => self::assigneeOptions($uid),
@@ -129,6 +153,7 @@ final class TaskController extends Controller
             'creator_id' => (int) $t['user_id'], 'creator_name' => full_name($t, 'creator_'),
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
+            'board' => BoardService::taskState($t, $uid),
         ];
     }
 
@@ -139,7 +164,15 @@ final class TaskController extends Controller
         if ($t === null || !Access::canTask($t, $uid, 'view')) {
             $this->fail('تسک یافت نشد.', 404);
         }
+        TaskService::markMentionsSeen((int) $t['id'], $uid);
         $this->ok('', ['task' => $this->detail($t, $uid)]);
+    }
+
+    /** «انتقال به مرحله‌ی بعد» در جزئیات تسک (همان قواعد بورد: دسترسی مرحله‌ها، تکمیل و سقف ستون) */
+    public function advance(string $id)
+    {
+        $res = BoardService::advance($this->uid(), (int) $id, $this->request->str('from', 20));
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
     }
 
     /** تاریخچه‌ی تغییرات تسک (همان دسترسی مشاهده‌ی جزئیات) */

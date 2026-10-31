@@ -1,6 +1,7 @@
 <?php
-/** @var array $colleagues @var array $incoming @var array $outgoing @var array $blocked */
+/** @var array $colleagues @var array $incoming @var array $outgoing @var array $blocked @var array $addProjects */
 $this->scripts[] = 'colleagues';
+$this->boot['colleagues'] = ['projects' => $addProjects];
 $tab = in_array($_GET['tab'] ?? '', ['requests', 'blocked'], true) ? $_GET['tab'] : 'list';
 $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 ?>
@@ -26,6 +27,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
             </div>
             <div class="flex gap-1 wrap">
                 <a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . (int) $c['user_id']) ?>"><i class="fa-regular fa-comment"></i></a>
+                <?php if (!$c['is_blocked_by_me'] && !$c['has_blocked_me']): ?><button class="btn btn-sm" data-add-to-project="<?= (int) $c['user_id'] ?>" data-name="<?= e($nm) ?>" title="عضو کردن این همکار در پروژه‌های شما"><i class="fa-solid fa-diagram-project"></i> افزودن به پروژه</button><?php endif; ?>
                 <?php if (!$c['is_blocked_by_me']): ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/colleagues/' . $c['user_id'] . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
                 <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . $c['user_id'] . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف"><i class="fa-solid fa-user-minus"></i></button>
             </div>
@@ -51,3 +53,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 
 <div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('colleague_mobile')) ?>" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>
+
+<div class="modal" id="m-add-proj"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-diagram-project"></i> افزودن <span id="ap-name"></span> به پروژه</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><p class="xs muted mb-1">فقط پروژه‌هایی نمایش داده می‌شوند که در آن‌ها دسترسی «افزودن کاربر» دارید. عضو جدید نقش «عضو» می‌گیرد؛ اگر همکارتان تأیید دستی عضویت را فعال کرده باشد، برایش دعوت ارسال می‌شود.</p>
+        <div id="ap-list" class="list"></div></div></div></div>

@@ -363,7 +363,7 @@ final class Auth
     /** ثبت‌نام کاربر جدید (وضعیت pending). */
     public static function register(array $d): int
     {
-        return DB::insert('users', [
+        $id = DB::insert('users', [
             'mobile'        => $d['mobile'],
             'first_name'    => $d['first_name'],
             'last_name'     => $d['last_name'],
@@ -373,6 +373,8 @@ final class Auth
             'role'          => $d['role'] ?? 'user',
             'admin_permissions' => $d['admin_permissions'] ?? null,
         ]);
+        \App\Models\SubjectModel::seedDefaults($id);
+        return $id;
     }
 
     public static function startImpersonation(int $adminId, int $targetId): void

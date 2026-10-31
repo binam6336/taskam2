@@ -11,13 +11,15 @@ $this->boot['analytics'] = [
 $this->scripts[] = 'analytics';
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red', '' => ''];
+// کارت‌ها و اعضا لینک به صفحه‌ی تسک‌ها با فیلتر همین پروژه
+$tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => (int) $project['id']] + $q);
 ?>
 <div class="page-head"><div><a class="small muted" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div></div>
 <div class="grid grid-4 mb-2">
-    <div class="card stat"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['total'])) ?></div><div class="lbl">کل تسک‌ها</div></div></div>
-    <div class="card stat"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['done'])) ?></div><div class="lbl">انجام‌شده</div></div></div>
-    <div class="card stat"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num((int) $t['open'])) ?></div><div class="lbl">باز</div></div></div>
-    <div class="card stat"><div class="ico danger"><i class="fa-solid fa-triangle-exclamation"></i></div><div><div class="num"><?= e(fa_num((int) $t['overdue'])) ?></div><div class="lbl">عقب‌افتاده</div></div></div>
+    <a class="card stat" href="<?= e($tl(['status' => 'all'])) ?>" title="نمایش همه‌ی تسک‌های پروژه"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['total'])) ?></div><div class="lbl">کل تسک‌ها</div></div></a>
+    <a class="card stat" href="<?= e($tl(['status' => 'done'])) ?>" title="نمایش تسک‌های انجام‌شده‌ی پروژه"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['done'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
+    <a class="card stat" href="<?= e($tl(['status' => 'open'])) ?>" title="نمایش تسک‌های باز پروژه"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num((int) $t['open'])) ?></div><div class="lbl">باز</div></div></a>
+    <a class="card stat" href="<?= e($tl(['status' => 'open', 'when' => 'overdue'])) ?>" title="نمایش تسک‌های عقب‌افتاده‌ی پروژه"><div class="ico danger"><i class="fa-solid fa-triangle-exclamation"></i></div><div><div class="num"><?= e(fa_num((int) $t['overdue'])) ?></div><div class="lbl">عقب‌افتاده</div></div></a>
 </div>
 
 <div class="card mb-2 an-summary">
@@ -61,7 +63,7 @@ $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th>باز</th><th>عقب‌افتاده</th><th style="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
-        <tr><td><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></div></td>
+        <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => (int) $m['id']])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
             <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= e(fa_num($m['open'])) ?></td>
             <td><?= (int) $m['overdue'] > 0 ? '<span class="badge red">' . e(fa_num($m['overdue'])) . '</span>' : '—' ?></td>
             <td><?php if ($r['score'] === null): ?><span class="faint small">هنوز تسکی انجام نداده</span><?php else: ?>

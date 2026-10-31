@@ -74,6 +74,17 @@ final class Access
     ];
     public const ROLE_CUSTOM = ['label' => 'سفارشی', 'icon' => 'fa-sliders', 'tone' => 'purple', 'desc' => 'دسترسی‌ها دستی تنظیم شده و با هیچ نقش آماده‌ای یکی نیست.'];
 
+    /** نقش پیش‌فرض هر عضو تازه‌ی پروژه (افزودن مستقیم یا پذیرفتن دعوت) */
+    public const DEFAULT_ROLE = 'member';
+
+    /** افزودن عضو به پروژه با دسترسی‌های نقش پیش‌فرض (اگر از قبل عضو باشد تغییری نمی‌کند) */
+    public static function addMemberWithDefaultRole(int $projectId, int $uid): void
+    {
+        [$task, $project, $board, $all] = self::rolePackage(self::DEFAULT_ROLE);
+        DB::run('INSERT IGNORE INTO project_members (project_id, user_id, permissions, task_permissions, board_permissions, board_view_users) VALUES (?, ?, ?, ?, ?, ?)',
+            [$projectId, $uid, json_encode(array_values($project)), json_encode(array_values($task)), json_encode(array_values($board)), $all ? 'all' : null]);
+    }
+
     /** پکیج کامل یک نقش: [task[], project[], board[], viewAll] */
     public static function rolePackage(string $role): ?array
     {

@@ -18,4 +18,34 @@ document.addEventListener('tk:ready', () => {
     TK.busy(b, true); const r = await TK.post('/colleagues', { colleague_user_id: b.dataset.add });
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { TK.modal.close('m-add-col'); TK.qs('#search-result').innerHTML = ''; TK.reload(); } else TK.busy(b, false);
   });
+
+  /* «افزودن به پروژه» روی کارت همکار: پروژه‌هایی که کاربر اجازه‌ی افزودن عضو دارد */
+  const projs = (TK.boot().colleagues || {}).projects || [];
+  let apUser = 0;
+  const apDraw = () => {
+    const list = TK.qs('#ap-list');
+    list.innerHTML = projs.map((p) => {
+      const st = p.members.includes(apUser) ? '<span class="badge green">عضو است</span>'
+        : p.pending.includes(apUser) ? '<span class="badge yellow">در انتظار تأیید</span>'
+        : p.full ? '<span class="badge red">ظرفیت تکمیل</span>'
+        : `<button type="button" class="btn btn-sm btn-primary" data-ap-add="${p.id}"><i class="fa-solid fa-user-plus"></i> عضو کن</button>`;
+      return `<div class="item"><span class="avatar sm sq">${p.image ? `<img src="${E(p.image)}" alt="">` : E(TK.initial(p.title))}</span><div class="grow bold">${E(p.title)}</div>${st}</div>`;
+    }).join('') || '<div class="empty small"><i class="fa-solid fa-diagram-project"></i><p>پروژه‌ای ندارید که در آن اجازه‌ی افزودن عضو داشته باشید.</p></div>';
+  };
+  TK.on('click', '[data-add-to-project]', (e, b) => {
+    apUser = Number(b.dataset.addToProject);
+    TK.qs('#ap-name').textContent = '«' + (b.dataset.name || '') + '»';
+    apDraw(); TK.modal.open('m-add-proj');
+  });
+  TK.on('click', '[data-ap-add]', async (e, b) => {
+    const pid = Number(b.dataset.apAdd);
+    TK.busy(b, true);
+    const r = await TK.post('/projects/' + pid + '/members/add', { user_id: apUser });
+    TK.busy(b, false);
+    TK.toast(r.message || 'خطا', TK.ok(r) ? 'success' : 'error');
+    if (!TK.ok(r)) return;
+    const p = projs.find((x) => x.id === pid);
+    if (p) (r.state === 'requested' ? p.pending : p.members).push(apUser);
+    apDraw();
+  });
 });

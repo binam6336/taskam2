@@ -28,8 +28,11 @@ $me = (int) $currentUser['id'];
         <td class="small muted"><?= $u['last_login_at'] ? e(time_ago($u['last_login_at'])) : '—' ?></td>
         <td class="nowrap"><div class="flex gap-1">
             <?php if ($can('toggle_status') && !$protected): ?>
-                <div class="dropdown"><button class="btn btn-xs" data-toggle>وضعیت <i class="fa-solid fa-chevron-down xs"></i></button><div class="dropdown-menu" style="min-width:150px">
-                    <?php foreach ($stLbl as $k => [$l]): if ($k === $u['status']) { continue; } ?><button data-post="<?= e(url('/admin/users/' . $u['id'] . '/status')) ?>" data-data='<?= e(json_encode(['status' => $k])) ?>'><?= e($l) ?></button><?php endforeach; ?></div></div>
+                <div class="st-btns" role="group" aria-label="تغییر وضعیت">
+                    <?php foreach ([['active', 'fa-check', 'ok', 'تأیید / فعال کردن'], ['deactivated', 'fa-xmark', 'off', 'غیرفعال کردن (رد)'], ['blocked', 'fa-ban', 'block', 'مسدود کردن']] as [$k, $ic, $tone, $tt]): $cur = $u['status'] === $k; ?>
+                    <button type="button" class="btn btn-xs btn-icon st-btn st-<?= e($tone) ?><?= $cur ? ' on' : '' ?>" <?= $cur ? 'disabled aria-pressed="true"' : 'aria-pressed="false" data-post="' . e(url('/admin/users/' . $u['id'] . '/status')) . '" data-data=\'' . e(json_encode(['status' => $k])) . '\' data-after="reload"' ?> title="<?= e($cur ? 'وضعیت فعلی: ' . $stLbl[$k][0] : $tt) ?>" aria-label="<?= e($tt) ?>"><i class="fa-solid <?= e($ic) ?>"></i></button>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
             <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button class="btn btn-xs btn-icon" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= (int) $u['id'] ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
             <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>

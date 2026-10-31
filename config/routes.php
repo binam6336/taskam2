@@ -67,6 +67,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{id}/delete', [TaskController::class, 'destroy']);
     $r->get('/tasks/{id}/share', [TaskController::class, 'share']);
     $r->get('/tasks/{id}/history', [TaskController::class, 'history']);
+    $r->post('/tasks/{id}/advance', [TaskController::class, 'advance']);
     $r->post('/tasks/{id}/notes', [TaskController::class, 'addNote']);
     $r->post('/tasks/{id}/attachments', [TaskController::class, 'addFiles']);
     $r->post('/notes/{id}/update', [TaskController::class, 'updateNote']);
@@ -129,6 +130,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/{id}/members/{userId}/permissions', [ProjectController::class, 'memberPermissions']);
     $r->post('/projects/{id}/members/{userId}/task-permissions', [ProjectController::class, 'memberTaskPermissions']);
     $r->post('/projects/{id}/members/{userId}/board-permissions', [ProjectController::class, 'memberBoardPermissions']);
+    $r->post('/projects/{id}/members/add', [ProjectController::class, 'addMember']);
     $r->post('/projects/{id}/members/{userId}/remove', [ProjectController::class, 'removeMember']);
 
     // گفتگو (JSON)

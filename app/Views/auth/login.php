@@ -31,5 +31,4 @@
         <p class="hint center mt-1">حساب جدید پس از تأیید مدیر فعال می‌شود.</p>
     </form>
 </div>
-<p class="center small muted mt-2"><a href="<?= e(url('/docs')) ?>"><i class="fa-solid fa-book"></i> مستندات API</a></p>
 <?php $this->scripts[] = 'auth'; ?>
