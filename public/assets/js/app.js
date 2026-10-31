@@ -120,7 +120,7 @@
     host.classList.add('rselect');
     host.innerHTML = `<input type="hidden" name="${TK.esc(name)}" value=""><button type="button" class="input rselect-btn"><span class="rselect-val"></span><i class="fa-solid fa-chevron-down xs faint"></i></button><div class="rselect-menu" role="listbox"></div>`;
     const inp = host.querySelector('input'), btn = host.querySelector('.rselect-btn'), val = host.querySelector('.rselect-val'), menu = host.querySelector('.rselect-menu');
-    const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : TK.esc(TK.initial(o.label))}</span>`;
+    const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
     menu.innerHTML = options.length ? options.map((o) => `<div class="rselect-opt" role="option" data-v="${TK.esc(o.value)}">${av(o)}<span class="truncate">${TK.esc(o.label)}</span></div>`).join('') : '<div class="faint small" style="padding:.6rem">موردی وجود ندارد</div>';
     const set = (v) => {
       v = v === null || v === undefined ? '' : String(v);
@@ -130,12 +130,31 @@
       TK.qsa('.rselect-opt', menu).forEach((el) => el.classList.toggle('active', el.dataset.v === v));
       host.classList.remove('invalid');
     };
-    btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; TK.qsa('.rselect.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.toggle('open'); });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; TK.qsa('.rselect.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.toggle('open');
+      // نزدیک پایین صفحه/کشو: منو رو به بالا باز شود
+      if (host.classList.contains('open')) { const r = btn.getBoundingClientRect(), box = host.closest('.t-drawer, .modal-box')?.getBoundingClientRect(), bottom = Math.min(innerHeight, box ? box.bottom - 70 : innerHeight); host.classList.toggle('up', bottom - r.bottom < Math.min(250, menu.scrollHeight + 10) && r.top > bottom - r.bottom); } });
     menu.addEventListener('click', (e) => { const o = e.target.closest('.rselect-opt'); if (!o) return; set(o.dataset.v); host.classList.remove('open'); inp.dispatchEvent(new Event('change', { bubbles: true })); });
     document.addEventListener('click', (e) => { if (!host.contains(e.target)) host.classList.remove('open'); });
     set('');
     return { input: inp, host, set, get: () => inp.value, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; }, invalid() { host.classList.add('invalid'); } };
   };
+
+  /*
+   * <select data-logo-select>: همان select (با name/data-f/data-autosubmit) پنهان می‌ماند و یک انتخابگر با لوگو جایش نمایش داده می‌شود؛
+   * لوگوی هر گزینه از data-img و گزینه‌ی بدون مقدار («همه») با آیکون. تغییر روی select اصلی اعمال و رویداد change آن صدا زده می‌شود.
+   */
+  TK.logoSelects = (root = document) => TK.qsa('select[data-logo-select]:not([data-logo-ready])', root).forEach((sel) => {
+    sel.dataset.logoReady = '1';
+    const host = document.createElement('div');
+    sel.after(host); sel.hidden = true;
+    const options = [...sel.options].map((o) => ({ value: o.value, label: o.textContent.trim(), img: o.dataset.img || '', icon: o.value === '' ? 'fa-layer-group' : '' }));
+    const rs = TK.rselect(host, { name: '', options, placeholder: options[0]?.label || '', square: true });
+    rs.input.removeAttribute('name');
+    rs.set(sel.value);
+    rs.input.addEventListener('change', () => { sel.value = rs.get(); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  });
+  document.addEventListener('tk:ready', () => TK.logoSelects());
+  document.addEventListener('tk:live', () => TK.logoSelects());
 
   /* ───── Global delegated behaviours ───── */
   TK.on('click', '[data-modal]', (e, t) => { e.preventDefault(); TK.modal.open(t.dataset.modal); });

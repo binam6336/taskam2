@@ -108,7 +108,7 @@ final class BoardService
     /** پروژه‌هایی که کاربر در آن‌هاست (سازنده یا عضو). */
     public static function projects(int $uid): array
     {
-        return DB::all('SELECT p.id, p.title FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.title', [$uid, $uid]);
+        return DB::all('SELECT p.id, p.title, p.profile_image FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.title', [$uid, $uid]);
     }
 
     /** WHERE مشترک برد و آرشیو با فیلترها (اولین پارامتر = بیننده برای دسترسی تسک). */

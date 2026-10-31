@@ -335,6 +335,7 @@ input[type=color].input { padding: .2rem; height: 42px; }
 .rselect-val { display: flex; align-items: center; gap: .6rem; min-width: 0; flex: 1; }
 .rselect-menu { position: absolute; top: calc(100% + 6px); right: 0; left: 0; max-height: 250px; overflow-y: auto; overscroll-behavior: contain; padding: .3rem; display: none; z-index: 130; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); box-shadow: 0 12px 30px -12px #000; }
 .rselect.open .rselect-menu { display: block; }
+.rselect.up .rselect-menu { top: auto; bottom: calc(100% + 6px); }
 .rselect-opt { display: flex; align-items: center; gap: .6rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; }
 .rselect-opt:hover { background: var(--surface-3); } .rselect-opt.active { background: var(--ok-bg); color: var(--g-300); }
 .rselect.disabled .rselect-btn { opacity: .5; cursor: not-allowed; }
@@ -1131,7 +1132,7 @@ html[data-theme="sage"] .desk.in-conv.list-open .desk-scrim { background: rgba(6
 
 /* ───── برد تیمی (کانبان) ───── */
 .kb-filters { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; padding: .7rem; margin-bottom: 1rem; }
-.kb-filters select.input { width: auto; min-width: 190px; flex: 0 1 240px; }
+.kb-filters select.input, .kb-filters .rselect { width: auto; min-width: 190px; flex: 0 1 240px; }
 .kb-filters .kb-q { flex: 1 1 220px; min-width: 0; }
 .kb-filters .kb-mine { padding: .45rem .7rem; align-items: center; } .kb-filters .kb-mine input { margin-top: 0; }
 .kb-board { --kb-col: 265px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(var(--kb-col), 1fr); gap: .8rem; overflow-x: auto; padding-bottom: .6rem; align-items: start; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }

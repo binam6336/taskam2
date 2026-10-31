@@ -7,9 +7,9 @@ $total = array_sum(array_map('count', $columns));
     <a class="btn btn-primary" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-plus"></i> تسک جدید</a></div>
 
 <form class="kb-filters card" method="get" action="<?= e(url('/board')) ?>">
-    <select class="input" name="project" data-autosubmit>
+    <select class="input" name="project" data-autosubmit data-logo-select>
         <option value="0">همه‌ی پروژه‌ها</option>
-        <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
+        <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
     </select>
     <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>"></div>
     <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
