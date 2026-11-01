@@ -80,7 +80,7 @@ $total = array_sum(array_map('count', $columns));
 <!-- علت برگشت به بازبینی مسئول -->
 <div class="modal" id="m-kb-rework"><div class="modal-box sm"><form id="f-kb-rework">
     <div class="modal-head"><h3><i class="fa-solid fa-rotate-left" style="color:#fb923c"></i> برگشت به بازبینی مسئول</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><div class="field"><label>چه ایرادی دیدید که باید اصلاح شود؟ (اختیاری؛ برای مسئول تسک فرستاده می‌شود)</label>
+    <div class="modal-body"><div class="field"><label>چه ایرادی دیدید که باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)</label>
         <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_rework')) ?>"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">برگرداندن برای اصلاح</button></div>
 </form></div></div>

@@ -469,6 +469,9 @@ final class BoardService
         if ($status === 'review' && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {
+            // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
+            DB::insert('task_notes', ['task_id' => $id, 'user_id' => $actor,
+                'note' => '↩️ برگشت به «' . self::STATUSES['rework']['label'] . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
             Notifier::taskReturned($t, $actor, $reason);
         }
         return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $done]);
