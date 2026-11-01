@@ -214,6 +214,18 @@
       if (s === en && ((e.key === 'Backspace' && s <= PREFIX.length) || (e.key === 'Delete' && s < PREFIX.length))) e.preventDefault();
       else if (s !== en && en <= PREFIX.length) e.preventDefault();
     });
+    // چسباندن/پر‌شدن خودکارِ شماره‌ی کامل (۰۹۱۲…، ۹۱۲…، ‎+98…): کلِ مقدار جایگزین شود؛ وگرنه کنار «09» ثابت می‌نشست و maxlength آن را می‌برید (09091277712)
+    el.addEventListener('beforeinput', (e) => {
+      if (!e.inputType || !e.inputType.startsWith('insert')) return;
+      const raw = e.data ?? e.dataTransfer?.getData('text') ?? '';
+      const d = digits(raw);
+      if (d.length < 10) return;
+      e.preventDefault();
+      el.value = normMobile(d);
+      el.setSelectionRange(el.value.length, el.value.length);
+      paintMobile(el);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     // کیبورد موبایل/IME و برش/حذف انتخاب‌شده
     el.addEventListener('beforeinput', (e) => {
       if (!e.inputType || !e.inputType.startsWith('delete')) return;
