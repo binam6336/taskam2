@@ -1696,4 +1696,5 @@ html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 .tok-box .copy { position: static; flex: none; }
 .page-tokens .code, .tok-quick .code { white-space: pre-wrap; word-break: break-all; }
 .msg .msg-url { color: var(--info-strong); text-decoration: underline; word-break: break-all; direction: ltr; unicode-bidi: embed; } .msg.mine .msg-url { color: inherit; }
-.item:has(.item-actions.open) { z-index: 25; } .item-actions.open { z-index: 30; }
+/* منوی ⋮ کارت تسک: content-visibility محتوای بیرون از کارت را می‌برد؛ برای کارتِ منو‌باز خاموش و کارت بالای بقیه */
+.list > .item:has(.item-actions.open) { content-visibility: visible; z-index: 25; } .item-actions.open { z-index: 30; }
