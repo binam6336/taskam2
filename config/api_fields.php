@@ -67,7 +67,7 @@ return [
         'project_title' => 'عنوان پروژه.',
         'subject_title' => 'عنوان لیبل.',
         'subject_color' => 'رنگ لیبل (یکی از ۱۵ رنگ آماده، مثل #3b82f6).',
-        'column_order' => 'ترتیب ستون‌های برد برای این کاربر (پیش‌فرض: backlog, rework, todo, in_progress, review, done, blocked, archived)؛ با POST /board/order عوض می‌شود.',
+        'column_order' => 'ترتیب ستون‌های برد برای این کاربر (پیش‌فرض: rework, backlog, todo, in_progress, review, done, blocked, archived)؛ با POST /board/order عوض می‌شود.',
         'board_status' => 'ستون تسک در بورد پروژه: backlog | todo | in_progress | blocked | review (بررسی سرپرست) | rework (بازبینی مسئول) | done | archived.',
         // لیبل و برد
         'labels' => 'آرایه‌ی لیبل‌ها.',

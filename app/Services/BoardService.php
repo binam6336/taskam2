@@ -18,8 +18,8 @@ use App\Models\TaskModel;
 final class BoardService
 {
     public const STATUSES = [
-        'backlog'     => ['label' => 'برنامه‌ریزی‌نشده', 'en' => 'Backlog', 'icon' => 'fa-inbox', 'tone' => 'muted', 'desc' => 'ثبت شده ولی هنوز برای انجام انتخاب نشده'],
         'rework'      => ['label' => 'بازبینی مسئول', 'en' => 'Rework', 'icon' => 'fa-rotate-left', 'tone' => 'orange', 'desc' => 'سرپرست ایرادی دیده و تسک برای اصلاح به مسئول برگشته'],
+        'backlog'     => ['label' => 'برنامه‌ریزی‌نشده', 'en' => 'Backlog', 'icon' => 'fa-inbox', 'tone' => 'muted', 'desc' => 'ثبت شده ولی هنوز برای انجام انتخاب نشده'],
         'todo'        => ['label' => 'آماده انجام', 'en' => 'To Do', 'icon' => 'fa-list-ul', 'tone' => 'info', 'desc' => 'انتخاب شده، کار هنوز شروع نشده'],
         'in_progress' => ['label' => 'در حال انجام', 'en' => 'In Progress', 'icon' => 'fa-person-running', 'tone' => 'warn', 'desc' => 'مسئول کار را شروع کرده'],
         'review'      => ['label' => 'بررسی سرپرست', 'en' => 'In Review', 'icon' => 'fa-magnifying-glass', 'tone' => 'purple', 'desc' => 'انجام شده و منتظر بررسی سرپرست'],
@@ -30,7 +30,7 @@ final class BoardService
     /**
      * ترتیب پیش‌فرض ستون‌ها (همان ترتیب STATUSES + آرشیو). هر کاربر می‌تواند ترتیب خودش را بچیند (users.board_order).
      */
-    public const DEFAULT_ORDER = ['backlog', 'rework', 'todo', 'in_progress', 'review', 'done', 'blocked', 'archived'];
+    public const DEFAULT_ORDER = ['rework', 'backlog', 'todo', 'in_progress', 'review', 'done', 'blocked', 'archived'];
 
     /** ترتیب ستون‌های کاربر: کلیدهای نامعتبر حذف و ستون‌های جاافتاده (مثلاً وضعیت تازه) در جای پیش‌فرضشان اضافه می‌شوند */
     public static function order(?string $raw): array
@@ -133,7 +133,7 @@ final class BoardService
     }
 
     /** مرحله‌ی بعدی هر وضعیت (دکمه‌ی «انتقال به …» در جزئیات تسک) */
-    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress', 'rework' => 'review'];
+    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress', 'rework' => 'backlog'];
 
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
