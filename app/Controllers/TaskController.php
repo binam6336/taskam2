@@ -53,7 +53,8 @@ final class TaskController extends Controller
             }
             $projScope = ['id' => $proj, 'title' => $pr['title'], 'assignee' => $assignee, 'assignee_name' => $an ? full_name($an) : null];
         }
-        $completed = $scope === 'project' && $statusQ === 'all' ? null : $done;
+        // «همه» (باز و انجام‌شده با هم): تب همه، و کارت‌های «کل تسک‌ها»/«اولویت زیاد» پیشخوان
+        $completed = $statusQ === 'all' ? null : $done;
         $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee];
         $res = TaskModel::paginate($uid, $scope, $completed, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
         $pages = max(1, (int) ceil($res['total'] / self::PER_PAGE));
@@ -91,7 +92,7 @@ final class TaskController extends Controller
 
         $this->view('tasks/index', [
             'tasks' => $res['rows'], 'total' => $res['total'], 'page' => $page, 'pages' => $pages,
-            'scope' => $scope, 'done' => $done, 'q' => $q, 'counts' => $counts, 'filters' => $filters,
+            'scope' => $scope, 'done' => $done, 'statusAll' => $completed === null, 'q' => $q, 'counts' => $counts, 'filters' => $filters,
             'dueDates' => TaskModel::dueDates($uid, $scope, $completed, $proj), 'projScope' => $projScope,
             'subjects' => SubjectModel::forUser($uid),
             'projects' => ProjectModel::forUser($uid),

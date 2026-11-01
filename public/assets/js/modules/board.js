@@ -63,14 +63,17 @@ document.addEventListener('tk:ready', () => {
   const request = (card, status) => {
     if (card.dataset.status === status) return;
     if (!allowed(card, status)) { TK.toast(`اجازه‌ی انتقال این تسک به «${statuses[status]?.label || status}» را ندارید.`, 'error'); return; }
-    if (status !== 'blocked') return move(card, status);
-    pending = card; bf.reset(); TK.modal.open('m-kb-block');
+    const f = forms[status];
+    if (!f) return move(card, status);
+    pending = card; f.reset(); TK.modal.open('m-kb-' + (status === 'blocked' ? 'block' : 'rework'));
   };
-  bf.addEventListener('submit', (e) => {
+  // «مسدودشده» علت توقف و «بازبینی مسئول» علت برگشت را می‌پرسد (هر دو اختیاری)
+  const forms = { blocked: bf, rework: TK.qs('#f-kb-rework') };
+  Object.entries(forms).forEach(([status, f]) => f?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const card = pending; pending = null; TK.modal.close('m-kb-block');
-    if (card) move(card, 'blocked', bf.reason.value.trim());
-  });
+    const card = pending; pending = null; TK.modal.close(f.closest('.modal').id);
+    if (card) move(card, status, f.reason.value.trim());
+  }));
 
   /* کشیدن و رها کردن (دسکتاپ) */
   let dragged = null;

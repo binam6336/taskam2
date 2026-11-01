@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '020';
+    public const VERSION = '021';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -42,6 +42,12 @@ final class Schema
         ['project_members', 'board_limits', 'ADD COLUMN `board_limits` TEXT NULL DEFAULT NULL AFTER `board_view_users`', null],
         // 018
         ['api_tokens', 'scope', "ADD COLUMN `scope` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `token_prefix`", null],
+    ];
+
+    /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */
+    private const ENUMS = [
+        // 021
+        ['tasks', 'board_status', 'rework', "MODIFY `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog'"],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */
@@ -77,6 +83,18 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     error_log('schema: ' . $table . '.' . $col . ' — ' . $e->getMessage());
+                }
+            }
+            foreach (self::ENUMS as [$table, $col, $value, $ddl]) {
+                $type = (string) DB::value('SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col]);
+                if ($type === '' || strpos($type, "'" . $value . "'") !== false) {
+                    continue;
+                }
+                try {
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    error_log('schema: ' . $table . '.' . $col . ' enum — ' . $e->getMessage());
                 }
             }
             foreach (self::TABLES as [$table, $file]) {

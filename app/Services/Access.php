@@ -30,23 +30,25 @@ final class Access
 
     /**
      * دسترسی‌های بورد پروژه (کانبان) به ازای هر پروژه؛ جدا از دسترسی تسک‌ها و پیش‌فرض بسته.
-     * مسیر اصلی مراحل: backlog → todo → in_progress → review → done؛ «مسدودشده» مرحله‌ی کناری است.
+     * مسیر اصلی مراحل: backlog → todo → in_progress → review → done؛ «مسدودشده» و «بازبینی مسئول» مراحل کناری‌اند.
+     * بازبینی مسئول (rework): سرپرست در «بررسی سرپرست» ایرادی دیده و تسک را برای اصلاح برگردانده؛
+     * برگرداندن با همان مجوز تأیید (to_done) و ارسال دوباره برای بررسی با to_review است (مجوز جدید لازم نیست).
      * دیدن کارت‌ها جداست: هر کس تسک‌های خودش را می‌بیند + تسک‌های اعضایی که در «مشاهده‌ی تسک‌های» برایش انتخاب شده
      * (project_members.board_view_users)؛ سازنده‌ی پروژه همه را می‌بیند.
      */
     public const BOARD_PERMS = [
         'to_todo'     => ['label' => 'برنامه‌ریزی‌نشده ← آماده انجام', 'icon' => 'fa-list-ul', 'desc' => 'انتخاب تسک برای انجام'],
         'to_progress' => ['label' => 'آماده انجام ← در حال انجام', 'icon' => 'fa-person-running', 'desc' => 'شروع کار روی تسک'],
-        'to_review'   => ['label' => 'در حال انجام ← در انتظار بررسی', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی'],
-        'to_done'     => ['label' => 'در انتظار بررسی ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک'],
-        'block'       => ['label' => 'مسدود کردن', 'icon' => 'fa-ban', 'desc' => 'انتقال از آماده انجام / در حال انجام / در انتظار بررسی به مسدودشده (با علت توقف)'],
-        'unblock'     => ['label' => 'رفع مسدودی', 'icon' => 'fa-lock-open', 'desc' => 'برگرداندن از مسدودشده به آماده انجام / در حال انجام / در انتظار بررسی'],
-        'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً در انتظار بررسی ← در حال انجام برای اصلاح، یا انجام‌شده ← در انتظار بررسی'],
+        'to_review'   => ['label' => 'در حال انجام ← بررسی سرپرست', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی سرپرست (و ارسال دوباره از «بازبینی مسئول»)'],
+        'to_done'     => ['label' => 'بررسی سرپرست ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک، یا برگرداندن آن به «بازبینی مسئول» برای اصلاح'],
+        'block'       => ['label' => 'مسدود کردن', 'icon' => 'fa-ban', 'desc' => 'انتقال از آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول به مسدودشده (با علت توقف)'],
+        'unblock'     => ['label' => 'رفع مسدودی', 'icon' => 'fa-lock-open', 'desc' => 'برگرداندن از مسدودشده به آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول'],
+        'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً بررسی سرپرست ← در حال انجام، بازبینی مسئول ← در حال انجام، یا انجام‌شده ← بررسی سرپرست'],
         'move_any'    => ['label' => 'جابه‌جایی آزاد', 'icon' => 'fa-shuffle', 'desc' => 'انتقال بین هر دو مرحله، از جمله پرش از چند مرحله'],
     ];
     private const BOARD_CHAIN = ['backlog', 'todo', 'in_progress', 'review', 'done'];
     private const BOARD_FORWARD = ['todo' => 'to_todo', 'in_progress' => 'to_progress', 'review' => 'to_review', 'done' => 'to_done'];
-    private const BOARD_ACTIVE = ['todo', 'in_progress', 'review'];
+    private const BOARD_ACTIVE = ['todo', 'in_progress', 'review', 'rework'];
 
     public const PROJECT_PERMS = [
         'edit_project'       => ['label' => 'ویرایش پروژه', 'icon' => 'fa-pen', 'desc' => 'ویرایش نام، توضیحات، تصویر و تنظیمات'],
@@ -239,6 +241,18 @@ final class Access
     /** مجوز لازم برای جابه‌جایی کارت از مرحله‌ی $from به $to (همیشه move_any هم کافی است). */
     public static function boardMovePerm(string $from, string $to): string
     {
+        // بازبینی مسئول: برگرداندن از بررسی سرپرست = مجوز تأیید؛ ارسال دوباره = مجوز ارسال برای بررسی؛ بازگشت به در حال انجام = مرحله‌ی قبل
+        if ($from === 'review' && $to === 'rework') {
+            return 'to_done';
+        }
+        if ($from === 'rework') {
+            if ($to === 'review') {
+                return 'to_review';
+            }
+            if ($to === 'in_progress') {
+                return 'move_back';
+            }
+        }
         $i = array_search($from, self::BOARD_CHAIN, true);
         $j = array_search($to, self::BOARD_CHAIN, true);
         if ($i !== false && $j !== false) {

@@ -175,6 +175,92 @@
     return { input: inp, host, set, get: () => inp.value, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; } };
   };
 
+  /* ═════════════ زمان انجام و یادآوری: یک فیلد برای تاریخ + ساعت ═════════════
+     نمای سریع: امروز / فردا / پس‌فردا (هر کدام با ساعت‌های آماده) و «انتخاب تاریخ و زمان» برای روز و ساعت دلخواه.
+     دو ورودی مخفی due_date (میلادی) و due_time (HH:MM) را پر می‌کند؛ خروجی: date و time با همان رابط datepicker/timepicker. */
+  const WD_FULL = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+  const TIMES = ['09:00', '12:00', '15:00', '18:00', '21:00'];
+  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام' } = {}) => {
+    host.classList.add('picker', 'duepick');
+    host.innerHTML = `<input type="hidden" name="${E(dateName)}" value=""><input type="hidden" name="${E(timeName)}" value="">`
+      + '<button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar-check"></i></button><div class="picker-pop dp-pop" hidden></div>';
+    const [dIn, tIn] = host.querySelectorAll('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
+    const isoOf = (offset) => { const n = new Date(); n.setDate(n.getDate() + offset); return J.iso(n.getFullYear(), n.getMonth() + 1, n.getDate()); };
+    const DAYS = [['today', 0, 'امروز', 'fa-sun'], ['tomorrow', 1, 'فردا', 'fa-cloud-sun'], ['after', 2, 'پس‌فردا', 'fa-calendar-day']];
+    const jLabel = (iso) => { const g = J.parseIso(iso); if (!g) return ''; const [jy, jm, jd] = J.g2j(...g); return `${WD_FULL[J.weekday(jy, jm, jd)]} ${FA(jd)} ${J.MONTHS[jm - 1]}`; };
+    const rel = (iso) => (DAYS.find(([, off]) => isoOf(off) === iso) || [])[2] || '';
+    const fT = (t) => FA(t || '');
+    const paint = () => {
+      const d = dIn.value, t = tIn.value;
+      val.innerHTML = d ? `<span>${E(rel(d) ? rel(d) + '، ' + jLabel(d).split(' ').slice(1).join(' ') : jLabel(d))}</span>${t ? `<span class="dp-time ltr">${fT(t)}</span>` : '<span class="faint xs">بدون ساعت</span>'}`
+        : `<span class="faint">${E(placeholder)}</span>`;
+      host.classList.toggle('has-val', !!d);
+    };
+    const fire = () => { dIn.dispatchEvent(new Event('change', { bubbles: true })); };
+    const setBoth = (d, t) => { dIn.value = d || ''; tIn.value = d ? (t || '') : ''; paint(); };
+    const close = () => { host.classList.remove('open'); pop.hidden = true; };
+    const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+    const mins = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+    // پیش‌فرض ساعت با کلیک روی خود روز: ساعت فعلیِ انتخاب‌شده، وگرنه برای امروز ساعت کامل بعدی و برای بقیه ۰۹:۰۰
+    const defTime = (off) => {
+      if (tIn.value) return tIn.value;
+      if (off > 0) return '09:00';
+      const h = new Date().getHours() + 1;
+      return h <= 23 ? `${p2(h)}:00` : '';
+    };
+    let openRow = null;
+    const quick = () => {
+      const d = dIn.value, t = tIn.value;
+      const rows = DAYS.map(([key, off, title, icon]) => {
+        const iso = isoOf(off), on = d === iso;
+        const times = TIMES.filter((x) => off > 0 || mins(x) > nowMin());
+        const chips = openRow === key ? `<div class="dp-times">${times.map((x) => `<button type="button" class="dp-chip${on && t === x ? ' on' : ''}" data-day="${off}" data-time="${x}">${fT(x)}</button>`).join('')}`
+          + `<button type="button" class="dp-chip ghost${on && !t ? ' on' : ''}" data-day="${off}" data-time="">بدون ساعت</button></div>` : '';
+        return `<div class="dp-row${on ? ' on' : ''}"><button type="button" class="dp-day" data-day="${off}"><span class="dp-ico"><i class="fa-solid ${icon}"></i></span>`
+          + `<span class="dp-txt"><b>${title}</b><span class="xs faint">${E(jLabel(iso))}${on && t ? ' • ' + fT(t) : ''}</span></span></button>`
+          + `<button type="button" class="dp-tbtn${openRow === key ? ' open' : ''}" data-row="${key}" aria-label="ساعت ${title}"><i class="fa-regular fa-clock"></i> ساعت <i class="fa-solid fa-chevron-down xs"></i></button>${chips}</div>`;
+      }).join('');
+      const custom = d && !rel(d);
+      pop.innerHTML = `<div class="dp-head"><b><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</b></div>${rows}`
+        + `<button type="button" class="dp-row dp-custom${custom ? ' on' : ''}" data-custom><span class="dp-ico"><i class="fa-regular fa-calendar"></i></span><span class="dp-txt"><b>انتخاب تاریخ و زمان</b><span class="xs faint">${custom ? E(jLabel(d)) + (t ? ' • ' + fT(t) : '') : 'روز و ساعت دلخواه'}</span></span><i class="fa-solid fa-chevron-left faint"></i></button>`
+        + (d ? '<div class="dp-foot"><button type="button" class="btn btn-xs btn-ghost text-danger" data-clear><i class="fa-solid fa-xmark"></i> حذف زمان</button></div>' : '')
+        + '<p class="xs faint dp-note">در ساعت تعیین‌شده یادآوری دریافت می‌کنید.</p>';
+    };
+    let sub = null;
+    const customView = () => {
+      pop.innerHTML = '<div class="dp-head"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-back aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button><b>انتخاب تاریخ و زمان</b></div>'
+        + '<div class="dp-sub"><div data-sub-date></div><div data-sub-time></div></div><div class="dp-foot"><button type="button" class="btn btn-sm" data-back>انصراف</button><button type="button" class="btn btn-sm btn-primary" data-ok>تأیید</button></div>';
+      sub = { d: TK.datepicker(pop.querySelector('[data-sub-date]'), { name: '', placeholder: 'تاریخ' }), t: TK.timepicker(pop.querySelector('[data-sub-time]'), { name: '', placeholder: 'ساعت (اختیاری)' }) };
+      sub.d.set(dIn.value || sub.d.today()); sub.t.set(tIn.value);
+    };
+    // اگر پایین جا نیست (پایین پنجره/صفحه) رو به بالا باز شود
+    const place = () => { pop.classList.remove('up'); const r = btn.getBoundingClientRect(), h = pop.offsetHeight; if (r.bottom + h + 12 > innerHeight && r.top - h - 12 > 0) pop.classList.add('up'); };
+    const openPop = () => { openRow = null; quick(); TK.qsa('.picker.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.add('open'); pop.hidden = false; place(); };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; host.classList.contains('open') ? close() : openPop(); });
+    pop.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.target.closest('button'); if (!b || !pop.contains(b)) return;
+      if (b.closest('[data-sub-date], [data-sub-time]')) return;
+      if (b.dataset.time !== undefined) { setBoth(isoOf(+b.dataset.day), b.dataset.time); close(); return fire(); }
+      if (b.dataset.row) { openRow = openRow === b.dataset.row ? null : b.dataset.row; return quick(); }
+      if (b.dataset.day !== undefined) { const off = +b.dataset.day; setBoth(isoOf(off), defTime(off)); close(); return fire(); }
+      if (b.hasAttribute('data-custom')) return customView();
+      if (b.hasAttribute('data-back')) return quick();
+      if (b.hasAttribute('data-clear')) { setBoth('', ''); close(); return fire(); }
+      if (b.hasAttribute('data-ok')) {
+        if (!sub.d.get()) return TK.toast('تاریخ را انتخاب کنید.', 'warning');
+        setBoth(sub.d.get(), sub.t.get()); close(); return fire();
+      }
+    });
+    document.addEventListener('click', (e) => { if (document.contains(e.target) && !host.contains(e.target)) close(); });
+    paint();
+    let off = false;
+    const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; if (off) close(); };
+    const date = { input: dIn, host, get: () => dIn.value, set: (iso) => { dIn.value = J.parseIso(iso) ? iso : ''; if (!dIn.value) tIn.value = ''; paint(); }, today: () => isoOf(0), disable };
+    const time = { input: tIn, host, get: () => tIn.value, set: (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); tIn.value = m ? `${p2(+m[1])}:${m[2]}` : ''; paint(); }, disable };
+    return { date, time, set: setBoth, disable, close };
+  };
+
   /* ═════════════ فیلد موبایل: «09» ثابت و غیرقابل‌حذف؛ کاربر فقط بقیه‌ی ۹ رقم را می‌نویسد ═════════════ */
   const digits = (v) => String(v).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
   const PREFIX = '09';

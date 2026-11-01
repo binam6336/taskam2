@@ -25,7 +25,7 @@ $taskRow = static function (array $t, bool $late): string {
         . '<span class="dash-task-due' . ($late ? ' late' : '') . '">' . e(trim($due . ' ' . $time)) . '</span></a>';
 };
 $w = $waiting;
-$wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']);
+$wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']) + count($w['review']) + count($w['rework']);
 ?>
 <div data-live="dash-top">
 <div class="dash-hello mb-2">
@@ -53,6 +53,26 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
     <div class="card dash-wait">
         <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> منتظر اقدام <?php if ($wCount): ?><span class="badge yellow"><?= e(fa_num($wCount)) ?></span><?php endif; ?></h3></div>
         <?php if (!$wCount): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
+
+        <?php if ($w['review']): ?>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" style="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
+            <div class="list"><?php foreach ($w['review'] as $t): ?>
+                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
+                    <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
+                    <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
+                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['board_moved_at'] ?? '')) ?></div></div></a>
+            <?php endforeach; ?></div></div>
+        <?php endif; ?>
+
+        <?php if ($w['rework']): ?>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-rotate-left" style="color:#fb923c"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
+            <div class="list"><?php foreach ($w['rework'] as $t): ?>
+                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
+                    <span class="avatar sm sq dash-rework-ico"><i class="fa-solid fa-rotate-left"></i></span>
+                    <div class="grow min0"><div class="small truncate">«<?= e($t['title']) ?>»<?= $t['blocked_reason'] ? ' — ' . e($t['blocked_reason']) : '' ?></div>
+                        <div class="xs faint truncate"><?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['board_moved_at'] ?? '')) ?></div></div></a>
+            <?php endforeach; ?></div></div>
+        <?php endif; ?>
 
         <?php if ($w['mentions']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-at"></i> منشن‌ها</b></div>
@@ -96,10 +116,10 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 </div>
 </div>
 <div class="grid grid-4 mb-2">
-    <div class="card stat"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num($s['total'])) ?></div><div class="lbl">کل تسک‌های من</div></div></div>
-    <div class="card stat"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num($s['completed'])) ?></div><div class="lbl">انجام‌شده</div></div></div>
-    <div class="card stat"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num($s['pending'])) ?></div><div class="lbl">در جریان</div></div></div>
-    <div class="card stat"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($s['high'])) ?></div><div class="lbl">اولویت زیاد</div></div></div>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=all')) ?>" title="نمایش همه‌ی تسک‌های من"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num($s['total'])) ?></div><div class="lbl">کل تسک‌های من</div></div></a>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=done')) ?>" title="نمایش تسک‌های انجام‌شده"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num($s['completed'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="نمایش تسک‌های در جریان"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num($s['pending'])) ?></div><div class="lbl">در جریان</div></div></a>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=all&prio=high')) ?>" title="نمایش تسک‌های با اولویت زیاد"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($s['high'])) ?></div><div class="lbl">اولویت زیاد</div></div></a>
 </div>
 
 <div class="grid grid-wide mb-2">

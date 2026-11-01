@@ -75,4 +75,38 @@ final class Notifier
         $lines[] = 'ثبت‌کننده: ' . ($actor ? full_name($actor) : 'کاربر');
         self::send($assignee, implode("\n", $lines) . "\n\n[[call:" . $call['share_token'] . ']]');
     }
+    /** پیوند اشتراکی تسک برای پیام ربات */
+    private static function token(array $task): string
+    {
+        return (string) ($task['share_token'] ?: \App\Models\TaskModel::ensureShareToken((int) $task['id']));
+    }
+
+    /** تسک به «بررسی سرپرست» رسید → برای همه‌ی کسانی که می‌توانند تکمیلش کنند */
+    public static function taskInReview(array $task, int $actorId, array $toIds): void
+    {
+        if (!$toIds) {
+            return;
+        }
+        $actor = UserModel::find($actorId);
+        $pt = !empty($task['project_id']) ? (string) \App\Core\DB::value('SELECT title FROM projects WHERE id = ?', [(int) $task['project_id']]) : '';
+        $msg = '🔎 تسکی برای بررسی سرپرست آماده است' . "\n\nعنوان: " . $task['title'] . ($pt !== '' ? "\nپروژه: " . $pt : '')
+            . "\nارسال‌کننده: " . ($actor ? full_name($actor) : 'کاربر') . "\n\nلطفاً بررسی کنید و تأیید (انجام‌شده) یا برای اصلاح به «بازبینی مسئول» برگردانید."
+            . "\n\n[[task:" . self::token($task) . ']]';
+        foreach (array_unique($toIds) as $uid) {
+            self::send((int) $uid, $msg);
+        }
+    }
+
+    /** سرپرست تسک را به «بازبینی مسئول» برگرداند → برای مسئول تسک (یا سازنده اگر مسئول ندارد) */
+    public static function taskReturned(array $task, int $actorId, ?string $reason): void
+    {
+        $to = (int) ($task['assignee_id'] ?: $task['user_id']);
+        if ($to === $actorId) {
+            return;
+        }
+        $actor = UserModel::find($actorId);
+        $msg = '↩️ تسک «' . $task['title'] . '» برای اصلاح به «بازبینی مسئول» برگشت' . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرپرست')
+            . ($reason ? "\nعلت: " . $reason : '') . "\n\nپس از اصلاح، تسک را دوباره به «بررسی سرپرست» بفرستید.\n\n[[task:" . self::token($task) . ']]';
+        self::send($to, $msg);
+    }
 }

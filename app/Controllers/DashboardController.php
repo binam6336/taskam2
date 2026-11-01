@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Models\ProjectModel;
 use App\Models\SubjectModel;
 use App\Models\TaskModel;
+use App\Services\BoardService;
 use App\Services\ColleagueService;
 
 final class DashboardController extends Controller
@@ -21,7 +22,8 @@ final class DashboardController extends Controller
             // باکس مهم: تسک‌های امروز و عقب‌افتاده
             'focus' => TaskModel::focus($uid),
             // منتظر اقدام: منشن‌ها، پیام‌های چت، درخواست همکاری و دعوت به پروژه
-            'waiting' => TaskModel::waiting($uid) + [
+            // + تسک‌های منتظر بررسی سرپرست (برای کسی که می‌تواند تأیید کند) و برگشته به بازبینی مسئول (برای مسئول)
+            'waiting' => TaskModel::waiting($uid) + BoardService::waiting($uid) + [
                 'colleagues' => ColleagueService::incomingRequests($uid),
                 'invites' => ProjectModel::pendingRequestsFor($uid),
             ],

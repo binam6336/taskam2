@@ -39,8 +39,9 @@ document.addEventListener('tk:ready', () => {
     assignee_id: mk('assignee_id', (cfg.assignees || []).map((a) => ({ value: a.id, label: a.name, img: a.avatar })), TK.ph('task_assignee', 'انتخاب مسئول'), false),
     project_id: mk('project_id', (cfg.projects || []).map((p) => ({ value: p.id, label: p.title, img: p.image })), TK.ph('task_project', 'انتخاب پروژه'), true),
   };
-  const dp = TK.datepicker(TK.qs('[data-jdate="due_date"]', form), { name: 'due_date', placeholder: TK.ph('task_due_date', 'انتخاب تاریخ (شمسی)') });
-  const tp = TK.timepicker(TK.qs('[data-jtime="due_time"]', form), { name: 'due_time', placeholder: TK.ph('task_due_time', 'انتخاب ساعت') });
+  // تاریخ و ساعت سررسید در یک فیلد (امروز/فردا/پس‌فردا با ساعت‌های آماده + انتخاب دلخواه)
+  const due = TK.duepicker(TK.qs('[data-jdue]', form), { placeholder: TK.ph('task_due', 'تعیین زمان انجام (اختیاری)') });
+  const dp = due.date, tp = due.time;
   const canCreate = (cfg.projects || []).length > 0;
 
   /* ───── اولویت: دسته‌بندی یا درصدی (بر اساس نوع اولویت پروژه) ───── */
@@ -314,7 +315,7 @@ document.addEventListener('tk:ready', () => {
       }
     } else if (key === 'status') {
       body = `<div class="qe-h">انتقال در بورد از «${E(t.board.label)}» به:</div>` + t.board.targets.map((x) => opt(`data-qe-status="${E(x.key)}"`, `<span class="badge board-st tone-${E(x.tone)}"><i class="fa-solid ${E(x.icon)}"></i> ${E(x.label)}</span>`)).join('')
-        + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت توقف (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
+        + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
     } else if (key === 'label') {
       body = '<div class="qe-h">لیبل</div><div class="qe-list">' + opt('data-qe-label=""', '<i class="fa-solid fa-ban faint"></i> بدون لیبل', !t.subject_id)
         + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" style="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, Number(t.subject_id) === Number(x.id))).join('') + '</div>';
@@ -360,10 +361,13 @@ document.addEventListener('tk:ready', () => {
     }
     if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '' }, b);
     if (b.dataset.qeStatus) {
-      if (b.dataset.qeStatus === 'blocked') { const r = TK.qs('.qe-reason', p); r.hidden = false; TK.qs('[data-qe-reason]', r).focus(); return; }
+      if (b.dataset.qeStatus === 'blocked' || b.dataset.qeStatus === 'rework') {
+        const r = TK.qs('.qe-reason', p); r.hidden = false; r.dataset.st = b.dataset.qeStatus;
+        const inp = TK.qs('[data-qe-reason]', r); inp.placeholder = b.dataset.qeStatus === 'rework' ? 'چه ایرادی باید اصلاح شود؟ (اختیاری)' : 'علت توقف (اختیاری)'; inp.focus(); return;
+      }
       return qeSave('/tasks/' + currentId + '/status', { status: b.dataset.qeStatus }, b);
     }
-    if (b.hasAttribute('data-qe-block')) return qeSave('/tasks/' + currentId + '/status', { status: 'blocked', reason: TK.qs('[data-qe-reason]', p).value }, b);
+    if (b.hasAttribute('data-qe-block')) return qeSave('/tasks/' + currentId + '/status', { status: TK.qs('.qe-reason', p).dataset.st || 'blocked', reason: TK.qs('[data-qe-reason]', p).value }, b);
   });
   // بستن پنجره‌ی کوچک با کلیک بیرون یا Escape (لیست باز تاریخ/ساعت داخل خود پنجره است)
   document.addEventListener('click', (e) => { if (qePop && document.contains(e.target) && !e.target.closest('.qe-pop, [data-qe]')) qeClose(); });

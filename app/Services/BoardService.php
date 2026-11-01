@@ -22,12 +22,13 @@ final class BoardService
         'todo'        => ['label' => 'آماده انجام', 'en' => 'To Do', 'icon' => 'fa-list-ul', 'tone' => 'info', 'desc' => 'انتخاب شده، کار هنوز شروع نشده'],
         'in_progress' => ['label' => 'در حال انجام', 'en' => 'In Progress', 'icon' => 'fa-person-running', 'tone' => 'warn', 'desc' => 'مسئول کار را شروع کرده'],
         'blocked'     => ['label' => 'مسدودشده', 'en' => 'Blocked', 'icon' => 'fa-ban', 'tone' => 'danger', 'desc' => 'متوقف به‌خاطر وابستگی، مشکل فنی یا انتظار'],
-        'review'      => ['label' => 'در انتظار بررسی', 'en' => 'In Review', 'icon' => 'fa-magnifying-glass', 'tone' => 'purple', 'desc' => 'انجام شده و منتظر بررسی'],
+        'review'      => ['label' => 'بررسی سرپرست', 'en' => 'In Review', 'icon' => 'fa-magnifying-glass', 'tone' => 'purple', 'desc' => 'انجام شده و منتظر بررسی سرپرست'],
+        'rework'      => ['label' => 'بازبینی مسئول', 'en' => 'Rework', 'icon' => 'fa-rotate-left', 'tone' => 'orange', 'desc' => 'سرپرست ایرادی دیده و تسک برای اصلاح به مسئول برگشته'],
         'done'        => ['label' => 'انجام‌شده', 'en' => 'Done', 'icon' => 'fa-circle-check', 'tone' => 'ok', 'desc' => 'تکمیل شده و معیارهای اتمام برآورده شده'],
     ];
 
     /** وضعیت‌هایی که برای هر عضو سقف تعداد تسک دارند (برنامه‌ریزی‌نشده، انجام‌شده و آرشیو سقف ندارند) */
-    public const LIMITED = ['todo', 'in_progress', 'blocked', 'review'];
+    public const LIMITED = ['todo', 'in_progress', 'blocked', 'review', 'rework'];
     public const MAX_LIMIT = 999;
 
     /** project_members.board_limits → [status => n]؛ فقط وضعیت‌های LIMITED و اعداد ۰ تا MAX_LIMIT */
@@ -98,7 +99,7 @@ final class BoardService
     }
 
     /** مرحله‌ی بعدی هر وضعیت (دکمه‌ی «انتقال به …» در جزئیات تسک) */
-    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress'];
+    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress', 'rework' => 'review'];
 
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
@@ -343,6 +344,50 @@ final class BoardService
         return Access::canBoardView($t, $uid);
     }
 
+    /**
+     * کسانی که می‌توانند تسکِ «بررسی سرپرست» را تکمیل کنند (اعلان رسیدن تسک به بررسی):
+     * سازنده‌ی پروژه و اعضایی که هم مجوز انتقال به انجام‌شده در بورد و هم مجوز «تکمیل تسک» دارند (بجز خود انجام‌دهنده).
+     */
+    public static function reviewers(array $t, int $except = 0): array
+    {
+        $pid = (int) ($t['project_id'] ?? 0);
+        if ($pid <= 0) {
+            return [];
+        }
+        $ids = array_map('intval', DB::column('SELECT user_id FROM projects WHERE id = ? UNION SELECT user_id FROM project_members WHERE project_id = ?', [$pid, $pid]));
+        $out = [];
+        foreach (array_unique($ids) as $uid) {
+            if ($uid !== $except && $uid > 0 && in_array('done', Access::boardTargets($t, $uid, 'review', ['done']), true) && Access::canTask($t, $uid, 'complete')) {
+                $out[] = $uid;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * «منتظر اقدام» پیشخوان:
+     * review = تسک‌های «بررسی سرپرست» در پروژه‌های کاربر که او می‌تواند تأیید/تکمیل کند (سرپرست، مدیر، سازنده‌ی پروژه)؛
+     * rework = تسک‌هایی که مسئولشان کاربر است و سرپرست برای اصلاح به «بازبینی مسئول» برگردانده.
+     */
+    public static function waiting(int $uid, int $limit = 10): array
+    {
+        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, p.title AS project_title,
+                u.first_name, u.last_name, u.avatar FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
+        $review = [];
+        foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.is_completed = 0
+                AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
+            if (in_array('done', Access::boardTargets($t, $uid, 'review', ['done']), true) && Access::canTask($t, $uid, 'complete')) {
+                $review[] = $t;
+                if (count($review) >= $limit) {
+                    break;
+                }
+            }
+        }
+        $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND COALESCE(t.assignee_id, t.user_id) = ?
+                ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid]);
+        return ['review' => $review, 'rework' => $rework];
+    }
+
     /** انتقال کارت به ستون دیگر. */
     /** $fromTask: از تیک «انجام شد» در لیست تسک‌ها (دیدن تسک قبلاً با مجوز view بررسی شده؛ دیدن کارت در برد لازم نیست) */
     public static function move(int $actor, int $id, string $status, string $reason = '', bool $fromTask = false): array
@@ -379,12 +424,19 @@ final class BoardService
         if ($err = self::limitError($t, $status)) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
+        // علت: برای «مسدودشده» علت توقف، برای «بازبینی مسئول» ایرادی که سرپرست دیده (همان ستون blocked_reason)
         $reason = trim(mb_substr($reason, 0, 255));
+        $reason = in_array($status, ['blocked', 'rework'], true) && $reason !== '' ? $reason : null;
         $done = $status === 'done';
         DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?,
                    completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END WHERE id = ?',
-            [$status, $status === 'blocked' && $reason !== '' ? $reason : null, $done ? 1 : 0, $done ? 1 : 0, $id]);
-        TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $status === 'blocked' && $reason !== '' ? $reason : null]);
+            [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $id]);
+        TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
+        if ($status === 'review' && $from !== 'done') {
+            Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
+        } elseif ($status === 'rework') {
+            Notifier::taskReturned($t, $actor, $reason);
+        }
         return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $done]);
     }
 }

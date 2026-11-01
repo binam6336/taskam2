@@ -100,6 +100,7 @@ final class PanelDocs
                 ['مدیریت اعضای پروژه', 'فقط اعضای با دسترسی کمتر', 'سازنده‌ی پروژه همه را مدیریت می‌کند.', null],
                 ['نقش پیش‌فرض عضو جدید پروژه', \App\Services\Access::ROLES[\App\Services\Access::DEFAULT_ROLE]['label'], \App\Services\Access::ROLES[\App\Services\Access::DEFAULT_ROLE]['desc'], null],
                 ['جابه‌جایی کارت در بورد', 'طبق دسترسی بورد عضو در همان پروژه', 'کارت قفل‌شده آیکون قفل دارد و با کلیک دلیلش نمایش داده می‌شود.', null],
+                ['«' . \App\Services\BoardService::STATUSES['review']['label'] . '» و «' . \App\Services\BoardService::STATUSES['rework']['label'] . '»', 'ارسال برای بررسی: مجوز «' . \App\Services\Access::BOARD_PERMS['to_review']['label'] . '»؛ تأیید یا برگرداندن: مجوز «' . \App\Services\Access::BOARD_PERMS['to_done']['label'] . '» + «تکمیل تسک»', 'با رسیدن تسک به بررسی سرپرست برای همه‌ی کسانی که می‌توانند تکمیلش کنند اعلان می‌رود و در «منتظر اقدام» پیشخوانشان دیده می‌شود؛ برگشت به بازبینی مسئول برای مسئول تسک اعلان می‌شود.', null],
                 ['افزودن همکار', 'با درخواست و تأیید طرف مقابل', 'استثنا: اگر او قبلاً با تأیید شما، شما را همکار کرده باشد، بی‌درنگ اضافه می‌شود. هر کاربر در تب «کاربرانی که مرا همکار کرده‌اند» می‌تواند از لیست دیگران خارج شود.', null],
                 ['لیبل تسک', 'اختیاری', 'هر کاربر جدید سه لیبل پیش‌فرض دارد: ' . implode('، ', array_keys(\App\Models\SubjectModel::DEFAULTS)) . '.', null],
             ]],

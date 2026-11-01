@@ -44,10 +44,7 @@ $this->scripts[] = 'tasks';
                         <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id"><option value="">— بدون لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
                             <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="<?= e(ph('task_label_new')) ?>" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
-                <div class="row">
-                    <div class="field" data-tour="due"><label>تاریخ سررسید</label><div data-jdate="due_date"></div></div>
-                    <div class="field" data-tour="time"><label>ساعت سررسید</label><div data-jtime="due_time"></div></div>
-                </div>
+                <div class="field" data-tour="due"><label><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</label><div data-jdue></div></div>
                 <div class="field" id="task-files-field"><label>پیوست‌ها <span class="faint">(حداکثر ۱۰ مگابایت برای هر فایل)</span></label>
                     <div class="file-pick-row"><label class="btn btn-icon file-pick" data-tour="files" title="افزودن فایل" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label><span class="file-pick-names faint small" data-file-names></span></div></div>
                 </div>

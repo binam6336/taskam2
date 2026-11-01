@@ -73,8 +73,9 @@
       },
       until: () => { const v = TK.qs('#f-task [name=subject_id]')?.value; return !!v && v !== '__new'; }, // لیبل ساخته و انتخاب شد
     },
-    12: more('due', T.step_12, { next: 13 }),
-    13: more('time', T.step_13, { next: 14 }),
+    12: more('due', T.step_12, { next: 14 }),
+    // ۱۳ (ساعت جدا) از v3.38 با «زمان انجام و یادآوری» یکی شد؛ شماره ذخیره‌شده است، پس فقط به همان فیلد اشاره می‌کند
+    13: more('due', T.step_12, { next: 14 }),
     14: more('files', T.step_14, { next: 15 }),
     15: field('save', T.step_15, {
       action: 'submit', next: 0, celebrate: T.task_created,
@@ -91,7 +92,7 @@
   const sel = (step) => (typeof step.target === 'function' ? step.target() : step.target);
   const act = (step) => (typeof step.action === 'function' ? step.action() : step.action);
   // ترتیب نمایش (شماره‌ی مرحله ثابت می‌ماند؛ مرحله‌ی ۱۷ «گزینه‌های بیشتر» بعد از ۸ آمده؛ ۱۶ = وضعیت قدیمی پایان تور، استفاده نشود)
-  const ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 17, 9, 10, 11, 12, 13, 14, 15];
+  const ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 17, 9, 10, 11, 12, 14, 15];
   const ids = ORDER.filter((i) => STEPS[i]);
   const active = () => ids.filter((i) => !STEPS[i].when || STEPS[i].when());
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };

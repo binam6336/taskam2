@@ -1,7 +1,7 @@
 <?php
 /** @var array $tasks @var int $total @var int $page @var int $pages @var string $scope @var bool $done @var string $q @var array $counts @var array $subjects @var array $projects @var array $assignees @var ?array $shared @var array $filters @var array $dueDates @var ?array $projScope تسک‌های یک پروژه (از تحلیل پروژه) */
 use App\Models\TaskModel;
-$status = $projScope['status'] ?? ($done ? 'done' : 'open');
+$status = $projScope['status'] ?? (!empty($statusAll) ? 'all' : ($done ? 'done' : 'open'));
 $pq = $projScope ? array_filter(['project' => $projScope['id'], 'assignee' => $projScope['assignee'] ?: null]) : [];
 $tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_query(['scope' => $sc, 'status' => $st] + ($sc === 'project' ? $pq : []));
 $fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0);
@@ -30,8 +30,9 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'open')) ?>">باز <span class="badge-count"><?= e(fa_num($pc['open'])) ?></span></a>
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($pc['done'])) ?></span></a>
         <?php else: ?>
-        <a class="tab <?= !$done ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'])) ?></span></a>
-        <a class="tab <?= $done ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
+        <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] + $counts[$scope . '_done'])) ?></span></a>
+        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'])) ?></span></a>
+        <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
         <?php endif; ?>
     </div>
     <form method="get" class="t-toolbar" id="t-toolbar">
