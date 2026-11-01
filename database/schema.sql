@@ -38,6 +38,7 @@ CREATE TABLE `users` (
   `quick_links`                     TEXT NULL DEFAULT NULL               COMMENT 'JSON: شناسه‌ی لینک‌های دسترسی سریع',
   `theme`                           VARCHAR(20) NOT NULL DEFAULT 'dark'  COMMENT 'تم ظاهری: config/themes.php',
   `tour`                            VARCHAR(20) NULL DEFAULT NULL        COMMENT 'تور آموزشی: NULL پرسیده نشده، skip، done یا شماره‌ی مرحله',
+  `board_order`                     VARCHAR(255) NULL DEFAULT NULL       COMMENT 'ترتیب ستون‌های بورد (کلیدها با کاما)؛ NULL = پیش‌فرض',
   `last_seen`                       INT UNSIGNED NULL DEFAULT NULL       COMMENT 'Unix time آخرین فعالیت چت',
   `last_login_at`                   DATETIME NULL DEFAULT NULL,
   `last_login_ip`                   VARCHAR(45) NULL DEFAULT NULL,

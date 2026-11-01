@@ -8,7 +8,7 @@ document.addEventListener('tk:ready', () => {
   const NO_PAN = '.kb-card, button, a, input, select, textarea, label, [data-kb-limit], .kb-limit-pop, .kb-col-head';
   document.addEventListener('mousedown', (e) => {
     const board = e.target.closest?.('#kb-board');
-    if (!board || e.button !== 0 || e.target.closest(NO_PAN) || board.scrollWidth <= board.clientWidth) return;
+    if (!board || arranging || e.button !== 0 || e.target.closest(NO_PAN) || board.scrollWidth <= board.clientWidth) return;
     pan = { board, x: e.clientX, left: board.scrollLeft, moved: false };
   });
   document.addEventListener('mousemove', (e) => {
@@ -78,7 +78,7 @@ document.addEventListener('tk:ready', () => {
   /* کشیدن و رها کردن (دسکتاپ) */
   let dragged = null;
   document.addEventListener('dragstart', (e) => {
-    const c = e.target.closest?.('.kb-card[draggable="true"]'); if (!c) return;
+    const c = e.target.closest?.('.kb-card[draggable="true"]'); if (!c || arranging) return;
     dragged = c; c.classList.add('kb-dragging');
     TK.qsa('.kb-col').forEach((col) => col.classList.toggle('kb-deny', col.dataset.col !== c.dataset.status && !allowed(c, col.dataset.col)));
     e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.id);
@@ -94,6 +94,81 @@ document.addEventListener('tk:ready', () => {
     const col = e.target.closest?.('.kb-col'); if (!col || !dragged) return;
     e.preventDefault(); col.classList.remove('kb-over');
     request(dragged, col.dataset.col);
+  });
+
+  /* ───── چیدمان ستون‌ها: دکمه‌ی کنار جستجو → کشیدن ستون‌ها (یا فلش‌ها در لمسی)؛ ترتیب برای همین کاربر ذخیره می‌شود ───── */
+  let arranging = false, colDrag = null, saveT = null;
+  const arrBtn = TK.qs('#kb-arrange'), arrBar = TK.qs('#kb-arrange-bar'), resetBtn = TK.qs('#kb-order-reset');
+  const boardEl = () => TK.qs('#kb-board');
+  const cols = () => TK.qsa('#kb-board > .kb-col');
+  const keys = () => cols().map((c) => c.dataset.col);
+  const rtl = () => getComputedStyle(boardEl()).direction === 'rtl';
+  const decorate = () => {
+    boardEl()?.classList.toggle('kb-arranging', arranging);
+    cols().forEach((c, i, all) => {
+      if (arranging) c.setAttribute('draggable', 'true'); else c.removeAttribute('draggable');
+      c.querySelector('.kb-col-move')?.remove();
+      if (!arranging) return;
+      const m = document.createElement('div'); m.className = 'kb-col-move';
+      m.innerHTML = `<button type="button" data-col-move="-1" ${i === 0 ? 'disabled' : ''} aria-label="انتقال به قبل"><i class="fa-solid fa-arrow-right"></i></button>`
+        + '<span class="kb-col-grip" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>'
+        + `<button type="button" data-col-move="1" ${i === all.length - 1 ? 'disabled' : ''} aria-label="انتقال به بعد"><i class="fa-solid fa-arrow-left"></i></button>`;
+      c.prepend(m);
+    });
+  };
+  const save = (reset = false) => {
+    clearTimeout(saveT);
+    saveT = setTimeout(async () => {
+      const r = await TK.post('/board/order', reset ? { reset: 1 } : { order: keys().join(',') });
+      if (!TK.ok(r)) { TK.toast(r?.message || 'ذخیره‌ی ترتیب ستون‌ها انجام نشد.', 'error'); return; }
+      if (resetBtn) resetBtn.disabled = !!r.is_default;
+      if (reset && r.order) { const b = boardEl(); r.order.forEach((k) => { const c = b.querySelector(`:scope > .kb-col[data-col="${k}"]`); if (c) b.appendChild(c); }); decorate(); }
+      TK.toast(r.message, 'success', 1400);
+    }, reset ? 0 : 350);
+  };
+  const setArrange = (on) => {
+    arranging = on; arrBar.hidden = !on;
+    arrBtn.classList.toggle('active', on); arrBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    closeMenu(); decorate();
+    if (on) arrBar.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+  arrBtn?.addEventListener('click', () => setArrange(!arranging));
+  TK.qs('#kb-arrange-done')?.addEventListener('click', () => setArrange(false));
+  resetBtn?.addEventListener('click', () => save(true));
+  document.addEventListener('tk:live', () => { if (arranging) decorate(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && arranging) setArrange(false); });
+  TK.on('click', '[data-col-move]', (e, b) => {
+    const c = b.closest('.kb-col'), all = cols(), i = all.indexOf(c), j = i + Number(b.dataset.colMove);
+    if (j < 0 || j >= all.length) return;
+    const board = boardEl();
+    board.insertBefore(c, j > i ? all[j].nextSibling : all[j]);
+    decorate(); board.querySelector(`.kb-col[data-col="${c.dataset.col}"] [data-col-move="${b.dataset.colMove}"]:not([disabled])`)?.focus();
+    c.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    save();
+  });
+  let colStart = '';
+  document.addEventListener('dragstart', (e) => {
+    if (!arranging) return;
+    const c = e.target.closest?.('#kb-board > .kb-col'); if (!c) return;
+    colDrag = c; colStart = keys().join(); c.classList.add('kb-col-dragging');
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.col);
+  });
+  document.addEventListener('dragover', (e) => {
+    if (!colDrag) return;
+    const over = e.target.closest?.('#kb-board > .kb-col'); if (!over) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    if (over === colDrag) return;
+    const r = over.getBoundingClientRect(), mid = r.left + r.width / 2;
+    const before = rtl() ? e.clientX > mid : e.clientX < mid;
+    const ref = before ? over : over.nextSibling;
+    if (ref !== colDrag && colDrag.nextSibling !== ref) boardEl().insertBefore(colDrag, ref);
+  });
+  document.addEventListener('drop', (e) => { if (colDrag) e.preventDefault(); });
+  document.addEventListener('dragend', () => {
+    if (!colDrag) return;
+    colDrag.classList.remove('kb-col-dragging'); colDrag = null;
+    decorate();
+    if (keys().join() !== colStart) save();
   });
 
   /* منوی «انتقال به…» (لمسی و صفحه‌کلید) */

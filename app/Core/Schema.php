@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '022';
+    public const VERSION = '023';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -42,6 +42,8 @@ final class Schema
         ['project_members', 'board_limits', 'ADD COLUMN `board_limits` TEXT NULL DEFAULT NULL AFTER `board_view_users`', null],
         // 018
         ['api_tokens', 'scope', "ADD COLUMN `scope` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `token_prefix`", null],
+        // 023
+        ['users', 'board_order', 'ADD COLUMN `board_order` VARCHAR(255) NULL DEFAULT NULL AFTER `tour`', null],
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */

@@ -1,5 +1,5 @@
 <?php
-/** @var array $columns @var array $statuses @var array $projects @var array $filters @var array $archive @var int $archivable @var array $over ستون‌های بیشتر از سقف کاربر */
+/** @var array $order ترتیب ستون‌های کاربر @var array $columns @var array $statuses @var array $projects @var array $filters @var array $archive @var int $archivable @var array $over ستون‌های بیشتر از سقف کاربر */
 $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
@@ -12,15 +12,38 @@ $total = array_sum(array_map('count', $columns));
         <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
     </select>
     <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>"></div>
+    <button type="button" class="btn btn-icon kb-arrange-btn" id="kb-arrange" aria-pressed="false" title="چیدمان ستون‌ها (جابه‌جایی ستون‌ها با کشیدن)" aria-label="چیدمان ستون‌ها"><i class="fa-solid fa-table-columns"></i><i class="fa-solid fa-arrows-left-right kb-arrange-sub"></i></button>
     <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
 </form>
+
+<div class="kb-arrange-bar card" id="kb-arrange-bar" hidden>
+    <i class="fa-solid fa-arrows-left-right"></i>
+    <div class="grow"><b>چیدمان ستون‌ها</b><span class="small muted"> — ستون‌ها را از سرشان بکشید و جابه‌جا کنید (یا با فلش‌ها). ترتیب برای شما ذخیره می‌شود.</span></div>
+    <button type="button" class="btn btn-sm" id="kb-order-reset" <?= $order === \App\Services\BoardService::DEFAULT_ORDER ? 'disabled' : '' ?>><i class="fa-solid fa-rotate-left"></i> پیش‌فرض</button>
+    <button type="button" class="btn btn-sm btn-primary" id="kb-arrange-done"><i class="fa-solid fa-check"></i> تمام</button>
+</div>
 
 <div data-live="board-body">
 <?php if ($total === 0): ?>
 <div class="card empty"><i class="fa-solid fa-table-columns"></i><p>تسکی برای نمایش در برد نیست. این‌جا تسک‌های خودتان و تسک‌های اعضایی که مدیر پروژه در «مشاهده‌ی تسک‌های» برایتان انتخاب کرده نمایش داده می‌شوند.</p></div>
 <?php endif; ?>
 <div class="kb-board" id="kb-board">
-<?php foreach ($statuses as $key => $s): $cards = $columns[$key]; $ov = $over[$key] ?? []; ?>
+<?php foreach ($order as $key): if ($key === 'archived'): ?>
+    <section class="kb-col tone-archive" data-col="archived" aria-label="آرشیو">
+        <header class="kb-col-head" title="تسک‌های انجام‌شده‌ای که بایگانی شده‌اند">
+            <i class="fa-solid fa-box-archive"></i>
+            <div class="grow"><b>آرشیو</b><span>Archived</span></div>
+            <span class="kb-count"><?= e(fa_num($archive['total'])) ?></span>
+        </header>
+        <div class="kb-list" data-drop="archived">
+        <?php foreach ($archive['cards'] as $t) { $this->partial('kb_card', ['t' => $t, 'key' => 'archived', 'filters' => $filters]); } ?>
+        <?php if (!$archive['total']): ?><div class="kb-empty xs faint">آرشیو خالی است.</div><?php endif; ?>
+        </div>
+        <?php if ($archive['total'] > 0): ?>
+        <footer class="kb-col-foot"><button type="button" class="btn btn-sm kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button></footer>
+        <?php endif; ?>
+    </section>
+<?php continue; endif; $s = $statuses[$key]; $cards = $columns[$key]; $ov = $over[$key] ?? []; ?>
     <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
         <header class="kb-col-head" title="<?= e($s['desc']) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
@@ -41,20 +64,6 @@ $total = array_sum(array_map('count', $columns));
         </div>
     </section>
 <?php endforeach; ?>
-    <section class="kb-col tone-archive" data-col="archived" aria-label="آرشیو">
-        <header class="kb-col-head" title="تسک‌های انجام‌شده‌ای که بایگانی شده‌اند">
-            <i class="fa-solid fa-box-archive"></i>
-            <div class="grow"><b>آرشیو</b><span>Archived</span></div>
-            <span class="kb-count"><?= e(fa_num($archive['total'])) ?></span>
-        </header>
-        <div class="kb-list" data-drop="archived">
-        <?php foreach ($archive['cards'] as $t) { $this->partial('kb_card', ['t' => $t, 'key' => 'archived', 'filters' => $filters]); } ?>
-        <?php if (!$archive['total']): ?><div class="kb-empty xs faint">آرشیو خالی است.</div><?php endif; ?>
-        </div>
-        <?php if ($archive['total'] > 0): ?>
-        <footer class="kb-col-foot"><button type="button" class="btn btn-sm kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button></footer>
-        <?php endif; ?>
-    </section>
 </div>
 </div>
 

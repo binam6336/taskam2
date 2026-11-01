@@ -19,13 +19,47 @@ final class BoardService
 {
     public const STATUSES = [
         'backlog'     => ['label' => 'برنامه‌ریزی‌نشده', 'en' => 'Backlog', 'icon' => 'fa-inbox', 'tone' => 'muted', 'desc' => 'ثبت شده ولی هنوز برای انجام انتخاب نشده'],
+        'rework'      => ['label' => 'بازبینی مسئول', 'en' => 'Rework', 'icon' => 'fa-rotate-left', 'tone' => 'orange', 'desc' => 'سرپرست ایرادی دیده و تسک برای اصلاح به مسئول برگشته'],
         'todo'        => ['label' => 'آماده انجام', 'en' => 'To Do', 'icon' => 'fa-list-ul', 'tone' => 'info', 'desc' => 'انتخاب شده، کار هنوز شروع نشده'],
         'in_progress' => ['label' => 'در حال انجام', 'en' => 'In Progress', 'icon' => 'fa-person-running', 'tone' => 'warn', 'desc' => 'مسئول کار را شروع کرده'],
-        'blocked'     => ['label' => 'مسدودشده', 'en' => 'Blocked', 'icon' => 'fa-ban', 'tone' => 'danger', 'desc' => 'متوقف به‌خاطر وابستگی، مشکل فنی یا انتظار'],
         'review'      => ['label' => 'بررسی سرپرست', 'en' => 'In Review', 'icon' => 'fa-magnifying-glass', 'tone' => 'purple', 'desc' => 'انجام شده و منتظر بررسی سرپرست'],
-        'rework'      => ['label' => 'بازبینی مسئول', 'en' => 'Rework', 'icon' => 'fa-rotate-left', 'tone' => 'orange', 'desc' => 'سرپرست ایرادی دیده و تسک برای اصلاح به مسئول برگشته'],
         'done'        => ['label' => 'انجام‌شده', 'en' => 'Done', 'icon' => 'fa-circle-check', 'tone' => 'ok', 'desc' => 'تکمیل شده و معیارهای اتمام برآورده شده'],
+        'blocked'     => ['label' => 'مسدودشده', 'en' => 'Blocked', 'icon' => 'fa-ban', 'tone' => 'danger', 'desc' => 'متوقف به‌خاطر وابستگی، مشکل فنی یا انتظار'],
     ];
+
+    /**
+     * ترتیب پیش‌فرض ستون‌ها (همان ترتیب STATUSES + آرشیو). هر کاربر می‌تواند ترتیب خودش را بچیند (users.board_order).
+     */
+    public const DEFAULT_ORDER = ['backlog', 'rework', 'todo', 'in_progress', 'review', 'done', 'blocked', 'archived'];
+
+    /** ترتیب ستون‌های کاربر: کلیدهای نامعتبر حذف و ستون‌های جاافتاده (مثلاً وضعیت تازه) در جای پیش‌فرضشان اضافه می‌شوند */
+    public static function order(?string $raw): array
+    {
+        $want = array_values(array_unique(array_intersect(array_map('trim', explode(',', (string) $raw)), self::DEFAULT_ORDER)));
+        if (!$want) {
+            return self::DEFAULT_ORDER;
+        }
+        foreach (self::DEFAULT_ORDER as $i => $k) {
+            if (!in_array($k, $want, true)) {
+                // بعد از ستونی که در پیش‌فرض قبل از آن است
+                $prev = $i > 0 ? array_search(self::DEFAULT_ORDER[$i - 1], $want, true) : -1;
+                array_splice($want, $prev === false ? count($want) : $prev + 1, 0, [$k]);
+            }
+        }
+        return $want;
+    }
+
+    /** ذخیره‌ی ترتیب ستون‌ها برای کاربر؛ ترتیب خالی یا برابر پیش‌فرض = NULL (بازگشت به پیش‌فرض) */
+    public static function saveOrder(int $uid, array $keys): array
+    {
+        $keys = array_values(array_map('strval', $keys));
+        if ($keys && (count($keys) !== count(self::DEFAULT_ORDER) || array_diff(self::DEFAULT_ORDER, $keys))) {
+            return self::res(false, 'ترتیب ستون‌ها نامعتبر است.', 'ORDER_INVALID', 422);
+        }
+        $value = $keys && $keys !== self::DEFAULT_ORDER ? implode(',', $keys) : null;
+        DB::run('UPDATE users SET board_order = ? WHERE id = ?', [$value, $uid]);
+        return self::res(true, $value === null ? 'ترتیب ستون‌ها به حالت پیش‌فرض برگشت.' : 'ترتیب ستون‌ها ذخیره شد.', '', 200, ['order' => self::order($value), 'is_default' => $value === null]);
+    }
 
     /** وضعیت‌هایی که برای هر عضو سقف تعداد تسک دارند (برنامه‌ریزی‌نشده، انجام‌شده و آرشیو سقف ندارند) */
     public const LIMITED = ['todo', 'in_progress', 'blocked', 'review', 'rework'];

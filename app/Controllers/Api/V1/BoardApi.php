@@ -50,7 +50,9 @@ final class BoardApi extends ApiController
         foreach ($cols as $k => $cards) {
             $columns[$k] = array_map([self::class, 'card'], $cards);
         }
+        $raw = \App\Core\DB::value('SELECT board_order FROM users WHERE id = ?', [$this->uid]);
         $this->ok(['filters' => ['project_id' => $f['project'] ?: null, 'mine' => $f['mine'], 'q' => $f['q']], 'statuses' => self::statuses(),
+            'column_order' => BoardService::order($raw !== null ? (string) $raw : null),
             'columns' => $columns, 'archivable' => $archivable, 'archive_total' => $archive['total']]);
     }
 
@@ -70,6 +72,14 @@ final class BoardApi extends ApiController
             $t = TaskModel::find($id, $this->uid);
             return $t ? self::card($t) : ['id' => $id];
         });
+    }
+
+    /** ترتیب ستون‌های برد برای همین کاربر (همان چیدمان پنل)؛ order خالی یا reset=1 = پیش‌فرض */
+    public function order()
+    {
+        $raw = $this->request->input('order', []);
+        $keys = $this->request->input('reset') ? [] : (is_array($raw) ? $raw : array_filter(explode(',', (string) $raw)));
+        $this->fromService(BoardService::saveOrder($this->uid, $keys));
     }
 
     public function archiveDone()

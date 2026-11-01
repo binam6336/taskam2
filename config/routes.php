@@ -81,6 +81,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/board/tasks/{id}/move', [BoardController::class, 'move']);
     $r->get('/board/archive', [BoardController::class, 'archive']);
     $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
+    $r->post('/board/order', [BoardController::class, 'order']);
 
     // موضوعات
     $r->get('/labels', [SubjectController::class, 'index']);
@@ -273,6 +274,7 @@ $router->group(['api'], function ($r) {
     $r->get('/board/list', [BoardApi::class, 'list']);
     $r->get('/board/archive', [BoardApi::class, 'archive']);
     $r->post('/board/move', [BoardApi::class, 'move']);
+    $r->post('/board/order', [BoardApi::class, 'order']);
     $r->post('/board/archive-done', [BoardApi::class, 'archiveDone']);
 
     $r->get('/projects/list', [ProjectApi::class, 'list']);

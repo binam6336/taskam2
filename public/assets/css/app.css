@@ -1587,3 +1587,20 @@ button.dp-row.dp-custom { padding: .55rem; }
 .dp-sub .picker-pop { position: static; margin-top: .4rem; min-width: 0; width: 100%; box-shadow: none; }
 html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 .dp-pop.up { top: auto; bottom: calc(100% + 6px); }
+
+/* بورد: چیدمان ستون‌ها */
+.kb-arrange-btn { position: relative; flex: none; width: 44px; height: 44px; }
+.kb-arrange-btn .kb-arrange-sub { position: absolute; bottom: 5px; left: 5px; font-size: .55rem; color: var(--g-400); }
+.kb-arrange-btn.active { background: var(--ok-bg); border-color: rgba(var(--accent-rgb), .6); color: var(--g-300); }
+.kb-arrange-bar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-bottom: .8rem; padding: .7rem .9rem; border-color: rgba(var(--accent-rgb), .45); }
+.kb-arrange-bar[hidden] { display: none; }
+.kb-arrange-bar > i { color: var(--g-400); }
+.kb-arranging > .kb-col { cursor: grab; outline: 2px dashed rgba(var(--accent-rgb), .35); outline-offset: -2px; }
+.kb-arranging > .kb-col .kb-list { pointer-events: none; opacity: .55; }
+.kb-arranging > .kb-col .kb-col-head button { pointer-events: none; }
+.kb-col.kb-col-dragging { opacity: .35; }
+.kb-col-move { display: flex; align-items: center; justify-content: space-between; gap: .3rem; padding: .35rem .5rem 0; }
+.kb-col-move button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface-2); color: var(--text); cursor: pointer; }
+.kb-col-move button:hover:not([disabled]) { border-color: rgba(var(--accent-rgb), .6); color: var(--g-300); }
+.kb-col-move button[disabled] { opacity: .3; cursor: default; }
+.kb-col-grip { color: var(--faint); }

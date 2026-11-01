@@ -34,7 +34,7 @@ final class BoardController extends Controller
         [$columns, $archivable] = BoardService::columns($uid, $f);
         $this->view('board/index', [
             'columns' => $columns, 'archivable' => $archivable, 'archive' => BoardService::archive($uid, $f),
-            'statuses' => BoardService::STATUSES, 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
+            'statuses' => BoardService::STATUSES, 'order' => BoardService::order($this->user()['board_order'] ?? null), 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
             // پنجره‌های مشاهده و ویرایش تسک داخل خود برد
             'subjects' => SubjectModel::forUser($uid), 'taskProjects' => ProjectModel::forUser($uid), 'assignees' => TaskController::assigneeOptions($uid),
         ], ['title' => 'بورد پروژه', 'page' => 'board', 'bodyClass' => 'page-board']);
@@ -71,6 +71,15 @@ final class BoardController extends Controller
     {
         $uid = $this->uid();
         $res = BoardService::archiveDone($uid, $this->filters($uid));
+        $this->respond($res['ok'], $res['message'], '/board', $res['ok'] ? (array) $res['data'] : []);
+    }
+
+    /** ترتیب ستون‌ها (حالت «چیدمان ستون‌ها»)؛ reset=1 یا ترتیب خالی = پیش‌فرض */
+    public function order()
+    {
+        $raw = $this->request->input('order', '');
+        $keys = $this->request->input('reset') ? [] : (is_array($raw) ? $raw : array_filter(explode(',', (string) $raw)));
+        $res = BoardService::saveOrder($this->uid(), $keys);
         $this->respond($res['ok'], $res['message'], '/board', $res['ok'] ? (array) $res['data'] : []);
     }
 
