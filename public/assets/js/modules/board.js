@@ -37,7 +37,10 @@ document.addEventListener('tk:ready', () => {
   window.addEventListener('blur', endPan);
 
   /* شمارنده‌ی ستون‌ها بعد از هر جابه‌جایی */
-  const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => { c.querySelector('.kb-count').textContent = TK.fa(c.querySelectorAll('.kb-card').length); });
+  const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => {
+    const n = c.querySelectorAll('.kb-card').length; c.querySelector('.kb-count').textContent = TK.fa(n);
+    const tab = TK.qs(`[data-kb-goto="${c.dataset.col}"]`); if (tab) { tab.querySelector('span').textContent = TK.fa(n); tab.classList.toggle('empty', !n); }
+  });
 
   /* انتقال: جابه‌جایی فوری در صفحه، اگر سرور رد کرد برمی‌گردد */
   const move = async (card, status, reason = '') => {
@@ -94,6 +97,45 @@ document.addEventListener('tk:ready', () => {
     const col = e.target.closest?.('.kb-col'); if (!col || !dragged) return;
     e.preventDefault(); col.classList.remove('kb-over');
     request(dragged, col.dataset.col);
+  });
+
+  /* ───── پیمایش افقی: سایه/فلش لبه‌ها وقتی ستون‌ها بیرون از دید هستند، نوار ستون‌ها با تعداد و پرش به هر ستون ───── */
+  const kbRtl = () => getComputedStyle(TK.qs('#kb-board')).direction === 'rtl';
+  const navState = () => {
+    const b = TK.qs('#kb-board'), w = TK.qs('#kb-wrap'); if (!b || !w) return;
+    const max = b.scrollWidth - b.clientWidth, pos = Math.abs(b.scrollLeft);
+    const atStart = pos <= 2, atEnd = pos >= max - 2;
+    w.classList.toggle('more-start', max > 2 && !atStart); w.classList.toggle('more-end', max > 2 && !atEnd);
+    TK.qs('.kb-nav-start', w).hidden = max <= 2 || atStart; TK.qs('.kb-nav-end', w).hidden = max <= 2 || atEnd;
+    // ستون‌هایی که الان دیده می‌شوند در نوار ستون‌ها پررنگ
+    const r = b.getBoundingClientRect();
+    TK.qsa('#kb-board > .kb-col').forEach((c) => {
+      const cr = c.getBoundingClientRect(), vis = Math.min(cr.right, r.right) - Math.max(cr.left, r.left) > cr.width * 0.5;
+      TK.qs(`[data-kb-goto="${c.dataset.col}"]`)?.classList.toggle('on', vis);
+    });
+  };
+  document.addEventListener('scroll', (e) => { if (e.target.id === 'kb-board') navState(); }, true);
+  window.addEventListener('resize', navState);
+  document.addEventListener('tk:live', () => setTimeout(navState, 0));
+  TK.on('click', '[data-kb-scroll]', (e, btn) => {
+    const b = TK.qs('#kb-board'), step = b.clientWidth * 0.8 * Number(btn.dataset.kbScroll);
+    b.scrollBy({ left: kbRtl() ? -step : step, behavior: 'smooth' });
+  });
+  TK.on('click', '[data-kb-goto]', (e, btn) => {
+    const c = TK.qs(`#kb-board > .kb-col[data-col="${btn.dataset.kbGoto}"]`); if (!c) return;
+    c.scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });
+  });
+  // موبایل: اگر ستون اول خالی است، از اولین ستونِ دارای کارت شروع شود (مگر کارت برجسته‌ای باشد)
+  if (matchMedia('(max-width: 640px)').matches && !TK.qs('.kb-card.kb-focus')) {
+    const first = TK.qsa('#kb-board > .kb-col').find((c) => c.querySelector('.kb-card'));
+    const b = TK.qs('#kb-board');
+    if (first && b && first !== b.firstElementChild) b.scrollLeft += first.getBoundingClientRect().right - b.getBoundingClientRect().right;
+  }
+  setTimeout(navState, 50);
+  // موبایل: فیلترها پشت دکمه‌ی «فیلترها»
+  TK.qs('#kb-filter-toggle')?.addEventListener('click', (e) => {
+    const f = TK.qs('#kb-filters'), on = f.classList.toggle('open');
+    e.currentTarget.setAttribute('aria-expanded', on ? 'true' : 'false');
   });
 
   /* ───── چیدمان ستون‌ها: دکمه‌ی کنار جستجو → کشیدن ستون‌ها (یا فلش‌ها در لمسی)؛ ترتیب برای همین کاربر ذخیره می‌شود ───── */

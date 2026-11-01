@@ -7,22 +7,23 @@ $base = rtrim(full_url('api/v1'), '/');
 <?php if ($newToken): ?>
 <div class="alert success" style="flex-direction:column;align-items:stretch">
     <b><i class="fa-solid fa-circle-check"></i> توکن جدید ساخته شد — همین حالا کپی کنید، دیگر نمایش داده نمی‌شود.</b>
-    <div class="codebox"><pre id="new-token"><?= e($newToken) ?></pre><button class="btn btn-xs copy" data-copy="<?= e($newToken) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>
-    <div class="codebox"><pre>curl -H "Authorization: Bearer <?= e($newToken) ?>" <?= e($base) ?>/me</pre></div>
+    <?php $meCurl = 'curl -H "Authorization: Bearer ' . $newToken . '" ' . $base . '/me'; ?>
+    <div class="codebox tok-box"><pre id="new-token"><?= e($newToken) ?></pre><button class="btn btn-xs copy" data-copy="<?= e($newToken) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>
+    <div class="codebox tok-box"><pre><?= e($meCurl) ?></pre><button class="btn btn-xs copy" data-copy="<?= e($meCurl) ?>" title="کپی دستور curl"><i class="fa-regular fa-copy"></i> کپی</button></div>
 </div>
 <?php endif; ?>
 
 <div class="grid grid-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-plus"></i> ساخت توکن جدید</h3><span class="badge"><?= e(fa_num(count($tokens))) ?> / <?= e(fa_num($max)) ?></span></div>
         <form method="post" action="<?= e(url('/tokens')) ?>"><?= csrf_field() ?>
-            <div class="field"><label>نام توکن</label><input class="input" name="name" maxlength="100" placeholder="<?= e(ph('token_name')) ?>"></div>
+            <div class="field"><label for="tok-name">نام توکن <span class="req" aria-hidden="true">*</span></label><input class="input" id="tok-name" name="name" maxlength="100" required placeholder="<?= e(ph('token_name')) ?>"></div>
             <div class="field"><label>انقضا</label><select class="input" name="expires_days"><option value="0">بدون انقضا</option><option value="30">۳۰ روز</option><option value="90" selected>۹۰ روز</option><option value="365">۱ سال</option></select></div>
             <div class="field"><label>سطح دسترسی</label><select class="input" name="scope"><option value="write" selected>خواندن و نوشتن</option><option value="read">فقط خواندن (فقط درخواست‌های GET)</option></select></div>
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> ساخت توکن</button></form>
         <div class="callout warn mt-2 small"><i class="fa-solid fa-shield-halved"></i> توکن مانند رمز عبور است. فقط هش آن در سرور ذخیره می‌شود و بعد از ساخت قابل بازیابی نیست.</div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-terminal"></i> شروع سریع</h3></div>
         <?php $curl = "curl -X GET \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  \"" . $base . "/tasks/list?status=pending\""; ?>
-        <div class="codebox"><div class="code-bar"><span class="code-lang">bash</span><button type="button" class="btn btn-xs" data-copy="<?= e($curl) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>
+        <div class="codebox tok-quick"><div class="code-bar"><span class="code-lang">bash</span><button type="button" class="btn btn-xs" data-copy="<?= e($curl) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>
             <pre class="code"><?php foreach (explode("\n", $curl) as $line): ?><span class="l"><?= e($line) ?></span><?php endforeach; ?></pre></div>
         <p class="small muted">نشانی پایه: <code><?= e($base) ?></code></p></div>
 </div>

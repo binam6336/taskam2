@@ -19,14 +19,14 @@
     <form method="post" action="<?= e(url('/register')) ?>" id="form-register" class="<?= $isReg ? '' : 'hidden' ?>" autocomplete="off">
         <?= csrf_field() ?>
         <div class="row">
-            <div class="field"><label>نام</label><input class="input" name="first_name" value="<?= e(old('first_name')) ?>" maxlength="100" required></div>
-            <div class="field"><label>نام خانوادگی</label><input class="input" name="last_name" value="<?= e(old('last_name')) ?>" maxlength="100"></div>
+            <div class="field"><label for="r-first">نام <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-first" name="first_name" value="<?= e(old('first_name')) ?>" maxlength="100" required></div>
+            <div class="field"><label for="r-last">نام خانوادگی <span class="faint">(اختیاری)</span></label><input class="input" id="r-last" name="last_name" value="<?= e(old('last_name')) ?>" maxlength="100"></div>
         </div>
-        <div class="field"><label>شماره موبایل</label><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('register_mobile')) ?>" value="<?= e(old('mobile')) ?>" required></div>
-        <div class="field"><label>ایمیل <span class="faint">(اختیاری)</span></label><input class="input ltr" type="email" name="email" value="<?= e(old('email')) ?>" maxlength="150"></div>
-        <div class="field"><label>رمز عبور</label><input class="input ltr" type="password" name="password" id="r-pass" autocomplete="new-password" minlength="8" required>
+        <div class="field"><label for="r-mobile">شماره موبایل <span class="req" aria-hidden="true">*</span></label><input class="input ltr" id="r-mobile" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('register_mobile')) ?>" value="<?= e(old('mobile')) ?>" required></div>
+        <div class="field"><label for="r-email">ایمیل <span class="faint">(اختیاری)</span></label><input class="input ltr" id="r-email" type="email" name="email" value="<?= e(old('email')) ?>" maxlength="150"></div>
+        <div class="field"><label for="r-pass">رمز عبور <span class="req" aria-hidden="true">*</span></label><input class="input ltr" type="password" name="password" id="r-pass" autocomplete="new-password" minlength="8" required>
             <div class="pw-meter"><i id="pw-bar"></i></div><div class="hint">حداقل ۸ نویسه، شامل حرف و عدد.</div></div>
-        <div class="field"><label>تکرار رمز عبور</label><input class="input ltr" type="password" name="password_confirm" autocomplete="new-password" required></div>
+        <div class="field"><label for="r-pass2">تکرار رمز عبور <span class="req" aria-hidden="true">*</span></label><input class="input ltr" type="password" id="r-pass2" name="password_confirm" autocomplete="new-password" data-pw-match="password" required></div>
         <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-user-plus"></i> ایجاد حساب</button>
         <p class="hint center mt-1">حساب جدید پس از تأیید مدیر فعال می‌شود.</p>
     </form>

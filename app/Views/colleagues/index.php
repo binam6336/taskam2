@@ -27,7 +27,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
                 <?php if ($c['is_blocked_by_me']): ?><span class="badge red">مسدود</span><?php elseif ($c['has_blocked_me']): ?><span class="badge yellow">شما را مسدود کرده</span><?php endif; ?>
             </div>
             <div class="flex gap-1 wrap">
-                <a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . (int) $c['user_id']) ?>"><i class="fa-regular fa-comment"></i></a>
+                <a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . (int) $c['user_id']) ?>" title="گفتگو" aria-label="گفتگو با <?= e(full_name($c)) ?>"><i class="fa-regular fa-comment"></i></a>
                 <?php if (!$c['is_blocked_by_me'] && !$c['has_blocked_me']): ?><button class="btn btn-sm" data-add-to-project="<?= (int) $c['user_id'] ?>" data-name="<?= e($nm) ?>" title="عضو کردن این همکار در پروژه‌های شما"><i class="fa-solid fa-diagram-project"></i> افزودن به پروژه</button><?php endif; ?>
                 <?php if (!$c['is_blocked_by_me']): ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/colleagues/' . $c['user_id'] . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
                 <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . $c['user_id'] . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف"><i class="fa-solid fa-user-minus"></i></button>
@@ -61,7 +61,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
                 <span class="badge" title="زمان افزودن"><?= e(time_ago($f['added_at'])) ?></span>
             </div>
             <div class="flex gap-1 wrap">
-                <?php if (!$f['is_blocked_by_me']): ?><a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . $fid) ?>" title="گفتگو"><i class="fa-regular fa-comment"></i></a><?php endif; ?>
+                <?php if (!$f['is_blocked_by_me']): ?><a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . $fid) ?>" title="گفتگو" aria-label="گفتگو با <?= e(full_name($f)) ?>"><i class="fa-regular fa-comment"></i></a><?php endif; ?>
                 <?php if (!$f['mutual'] && !$f['is_blocked_by_me']): ?>
                     <?php if ($f['my_pending']): ?><span class="badge yellow">درخواست شما در انتظار</span>
                     <?php else: ?><button class="btn btn-sm btn-primary" data-post="<?= e(url('/colleagues')) ?>" data-data='<?= e(json_encode(['colleague_user_id' => $fid])) ?>' data-after="reload" title="او را هم به لیست همکاران خودتان اضافه کنید"><i class="fa-solid fa-user-plus"></i> افزودن به همکاران من</button><?php endif; ?>

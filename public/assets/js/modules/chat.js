@@ -14,6 +14,11 @@ document.addEventListener('tk:ready', () => {
   const body = (m) => {
     let t = E(m.message || ''); const links = [];
     t = t.replace(/\[\[(task|call):([a-f0-9]{16,64})\]\]/gi, (_, k, tok) => { links.push(`<a class="btn btn-sm btn-primary msg-link" href="${TK.url(k === 'task' ? '/tasks?task=' + tok : '/calls?call=' + tok)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${k === 'task' ? 'مشاهده‌ی تسک' : 'مشاهده‌ی درخواست'}</a>`); return ''; });
+    // آدرس‌های http/https قابل کلیک (روی متن escape‌شده؛ علامت‌های پایان جمله جزو لینک نیستند)
+    t = t.replace(/https?:\/\/[^\s<"']+/gi, (u) => {
+      const tail = (u.match(/[.,!?؛،:)\]]+$/) || [''])[0], href = tail ? u.slice(0, -tail.length) : u;
+      return `<a class="msg-url" href="${href}" target="_blank" rel="noopener noreferrer nofollow" data-no-nav>${href}</a>${tail}`;
+    });
     let att = '';
     if (m.attachment) {
       const url = TK.url('/files/chat_files/' + encodeURIComponent(m.attachment));
@@ -35,6 +40,17 @@ document.addEventListener('tk:ready', () => {
 
   /* مخاطبان */
   const timeShort = (s) => (s ? TK.fa(s.slice(11, 16)) : '');
+  // زمان آخرین پیام در فهرست مخاطبان: امروز = ساعت، دیروز = «دیروز»، قبل‌تر = «۸ آبان»
+  const timeList = (s) => {
+    if (!s) return '';
+    const d = s.slice(0, 10), now = new Date(), iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    if (d === iso(now)) return timeShort(s);
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    if (d === iso(y)) return 'دیروز';
+    const J = TK.jalali; if (!J) return TK.fa(d);
+    const [jy, jm, jd] = J.g2j(...d.split('-').map(Number));
+    return TK.fa(jd) + ' ' + J.MONTHS[jm - 1] + (jy !== J.today()[0] ? ' ' + TK.fa(jy) : '');
+  };
   const drawContacts = () => {
     const q = filter.trim().toLowerCase();
     const saved = { user_id: ME, first_name: 'پیام‌های ذخیره‌شده', last_name: '', mobile: '', saved: true, unread_count: 0 };
@@ -42,8 +58,8 @@ document.addEventListener('tk:ready', () => {
     el.contacts.innerHTML = rows.map((c) => {
       const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
       return `<div class="contact ${cur && cur.user_id === c.user_id ? 'active' : ''}" data-uid="${c.user_id}"><span class="avatar">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}${!c.saved && !c.is_bot ? `<span class="dot ${c.online ? 'on' : ''}"></span>` : ''}</span>
-        <div class="grow"><div class="flex between"><b class="truncate">${E(nm)}</b><span class="xs faint">${timeShort(c.last_msg_time)}</span></div>
-        <div class="flex between"><span class="xs muted">${c.is_bot ? 'ربات اطلاع‌رسانی' : c.is_blocked_by_me ? 'مسدود' : ''}</span>${c.unread_count ? `<span class="badge-count">${TK.fa(c.unread_count)}</span>` : ''}</div></div></div>`;
+        <div class="grow"><div class="flex between"><b class="truncate">${E(nm)}</b><span class="xs faint" title="${E(c.last_msg_time || '')}">${timeList(c.last_msg_time)}</span></div>
+        <div class="flex between gap-1"><span class="xs muted truncate">${c.is_blocked_by_me ? 'مسدود' : c.last_msg_preview ? (c.last_msg_mine ? 'شما: ' : '') + E(c.last_msg_preview) : c.is_bot ? 'ربات اطلاع‌رسانی' : ''}</span>${c.unread_count ? `<span class="badge-count">${TK.fa(c.unread_count)}</span>` : ''}</div></div></div>`;
     }).join('') || '<div class="empty small">مخاطبی یافت نشد.</div>';
   };
   const loadContacts = async () => {
@@ -103,7 +119,8 @@ document.addEventListener('tk:ready', () => {
   const lastDay = () => { const s = TK.qsa('.day-sep', el.msgs).pop(); return s ? s.dataset.day : ''; };
   TK.qs('#chat-form').addEventListener('submit', (e) => { e.preventDefault(); send(); });
   TK.qs('#chat-file').addEventListener('change', (e) => { if (e.target.files[0]) { TK.toast('فایل انتخاب شد: ' + e.target.files[0].name + ' — ارسال را بزنید', 'info', 2500); } });
-  el.text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  // ارسال با Ctrl+Enter (مثل تیکت پشتیبانی)؛ Enter خط جدید است
+  el.text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
   el.text.addEventListener('input', () => { el.text.style.height = 'auto'; el.text.style.height = Math.min(el.text.scrollHeight, 140) + 'px'; });
 
   /* ذخیره/انصراف ویرایش (ویرایش از منوی پیام شروع می‌شود) */

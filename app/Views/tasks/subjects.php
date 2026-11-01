@@ -8,9 +8,9 @@
     <?php foreach ($subjects as $s): ?>
     <div class="card hover flex items-center gap-2">
         <i class="fa-solid fa-tag label-icon" style="color:<?= e($s['color']) ?>"></i>
-        <div class="grow"><div class="bold"><?= e($s['title']) ?></div><div class="xs muted"><?= e(fa_num($s['tasks_count'])) ?> تسک</div></div>
-        <button class="btn btn-sm btn-icon" data-edit='<?= e(json_html(['title' => $s['title'], 'color' => $s['color']])) ?>' data-target="m-subject" data-action="/labels/<?= (int) $s['id'] ?>/update"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/labels/' . $s['id'] . '/delete')) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» حذف شود؟ تسک‌های آن بدون لیبل می‌شوند."><i class="fa-solid fa-trash"></i></button>
+        <div class="grow"><div class="bold"><?= e($s['title']) ?></div><a class="xs lbl-tasks" href="<?= e(url('/tasks?scope=mine&status=all&label=' . (int) $s['id'])) ?>" title="نمایش تسک‌های این لیبل"><?= e(fa_num($s['tasks_count'])) ?> تسک <i class="fa-solid fa-arrow-left"></i></a></div>
+        <button class="btn btn-sm btn-icon" title="ویرایش لیبل" aria-label="ویرایش لیبل «<?= e($s['title']) ?>»" data-edit='<?= e(json_html(['title' => $s['title'], 'color' => $s['color']])) ?>' data-target="m-subject" data-action="/labels/<?= (int) $s['id'] ?>/update"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm btn-icon btn-danger" title="حذف لیبل" aria-label="حذف لیبل «<?= e($s['title']) ?>»" data-post="<?= e(url('/labels/' . $s['id'] . '/delete')) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» حذف شود؟ تسک‌های آن بدون لیبل می‌شوند."><i class="fa-solid fa-trash"></i></button>
     </div>
     <?php endforeach; ?>
 </div>

@@ -193,6 +193,10 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open(modal);
   };
   TK.qs('#btn-new-task')?.addEventListener('click', () => openNew());
+  // موبایل: منوی ⋮ دکمه‌های هر کارت (جزئیات/ویرایش/حذف)
+  const closeMore = (except) => TK.qsa('.item-actions.open').forEach((a) => { if (a !== except) { a.classList.remove('open'); a.querySelector('[data-item-more]')?.setAttribute('aria-expanded', 'false'); } });
+  TK.on('click', '[data-item-more]', (e, b) => { e.stopPropagation(); const a = b.closest('.item-actions'); closeMore(a); const on = a.classList.toggle('open'); b.setAttribute('aria-expanded', on ? 'true' : 'false'); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('[data-item-more]')) closeMore(); });
 
   const openEdit = (d) => {
     TK.resetForm(form);
@@ -228,7 +232,7 @@ document.addEventListener('tk:ready', () => {
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
     TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio'] : ['when', 'prio', 'project']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label'] : ['when', 'prio', 'project', 'label']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {

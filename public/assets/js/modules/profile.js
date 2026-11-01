@@ -13,8 +13,25 @@ document.addEventListener('tk:ready', () => {
     try { const fav = JSON.parse(tf.dataset.favicons || '{}')[next]; if (fav) TK.qs('link[rel=icon]')?.setAttribute('href', fav); } catch { /* */ }
     TK.qs('link[rel=apple-touch-icon]')?.setAttribute('href', tf.dataset.iconBase + (next === 'sage' ? '-light' : '') + '.png');
   });
+  // تصویر پروفایل: پیش‌نمایش و بارگذاری خودکار بعد از انتخاب (بدون دکمه‌ی جدا)
   TK.qs('#av-file')?.addEventListener('change', (e) => {
     const f = e.target.files[0]; if (!f) return;
     const url = URL.createObjectURL(f); TK.qs('#av-preview').innerHTML = `<img src="${url}" alt="">`;
+    TK.qs('#f-avatar').requestSubmit();
   });
+
+  // گزینه‌های انتخابی (حریم خصوصی، امنیت تسک‌ها، دسترسی سریع): ذخیره‌ی خودکار با هر تغییر
+  TK.qsa('form[data-autosave]').forEach((f) => f.addEventListener('change', () => f.requestSubmit()));
+
+  // فرم‌های متنی (اطلاعات حساب، رمز): نشان «تغییرات ذخیره نشده» و هشدار هنگام ترک صفحه
+  const snap = (f) => [...new FormData(f)].filter(([k]) => k !== '_csrf').map(([k, v]) => k + '=' + v).join('&');
+  const dirty = TK.qsa('form[data-dirty]').map((f) => ({ f, base: snap(f), tag: f.closest('.card')?.querySelector('.dirty-tag') }));
+  const paint = () => dirty.forEach((d) => { if (d.tag) d.tag.hidden = snap(d.f) === d.base; });
+  dirty.forEach((d) => {
+    d.f.addEventListener('input', paint);
+    d.f.addEventListener('tk:done', (e) => { if (TK.ok(e.detail)) { d.base = snap(d.f); paint(); } });
+  });
+  const isDirty = () => dirty.some((d) => snap(d.f) !== d.base);
+  TK.leaveGuard = isDirty;
+  window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
 });

@@ -54,26 +54,30 @@ $this->scripts[] = 'projects';
 <?php foreach ($projects as $p):
     $pct = (int) $p['tasks_count'] > 0 ? (int) round($p['tasks_done'] / $p['tasks_count'] * 100) : 0; ?>
     <div class="card hover" id="proj-<?= (int) $p['id'] ?>">
-        <div class="flex items-center gap-2 mb-1">
+        <div class="flex items-center gap-2 mb-1 proj-head">
+            <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج، حذف) در منوی ⋮ گوشه‌ی کارت ?>
+            <div class="dropdown proj-menu"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-toggle title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر پروژه"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                <div class="dropdown-menu">
+                <?php if (!$p['is_creator']): ?>
+                    <?php if ((int) $p['is_blocked_by_me'] > 0): ?><button type="button" data-post="<?= e(url('/projects/' . $p['id'] . '/unblock')) ?>"><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>
+                    <?php else: ?><button type="button" data-post="<?= e(url('/projects/' . $p['id'] . '/block')) ?>" data-confirm="دیگر دعوتی از این پروژه نمی‌خواهید؟"><i class="fa-solid fa-ban"></i> مسدود کردن دعوت‌ها</button><?php endif; ?>
+                    <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/leave')) ?>" data-confirm="از پروژه «<?= e($p['title']) ?>» خارج می‌شوید؟"><i class="fa-solid fa-right-from-bracket"></i> خروج از پروژه</button>
+                <?php else: ?>
+                    <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/delete')) ?>" data-confirm="پروژه حذف شود؟ تسک‌ها حذف نمی‌شوند ولی از پروژه جدا می‌شوند."><i class="fa-solid fa-trash"></i> حذف پروژه</button>
+                <?php endif; ?>
+                </div></div>
             <span class="avatar sq lg" style="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($p['title']) ?></div>
                 <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
         </div>
-        <?php if ($p['description']): ?><p class="muted small" style="max-height:3.4em;overflow:hidden"><?= e($p['description']) ?></p><?php endif; ?>
-        <div class="flex between small muted mb-1"><span><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> / <?= e(fa_num($p['max_members'])) ?></span><span><?= e(fa_num($p['tasks_done'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تسک</span></div>
+        <?php if ($p['description']): ?><p class="muted small proj-desc" title="<?= e($p['description']) ?>"><?= e($p['description']) ?></p><?php endif; ?>
+        <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span><?= e(fa_num($p['tasks_done'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تسک</span></div>
         <div class="progress mb-2"><div style="width:<?= $pct ?>%"></div></div>
         <div class="flex gap-1 wrap">
             <button class="btn btn-sm" data-project="<?= (int) $p['id'] ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
             <a class="btn btn-sm" href="<?= e(url('/board?project=' . $p['id'])) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
             <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . $p['id'] . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a><?php endif; ?>
-            <?php if (!$p['is_creator']): ?>
-                <?php if ((int) $p['is_blocked_by_me'] > 0): ?><button class="btn btn-sm" data-post="<?= e(url('/projects/' . $p['id'] . '/unblock')) ?>">رفع مسدودی</button>
-                <?php else: ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/projects/' . $p['id'] . '/block')) ?>" data-confirm="دیگر دعوتی از این پروژه نمی‌خواهید؟" title="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
-                <button class="btn btn-sm btn-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/leave')) ?>" data-confirm="از پروژه «<?= e($p['title']) ?>» خارج می‌شوید؟"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
-            <?php else: ?>
-                <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/delete')) ?>" data-confirm="پروژه حذف شود؟ تسک‌ها حذف نمی‌شوند ولی از پروژه جدا می‌شوند." title="حذف"><i class="fa-solid fa-trash"></i></button>
-            <?php endif; ?>
         </div>
     </div>
 <?php endforeach; ?>

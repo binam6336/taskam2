@@ -266,11 +266,11 @@ final class TaskService
                 return $m;
             }
             $done = $to === 'done';
-            return self::res(true, $done ? 'تسک انجام‌شده شد.' : 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+            return self::res(true, $done ? 'تسک انجام شد.' : 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
         }
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
-        return self::res(true, $r['is_completed'] ? 'تسک انجام‌شده شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+        return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
     }
 
     public static function delete(int $actor, int $id): array

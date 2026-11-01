@@ -23,8 +23,8 @@ $card = static function (array $c) use ($edit): void { ?>
             <div class="flex gap-1">
                 <?php if ((int) $c['status'] === 0 && ($c['can']['complete'] ?? false)): ?><button class="btn btn-sm btn-primary" data-post="<?= e(url('/calls/' . $c['id'] . '/complete')) ?>" data-confirm="این درخواست انجام‌شده ثبت شود؟" data-danger="0"><i class="fa-solid fa-check"></i> انجام شد</button><?php endif; ?>
                 <button class="btn btn-sm btn-icon" data-share-call="<?= (int) $c['id'] ?>" title="کپی لینک"><i class="fa-solid fa-link"></i></button>
-                <?php if ($c['can']['edit'] ?? false): ?><button class="btn btn-sm btn-icon" data-edit='<?= e($edit($c)) ?>' data-target="m-call" data-action="/calls/<?= (int) $c['id'] ?>/update"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
-                <?php if ($c['can']['delete'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/calls/' . $c['id'] . '/delete')) ?>" data-confirm="درخواست حذف شود؟"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
+                <?php if ($c['can']['edit'] ?? false): ?><button class="btn btn-sm btn-icon" title="ویرایش درخواست" aria-label="ویرایش درخواست تماس" data-edit='<?= e($edit($c)) ?>' data-target="m-call" data-action="/calls/<?= (int) $c['id'] ?>/update"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
+                <?php if ($c['can']['delete'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" title="حذف درخواست" aria-label="حذف درخواست تماس" data-post="<?= e(url('/calls/' . $c['id'] . '/delete')) ?>" data-confirm="درخواست حذف شود؟"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
             </div>
         </div>
     </div>
@@ -48,7 +48,7 @@ $card = static function (array $c) use ($edit): void { ?>
     <div class="flex between mb-2"><h3 style="margin:0">درخواست تماس</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <?php $card($shared); ?></div></div></div><?php endif; ?>
 
-<div class="modal" id="m-call"><div class="modal-box">
+<div class="modal" id="m-call" data-guard><div class="modal-box">
     <form method="post" action="<?= e(url('/calls')) ?>" data-ajax id="f-call"><?= csrf_field() ?>
         <div class="modal-head"><h3><i class="fa-solid fa-phone-volume"></i> درخواست تماس</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
         <div class="modal-body">

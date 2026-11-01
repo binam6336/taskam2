@@ -20,6 +20,8 @@
             <button type="button" class="btn" id="push-test"><i class="fa-solid fa-paper-plane"></i> ارسال اعلان آزمایشی</button>
             <button type="button" class="btn btn-ghost" id="push-disable"><i class="fa-solid fa-bell-slash"></i> غیرفعال‌سازی</button>
         </div>
+        <div class="alert warning mt-1" id="push-denied" hidden><i class="fa-solid fa-lock"></i><div><b>اعلان‌ها در این مرورگر مسدود شده‌اند.</b>
+            مرورگر دیگر پنجره‌ی اجازه را نشان نمی‌دهد؛ از تنظیمات سایت (آیکون قفل یا تنظیمات کنار نوار آدرس) گزینه‌ی «اعلان‌ها / Notifications» را روی «اجازه / Allow» بگذارید و صفحه را دوباره باز کنید.</div></div>
         <p class="hint mt-1">دستگاه‌های فعال حساب شما: <b id="push-devices"><?= e(fa_num($devices)) ?></b></p>
         <?php if (!$pushReady): ?>
         <div class="alert error mt-1"><i class="fa-solid fa-triangle-exclamation"></i><div><b>اعلان‌ها روی سرور هنوز آماده نیست.</b> وضعیت پیش‌نیازها:

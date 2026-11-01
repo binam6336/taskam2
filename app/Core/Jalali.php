@@ -41,7 +41,7 @@ final class Jalali
             return $ymd;
         }
         [, $jm, $jd] = self::fromGregorian((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
-        return fa_num(sprintf('%02d/%02d', $jm, $jd));
+        return fa_num($jd) . ' ' . self::MONTHS[$jm - 1];   // مثل «۴ آبان» (برچسب محور نمودارها)
     }
 
     public static function format(?string $datetime, bool $withTime = true, bool $weekday = false): string

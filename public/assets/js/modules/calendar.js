@@ -46,7 +46,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.get('/calendar/data', { from: range[0], to: range[1], scope: st.scope, done: st.done ? 1 : 0 });
     grid.classList.remove('loading');
     if (!TK.ok(r)) return TK.toast(r.message || 'خطا در دریافت تقویم', 'error');
-    items = r.items || [];
+    items = r.items || []; overdueTotal = r.overdue_total ?? null;
     byDay = {};
     items.forEach((t) => (byDay[t.date] = byDay[t.date] || []).push(t));
     render(c);
@@ -55,7 +55,11 @@ document.addEventListener('tk:ready', () => {
   // بعد از ویرایش/تکمیل/یادداشت در پنجره‌های تسک، به‌جای رفرش صفحه فقط تقویم تازه شود
   TK.reload = load;
 
-  const chip = (t) => `<div class="cal-chip${t.done ? ' done' : ''}${t.overdue ? ' late' : ''} p-${E(t.priority)}" ${t.can_move ? 'draggable="true"' : ''} data-task="${t.id}" title="${E(t.title)}">
+  // رنگ اولویت: در پروژه‌های درصدی از خود درصد (همان فرمول priority_color در PHP)، وگرنه کلاس کم/متوسط/زیاد
+  let overdueTotal = null;
+  const pcolor = (p) => { p = Math.max(0, Math.min(100, p)); const h = p <= 50 ? 142 - (p / 50) * 97 : 45 - ((p - 50) / 50) * 45; return `hsl(${Math.round(h)}, 85%, 60%)`; };
+  const pStyle = (t) => (t.priority_type === 'percent' && t.percent !== null ? ` style="--pc:${pcolor(t.percent)}"` : '');
+  const chip = (t) => `<div class="cal-chip${t.done ? ' done' : ''}${t.overdue ? ' late' : ''} p-${E(t.priority)}"${pStyle(t)} ${t.can_move ? 'draggable="true"' : ''} data-task="${t.id}" title="${E(t.title)}">
       <i></i>${t.time ? `<b>${F(t.time)}</b>` : ''}<span>${E(t.title)}</span></div>`;
 
   const render = (c) => {
@@ -68,16 +72,16 @@ document.addEventListener('tk:ready', () => {
         <div class="cal-day-head"><span class="cal-num">${F(d)}</span>${iso === todayIso ? '<span class="cal-today-tag">امروز</span>' : ''}<span class="cal-g ltr">${+g[2]}/${+g[1]}</span>
           ${list.length ? `<span class="cal-count ${heat}" title="${F(list.length)} تسک${open !== list.length ? '، ' + F(list.length - open) + ' انجام‌شده' : ''}">${F(list.length)}</span>` : ''}</div>
         <div class="cal-chips">${list.slice(0, 3).map(chip).join('')}${list.length > 3 ? `<div class="cal-more">+${F(list.length - 3)} تسک دیگر</div>` : ''}</div>
-        <div class="cal-dots">${list.slice(0, 6).map((t) => `<i class="p-${E(t.priority)}${t.done ? ' done' : ''}"></i>`).join('')}</div>
+        <div class="cal-dots">${list.slice(0, 6).map((t) => `<i class="p-${E(t.priority)}${t.done ? ' done' : ''}"${t.priority_type === 'percent' && t.percent !== null ? ` style="background:${pcolor(t.percent)}"` : ''}></i>`).join('')}</div>
       </div>`;
     }).join('');
     // آمار ماه جاری
     const inMonth = items.filter((t) => { const [jy, jm] = J.g2j(...t.date.split('-').map(Number)); return jy === st.y && jm === st.m; });
-    const late = inMonth.filter((t) => t.overdue).length, done = inMonth.filter((t) => t.done).length, tod = (byDay[todayIso] || []).filter((t) => !t.done).length;
+    const late = overdueTotal ?? inMonth.filter((t) => t.overdue).length, done = inMonth.filter((t) => t.done).length, tod = (byDay[todayIso] || []).filter((t) => !t.done).length;
     const busiest = Object.entries(byDay).filter(([d]) => inMonth.some((t) => t.date === d)).sort((a, b) => b[1].length - a[1].length)[0];
     TK.qs('#cal-stats').innerHTML = `<span><i class="fa-solid fa-list-check"></i> ${F(inMonth.length)} تسک در این ماه</span>
       <span class="${tod ? 'warn' : ''}"><i class="fa-solid fa-sun"></i> ${F(tod)} تسک امروز</span>
-      <span class="${late ? 'danger' : ''}"><i class="fa-solid fa-hourglass-end"></i> ${F(late)} عقب‌افتاده</span>
+      <a class="${late ? 'danger' : ''}" href="${TK.url('/tasks?when=overdue')}" title="همه‌ی تسک‌های باز عقب‌افتاده (مستقل از این ماه)"><i class="fa-solid fa-hourglass-end"></i> ${F(late)} عقب‌افتاده</a>
       ${st.done ? `<span class="ok"><i class="fa-solid fa-circle-check"></i> ${F(done)} انجام‌شده</span>` : ''}
       ${busiest && busiest[1].length > 1 ? `<span><i class="fa-solid fa-fire"></i> شلوغ‌ترین روز: ${E(dayName(busiest[0]))} (${F(busiest[1].length)})</span>` : ''}`;
     TK.qsa('[data-cal-scope]').forEach((b) => b.classList.toggle('on', b.dataset.calScope === st.scope));
@@ -101,7 +105,7 @@ document.addEventListener('tk:ready', () => {
         <div class="cal-task-main">
           <a href="#" class="cal-task-title" data-open-task="${t.id}">${t.done ? '<i class="fa-solid fa-circle-check"></i> ' : ''}${E(t.title)}</a>
           <div class="cal-task-meta">
-            <span class="badge p-${E(t.priority)}">${E(prioTxt(t))}</span>
+            <span class="badge p-${E(t.priority)}"${t.priority_type === 'percent' && t.percent !== null ? ` style="color:${pcolor(t.percent)}"` : ''}>${E(prioTxt(t))}</span>
             ${t.label ? `<span><i class="fa-solid fa-tag" style="color:${E(t.label_color || 'var(--muted)')}"></i> ${E(t.label)}</span>` : ''}
             ${t.project ? `<span><i class="fa-solid fa-diagram-project"></i> ${E(t.project)}</span>` : ''}
             ${t.assignee ? `<span class="cal-who"><span class="avatar xs">${t.assignee_avatar ? `<img src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee))}</span>${E(t.assignee)}</span>` : ''}

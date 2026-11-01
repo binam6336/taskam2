@@ -3,9 +3,10 @@
 use App\Models\TaskModel;
 $status = $projScope['status'] ?? (!empty($statusAll) ? 'all' : ($done ? 'done' : 'open'));
 $pq = $projScope ? array_filter(['project' => $projScope['id'], 'assignee' => $projScope['assignee'] ?: null]) : [];
-$tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_query(['scope' => $sc, 'status' => $st] + ($sc === 'project' ? $pq : []));
-$fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0);
-$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'created' ? $filters['sort'] : '', 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ?: '', 'assignee' => $filters['assignee'] ?: '']);
+$lq = $filters['label'] ? ['label' => $filters['label']] : [];   // فیلتر لیبل بین تب‌ها می‌ماند
+$tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_query(['scope' => $sc, 'status' => $st] + ($sc === 'project' ? $pq : []) + $lq);
+$fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0) + ($filters['label'] > 0 ? 1 : 0);
+$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'created' ? $filters['sort'] : '', 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ?: '', 'assignee' => $filters['assignee'] ?: '', 'label' => $filters['label'] ?: '']);
 ?>
 <div class="page-head">
     <?php if ($projScope): ?>
@@ -37,7 +38,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
     </div>
     <form method="get" class="t-toolbar" id="t-toolbar">
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
-        <?php foreach (['when', 'prio', 'project', 'assignee'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
+        <?php foreach (['when', 'prio', 'project', 'assignee', 'label'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'created' ? 1 : 0); ?>
         <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
@@ -58,6 +59,8 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
                         <?php endforeach; ?></select></div>
                     <div class="field"><label><i class="fa-solid fa-flag"></i> بر اساس اولویت</label><select class="input" data-f="prio">
                         <option value="">همه</option><option value="high" <?= $filters['prio'] === 'high' ? 'selected' : '' ?>>اولویت بیشتر</option><option value="low" <?= $filters['prio'] === 'low' ? 'selected' : '' ?>>اولویت کمتر</option></select></div>
+                    <div class="field"><label><i class="fa-solid fa-tag"></i> بر اساس لیبل</label><select class="input" data-f="label">
+                        <option value="">همه‌ی لیبل‌ها</option><?php foreach ($subjects as $sb): ?><option value="<?= (int) $sb['id'] ?>" <?= $filters['label'] === (int) $sb['id'] ? 'selected' : '' ?>><?= e($sb['title']) ?></option><?php endforeach; ?></select></div>
                     <div class="field"><label><i class="fa-solid fa-diagram-project"></i> بر اساس پروژه</label><select class="input" data-f="project" data-logo-select>
                         <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
                 </div>
@@ -97,9 +100,13 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
             </div>
         </div>
         <div class="item-actions">
-            <button class="btn btn-sm btn-icon" data-open-task="<?= (int) $t['id'] ?>" title="جزئیات"><i class="fa-regular fa-eye"></i></button>
-            <?php if ($can['edit']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
-            <?php if ($can['delete']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/tasks/' . $t['id'] . '/delete')) ?>" data-confirm="این تسک و تمام یادداشت‌ها و فایل‌های آن حذف شود؟" title="حذف"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
+            <!-- موبایل: دکمه‌ها در منوی ⋮ (دسکتاپ: ردیف آیکون‌ها) -->
+            <button type="button" class="btn btn-sm btn-icon item-more-btn" data-item-more aria-expanded="false" aria-label="گزینه‌های تسک" title="گزینه‌ها"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <div class="item-acts">
+            <button class="btn btn-sm btn-icon" data-open-task="<?= (int) $t['id'] ?>" title="جزئیات" aria-label="جزئیات"><i class="fa-regular fa-eye"></i><span class="m-lbl">جزئیات</span></button>
+            <?php if ($can['edit']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش" aria-label="ویرایش"><i class="fa-solid fa-pen"></i><span class="m-lbl">ویرایش</span></button><?php endif; ?>
+            <?php if ($can['delete']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/tasks/' . $t['id'] . '/delete')) ?>" data-confirm="این تسک و تمام یادداشت‌ها و فایل‌های آن حذف شود؟" title="حذف" aria-label="حذف"><i class="fa-solid fa-trash"></i><span class="m-lbl">حذف</span></button><?php endif; ?>
+            </div>
         </div>
     </div>
     <?php endforeach; ?>

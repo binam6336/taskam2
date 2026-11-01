@@ -57,7 +57,7 @@
     }
     return msg;
   };
-  TK.toast = (msg, type = 'success', ms = 4200) => {
+  TK.toast = (msg, type = 'success', ms = 4200, { action } = {}) => {
     if (!msg) return;
     if (type === 'error' || type === 'warning') msg = TK.errText(String(msg));
     let box = TK.qs('.toasts');
@@ -66,6 +66,12 @@
     const el = document.createElement('div');
     el.className = 'toast ' + type;
     el.innerHTML = `<i class="fa-solid ${icon}"></i><div>${TK.esc(msg)}</div>`;
+    // دکمه‌ی اقدام داخل پیام (مثلاً «بازگردانی» بعد از انجام شدن تسک)
+    if (action) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = action.label;
+      b.addEventListener('click', () => { el.remove(); action.onClick(); }, { once: true });
+      el.appendChild(b);
+    }
     box.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; el.style.transition = '.3s'; setTimeout(() => el.remove(), 300); }, ms);
     return el;
@@ -73,7 +79,19 @@
 
   /* ───── Modal ───── */
   TK.modal = {
-    open(id) { const m = typeof id === 'string' ? document.getElementById(id) : id; if (!m) return; m.classList.add('open'); document.body.style.overflow = 'hidden'; m.querySelector('[autofocus],input:not([type=hidden]),textarea')?.focus({ preventScroll: true }); m.dispatchEvent(new CustomEvent('tk:open')); },
+    open(id) {
+      const m = typeof id === 'string' ? document.getElementById(id) : id; if (!m) return;
+      m.classList.add('open'); document.body.style.overflow = 'hidden'; m.querySelector('[autofocus],input:not([type=hidden]),textarea')?.focus({ preventScroll: true }); m.dispatchEvent(new CustomEvent('tk:open'));
+      if (m.hasAttribute('data-guard')) setTimeout(() => { m._snap = TK.modal.snap(m); }, 80);   // حالت اولیه‌ی فرم (بعد از پر شدن خودکار)
+    },
+    /** امضای مقادیر فرم‌های داخل پنجره (برای تشخیص تغییر ذخیره‌نشده) */
+    snap(m) { const p = []; TK.qsa('form', m).forEach((f) => { for (const [k, v] of new FormData(f)) p.push(k + '=' + (v instanceof File ? v.name : v)); }); return p.join('&'); },
+    /** بستن به‌دست کاربر (Esc، کلیک بیرون، انصراف): پنجره‌ی data-guard با تغییر ذخیره‌نشده اول تأیید می‌گیرد */
+    async tryClose(m) {
+      if (m.hasAttribute('data-guard') && m._snap !== undefined && TK.modal.snap(m) !== m._snap
+        && !(await TK.confirm('تغییرات ذخیره نشده‌اند؛ پنجره بسته شود؟', { okText: 'بستن بدون ذخیره' }))) return;
+      TK.modal.close(m);
+    },
     close(id) { const m = typeof id === 'string' ? document.getElementById(id) : id; if (!m) return; m.classList.remove('open'); if (!TK.qs('.modal.open')) document.body.style.overflow = ''; m.dispatchEvent(new CustomEvent('tk:close')); },
   };
   TK.confirm = (message, { okText = 'تأیید', danger = true } = {}) => new Promise((resolve) => {
@@ -186,14 +204,48 @@
 
   /* ───── Global delegated behaviours ───── */
   TK.on('click', '[data-modal]', (e, t) => { e.preventDefault(); TK.modal.open(t.dataset.modal); });
-  TK.on('click', '[data-close]', (e, t) => { e.preventDefault(); TK.modal.close(t.closest('.modal')); });
-  TK.on('mousedown', '.modal', (e, t) => { if (e.target === t) TK.modal.close(t); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = TK.qsa('.modal.open').pop(); if (m) TK.modal.close(m); TK.qsa('.dropdown.open,.qa.open').forEach((d) => d.classList.remove('open')); } });
+  TK.on('click', '[data-close]', (e, t) => { e.preventDefault(); TK.modal.tryClose(t.closest('.modal')); });
+  TK.on('mousedown', '.modal', (e, t) => { if (e.target === t) TK.modal.tryClose(t); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = TK.qsa('.modal.open').pop(); if (m) TK.modal.tryClose(m); TK.qsa('.dropdown.open,.qa.open').forEach((d) => d.classList.remove('open')); } });
   TK.on('change', '[data-autosubmit]', (e, t) => (t.form.requestSubmit ? t.form.requestSubmit() : t.form.submit()));
   TK.on('click', '[data-copy]', (e, t) => TK.copy(t.dataset.copy));
   TK.on('click', '[data-copy-target]', (e, t) => TK.copy(TK.qs(t.dataset.copyTarget)?.innerText || ''));
   TK.on('click', '.dropdown > [data-toggle]', (e, t) => { e.stopPropagation(); const d = t.parentElement; const was = d.classList.contains('open'); TK.qsa('.dropdown.open').forEach((x) => x.classList.remove('open')); if (!was) d.classList.add('open'); });
   document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) TK.qsa('.dropdown.open').forEach((d) => d.classList.remove('open')); if (!e.target.closest('.qa')) TK.qs('.qa')?.classList.remove('open'); });
+  // دسترس‌پذیری: دکمه‌های فقط‌آیکون نام بگیرند (از title)، دکمه‌ی بستن پنجره «بستن»
+  const a11y = () => {
+    TK.qsa('[data-close]:not([aria-label]):not([title])').forEach((b) => { if (!b.textContent.trim()) { b.setAttribute('aria-label', 'بستن'); b.title = 'بستن'; } });
+    TK.qsa('.btn-icon[title]:not([aria-label]), a.btn[title]:not([aria-label])').forEach((b) => { if (!b.textContent.trim()) b.setAttribute('aria-label', b.title); });
+  };
+  a11y(); document.addEventListener('tk:ready', a11y); document.addEventListener('tk:live', a11y);
+
+  // پیام‌های اعتبارسنجی مرورگر به فارسی (به‌جای «Please fill out this field» در مرورگر انگلیسی)
+  document.addEventListener('invalid', (e) => {
+    const el = e.target, v = el.validity; if (!v || !el.setCustomValidity) return;
+    el.setCustomValidity('');
+    const f = TK.fa;
+    const msg = v.valueMissing ? (el.type === 'checkbox' ? 'برای ادامه این گزینه را علامت بزنید.' : el.tagName === 'SELECT' || el.type === 'file' ? 'یک گزینه را انتخاب کنید.' : 'این فیلد را پر کنید.')
+      : v.typeMismatch ? (el.type === 'email' ? 'ایمیل معتبر وارد کنید (مثل name@example.com).' : el.type === 'url' ? 'آدرس معتبر وارد کنید (با http:// یا https://).' : 'مقدار واردشده معتبر نیست.')
+      : v.tooShort ? `حداقل ${f(el.minLength)} نویسه وارد کنید (الان ${f(el.value.length)}).`
+      : v.tooLong ? `حداکثر ${f(el.maxLength)} نویسه مجاز است.`
+      : v.rangeUnderflow ? `مقدار باید حداقل ${f(el.min)} باشد.`
+      : v.rangeOverflow ? `مقدار باید حداکثر ${f(el.max)} باشد.`
+      : v.stepMismatch ? 'مقدار واردشده مجاز نیست.'
+      : v.patternMismatch ? (el.title || 'قالب واردشده درست نیست.')
+      : v.badInput ? 'مقدار واردشده معتبر نیست.' : '';
+    if (msg) el.setCustomValidity(msg);
+  }, true);
+  document.addEventListener('input', (e) => { if (e.target.setCustomValidity && e.target.validity?.customError) e.target.setCustomValidity(''); }, true);
+  document.addEventListener('change', (e) => { if (e.target.setCustomValidity && e.target.validity?.customError) e.target.setCustomValidity(''); }, true);
+
+  // موبایل: دکمه‌ی شناور هنگام اسکرول به پایین کنار می‌رود تا روی کارت‌ها نیفتد؛ با اسکرول به بالا برمی‌گردد
+  let qaY = window.scrollY;
+  window.addEventListener('scroll', () => {
+    const qa = TK.qs('.qa'), y = window.scrollY; if (!qa) return;
+    if (Math.abs(y - qaY) < 8) return;
+    qa.classList.toggle('qa-hide', window.innerWidth <= 640 && y > qaY && y > 80);
+    qaY = y;
+  }, { passive: true });
   TK.on('click', '.qa-fab', (e, t) => {
     if (t.hasAttribute('data-qa-empty')) { TK.toast('از تنظیمات (بخش پروفایل ← دسترسی سریع)، گزینه‌های دسترسی سریع را تنظیم کنید.', 'info', 5500); return; }
     t.closest('.qa').classList.toggle('open');
@@ -262,7 +314,8 @@
     const extra = t.dataset.data ? JSON.parse(t.dataset.data) : {};
     const r = await TK.post(t.dataset.post, extra);
     TK.busy(t.classList.contains('btn') ? t : null, false);
-    TK.toast(r.message || (TK.ok(r) ? 'انجام شد' : 'خطا'), TK.ok(r) ? 'success' : 'error');
+    const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) TK.reload(); } } : null;
+    TK.toast(r.message || (TK.ok(r) ? 'انجام شد' : 'خطا'), TK.ok(r) ? 'success' : 'error', undo ? 6500 : 4200, { action: undo });
     t.dispatchEvent(new CustomEvent('tk:done', { detail: r, bubbles: true }));
     if (TK.ok(r)) { if (t.dataset.remove) TK.qs(t.dataset.remove)?.remove(); TK.after(r, t); }
   });
@@ -290,20 +343,23 @@
   // رنگ اول از تم فعال (--g-500) خوانده می‌شود تا نمودارها با تم روشن/تیره هماهنگ باشند
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--g-500').trim() || '#4ade80';
   const C = [accent, '#60a5fa', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'];
+  TK.leaveGuard = null;   // ماژول صفحه می‌تواند تابعی بگذارد که «تغییر ذخیره‌نشده هست؟» را برگرداند (با ترک صفحه خودکار برمی‌گردد)
   TK.charts = {
     colors: C,
     /** نمودار خطی؛ مقدار null = بدون داده (خط قطع می‌شود). با هاور روی هر ستون، مقادیر آن نقطه نمایش داده می‌شود. */
-    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '' }) {
+    // connect: نقاط هر سری با خط به هم وصل شوند حتی اگر بینشان داده نباشد (مقایسه‌ی سرعت اعضا)
+    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '', connect = false }) {
       if (!el) return;
-      const W = 640, H = height, p = { l: 34, r: 12, t: 12, b: 26 };
+      // عرض viewBox = عرض واقعی نمودار تا متن‌ها با اندازه‌ی واقعی (نه کوچک‌شده) دیده شوند
+      const W = Math.max(300, Math.round(el.clientWidth || 640)), H = height, p = { l: 38, r: 14, t: 14, b: 30 };
       const vals = series.flatMap((s) => s.data).filter((v) => v !== null && v !== undefined);
-      const max = fixedMax || Math.max(1, ...vals);
+      const max = fixedMax || Math.max(4, ...vals);
       const step = Math.max(1, Math.ceil(max / 4)), top = fixedMax || step * Math.ceil(max / step);
       const n = labels.length;
       const x = (i) => p.l + (i * (W - p.l - p.r)) / Math.max(1, n - 1);
       const y = (v) => H - p.b - (v / top) * (H - p.t - p.b);
       const col = (s, k) => s.color || C[k % C.length];
-      const every = Math.max(1, Math.ceil(n / 8));
+      const every = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(W / 70))));
       let g = '';
       for (let v = 0; v <= top; v += step) g += `<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${y(v)}" y2="${y(v)}" stroke-dasharray="3 4"/><text x="${p.l - 8}" y="${y(v) + 3}" text-anchor="end">${TK.fa(v)}</text>`;
       labels.forEach((l, i) => { if ((i % every === 0 && n - 1 - i >= every) || i === n - 1) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${TK.esc(l)}</text>`; });
@@ -311,8 +367,9 @@
         const c = col(s, k);
         // تکه‌های پیوسته (بدون null)
         const segs = []; let cur = [];
-        s.data.forEach((v, i) => { if (v === null || v === undefined) { if (cur.length) segs.push(cur); cur = []; } else cur.push(i); });
+        s.data.forEach((v, i) => { if (v === null || v === undefined) { if (cur.length && !connect) { segs.push(cur); cur = []; } } else cur.push(i); });
         if (cur.length) segs.push(cur);
+        g += `<g class="sr" data-k="${k}">`;
         g += `<defs><linearGradient id="lg${k}${el.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="${series.length > 2 ? '.12' : '.24'}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>`;
         segs.forEach((idx) => {
           const pts = idx.map((i) => `${x(i)},${y(s.data[i])}`).join(' ');
@@ -320,12 +377,18 @@
           g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
         });
         s.data.forEach((v, i) => { if (v !== null && v !== undefined) g += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" style="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`; });
+        g += '</g>';
       });
       // ناحیه‌های هاور (یک ستون برای هر برچسب)
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
       g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" style="display:none"/>`;
       labels.forEach((l, i) => { const x0 = Math.max(0, x(i) - bw / 2), x1 = Math.min(W, x(i) + bw / 2); g += `<rect class="hz" data-i="${i}" x="${x0}" y="0" width="${x1 - x0}" height="${H - p.b}" fill="transparent"/>`; });
-      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      // هاور روی راهنما: بقیه‌ی سری‌ها کم‌رنگ شوند
+      if (series.length > 1) TK.qsa('.legend [data-k]', el).forEach((lg) => {
+        lg.addEventListener('mouseenter', () => TK.qsa('.sr', el).forEach((sr) => sr.classList.toggle('dim', sr.dataset.k !== lg.dataset.k)));
+        lg.addEventListener('mouseleave', () => TK.qsa('.sr.dim', el).forEach((sr) => sr.classList.remove('dim')));
+      });
       const svg = el.querySelector('svg'), tip = el.querySelector('.chart-tip'), hl = el.querySelector('.hover-line'), box = el.querySelector('.chart-box');
       const show = (i) => {
         TK.qsa('.pt', svg).forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
@@ -344,15 +407,15 @@
     },
     bars(el, { items, height = 220 }) {
       if (!el) return;
-      const W = 640, H = height, p = { l: 10, r: 10, t: 14, b: 40 };
+      const W = Math.max(260, Math.round(el.clientWidth || 640)), H = height, p = { l: 10, r: 10, t: 22, b: 34 };
       const max = Math.max(1, ...items.map((i) => i.value));
       const bw = (W - p.l - p.r) / items.length;
       let g = '';
       items.forEach((it, i) => {
         const h = (it.value / max) * (H - p.t - p.b), x = p.l + i * bw + bw * 0.18, w = bw * 0.64, y = H - p.b - h, col = it.color || C[i % C.length];
         g += `<rect x="${x}" y="${y}" width="${w}" height="${Math.max(h, 2)}" rx="6" fill="${col}" opacity=".9"><title>${TK.esc(it.label)}: ${TK.fa(it.value)}</title></rect>`;
-        g += `<text x="${x + w / 2}" y="${y - 6}" text-anchor="middle" style="fill:var(--text)">${TK.fa(it.value)}</text>`;
-        g += `<text x="${x + w / 2}" y="${H - 18}" text-anchor="middle">${TK.esc(String(it.label).slice(0, 14))}</text>`;
+        g += `<text class="bar-v" x="${x + w / 2}" y="${y - 7}" text-anchor="middle">${TK.fa(it.value)}</text>`;
+        g += `<text x="${x + w / 2}" y="${H - 10}" text-anchor="middle">${TK.esc(String(it.label).slice(0, 14))}</text>`;
       });
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
     },
@@ -741,7 +804,12 @@
   if (document.body?.dataset.layout) {
     history.scrollRestoration = 'manual';
     if (!history.state?.tk) history.replaceState({ ...(history.state || {}), tk: 1 }, '');
-    TK.on('click', 'a[href]', (e, a) => { if (!linkOk(a, e)) return; e.preventDefault(); TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); TK.visit(a.href); });
+    TK.on('click', 'a[href]', async (e, a) => {
+      if (!linkOk(a, e)) return; e.preventDefault();
+      // صفحه‌ای با تغییر ذخیره‌نشده (TK.leaveGuard را ماژول صفحه تعیین می‌کند) اول تأیید می‌گیرد
+      if (TK.leaveGuard && TK.leaveGuard() && !(await TK.confirm('تغییرات ذخیره نشده‌اند؛ از این صفحه خارج می‌شوید؟', { okText: 'خروج بدون ذخیره' }))) return;
+      TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); TK.visit(a.href);
+    });
     // فرم‌های GET (جستجو و فیلترها) هم بدون بارگذاری
     TK.on('submit', 'form', (e, f) => {
       if (e.defaultPrevented || f.hasAttribute('data-ajax') || (f.getAttribute('method') || 'get').toLowerCase() !== 'get' || f.closest('[data-no-nav]')) return;

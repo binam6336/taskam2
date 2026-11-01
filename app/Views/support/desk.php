@@ -195,7 +195,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
 </div>
 
 <?php if (!$admin): ?>
-<div class="modal" id="m-support"><div class="modal-box"><form method="post" action="<?= e(url('/support')) ?>" enctype="multipart/form-data" data-ajax><?= csrf_field() ?>
+<div class="modal" id="m-support" data-guard><div class="modal-box"><form method="post" action="<?= e(url('/support')) ?>" enctype="multipart/form-data" data-ajax><?= csrf_field() ?>
     <div class="modal-head"><h3><i class="fa-solid fa-headset"></i> تیکت پشتیبانی جدید</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <div class="field"><label>موضوع *</label><input class="input" name="subject" maxlength="255" required placeholder="<?= e(ph('support_subject')) ?>"></div>

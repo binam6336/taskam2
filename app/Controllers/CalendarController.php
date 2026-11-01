@@ -54,6 +54,7 @@ final class CalendarController extends Controller
                 ] : null,
             ];
         }
-        $this->ok('', ['from' => $from, 'to' => $to, 'items' => $items]);
+        // عقب‌افتاده‌ها مستقل از ماه نمایش‌داده‌شده (تسکی که ماه قبل سررسید داشته هم شمرده شود)
+        $this->ok('', ['from' => $from, 'to' => $to, 'items' => $items, 'overdue_total' => TaskModel::overdueCount($uid, $scope)]);
     }
 }

@@ -188,13 +188,26 @@ final class ChatModel
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = u.id AND cb.blocked_user_id = ?) AS has_blocked_me,
               (SELECT COUNT(*) FROM chat_messages cm WHERE cm.sender_id = u.id AND cm.receiver_id = ? AND cm.is_read = 0) AS unread_count,
-              (SELECT MAX(cm.created_at) FROM chat_messages cm WHERE ((cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm.id', 'u.id') . ") AS last_msg_time
+              (SELECT MAX(cm.created_at) FROM chat_messages cm WHERE ((cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm.id', 'u.id') . ") AS last_msg_time,
+              (SELECT MAX(cm.id) FROM chat_messages cm WHERE ((cm.sender_id = u.id AND cm.receiver_id = ?) OR (cm.sender_id = ? AND cm.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm.id', 'u.id') . ") AS last_msg_id
             FROM users u
             WHERE u.id <> ? AND u.status = 'active' AND (
                 EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = u.id AND " . \App\Services\Access::approvedSql('c') . ")
              OR EXISTS (SELECT 1 FROM colleagues c WHERE c.user_id = u.id AND c.colleague_user_id = ? AND " . \App\Services\Access::approvedSql('c') . ")
              OR EXISTS (SELECT 1 FROM chat_messages cm2 WHERE ((cm2.sender_id = u.id AND cm2.receiver_id = ?) OR (cm2.sender_id = ? AND cm2.receiver_id = u.id)) AND " . self::visibleSql($me, 'cm2.id', 'u.id') . "))
-            ORDER BY (last_msg_time IS NULL) ASC, last_msg_time DESC, u.first_name ASC", [$me, $me, $me, $me, $me, $me, $me, $me, $me, $me]);
+            ORDER BY (last_msg_time IS NULL) ASC, last_msg_time DESC, u.first_name ASC", [$me, $me, $me, $me, $me, $me, $me, $me, $me, $me, $me, $me]);
+        // پیش‌نمایش آخرین پیام هر گفتگو (یک کوئری برای همه؛ متن رمزگذاری‌شده باز و نشانه‌های تسک/تماس حذف می‌شود)
+        $ids = array_values(array_filter(array_map(static fn($r) => (int) $r['last_msg_id'], $rows)));
+        $last = [];
+        if ($ids) {
+            foreach (DB::all('SELECT id, sender_id, receiver_id, message, attachment_name FROM chat_messages WHERE id IN (' . DB::in($ids) . ')', $ids) as $m) {
+                $text = trim((string) preg_replace(['/\[\[(?:task|call):[a-f0-9]+\]\]/i', '/\s+/u'], ['', ' '], (string) self::open($m['message'], (int) $m['sender_id'], (int) $m['receiver_id'])));
+                if ($text === '' && !empty($m['attachment_name'])) {
+                    $text = '📎 فایل';
+                }
+                $last[(int) $m['id']] = ['text' => mb_strlen($text) > 70 ? mb_substr($text, 0, 70) . '…' : $text, 'mine' => (int) $m['sender_id'] === $me];
+            }
+        }
         foreach ($rows as &$r) {
             $r['user_id'] = (int) $r['user_id'];
             $r['is_blocked_by_me'] = (int) $r['is_blocked_by_me'] === 1;
@@ -202,6 +215,10 @@ final class ChatModel
             $r['unread_count'] = (int) $r['unread_count'];
             $r['is_bot'] = (int) $r['is_bot'] === 1;
             $r['avatar_url'] = avatar_url($r['avatar']);
+            $lm = $last[(int) $r['last_msg_id']] ?? null;
+            $r['last_msg_preview'] = $lm['text'] ?? null;
+            $r['last_msg_mine'] = $lm['mine'] ?? false;
+            unset($r['last_msg_id']);
             if (!$r['is_bot'] && !\App\Services\Access::isColleague($me, $r['user_id'])) {
                 $r['mobile'] = mask_mobile($r['mobile']);          // فقط همکار تأییدشده شماره‌ی کامل را می‌بیند
             }

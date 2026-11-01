@@ -25,11 +25,17 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* ───── اعلان‌ها ───── */
+  // دکمه‌ها فقط وقتی معنی دارند نمایش داده می‌شوند: فعال‌سازی وقتی فعال نیست و مسدود نیست، آزمایش/غیرفعال‌سازی فقط با اشتراک فعال
+  const show = (en, rest, denied) => {
+    TK.qs('#push-enable').hidden = !en; TK.qs('#push-test').hidden = !rest; TK.qs('#push-disable').hidden = !rest;
+    TK.qs('#push-denied').hidden = !denied;
+  };
   const paintPush = async () => {
-    if (!cfg.pushReady) { badge.textContent = 'غیرفعال در سرور'; badge.className = 'badge red'; return; }
-    if (!TK.pwa.pushSupported()) { badge.textContent = 'پشتیبانی نمی‌شود'; badge.className = 'badge yellow'; return; }
+    if (!cfg.pushReady) { badge.textContent = 'غیرفعال در سرور'; badge.className = 'badge red'; show(false, false, false); return; }
+    if (!TK.pwa.pushSupported()) { badge.textContent = 'پشتیبانی نمی‌شود'; badge.className = 'badge yellow'; show(false, false, false); return; }
     const sub = await TK.pwa.subscription();
     const on = Notification.permission === 'granted' && !!sub;
+    show(!on && Notification.permission !== 'denied', on, Notification.permission === 'denied');
     badge.textContent = on ? 'فعال' : Notification.permission === 'denied' ? 'مسدود' : 'غیرفعال';
     badge.className = 'badge ' + (on ? 'green' : Notification.permission === 'denied' ? 'red' : 'yellow');
   };

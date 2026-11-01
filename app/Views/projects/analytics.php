@@ -14,7 +14,7 @@ $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red
 // کارت‌ها و اعضا لینک به صفحه‌ی تسک‌ها با فیلتر همین پروژه
 $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => (int) $project['id']] + $q);
 ?>
-<div class="page-head"><div><a class="small muted" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div></div>
+<div class="page-head"><div><a class="small muted an-back" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div></div>
 <div class="grid grid-4 mb-2">
     <a class="card stat" href="<?= e($tl(['status' => 'all'])) ?>" title="نمایش همه‌ی تسک‌های پروژه"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['total'])) ?></div><div class="lbl">کل تسک‌ها</div></div></a>
     <a class="card stat" href="<?= e($tl(['status' => 'done'])) ?>" title="نمایش تسک‌های انجام‌شده‌ی پروژه"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['done'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
@@ -26,12 +26,15 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div class="card-head"><h3><i class="fa-solid fa-clipboard-check"></i> خلاصه‌ی تحلیل پروژه</h3>
         <?php if ($sum['rating']['score'] !== null): ?><span class="badge <?= e($sum['rating']['tone']) ?>">عملکرد کلی: <?= e($sum['rating']['label']) ?> (<?= e(fa_num($sum['rating']['score'])) ?> از ۱۰۰)</span><?php endif; ?></div>
     <p class="an-summary-text"><?= e($sum['text']) ?></p>
-    <div class="an-split" role="img" aria-label="سهم وظایف">
-        <div class="an-split-row"><span>انجام‌شده</span><div class="progress"><div style="width:<?= (int) $sum['done_pct'] ?>%"></div></div><b><?= e(fa_num($sum['done_pct'])) ?>٪</b></div>
-        <div class="an-split-row"><span>با تأخیر</span><div class="progress yellow"><div style="width:<?= (int) $sum['delayed_pct'] ?>%"></div></div><b><?= e(fa_num($sum['delayed_pct'])) ?>٪</b></div>
-        <div class="an-split-row"><span>انجام‌نشده</span><div class="progress red"><div style="width:<?= (int) $sum['open_pct'] ?>%"></div></div><b><?= e(fa_num($sum['open_pct'])) ?>٪</b></div>
+    <?php $sp = $sum['split']; $segs = [['done_ontime', 'به‌موقع انجام‌شده', 'ok'], ['done_late', 'با تأخیر انجام‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
+    <?php // یک نوار انباشته با جمع ۱۰۰٪ (بخش‌ها هم‌پوشانی ندارند) ?>
+    <div class="an-stack" role="img" aria-label="<?= e(implode('، ', array_map(static fn($g) => $g[1] . ' ' . fa_num($sp[$g[0]]) . '٪', $segs))) ?>">
+        <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" style="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪"></div><?php endif; endforeach; ?>
     </div>
-    <p class="hint">«با تأخیر» یعنی تسکی که دیرتر از سررسیدش انجام شده یا سررسیدش گذشته و هنوز باز است. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
+    <div class="an-stack-legend">
+        <?php foreach ($segs as [$sk, $l, $tone]): ?><span><i class="<?= $tone ?>"></i><?= e($l) ?> <b><?= e(fa_num($sp[$sk])) ?>٪</b></span><?php endforeach; ?>
+    </div>
+    <p class="hint">بخش‌ها روی هم ۱۰۰٪ همه‌ی وظایف‌اند. «با تأخیر» یعنی دیرتر از سررسیدش انجام شده؛ «عقب‌افتاده» یعنی سررسیدش گذشته و هنوز باز است. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
 </div>
 
 <div class="grid mb-2 an-row">

@@ -7,7 +7,7 @@
 <div class="grid grid-auto" id="text-grid"></div>
 <div class="card empty hidden" id="text-empty"><i class="fa-solid fa-message"></i><p>متنی پیدا نشد.</p></div>
 
-<div class="modal" id="m-text"><div class="modal-box">
+<div class="modal" id="m-text" data-guard><div class="modal-box">
     <form id="f-text"><div class="modal-head"><h3><i class="fa-solid fa-message"></i> <span id="text-modal-title">متن جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
         <div class="modal-body"><input type="hidden" name="id">
             <div class="field"><label>عنوان *</label><input class="input" name="title" maxlength="255" required></div>

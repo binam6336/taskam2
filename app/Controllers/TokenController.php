@@ -25,7 +25,10 @@ final class TokenController extends Controller
     {
         $this->denyImpersonation('/tokens');
         $uid = $this->uid();
-        $name = $this->request->str('name', 100) ?: 'بدون نام';
+        $name = trim($this->request->str('name', 100));
+        if ($name === '') {
+            $this->respond(false, 'برای توکن یک نام بنویسید (مثلاً «ربات تلگرام») تا بعداً بشناسیدش.', '/tokens');
+        }
         if ((int) DB::value('SELECT COUNT(*) FROM api_tokens WHERE user_id = ?', [$uid]) >= TokenModel::MAX_PER_USER) {
             $this->respond(false, 'حداکثر ' . fa_num(TokenModel::MAX_PER_USER) . ' توکن مجاز است؛ توکن‌های بلااستفاده را حذف کنید.', '/tokens');
         }

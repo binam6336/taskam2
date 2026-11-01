@@ -37,6 +37,7 @@ final class TaskController extends Controller
         $when = in_array($when, ['overdue', 'today', 'tomorrow'], true) || Validate::date($when) !== null ? $when : '';
         $prio = in_array($r->query['prio'] ?? '', ['high', 'low'], true) ? (string) $r->query['prio'] : '';
         $proj = max(0, (int) ($r->query['project'] ?? 0));
+        $label = max(0, (int) ($r->query['label'] ?? 0));   // فیلتر لیبل (از کارت لیبل در صفحه‌ی لیبل‌ها)
         // «تسک‌های پروژه» (آمدن از کارت‌ها و عملکرد اعضای «تحلیل پروژه»): فقط با دسترسی مشاهده‌ی تحلیل همان پروژه
         $projScope = null;
         $assignee = 0;
@@ -55,7 +56,7 @@ final class TaskController extends Controller
         }
         // «همه» (باز و انجام‌شده با هم): تب همه، و کارت‌های «کل تسک‌ها»/«اولویت زیاد» پیشخوان
         $completed = $statusQ === 'all' ? null : $done;
-        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee];
+        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee, 'label' => $label];
         $res = TaskModel::paginate($uid, $scope, $completed, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
         $pages = max(1, (int) ceil($res['total'] / self::PER_PAGE));
         foreach ($res['rows'] as &$t) {
@@ -228,7 +229,9 @@ final class TaskController extends Controller
     public function toggle(string $id)
     {
         $res = TaskService::toggle($this->uid(), (int) $id);
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? $res['data'] : []);
+        // بعد از «انجام شد»، دکمه‌ی «بازگردانی» در پیام (همان مسیر تیک، چند ثانیه)
+        $extra = $res['ok'] ? (array) $res['data'] + (!empty($res['data']['is_completed']) ? ['undo' => url('/tasks/' . (int) $id . '/toggle')] : []) : [];
+        $this->respond($res['ok'], $res['message'], '/tasks', $extra);
     }
 
     public function destroy(string $id)

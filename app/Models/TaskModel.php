@@ -128,6 +128,10 @@ final class TaskModel
             $where .= ' AND t.project_id = ?';
             $params[] = (int) $f['project'];
         }
+        if (!empty($f['label'])) {
+            $where .= ' AND t.subject_id = ?';
+            $params[] = (int) $f['label'];
+        }
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where, $params);
         switch ($f['sort'] ?? 'created') {
             case 'due':
@@ -253,6 +257,14 @@ final class TaskModel
     // ───── آمار داشبورد ─────
 
     /** شرط «عقب‌افتاده» (همان فیلتر when=overdue صفحه‌ی تسک‌ها) */
+    /** همه‌ی تسک‌های باز عقب‌افتاده (مستقل از ماه تقویم)؛ scope مثل تقویم: mine / others / all */
+    public static function overdueCount(int $uid, string $scope): int
+    {
+        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
+        return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
+    }
+
     private const OVERDUE = "t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
 
     /**

@@ -6,7 +6,8 @@ $total = array_sum(array_map('count', $columns));
 <div class="page-head"><h2><i class="fa-solid fa-table-columns" style="color:var(--g-400)"></i> بورد پروژه</h2>
     <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button></div>
 
-<form class="kb-filters card" method="get" action="<?= e(url('/board')) ?>">
+<button type="button" class="btn kb-filter-toggle" id="kb-filter-toggle" aria-expanded="false" aria-controls="kb-filters"><i class="fa-solid fa-filter"></i> فیلترها<?php $fc = ($filters['project'] ? 1 : 0) + ($filters['q'] !== '' ? 1 : 0) + ($filters['mine'] ? 1 : 0); if ($fc): ?> <span class="badge-count"><?= e(fa_num($fc)) ?></span><?php endif; ?></button>
+<form class="kb-filters card" id="kb-filters" method="get" action="<?= e(url('/board')) ?>">
     <select class="input" name="project" data-autosubmit data-logo-select>
         <option value="0">همه‌ی پروژه‌ها</option>
         <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
@@ -27,6 +28,15 @@ $total = array_sum(array_map('count', $columns));
 <?php if ($total === 0): ?>
 <div class="card empty"><i class="fa-solid fa-table-columns"></i><p>تسکی برای نمایش در برد نیست. این‌جا تسک‌های خودتان و تسک‌های اعضایی که مدیر پروژه در «مشاهده‌ی تسک‌های» برایتان انتخاب کرده نمایش داده می‌شوند.</p></div>
 <?php endif; ?>
+<?php // نوار ستون‌ها با تعداد کارت: پرش به هر ستون (در موبایل و وقتی ستون‌ها از عرض صفحه بیرون می‌زنند) ?>
+<nav class="kb-tabs" id="kb-tabs" aria-label="ستون‌های بورد">
+<?php foreach ($order as $key): $n = $key === 'archived' ? (int) $archive['total'] : count($columns[$key]); $lbl = $key === 'archived' ? 'آرشیو' : $statuses[$key]['label']; ?>
+    <button type="button" class="kb-tab<?= $n ? '' : ' empty' ?>" data-kb-goto="<?= e($key) ?>"><?= e($lbl) ?> <span><?= e(fa_num($n)) ?></span></button>
+<?php endforeach; ?>
+</nav>
+<div class="kb-wrap" id="kb-wrap">
+<button type="button" class="kb-nav kb-nav-start" data-kb-scroll="-1" aria-label="ستون‌های قبلی" hidden><i class="fa-solid fa-chevron-right"></i></button>
+<button type="button" class="kb-nav kb-nav-end" data-kb-scroll="1" aria-label="ستون‌های بعدی" hidden><i class="fa-solid fa-chevron-left"></i></button>
 <div class="kb-board" id="kb-board">
 <?php foreach ($order as $key): if ($key === 'archived'): ?>
     <section class="kb-col tone-archive" data-col="archived" aria-label="آرشیو">
@@ -64,6 +74,7 @@ $total = array_sum(array_map('count', $columns));
         </div>
     </section>
 <?php endforeach; ?>
+</div>
 </div>
 </div>
 

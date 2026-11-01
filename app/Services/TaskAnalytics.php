@@ -108,7 +108,7 @@ final class TaskAnalytics
         foreach (self::people($projectId) as $u) {
             $members[(int) $u['id']] = $u + ['total' => 0, 'done' => 0, 'open' => 0, 'overdue' => 0, 'late' => 0, 'hours' => [], 'scores' => []];
         }
-        $sum = ['total' => 0, 'done' => 0, 'open' => 0, 'delayed' => 0];
+        $sum = ['total' => 0, 'done' => 0, 'open' => 0, 'delayed' => 0, 'done_late' => 0, 'open_late' => 0];
         $subjects = [];
         foreach ($tasks as $t) {
             $sum['total']++;
@@ -118,6 +118,7 @@ final class TaskAnalytics
             $sum[$done ? 'done' : 'open']++;
             if ($late) {
                 $sum['delayed']++;
+                $sum[$done ? 'done_late' : 'open_late']++;
             }
             $sk = $t['subject_id'] !== null ? (int) $t['subject_id'] : 0;
             $subjects[$sk] = $subjects[$sk] ?? ['label' => $t['subject_title'] ?? 'بدون لیبل', 'color' => $t['subject_color'] ?: '#5f776a', 'value' => 0];
@@ -170,13 +171,28 @@ final class TaskAnalytics
         usort($out, static fn($a, $b) => [$b['rating']['score'] ?? -1, $b['done']] <=> [$a['rating']['score'] ?? -1, $a['done']]);
 
         $pct = static fn(int $n) => $sum['total'] > 0 ? (int) round($n / $sum['total'] * 100) : 0;
+        // تفکیک بدون هم‌پوشانی با جمع دقیق ۱۰۰٪ (بزرگ‌ترین باقی‌مانده): به‌موقع / با تأخیر انجام‌شده، باز در مهلت / عقب‌افتاده
+        $parts = ['done_ontime' => $sum['done'] - $sum['done_late'], 'done_late' => $sum['done_late'], 'open_ontime' => $sum['open'] - $sum['open_late'], 'open_late' => $sum['open_late']];
+        $split = array_fill_keys(array_keys($parts), 0);
+        if ($sum['total'] > 0) {
+            $rem = [];
+            foreach ($parts as $k => $n) {
+                $x = $n / $sum['total'] * 100;
+                $split[$k] = (int) floor($x);
+                $rem[$k] = $x - floor($x);
+            }
+            arsort($rem);
+            foreach (array_slice(array_keys($rem), 0, 100 - array_sum($split)) as $k) {
+                $split[$k]++;
+            }
+        }
         $overall = self::rating($wCnt > 0 ? $wSum / $wCnt : null);
         $summary = [
-            'done_pct' => $pct($sum['done']), 'delayed_pct' => $pct($sum['delayed']), 'open_pct' => $pct($sum['open']),
+            'done_pct' => $pct($sum['done']), 'delayed_pct' => $pct($sum['delayed']), 'open_pct' => $pct($sum['open']), 'split' => $split,
             'rating' => $overall,
             'text' => $sum['total'] === 0
                 ? 'هنوز تسکی در این پروژه ثبت نشده است.'
-                : sprintf('%s٪ وظایف انجام شده، %s٪ وظایف با تأخیر بوده و %s٪ وظایف انجام نشده است؛ ', fa_num($pct($sum['done'])), fa_num($pct($sum['delayed'])), fa_num($pct($sum['open'])))
+                : sprintf('%s٪ وظایف به‌موقع و %s٪ با تأخیر انجام شده؛ %s٪ هنوز باز است (%s٪ عقب‌افتاده)؛ ', fa_num($split['done_ontime']), fa_num($split['done_late']), fa_num($split['open_ontime'] + $split['open_late']), fa_num($split['open_late']))
                   . ($overall['score'] === null ? 'برای ارزیابی عملکرد اعضا هنوز تسک انجام‌شده‌ای وجود ندارد.' : 'عملکرد اعضا به‌طور کلی «' . $overall['label'] . '» ارزیابی می‌شود.'),
         ];
 

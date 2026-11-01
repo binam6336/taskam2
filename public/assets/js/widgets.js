@@ -175,6 +175,39 @@
     return { input: inp, host, set, get: () => inp.value, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; } };
   };
 
+  /* ═════════════ فیلدهای رمز: دکمه‌ی نمایش/مخفی، قدرت رمز (data-pw-meter) و بررسی زنده‌ی تکرار رمز ═════════════ */
+  const pwScore = (v) => { let s = 0; if (v.length >= 8) s++; if (v.length >= 12) s++; if (/[A-Za-z\u0600-\u06FF]/.test(v) && /\d/.test(v)) s++; if (/[^\w\s]/.test(v)) s++; return s; };
+  const initPw = () => TK.qsa('input[type=password]:not([data-pw-ready])').forEach((el) => {
+    el.dataset.pwReady = '1';
+    const wrap = document.createElement('div'); wrap.className = 'pw-wrap';
+    el.parentNode.insertBefore(wrap, el); wrap.appendChild(el);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.setAttribute('aria-label', 'نمایش رمز'); b.title = 'نمایش رمز';
+    b.innerHTML = '<i class="fa-regular fa-eye"></i>';
+    b.addEventListener('click', () => {
+      const show = el.type === 'password'; el.type = show ? 'text' : 'password';
+      b.innerHTML = `<i class="fa-regular fa-eye${show ? '-slash' : ''}"></i>`; b.title = show ? 'مخفی کردن رمز' : 'نمایش رمز'; b.setAttribute('aria-label', b.title);
+    });
+    wrap.appendChild(b);
+    // قدرت رمز (مثل ثبت‌نام)
+    if (el.hasAttribute('data-pw-meter')) {
+      const m = document.createElement('div'); m.className = 'pw-meter'; m.innerHTML = '<i></i>'; wrap.after(m);
+      el.addEventListener('input', () => { const s = pwScore(el.value); m.firstChild.style.width = (s * 25) + '%'; m.firstChild.style.background = ['#f87171', '#f87171', '#fbbf24', '#4ade80', '#22c55e'][s]; });
+    }
+    // تکرار رمز: مقایسه‌ی زنده با فیلد data-pw-match="نام فیلد اصلی"
+    const target = el.dataset.pwMatch && el.form?.elements[el.dataset.pwMatch];
+    if (target) {
+      const h = document.createElement('div'); h.className = 'hint pw-match'; wrap.after(h);
+      const check = () => {
+        if (!el.value) { h.textContent = ''; h.className = 'hint pw-match'; el.setCustomValidity(''); return; }
+        const ok = el.value === target.value;
+        h.textContent = ok ? '✓ تکرار رمز درست است.' : 'تکرار رمز با رمز جدید یکی نیست.'; h.className = 'hint pw-match ' + (ok ? 'ok' : 'bad');
+        el.setCustomValidity(ok ? '' : 'تکرار رمز با رمز جدید یکی نیست.');
+      };
+      el.addEventListener('input', check); target.addEventListener('input', check);
+    }
+  });
+  initPw(); document.addEventListener('tk:ready', initPw);
+
   /* ═════════════ زمان انجام و یادآوری: یک فیلد برای تاریخ + ساعت ═════════════
      نمای سریع: امروز / فردا / پس‌فردا (هر کدام با ساعت‌های آماده) و «انتخاب تاریخ و زمان» برای روز و ساعت دلخواه.
      دو ورودی مخفی due_date (میلادی) و due_time (HH:MM) را پر می‌کند؛ خروجی: date و time با همان رابط datepicker/timepicker. */
