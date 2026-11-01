@@ -266,7 +266,7 @@ final class TaskService
                 return $m;
             }
             $done = $to === 'done';
-            return self::res(true, $done ? 'تسک انجام‌شده شد.' : 'تسک به «در انتظار بررسی» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+            return self::res(true, $done ? 'تسک انجام‌شده شد.' : 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
         }
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');

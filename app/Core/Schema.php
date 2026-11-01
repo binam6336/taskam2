@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '021';
+    public const VERSION = '022';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -48,6 +48,11 @@ final class Schema
     private const ENUMS = [
         // 021
         ['tasks', 'board_status', 'rework', "MODIFY `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog'"],
+    ];
+
+    /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
+    private const DATA = [
+        ['022', '022_member_board_perms.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */
@@ -109,6 +114,22 @@ final class Schema
                         $ok = false;
                         error_log('schema: ' . $table . ' — ' . $e->getMessage());
                     }
+                }
+            }
+            foreach (self::DATA as [$id, $file]) {
+                $dflag = STORAGE_PATH . '/cache/data-' . $id;
+                if (is_file($dflag)) {
+                    continue;
+                }
+                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
+                try {
+                    foreach (preg_match_all('/^(UPDATE|INSERT|DELETE)\b.*?;/ms', $sql, $m) ? $m[0] : [] as $q) {
+                        DB::run(rtrim($q, ';'));
+                    }
+                    @file_put_contents($dflag, date('c'));
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    error_log('schema: data ' . $id . ' — ' . $e->getMessage());
                 }
             }
         } catch (\Throwable $e) {

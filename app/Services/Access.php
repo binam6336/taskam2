@@ -40,10 +40,10 @@ final class Access
         'to_todo'     => ['label' => 'برنامه‌ریزی‌نشده ← آماده انجام', 'icon' => 'fa-list-ul', 'desc' => 'انتخاب تسک برای انجام'],
         'to_progress' => ['label' => 'آماده انجام ← در حال انجام', 'icon' => 'fa-person-running', 'desc' => 'شروع کار روی تسک'],
         'to_review'   => ['label' => 'در حال انجام ← بررسی سرپرست', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی سرپرست (و ارسال دوباره از «بازبینی مسئول»)'],
-        'to_done'     => ['label' => 'بررسی سرپرست ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک، یا برگرداندن آن به «بازبینی مسئول» برای اصلاح'],
+        'to_done'     => ['label' => 'بررسی سرپرست ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک، برگرداندن آن به «بازبینی مسئول» برای اصلاح، یا بازکردن دوباره‌ی تسک انجام‌شده'],
         'block'       => ['label' => 'مسدود کردن', 'icon' => 'fa-ban', 'desc' => 'انتقال از آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول به مسدودشده (با علت توقف)'],
         'unblock'     => ['label' => 'رفع مسدودی', 'icon' => 'fa-lock-open', 'desc' => 'برگرداندن از مسدودشده به آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول'],
-        'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً بررسی سرپرست ← در حال انجام، بازبینی مسئول ← در حال انجام، یا انجام‌شده ← بررسی سرپرست'],
+        'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً بررسی سرپرست ← در حال انجام یا بازبینی مسئول ← در حال انجام (بازکردن تسک انجام‌شده مجوز «بررسی سرپرست ← انجام‌شده» می‌خواهد)'],
         'move_any'    => ['label' => 'جابه‌جایی آزاد', 'icon' => 'fa-shuffle', 'desc' => 'انتقال بین هر دو مرحله، از جمله پرش از چند مرحله'],
     ];
     private const BOARD_CHAIN = ['backlog', 'todo', 'in_progress', 'review', 'done'];
@@ -69,11 +69,14 @@ final class Access
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => '*', 'board' => '*', 'view' => 'all'],
         'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز حذف. پروژه: همه‌چیز جز افزودن و حذف کاربر. برد: همه‌چیز؛ پیش‌فرض فقط تسک‌های خودش را می‌بیند.',
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => ['edit_project', 'manage_permissions', 'view_analytics'], 'board' => '*', 'view' => 'own'],
-        'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. بدون دسترسی پروژه و برد؛ فقط تسک‌های خودش را می‌بیند.',
-            'task' => ['edit_info', 'notes'], 'project' => [], 'board' => [], 'view' => 'own'],
+        // عضو در برد همه‌ی جابه‌جایی‌ها را دارد جز تکمیل (to_done) و جابه‌جایی آزاد (move_any که بررسی سرپرست را دور می‌زند)
+        'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. برد: همه‌ی جابه‌جایی‌ها جز تکمیل (انجام‌شده) و جابه‌جایی آزاد؛ بدون دسترسی پروژه؛ فقط تسک‌های خودش را می‌بیند.',
+            'task' => ['edit_info', 'notes'], 'project' => [], 'board' => self::MEMBER_BOARD, 'view' => 'own'],
         'none'         => ['label' => 'بدون دسترسی', 'icon' => 'fa-user-slash', 'tone' => 'red', 'desc' => 'هیچ دسترسی‌ای ندارد؛ فقط تسک‌های خودش را می‌بیند.',
             'task' => [], 'project' => [], 'board' => [], 'view' => 'own'],
     ];
+    /** دسترسی برد نقش «عضو» (v3.39): همه جز to_done و move_any */
+    public const MEMBER_BOARD = ['to_todo', 'to_progress', 'to_review', 'block', 'unblock', 'move_back'];
     public const ROLE_CUSTOM = ['label' => 'سفارشی', 'icon' => 'fa-sliders', 'tone' => 'purple', 'desc' => 'دسترسی‌ها دستی تنظیم شده و با هیچ نقش آماده‌ای یکی نیست.'];
 
     /** نقش پیش‌فرض هر عضو تازه‌ی پروژه (افزودن مستقیم یا پذیرفتن دعوت) */
@@ -242,7 +245,8 @@ final class Access
     public static function boardMovePerm(string $from, string $to): string
     {
         // بازبینی مسئول: برگرداندن از بررسی سرپرست = مجوز تأیید؛ ارسال دوباره = مجوز ارسال برای بررسی؛ بازگشت به در حال انجام = مرحله‌ی قبل
-        if ($from === 'review' && $to === 'rework') {
+        // برگرداندن از بررسی سرپرست به بازبینی مسئول، و بازکردن تسک انجام‌شده = کار تأییدکننده (همان مجوز تکمیل)
+        if (($from === 'review' && $to === 'rework') || $from === 'done') {
             return 'to_done';
         }
         if ($from === 'rework') {
