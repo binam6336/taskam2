@@ -6,6 +6,7 @@
  */
 return [
     'login_mobile'      => ['auth', 'ورود ← شماره موبایل', '/login', '09123456789'],
+    'login_captcha'     => ['auth', 'ورود ← کد امنیتی', '/login', 'کد امنیتی را وارد کنید'],
     'register_mobile'   => ['auth', 'ثبت‌نام ← شماره موبایل', '/login?tab=register', '09123456789'],
 
     'tasks_search'      => ['tasks', 'تسک‌ها ← جستجو', '/tasks', 'جستجو در عنوان و توضیحات…'],

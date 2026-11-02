@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Core\Audit;
 use App\Core\Auth;
+use App\Core\Captcha;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Core\Throttle;
@@ -24,11 +25,26 @@ final class AuthController extends Controller
         $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به تسکام'], 'auth');
     }
 
+    /** تصویر کپچای صفحه‌ی ورود (هر بار کد جدید) */
+    public function captcha()
+    {
+        if (!Throttle::attempt('captcha_ip', $this->request->rateIp(), 60, 60)) {
+            header('Retry-After: 60');
+            $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
+        }
+        Captcha::output();
+    }
+
     public function login()
     {
         $mobile = Validate::mobile($this->request->str('mobile', 30));
         $pass = (string) $this->request->input('password', '');
         Session::put('_old', ['mobile' => $this->request->str('mobile', 30)]);
+        // کپچا قبل از هر بررسی دیگر (و بدون ثبت در شمارنده‌های ورود): فقط حروف بزرگ
+        if (Captcha::enabled() && !Captcha::verify($this->request->str('captcha', 20))) {
+            Session::flash('کد امنیتی اشتباه است؛ کد جدید را وارد کنید.', 'error');
+            $this->redirect('/login');
+        }
         if ($mobile === null || $pass === '' || strlen($pass) > 200) {
             Session::flash('شماره موبایل یا رمز عبور اشتباه است.', 'error');
             $this->redirect('/login');

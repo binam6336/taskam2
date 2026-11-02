@@ -37,6 +37,7 @@ $router->get('/', [AuthController::class, 'home']);
 $router->group(['guest'], function ($r) {
     $r->get('/login', [AuthController::class, 'showLogin']);
     $r->post('/login', [AuthController::class, 'login']);
+    $r->get('/captcha', [AuthController::class, 'captcha']);
     $r->post('/register', [AuthController::class, 'register']);
 });
 $router->post('/logout', [AuthController::class, 'logout'], ['authany']);
