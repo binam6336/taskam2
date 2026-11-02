@@ -151,6 +151,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/chat/api/users_status', [ChatController::class, 'usersStatus']);
     $r->get('/chat/api/saved_info', [ChatController::class, 'savedInfo']);
     $r->post('/chat/api/send', [ChatController::class, 'send']);
+    $r->post('/chat/api/start', [ChatController::class, 'start']);
     $r->post('/chat/api/send_file', [ChatController::class, 'sendFile']);
     $r->post('/chat/api/mark_read', [ChatController::class, 'markRead']);
     $r->post('/chat/api/edit', [ChatController::class, 'edit']);

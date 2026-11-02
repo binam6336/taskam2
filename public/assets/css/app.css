@@ -551,7 +551,7 @@ body.page-chat .content { padding: 0; max-width: none; }
 .chat { display: grid; grid-template-columns: 330px minmax(0, 1fr); height: calc(100vh - var(--topbar-h)); }
 /* 100dvh: ارتفاع واقعی صفحه روی موبایل (نوار آدرس سافاری/کروم کم می‌شود) */
 @supports (height: 100dvh) { .chat { height: calc(100dvh - var(--topbar-h)); } }
-.chat-side { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-2); min-height: 0; }
+.chat-side { position: relative; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-2); min-height: 0; }
 .chat-side-head { padding: .9rem; border-bottom: 1px solid var(--border); }
 .chat-contacts { flex: 1; overflow-y: auto; }
 .contact { display: flex; gap: .75rem; padding: .75rem .9rem; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, .03); align-items: center; transition: .12s; }
@@ -1712,3 +1712,9 @@ html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 .chat-input.is-blocked textarea { border-color: var(--danger, #ef4444); opacity: 1; cursor: not-allowed; }
 .chat-input.is-blocked textarea::placeholder { color: var(--danger, #ef4444); opacity: .9; }
 .chat-input.is-blocked .btn { opacity: .45; pointer-events: none; }
+
+/* دکمه‌ی «پیام جدید» (مداد) پایین فهرست مخاطبان */
+.chat-new-btn { position: absolute; left: 1rem; bottom: 1rem; width: 52px; height: 52px; border-radius: 16px; border: 0; cursor: pointer; display: grid; place-items: center; font-size: 1.15rem; color: #fff; background: var(--g-500, #22c55e); box-shadow: 0 8px 22px rgba(0, 0, 0, .28); transition: transform .15s, filter .15s; z-index: 2; }
+.chat-new-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.chat-new-btn:focus-visible { outline: 3px solid var(--g-300, #86efac); outline-offset: 2px; }
+.chat-contacts { padding-bottom: 4.5rem; }

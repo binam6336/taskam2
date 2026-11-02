@@ -102,6 +102,21 @@ document.addEventListener('tk:ready', () => {
     el.status.innerHTML = r.is_bot ? 'ربات اطلاع‌رسانی' : r.is_online ? '<span style="color:var(--g-400)">آنلاین</span>' : E(r.last_seen_text || '');
   };
 
+  /* پیام جدید با شماره موبایل (دکمه‌ی مداد) */
+  TK.qs('#chat-new')?.addEventListener('click', () => { const f = TK.qs('#f-chat-new'); f.reset(); TK.modal.open('m-chat-new'); });
+  TK.qs('#f-chat-new')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('.btn-primary');
+    btn.disabled = true;
+    const r = await TK.post(API + 'start', { mobile: f.mobile.value });
+    btn.disabled = false;
+    if (r.status !== 'success') { TK.toast(r.message || 'خطا', 'error'); return; }
+    const c = r.contact, have = contacts.find((x) => x.user_id === c.user_id);
+    if (!have) { contacts.unshift(c); drawContacts(); }
+    TK.modal.close('m-chat-new');
+    open(c.user_id);
+  });
+
   /* بارگذاری قدیمی‌ترها با اسکرول */
   el.msgs.addEventListener('scroll', async () => {
     if (el.msgs.scrollTop > 60 || !hasOlder || loading || !cur) return; loading = true;

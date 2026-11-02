@@ -36,6 +36,50 @@ final class ChatController extends Controller
         }
     }
 
+    private const NEW_CHAT_KEY = '_chat_new';
+
+    /** گفتگو مجاز است: همکار / سابقه‌ی گفتگو (ChatModel::canChat) یا کاربری که همین نشست با «پیام جدید» (شماره موبایل) پیدا کرده — بدون مسدودی */
+    private function canTalk(int $uid, int $other): bool
+    {
+        if (ChatModel::canChat($uid, $other)) {
+            return true;
+        }
+        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
+        return is_array($ids) && in_array($other, $ids, true) && !\App\Services\Access::isBlockedBetween($uid, $other);
+    }
+
+    /**
+     * «پیام جدید»: پیدا کردن کاربر با شماره موبایل برای شروع گفتگو.
+     * همان قواعد جستجوی همکار: سقف ۳۰ جستجو در ۱۰ دقیقه، کاربری که «دریافت درخواست همکاری» را بسته پیدا نمی‌شود (مگر همکار باشد).
+     */
+    public function start()
+    {
+        $uid = $this->uid();
+        $mobile = \App\Core\Validate::mobile($this->request->str('mobile', 30));
+        if ($mobile === null) {
+            $this->fail('شماره موبایل نامعتبر است (۰۹xxxxxxxxx).');
+        }
+        if (!Throttle::attempt('user_lookup', (string) $uid, 30, 600)) {
+            $this->fail('تعداد جستجوها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.', 429);
+        }
+        $f = \App\Services\ColleagueService::search($uid, $mobile);
+        if ($f === null) {
+            $this->fail('کاربری با این شماره پیدا نشد.', 404);
+        }
+        $u = $f['user'];
+        $id = (int) $u['id'];
+        if ($m = \App\Services\Access::blockMessage($uid, $id)) {
+            $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
+        }
+        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
+        $ids = array_slice(array_values(array_unique(array_merge(is_array($ids) ? $ids : [], [$id]))), -20);
+        \App\Core\Session::put(self::NEW_CHAT_KEY, $ids);
+        $this->json(['status' => 'success', 'contact' => [
+            'user_id' => $id, 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $mobile,
+            'avatar_url' => avatar_url($u['avatar']), 'is_bot' => false, 'is_blocked_by_me' => false, 'has_blocked_me' => false, 'unread_count' => 0,
+        ]]);
+    }
+
     private function assertReceiver(int $uid, int $rid): void
     {
         if ($rid <= 0) {
@@ -47,7 +91,7 @@ final class ChatController extends Controller
         if ($m = \App\Services\Access::blockMessage($uid, $rid)) {
             $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
         }
-        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid]) || !ChatModel::canChat($uid, $rid)) {
+        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid]) || !$this->canTalk($uid, $rid)) {
             $this->fail('امکان ارسال پیام وجود ندارد', 403);
         }
     }
@@ -103,7 +147,7 @@ final class ChatController extends Controller
             $this->fail('شناسه نامعتبر');
         }
         // بعد از مسدودی، پیام‌های قبلی همچنان قابل خواندن است (فقط ارسال بسته است)
-        if (!ChatModel::canChat($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
+        if (!$this->canTalk($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
             $this->fail('دسترسی ندارید', 403);
         }
         $this->touch($uid);
@@ -283,7 +327,7 @@ final class ChatController extends Controller
         }
         $t = DB::one("SELECT is_bot, last_seen FROM users WHERE id = ? AND status = 'active'", [$other]);
         // وضعیت آنلاین فقط برای مخاطبان (همکار یا طرف گفتگو، بدون مسدودی) — نه هر کاربری با حدس شناسه
-        if ($t === null || !ChatModel::canChat($uid, $other)) {
+        if ($t === null || !$this->canTalk($uid, $other)) {
             $this->fail('کاربر یافت نشد', 404);
         }
         if ((int) $t['is_bot'] === 1) {

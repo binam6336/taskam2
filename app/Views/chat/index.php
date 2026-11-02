@@ -6,6 +6,7 @@
             <?php if (\App\Core\Crypto::configured()): ?><div class="xs muted mt-1" title="متن پیام‌ها و نام فایل‌ها در دیتابیس رمزگذاری‌شده ذخیره می‌شود"><i class="fa-solid fa-lock" style="color:var(--g-400)"></i> پیام‌ها در دیتابیس رمزگذاری می‌شوند</div><?php endif; ?>
         </div>
         <div class="chat-contacts" id="contacts"></div>
+        <button type="button" class="chat-new-btn" id="chat-new" title="پیام جدید با شماره موبایل" aria-label="پیام جدید با شماره موبایل"><i class="fa-solid fa-pen"></i></button>
     </aside>
     <section class="chat-main">
         <div class="chat-empty" id="chat-empty"><i class="fa-regular fa-comments" style="font-size:3rem;color:var(--border-2)"></i><p class="mt-1">یک گفتگو را انتخاب کنید.</p></div>
@@ -45,3 +46,13 @@
 <div class="modal" id="m-conv-search"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-magnifying-glass"></i> جستجو در این گفتگو</h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <form class="modal-body" id="f-conv-search"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="conv-search-m" placeholder="<?= e(ph('chat_conv_search_m')) ?>" autocomplete="off" enterkeyhint="search"></div>
         <button class="btn btn-primary btn-block mt-1">جستجو</button></form></div></div>
+
+<div class="modal" id="m-chat-new"><div class="modal-box sm"><form id="f-chat-new">
+    <div class="modal-head"><h3><i class="fa-solid fa-pen"></i> پیام جدید</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+        <div class="field"><label for="chat-new-mobile">شماره موبایل</label>
+            <input class="input ltr" id="chat-new-mobile" name="mobile" data-mobile inputmode="numeric" required placeholder="<?= e(ph('chat_new_mobile')) ?>"></div>
+        <p class="hint">کاربر با این شماره جستجو می‌شود و اگر پیدا شد، گفتگو با او باز می‌شود.</p>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> جستجو و شروع گفتگو</button></div>
+</form></div></div>
