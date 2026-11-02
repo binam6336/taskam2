@@ -42,6 +42,9 @@ final class LabelService
         if ($color === false) {
             return self::badColor();
         }
+        if ($lim = Limits::create('label', $uid)) {
+            return self::res(false, $lim, 'LIMIT_REACHED', 429);
+        }
         $id = DB::insert('subjects', ['user_id' => $uid, 'title' => $title, 'color' => $color ?? '#22c55e']);
         return self::res(true, 'لیبل ایجاد شد.', '', 201, SubjectModel::owned($id, $uid));
     }

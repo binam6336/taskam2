@@ -174,34 +174,44 @@ final class Auth
         bool $remember = false
     ): array
     {
-        $ip = $req->ip();
+        $ip = $req->rateIp();                                  // IPv6: پیشوند ‎/64
         $max = max(3, (int) env('LOGIN_MAX_ATTEMPTS', 5));
         $win = max(1, (int) env('LOGIN_WINDOW_MINUTES', 15)) * 60;
         $keyUser = $mobile . '|' . $ip;
+        $busy = 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.';
+        $locked = 'به‌دلیل تلاش‌های ناموفق زیاد، ورود به این حساب ۳۰ دقیقه قفل شده است.';
 
-        // سه سقف: موبایل+IP، کل IP، و خود حساب از همه‌ی IPها (حمله‌ی توزیع‌شده روی یک حساب).
-        // سقف حساب روی دستگاهی که قبلاً با همین حساب موفق وارد شده اعمال نمی‌شود تا مهاجم نتواند حساب دیگران را قفل کند.
-        // اول ثبت، بعد شمارش (Race): ده‌ها درخواست هم‌زمان هم فقط به اندازه‌ی سقف حدس می‌زنند. ورود موفق ثبت‌ها را برمی‌دارد.
-        $trusted = self::trustedDevice($mobile);
-        Throttle::hit('login_user', $keyUser);
+        // سقف‌ها به ترتیب: کل IP → موبایل+IP → خود حساب. اول ثبت، بعد شمارش (Race). درخواستی که به سقف IP خورده
+        // در شمارنده‌های بعدی ثبت نمی‌شود (نه قفل حساب دیگران، نه رشد بی‌دلیل جدول). ورود موفق ثبت‌ها را برمی‌دارد.
         Throttle::hit('login_ip', $ip);
-        if (!$trusted) {
-            Throttle::hit('login_acct', $mobile);
+        if (Throttle::count('login_ip', $ip, $win) > $max * 5) {
+            Audit::log(null, 'login_throttled', ['mobile' => $mobile, 'scope' => 'ip']);
+            return ['ok' => false, 'message' => $busy];
         }
-        // قفل حساب: بعد از ۲۰ تلاش ناموفق (از هر دستگاه/IP) ورود به حساب ۳۰ دقیقه بسته است؛ دستگاه مورد اعتماد صاحب حساب مستثناست
-        if (!$trusted && Throttle::count('login_lock', $mobile, self::LOCK_SECONDS) > 0) {
-            Audit::log(null, 'login_locked', ['mobile' => $mobile]);
-            return ['ok' => false, 'message' => 'به‌دلیل تلاش‌های ناموفق زیاد، ورود به این حساب ۳۰ دقیقه قفل شده است.'];
-        }
-        if (!$trusted && Throttle::count('login_acct', $mobile, $win) > $max * 4) {
-            Throttle::hit('login_lock', $mobile);
-            Throttle::clear('login_acct', $mobile);
-            Audit::log(null, 'login_locked', ['mobile' => $mobile, 'start' => true]);
-            return ['ok' => false, 'message' => 'به‌دلیل تلاش‌های ناموفق زیاد، ورود به این حساب ۳۰ دقیقه قفل شده است.'];
-        }
-        if (Throttle::count('login_user', $keyUser, $win) > $max || Throttle::count('login_ip', $ip, $win) > $max * 5) {
+        Throttle::hit('login_user', $keyUser);
+        $fromHere = Throttle::count('login_user', $keyUser, $win);
+        if ($fromHere > $max) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
-            return ['ok' => false, 'message' => 'تعداد تلاش‌های ناموفق زیاد است. چند دقیقه بعد دوباره تلاش کنید.'];
+            return ['ok' => false, 'message' => $busy];
+        }
+
+        // قفل حساب فقط برای حمله‌ی توزیع‌شده: هر IP/شبکه در هر بازه فقط «یک بار» در شمارنده‌ی حساب حساب می‌شود،
+        // پس مهاجمِ تنها (یا چند IP معدود) نمی‌تواند حساب کسی را قفل کند؛ سقف موبایل+IP جلوی حدس رمزش را می‌گیرد.
+        // دستگاهی که قبلاً با همین حساب موفق وارد شده مشمول قفل نیست (صاحب حساب همیشه می‌تواند وارد شود و قفل را بردارد).
+        if (!self::trustedDevice($mobile)) {
+            if (Throttle::count('login_lock', $mobile, self::LOCK_SECONDS) > 0) {
+                Audit::log(null, 'login_locked', ['mobile' => $mobile]);
+                return ['ok' => false, 'message' => $locked];
+            }
+            if ($fromHere === 1) {
+                Throttle::hit('login_acct', $mobile);
+            }
+            if (Throttle::count('login_acct', $mobile, $win) > self::lockSources()) {
+                Throttle::hit('login_lock', $mobile);
+                Throttle::clear('login_acct', $mobile);
+                Audit::log(null, 'login_locked', ['mobile' => $mobile, 'start' => true]);
+                return ['ok' => false, 'message' => $locked];
+            }
         }
 
         $u = DB::one('SELECT * FROM users WHERE mobile = ? AND is_bot = 0 LIMIT 1', [$mobile]);
@@ -250,6 +260,12 @@ final class Auth
     public const TRUST_DAYS = 90;
     /** مدت قفل حساب بعد از تلاش‌های ناموفق زیاد */
     public const LOCK_SECONDS = 1800;
+
+    /** قفل حساب وقتی تلاش ناموفق از بیش از این تعداد IP/شبکه‌ی مختلف در یک بازه آمده باشد */
+    public static function lockSources(): int
+    {
+        return max(3, (int) env('LOGIN_MAX_ATTEMPTS', 5)) * 2;
+    }
 
     /**
      * امضای «دستگاه مورد اعتماد»: موبایل + نسخه‌ی رمز (pv) + تاریخ انقضا.

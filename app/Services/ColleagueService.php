@@ -94,10 +94,61 @@ final class ColleagueService
         return DB::all("SELECT r.id, r.created_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar FROM colleague_requests r INNER JOIN users u ON u.id = r.target_id WHERE r.requester_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC", [$uid]);
     }
 
-    public static function blocked(int $uid): array
+    /**
+     * فهرست مسدودشده‌ها: فقط نام و آواتار؛ موبایل همیشه ماسک و ایمیل null
+     * (مسدود کردن نباید راهی برای دیدن موبایل/ایمیل کاربران بی‌ارتباط باشد).
+     */
+    public static function blocked(int $uid, int $limit = 500, int $offset = 0): array
     {
-        return DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar, b.created_at FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC', [$uid]);
+        $rows = DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar, b.created_at FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?', [$uid, $limit, $offset]);
+        foreach ($rows as &$r) {
+            $r['mobile'] = mask_mobile((string) $r['mobile']);
+            $r['email'] = null;
+        }
+        return $rows;
     }
+
+    /**
+     * آیا بین دو کاربر رابطه‌ای هست که مسدودسازی معنا داشته باشد؟
+     * همکاری (هر جهت)، درخواست همکاری (هر جهت)، گفتگو، یا پروژه‌ی مشترک.
+     */
+    public static function related(int $a, int $b): bool
+    {
+        return (bool) DB::value('SELECT 1 FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?) LIMIT 1', [$a, $b, $b, $a])
+            || (bool) DB::value('SELECT 1 FROM colleague_requests WHERE (requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?) LIMIT 1', [$a, $b, $b, $a])
+            || (bool) DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$a, $b, $b, $a])
+            || (bool) DB::value('SELECT 1 FROM projects p WHERE (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?))
+                  AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m2 WHERE m2.project_id = p.id AND m2.user_id = ?)) LIMIT 1', [$a, $a, $b, $b]);
+    }
+
+    /**
+     * مسدود کردن یک کاربر.
+     * - فقط کاربری که با او رابطه‌ای دارید واقعاً ثبت می‌شود؛ برای بقیه همان پاسخ «انجام شد» برمی‌گردد ولی چیزی ذخیره نمی‌شود
+     *   (تا شناسه‌های ترتیبی راهی برای شمارش/استخراج کاربران نباشند).
+     * - ردیف‌های همکاری و درخواست‌های در انتظار در هر دو جهت حذف می‌شوند تا امتیازهای ناشی از همکاری (واگذاری، دعوت به پروژه) باقی نماند.
+     * @return array{0:bool,1:string,2:string} [ok, پیام، کد خطا]
+     */
+    public static function block(int $uid, int $target): array
+    {
+        if (!\App\Core\Throttle::attempt('colleague_block', (string) $uid, self::BLOCK_PER_HOUR, 3600)) {
+            return [false, 'تعداد مسدودسازی‌ها در یک ساعت بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.', 'RATE_LIMITED'];
+        }
+        if ($target <= 0 || $target === $uid) {
+            return [false, 'کاربر نامعتبر است.', 'INVALID_USER_ID'];
+        }
+        if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$target]) || !self::related($uid, $target)) {
+            return [true, 'کاربر مسدود شد.', ''];                  // پاسخ یکسان، بدون ذخیره
+        }
+        DB::transaction(static function () use ($uid, $target): void {
+            DB::run('INSERT IGNORE INTO colleague_blocks (blocker_user_id, blocked_user_id) VALUES (?, ?)', [$uid, $target]);
+            DB::run('DELETE FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?)', [$uid, $target, $target, $uid]);
+            DB::run("DELETE FROM colleague_requests WHERE status = 'pending' AND ((requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?))", [$uid, $target, $target, $uid]);
+        });
+        return [true, 'کاربر مسدود شد.', ''];
+    }
+
+    /** سقف مسدودسازی در ساعت برای هر کاربر */
+    public const BLOCK_PER_HOUR = 20;
 
     /** جستجو با موبایل نرمال‌شده؛ null اگر یافت نشد. */
     public static function search(int $uid, string $mobile): ?array

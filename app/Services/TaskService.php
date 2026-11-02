@@ -41,6 +41,9 @@ final class TaskService
         if ($title === '') {
             return self::err('عنوان تسک الزامی است.', 'TITLE_REQUIRED');
         }
+        if ($lim = Limits::create('task', $actor)) {
+            return self::err($lim, 'RATE_LIMITED', 429);
+        }
         if (mb_strlen($title) > 255) {
             return self::err('عنوان تسک نباید بیشتر از ۲۵۵ نویسه باشد.', 'TITLE_TOO_LONG');
         }
@@ -307,6 +310,9 @@ final class TaskService
         }
         if (mb_strlen($text) > 5000) {
             return self::err('یادداشت نباید بیشتر از ۵۰۰۰ نویسه باشد.', 'NOTE_TOO_LONG');
+        }
+        if ($lim = Limits::create('note', $actor)) {
+            return self::err($lim, 'RATE_LIMITED', 429);
         }
         $nid = DB::insert('task_notes', ['task_id' => $taskId, 'user_id' => $actor, 'note' => $text]);
         [$saved, $errors] = $files ? NoteModel::storeAttachments('note', $nid, $actor, $files) : [[], []];

@@ -47,7 +47,7 @@ final class ApiAuth
         $token = $r->bearerToken();
         if ($token !== null) {
             // حدس زدن توکن: بعد از ۲۰ توکن نامعتبر در ۱۰ دقیقه، آن IP موقتاً مسدود می‌شود
-            $ip = $r->ip();
+            $ip = $r->rateIp();
             if (Throttle::count('api_bad_token', $ip, 600) >= 20) {
                 header('Retry-After: 600');
                 throw new HttpException(429, 'تعداد درخواست‌های نامعتبر زیاد است؛ چند دقیقه بعد تلاش کنید.', 'RATE_LIMITED');

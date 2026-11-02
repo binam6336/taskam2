@@ -43,7 +43,7 @@ final class NoteModel
 
     public static function taskAttachments(int $taskId): array
     {
-        return DB::all('SELECT a.*, u.first_name, u.last_name, u.mobile FROM task_attachments a INNER JOIN users u ON u.id = a.user_id WHERE a.task_id = ? ORDER BY a.id', [$taskId]);
+        return DB::all('SELECT a.*, u.first_name, u.last_name FROM task_attachments a INNER JOIN users u ON u.id = a.user_id WHERE a.task_id = ? ORDER BY a.id', [$taskId]);
     }
 
     /** ذخیره‌ی پیوست‌ها؛ برمی‌گرداند [saved[], errors[]] */

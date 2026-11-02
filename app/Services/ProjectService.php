@@ -24,6 +24,9 @@ final class ProjectService
         if ($u['status'] !== 'active') {
             return [false, 'کاربر فعال نیست.', 'USER_NOT_ACTIVE'];
         }
+        if (Access::isBlockedBetween($actorId, $targetId)) {
+            return [false, 'این کاربر در لیست همکاران شما نیست.', 'NOT_A_COLLEAGUE'];   // مسدودی در هر جهت: همان پاسخ «همکار نیست»
+        }
         if (!DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . Access::approvedSql('c'), [$actorId, $targetId])) {
             return [false, 'این کاربر در لیست همکاران شما نیست.', 'NOT_A_COLLEAGUE'];
         }
@@ -53,6 +56,9 @@ final class ProjectService
         }
         if ($max < 1 || $max > 100) {
             return [false, 'حداکثر اعضا باید بین ۱ تا ۱۰۰ باشد.', null];
+        }
+        if ($lim = Limits::create('project', $uid)) {
+            return [false, $lim, null];
         }
         $img = null;
         if ($image !== null) {

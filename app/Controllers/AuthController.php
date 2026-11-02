@@ -17,7 +17,7 @@ final class AuthController extends Controller
     public function showLogin()
     {
         // هر بازدید بدون کوکی یک نشست مهمان (ردیف user_sessions) می‌سازد؛ از هر IP حداکثر ۶۰ نشست جدید در دقیقه
-        if (!Session::hasCookie() && !\App\Core\Throttle::attempt('guest_session', $this->request->ip(), 60, 60)) {
+        if (!Session::hasCookie() && !\App\Core\Throttle::attempt('guest_session', $this->request->rateIp(), 60, 60)) {
             header('Retry-After: 60');
             $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
         }
@@ -58,7 +58,7 @@ final class AuthController extends Controller
             $this->redirect('/login?tab=register');
         };
 
-        if (!Throttle::attempt('register_ip', $req->ip(), 8, 3600)) {
+        if (!Throttle::attempt('register_ip', $req->rateIp(), 8, 3600)) {
             $fail('تعداد درخواست‌های ثبت‌نام از این شبکه زیاد است. بعداً تلاش کنید.');
         }
         if (!Validate::name($first) || ($last !== '' && !Validate::name($last))) {

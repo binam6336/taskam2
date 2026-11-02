@@ -95,13 +95,8 @@ final class ColleagueController extends Controller
 
     public function block(string $userId)
     {
-        $uid = $this->uid();
-        $t = (int) $userId;
-        if ($t <= 0 || $t === $uid || !DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$t])) {
-            $this->fail('کاربر نامعتبر است.');
-        }
-        DB::run('INSERT IGNORE INTO colleague_blocks (blocker_user_id, blocked_user_id) VALUES (?, ?)', [$uid, $t]);
-        $this->ok('کاربر مسدود شد.');
+        [$ok, $msg, $code] = ColleagueService::block($this->uid(), (int) $userId);
+        $ok ? $this->ok($msg) : $this->fail($msg, $code === 'RATE_LIMITED' ? 429 : 422);
     }
 
     public function unblock(string $userId)

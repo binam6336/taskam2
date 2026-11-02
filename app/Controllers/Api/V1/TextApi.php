@@ -54,6 +54,9 @@ final class TextApi extends ApiController
         if (mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
             $this->err('عنوان یا متن بیش از حد طولانی است.', 400, 'TOO_LONG');
         }
+        if ($lim = \App\Services\Limits::create('text', $this->uid)) {
+            $this->err($lim, 429, 'LIMIT_REACHED');
+        }
         $row = TextModel::create($this->uid, $title, $content);
         if (isset($in['sort_order']) && is_numeric($in['sort_order'])) {
             DB::run('UPDATE texts SET sort_order = ? WHERE id = ? AND user_id = ?', [(int) $in['sort_order'], $row['id'], $this->uid]);

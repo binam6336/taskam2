@@ -71,8 +71,8 @@ final class ColleagueApi extends ApiController
     public function blocked()
     {
         [$limit, $offset] = $this->paging();
-        $rows = DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar, b.created_at AS blocked_at FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?', [$this->uid, $limit, $offset]);
-        $out = array_map(static fn($r) => self::person($r) + ['blocked_at' => $r['blocked_at']], $rows);
+        $rows = ColleagueService::blocked($this->uid, $limit, $offset);       // موبایل ماسک، ایمیل null
+        $out = array_map(static fn($r) => self::person($r) + ['blocked_at' => $r['created_at']], $rows);
         $this->ok(['count' => count($out), 'limit' => $limit, 'offset' => $offset, 'blocked' => $out]);
     }
 
@@ -170,11 +170,11 @@ final class ColleagueApi extends ApiController
         if ($t === $this->uid) {
             $this->err('نمی‌توانید خودتان را مسدود کنید.', 400, 'SELF_BLOCK');
         }
-        if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$t])) {
-            $this->err('کاربر یافت نشد.', 404, 'USER_NOT_FOUND');
+        [$ok, $msg, $code] = ColleagueService::block($this->uid, $t);
+        if (!$ok) {
+            $this->err($msg, $code === 'RATE_LIMITED' ? 429 : 400, $code);
         }
-        DB::run('INSERT IGNORE INTO colleague_blocks (blocker_user_id, blocked_user_id) VALUES (?, ?)', [$this->uid, $t]);
-        $this->ok(['blocked_user_id' => $t, 'blocked_at' => date('Y-m-d H:i:s')], 'کاربر مسدود شد.');
+        $this->ok(['blocked_user_id' => $t, 'blocked_at' => date('Y-m-d H:i:s')], $msg);
     }
 
     public function unblock()

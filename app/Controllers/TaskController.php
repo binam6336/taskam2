@@ -127,21 +127,18 @@ final class TaskController extends Controller
             $n['can_delete'] = $n['mine'] || $can['edit_meta'];
             $n['can_edit'] = $n['mine'] || (int) $t['user_id'] === $uid;
             $n['created_fa'] = jdate($n['created_at']);
-            foreach ($n['attachments'] as &$a) {
-                $a['url'] = url('files/note_attachments/' . rawurlencode($a['file_path']));
-                $a['size_fa'] = human_size((int) $a['file_size']);
-                $a['icon'] = file_icon($a['file_ext']);
-            }
+            $n['attachments'] = array_map(static fn($a) => [
+                'id' => (int) $a['id'], 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
+                'url' => url('files/note_attachments/' . rawurlencode($a['file_path'])), 'size_fa' => human_size((int) $a['file_size']), 'icon' => file_icon($a['file_ext']),
+            ], $n['attachments']);
         }
         unset($n, $a);
-        $files = NoteModel::taskAttachments((int) $t['id']);
-        foreach ($files as &$f) {
-            $f['url'] = url('files/task_attachments/' . rawurlencode($f['file_path']));
-            $f['size_fa'] = human_size((int) $f['file_size']);
-            $f['icon'] = file_icon($f['file_ext']);
-            $f['can_delete'] = (int) $f['user_id'] === $uid || $can['edit_info'];
-        }
-        unset($f);
+        // خروجی صریح (whitelist): ردیف خام دیتابیس (موبایل آپلودکننده، مسیر/MIME داخلی) به JSON نرود
+        $files = array_map(static fn($f) => [
+            'id' => (int) $f['id'], 'file_name' => $f['file_name'], 'file_size' => (int) $f['file_size'], 'file_ext' => $f['file_ext'],
+            'url' => url('files/task_attachments/' . rawurlencode($f['file_path'])), 'size_fa' => human_size((int) $f['file_size']),
+            'icon' => file_icon($f['file_ext']), 'uploader' => full_name($f), 'can_delete' => (int) $f['user_id'] === $uid || $can['edit_info'],
+        ], NoteModel::taskAttachments((int) $t['id']));
         return [
             'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
             'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,

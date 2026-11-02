@@ -118,6 +118,17 @@ final class AdminController extends Controller
             }
             $d['password_hash'] = Auth::hash($pass);
         }
+        // تغییر رمز یا موبایل (شناسه‌ی ورود) = تصاحب حساب؛ مدیر باید رمز فعلی خودش را دوباره وارد کند (step-up)
+        $mobileChanged = $d['mobile'] !== (string) $target['mobile'];
+        if ($pass !== '' || $mobileChanged) {
+            $this->denyImpersonation('/admin');
+            $me = UserModel::find($this->uid());
+            $cur = (string) $this->request->input('admin_password', '');
+            if ($cur === '' || $me === null || !password_verify($cur, (string) $me['password_hash'])) {
+                Audit::log($this->uid(), 'admin_reauth_failed', ['id' => (int) $id]);
+                $this->respond(false, 'برای تغییر رمز یا موبایل کاربر، رمز عبور فعلی خودتان را درست وارد کنید.', '/admin');
+            }
+        }
         if ($this->isSuper() && (int) $target['id'] !== Auth::superAdminId()) {
             $role = $this->request->str('role') === 'admin' ? 'admin' : 'user';
             $d['role'] = $role;
@@ -127,7 +138,11 @@ final class AdminController extends Controller
         if ($pass !== '') {
             \App\Models\TokenModel::revokeAll((int) $id);   // با تغییر رمز، توکن‌های API قبلی باطل می‌شوند
         }
-        Audit::log($this->uid(), 'admin_user_updated', ['id' => (int) $id, 'password' => $pass !== '']);
+        Audit::log($this->uid(), 'admin_user_updated', ['id' => (int) $id, 'password' => $pass !== '', 'mobile' => $mobileChanged]);
+        if (($pass !== '' || $mobileChanged) && (int) $id !== $this->uid()) {
+            $what = $pass !== '' && $mobileChanged ? 'رمز عبور و شماره موبایل' : ($pass !== '' ? 'رمز عبور' : 'شماره موبایل');
+            \App\Services\Notifier::send((int) $id, "🔐 {$what} حساب شما توسط مدیر سیستم تغییر کرد. اگر از این تغییر خبر ندارید، با پشتیبانی تماس بگیرید.");
+        }
         $this->respond(true, 'اطلاعات کاربر ذخیره شد.', '/admin');
     }
 

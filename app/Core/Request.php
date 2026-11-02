@@ -163,19 +163,52 @@ final class Request
         return is_array($v) ? $v : [];
     }
 
+    /**
+     * IP واقعی کلاینت.
+     * - cloudflare: فقط CF-Connecting-IP (که خود کلودفلر می‌نویسد)؛ بدون fallback به X-Forwarded-For.
+     * - true: X-Forwarded-For از راست به چپ پیمایش می‌شود و اولین IP که جزو پراکسی‌های مورد اعتماد نیست کلاینت است
+     *   (الگوی rightmost-untrusted؛ مقدار سمت چپ را خود کلاینت می‌نویسد و قابل جعل است).
+     */
     public function ip(): string
     {
         $remote = (string) ($this->server['REMOTE_ADDR'] ?? '0.0.0.0');
-        if (self::fromTrustedProxy($remote)) {
-            $h = $this->header('CF-Connecting-IP') ?: $this->header('X-Forwarded-For');
-            if ($h) {
-                $ip = trim(explode(',', $h)[0]);
-                if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                    return $ip;
-                }
+        if (!self::fromTrustedProxy($remote)) {
+            return $remote;
+        }
+        if (self::proxyMode() === 'cloudflare') {
+            $ip = trim((string) $this->header('CF-Connecting-IP'));
+            return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : $remote;
+        }
+        $chain = array_values(array_filter(array_map('trim', explode(',', (string) $this->header('X-Forwarded-For')))));
+        for ($i = count($chain) - 1; $i >= 0; $i--) {
+            $ip = $chain[$i];
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                break;                                        // مقدار خراب: به بقیه‌ی زنجیره اعتماد نمی‌کنیم
+            }
+            if (!self::fromTrustedProxy($ip)) {
+                return $ip;
             }
         }
         return $remote;
+    }
+
+    /**
+     * کلید IP برای سقف‌های نرخ: IPv4 کامل؛ IPv6 فقط پیشوند /64
+     * (هر مشترک IPv6 یک /64 کامل دارد و با عوض کردن آدرس نباید سقف را دور بزند).
+     */
+    public function rateIp(): string
+    {
+        $ip = $this->ip();
+        if (strpos($ip, ':') === false) {
+            return $ip;
+        }
+        $bin = @inet_pton($ip);
+        return $bin === false ? $ip : bin2hex(substr($bin, 0, 8)) . '::/64';
+    }
+
+    private static function proxyMode(): string
+    {
+        return strtolower(trim((string) env('TRUSTED_PROXY', 'false')));
     }
 
     /** محدوده‌های IP کلودفلر (https://www.cloudflare.com/ips/) برای TRUSTED_PROXY=cloudflare */
@@ -189,11 +222,11 @@ final class Request
     /**
      * هدرهای IP واقعی/HTTPS فقط وقتی پذیرفته می‌شوند که درخواست واقعاً از پراکسی مورد اعتماد آمده باشد (وگرنه هر کس IP خودش را جعل می‌کند):
      * TRUSTED_PROXY=cloudflare → فقط IPهای کلودفلر؛ true → فقط فهرست TRUSTED_PROXY_IPS (IP یا CIDR با کاما)،
-     * و اگر فهرست خالی باشد فقط پراکسی محلی (loopback/شبکه‌ی خصوصی، مثل Nginx روی همان سرور).
+     * و اگر فهرست خالی باشد فقط پراکسی روی همین سرور (loopback، مثل Nginx محلی).
      */
     public static function fromTrustedProxy(?string $remote = null): bool
     {
-        $mode = strtolower(trim((string) env('TRUSTED_PROXY', 'false')));
+        $mode = self::proxyMode();
         if (in_array($mode, ['', 'false', '0', 'off', 'no'], true)) {
             return false;
         }
@@ -203,8 +236,7 @@ final class Request
         } else {
             $list = array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXY_IPS', '')))));
             if (!$list) {
-                return filter_var($remote, FILTER_VALIDATE_IP) !== false
-                    && filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+                $list = ['127.0.0.0/8', '::1/128'];          // فهرست خالی = فقط پراکسی روی همین سرور (loopback)؛ شبکه‌ی خصوصی/Docker باید صریح در TRUSTED_PROXY_IPS بیاید
             }
         }
         foreach ($list as $cidr) {

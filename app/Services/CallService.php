@@ -49,6 +49,9 @@ final class CallService
         if ($d === null) {
             return self::res(false, $err[0], $err[1], 422);
         }
+        if ($lim = Limits::create('call', $actor)) {
+            return self::res(false, $lim, 'RATE_LIMITED', 429);
+        }
         $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
         if (!Access::canAssignTo($actor, $assignee, null)) {
             return self::res(false, 'امکان واگذاری به این کاربر وجود ندارد (باید همکار شما باشد).', 'ASSIGNEE_INVALID', 403);

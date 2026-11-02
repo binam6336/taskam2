@@ -18,9 +18,22 @@ final class Throttle
     public static function hit(string $bucket, string $key): void
     {
         DB::insert('rate_limits', ['bucket' => $bucket, 'key' => self::k($key)]);
-        if (random_int(1, 50) === 1) {
-            DB::run('DELETE FROM rate_limits WHERE created_at < (NOW() - INTERVAL 1 DAY)');
+        self::prune();
+    }
+
+    /**
+     * پاک‌سازی قطعی ردیف‌های قدیمی‌تر از یک روز: حداکثر هر ۵ دقیقه یک بار (با فایل پرچم)،
+     * به‌جای پاک‌سازی تصادفی که زیر سیل درخواست جدول را بی‌حد بزرگ می‌گذاشت.
+     */
+    private static function prune(): void
+    {
+        $flag = STORAGE_PATH . '/cache/rate-prune';
+        $last = @filemtime($flag);
+        if ($last !== false && time() - $last < 300) {
+            return;
         }
+        @touch($flag);
+        DB::run('DELETE FROM rate_limits WHERE created_at < (NOW() - INTERVAL 1 DAY) LIMIT 50000');
     }
 
     public static function clear(string $bucket, string $key): void

@@ -11,10 +11,10 @@ document.addEventListener('tk:ready', () => {
     const role = TK.qs('#role-select'), perm = TK.qs('#perm-field');
     const sync = () => perm?.classList.toggle('hidden', role?.value !== 'admin');
     role?.addEventListener('change', sync);
-    TK.qs('#btn-new-user')?.addEventListener('click', () => { TK.resetForm(f); f.setAttribute('action', TK.url('/admin/users')); TK.qs('#user-modal-title').textContent = 'کاربر جدید'; TK.qs('#pw-hint').textContent = '(الزامی)'; f.password.required = true; TK.qs('#status-field').classList.remove('hidden'); if (role) role.value = 'user'; sync(); TK.modal.open('m-user'); });
+    TK.qs('#btn-new-user')?.addEventListener('click', () => { TK.resetForm(f); f.setAttribute('action', TK.url('/admin/users')); TK.qs('#user-modal-title').textContent = 'کاربر جدید'; TK.qs('#pw-hint').textContent = '(الزامی)'; f.password.required = true; TK.qs('#status-field').classList.remove('hidden'); TK.qs('#reauth-field').classList.add('hidden'); if (role) role.value = 'user'; sync(); TK.modal.open('m-user'); });
     TK.on('click', '[data-edit-user]', (e, t) => {
       const d = JSON.parse(t.dataset.editUser); TK.resetForm(f); TK.fillForm(f, d); f.setAttribute('action', TK.url('/admin/users/' + t.dataset.uid + '/update'));
-      TK.qs('#user-modal-title').textContent = 'ویرایش کاربر'; TK.qs('#pw-hint').textContent = '(خالی = بدون تغییر)'; f.password.required = false; TK.qs('#status-field').classList.add('hidden'); sync(); TK.modal.open('m-user');
+      TK.qs('#user-modal-title').textContent = 'ویرایش کاربر'; TK.qs('#pw-hint').textContent = '(خالی = بدون تغییر)'; f.password.required = false; TK.qs('#status-field').classList.add('hidden'); TK.qs('#reauth-field').classList.remove('hidden'); sync(); TK.modal.open('m-user');
     });
   }
 

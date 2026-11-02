@@ -28,6 +28,9 @@ final class TextController extends Controller
         if ($title === '' || $content === '') {
             $this->json(['success' => false, 'error' => 'عنوان و متن نمی‌توانند خالی باشند'], 422);
         }
+        if ($lim = \App\Services\Limits::create('text', $this->uid())) {
+            $this->json(['success' => false, 'error' => $lim, 'message' => $lim], 429);
+        }
         $row = TextModel::create($this->uid(), $title, $content);
         $this->json(['success' => true, 'data' => $row, 'message' => 'متن با موفقیت افزوده شد']);
     }

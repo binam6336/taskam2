@@ -190,6 +190,11 @@ final class Access
                 return $all;                                  // مدیر پروژه روی همه‌ی تسک‌های پروژه
             }
             $out = $perms ?? [];
+            // دسترسی‌های نقش پروژه فقط روی تسک‌هایی اعمال می‌شود که کاربر در برد می‌بیند (تسک‌های خودش یا مسئولانِ
+            // انتخاب‌شده در «مشاهده‌ی تسک‌های»)؛ دارنده‌ی «مشاهده‌ی تحلیل» بقیه را فقط می‌بیند (بدون ویرایش)
+            if ($out && !self::canBoardView($task, $uid)) {
+                $out = self::projectCan($pid, $uid, 'view_analytics') ? ['view'] : [];
+            }
         } elseif ((int) ($task['assignee_id'] ?? 0) === $uid) {
             $out = ['complete', 'notes'];                     // تسک‌های قدیمیِ بدون پروژه: رفتار قبلی برای مسئول
         }
@@ -339,6 +344,9 @@ final class Access
         }
         if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1", [$assigneeId])) {
             return false;
+        }
+        if (self::isBlockedBetween($actorId, $assigneeId)) {
+            return false;                                     // بعد از مسدودسازی (در هر جهت) واگذاری ممکن نیست
         }
         // تسک/رکورد پروژه‌دار فقط به اعضای همان پروژه واگذار می‌شود (همکارِ غیرعضو محتوای تسک پروژه را نبیند)
         if ($projectId !== null) {

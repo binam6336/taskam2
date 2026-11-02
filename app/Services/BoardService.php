@@ -345,7 +345,7 @@ final class BoardService
     public static function setStatus(int $actor, int $id, string $status, string $reason = ''): array
     {
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') || !Access::canBoardView($t, $actor)) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
         if ($status === 'archived' || !empty($t['archived_at'])) {
@@ -358,7 +358,7 @@ final class BoardService
     public static function advance(int $actor, int $id, string $from): array
     {
         $t = TaskModel::raw($id);
-        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+        if ($t === null || !Access::canTask($t, $actor, 'view') || !Access::canBoardView($t, $actor)) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
         $st = self::status($t);

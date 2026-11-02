@@ -23,6 +23,15 @@ final class Notifier
         }
     }
 
+    /** اعلان ناشی از کار یک کاربر: اگر بین دو طرف مسدودی باشد ارسال نمی‌شود (مسیر مزاحمت بعد از مسدودسازی بسته بماند). */
+    private static function sendFrom(int $actorId, int $toUserId, string $text): void
+    {
+        if ($actorId > 0 && $actorId !== $toUserId && Access::isBlockedBetween($actorId, $toUserId)) {
+            return;
+        }
+        self::send($toUserId, $text);
+    }
+
     public static function taskAssigned(array $task, int $actorId, ?string $projectTitle): void
     {
         $assignee = (int) ($task['assignee_id'] ?? 0);
@@ -50,7 +59,7 @@ final class Notifier
             $lines[] = '';
             $lines[] = 'توضیحات: ' . mb_substr(trim((string) $task['description']), 0, 200, 'UTF-8');
         }
-        self::send($assignee, implode("\n", $lines) . "\n\n[[task:" . $task['share_token'] . ']]');
+        self::sendFrom($actorId, $assignee, implode("\n", $lines) . "\n\n[[task:" . $task['share_token'] . ']]');
     }
 
     public static function noteMention(array $task, int $actorId, string $noteText, int $mentionedId, bool $mentioned = false): void
@@ -58,7 +67,7 @@ final class Notifier
         $actor = UserModel::find($actorId);
         $msg = ($mentioned ? '📣 شما در یادداشت وظیفه «' . $task['title'] . '» منشن شدید' : '📝 یادداشت جدید در وظیفه «' . $task['title'] . '»') . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'کاربر')
             . "\n\n" . mb_substr(trim($noteText), 0, 220, 'UTF-8') . "\n\n[[task:" . $task['share_token'] . ']]';
-        self::send($mentionedId, $msg);
+        self::sendFrom($actorId, $mentionedId, $msg);
     }
 
     public static function callAssigned(array $call, int $actorId): void
@@ -73,7 +82,7 @@ final class Notifier
             $lines[] = 'فروشگاه: ' . $call['store'];
         }
         $lines[] = 'ثبت‌کننده: ' . ($actor ? full_name($actor) : 'کاربر');
-        self::send($assignee, implode("\n", $lines) . "\n\n[[call:" . $call['share_token'] . ']]');
+        self::sendFrom($actorId, $assignee, implode("\n", $lines) . "\n\n[[call:" . $call['share_token'] . ']]');
     }
     /** پیوند اشتراکی تسک برای پیام ربات */
     private static function token(array $task): string
@@ -93,7 +102,7 @@ final class Notifier
             . "\nارسال‌کننده: " . ($actor ? full_name($actor) : 'کاربر') . "\n\nلطفاً بررسی کنید و تأیید (انجام‌شده) یا برای اصلاح به «بازبینی مسئول» برگردانید."
             . "\n\n[[task:" . self::token($task) . ']]';
         foreach (array_unique($toIds) as $uid) {
-            self::send((int) $uid, $msg);
+            self::sendFrom($actorId, (int) $uid, $msg);
         }
     }
 
@@ -107,6 +116,6 @@ final class Notifier
         $actor = UserModel::find($actorId);
         $msg = '↩️ تسک «' . $task['title'] . '» برای اصلاح به «بازبینی مسئول» برگشت' . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرپرست')
             . ($reason ? "\nعلت: " . $reason : '') . "\n\nپس از اصلاح، تسک را دوباره به «بررسی سرپرست» بفرستید.\n\n[[task:" . self::token($task) . ']]';
-        self::send($to, $msg);
+        self::sendFrom($actorId, $to, $msg);
     }
 }
