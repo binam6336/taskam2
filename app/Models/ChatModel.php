@@ -12,18 +12,52 @@ final class ChatModel
     public const EDIT_WINDOW = 3600;
     private const COLS = 'id, sender_id, receiver_id, message, attachment, attachment_name, attachment_size, attachment_type, forwarded_from, is_read, is_edited, edited_at, created_at';
 
+    /**
+     * گفتگوی آزاد بین دو نفر مجاز است؟ (بدون مسدودی) همکار تأییدشده، هم‌پروژه‌ای، یا «درخواست گفتگو»ی پذیرفته‌شده.
+     * غریبه‌ها فقط یک پیام (درخواست گفتگو) می‌فرستند — ChatController::send و requestState.
+     * حذف همکاری یا خروج از پروژه گفتگو را می‌بندد مگر گیرنده قبلاً درخواست را پذیرفته باشد.
+     */
     public static function canChat(int $a, int $b): bool
     {
         if ($a === $b) {
             return true;
         }
-        if (DB::value('SELECT 1 FROM colleague_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?) LIMIT 1', [$a, $b, $b, $a])) {
+        if (\App\Services\Access::isBlockedBetween($a, $b)) {
             return false;
         }
-        if (\App\Services\Access::isColleague($a, $b)) {
-            return true;
+        return \App\Services\Access::isColleague($a, $b) || self::shareProject($a, $b)
+            || (bool) DB::value("SELECT 1 FROM chat_requests WHERE status = 'accepted' AND ((requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?)) LIMIT 1", [$a, $b, $b, $a]);
+    }
+
+    public static function shareProject(int $a, int $b): bool
+    {
+        return (bool) DB::value('SELECT 1 FROM projects p WHERE (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?))
+              AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m2 WHERE m2.project_id = p.id AND m2.user_id = ?)) LIMIT 1', [$a, $a, $b, $b]);
+    }
+
+    /**
+     * وضعیت گفتگو برای $me با $other وقتی canChat نیست:
+     * 'none' = هنوز پیامی نداده (یک پیام مجاز)، 'sent' = درخواستش در انتظار پذیرش طرف مقابل،
+     * 'received' = طرف مقابل درخواست داده و $me باید بپذیرد یا مسدود کند.
+     */
+    public static function requestState(int $me, int $other): string
+    {
+        $r = DB::one("SELECT requester_id FROM chat_requests WHERE status = 'pending' AND ((requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?)) LIMIT 1", [$me, $other, $other, $me]);
+        if ($r === null) {
+            return 'none';
         }
-        return (bool) DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$a, $b, $b, $a]);
+        return (int) $r['requester_id'] === $me ? 'sent' : 'received';
+    }
+
+    public static function createRequest(int $from, int $to): void
+    {
+        DB::run("INSERT IGNORE INTO chat_requests (requester_id, target_id, status) VALUES (?, ?, 'pending')", [$from, $to]);
+    }
+
+    /** پذیرفتن درخواست گفتگوی $from توسط $me */
+    public static function acceptRequest(int $me, int $from): bool
+    {
+        return DB::run("UPDATE chat_requests SET status = 'accepted', responded_at = NOW() WHERE requester_id = ? AND target_id = ? AND status = 'pending'", [$from, $me]) > 0;
     }
 
     // ───── «حذف تاریخچه» یک‌طرفه: پیام‌های تا cleared_upto_id فقط برای همان کاربر پنهان می‌شوند ─────
@@ -222,6 +256,8 @@ final class ChatModel
             if (!$r['is_bot'] && !\App\Services\Access::isColleague($me, $r['user_id'])) {
                 $r['mobile'] = mask_mobile($r['mobile']);          // فقط همکار تأییدشده شماره‌ی کامل را می‌بیند
             }
+            // درخواست گفتگو (N-01): none = آزاد، sent = منتظر پذیرش طرف مقابل، received = باید بپذیرم یا مسدود کنم
+            $r['chat_request'] = $r['is_bot'] || self::canChat($me, $r['user_id']) ? null : self::requestState($me, $r['user_id']);
         }
         return $rows;
     }

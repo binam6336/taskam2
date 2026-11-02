@@ -115,7 +115,7 @@
     let draft = null, mode = 'h';
     const to24 = (c) => (c.h % 12) + (c.pm ? 12 : 0);
     const from24 = (h24, m) => ({ h: h24 % 12 === 0 ? 12 : h24 % 12, m, pm: h24 >= 12 });
-    const paintVal = () => { val.innerHTML = cur ? `<span class="ltr">${FA(`${p2(cur.h)}:${p2(cur.m)}`)}</span> <b class="xs" style="color:var(--g-300)">${cur.pm ? 'PM' : 'AM'}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
+    const paintVal = () => { val.innerHTML = cur ? `<span class="ltr">${FA(`${p2(cur.h)}:${p2(cur.m)}`)}</span> <b class="xs" data-css="color:var(--g-300)">${cur.pm ? 'PM' : 'AM'}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
     const set = (hhmm) => {
       const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
       if (m) { cur = from24(+m[1], +m[2]); inp.value = `${p2(to24(cur))}:${p2(cur.m)}`; } else { cur = null; inp.value = ''; }

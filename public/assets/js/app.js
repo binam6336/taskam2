@@ -9,6 +9,33 @@
   TK.url = (p) => TK.base + '/' + String(p).replace(/^\//, '');
   TK.qs = (s, r = document) => r.querySelector(s);
   TK.qsa = (s, r = document) => Array.from(r.querySelectorAll(s));
+  /* ───── data-css: CSP بدون 'unsafe-inline' (ویژگی style درون HTML اجرا نمی‌شود) ─────
+     استایل‌های پویا (رنگ، عرض، متغیر --pc و …) در data-css می‌آیند و این‌جا با CSSOM اعمال می‌شوند.
+     فقط ویژگی‌های مجاز و مقادیر ساده؛ url()/image/expression رد می‌شود تا HTML تزریق‌شده نتواند CSS بیرونی بارگذاری
+     کند یا داده نشت دهد، و position: fixed / z-index مجاز نیست (پوشاندن صفحه). */
+  const CSS_OK = /^(--[a-z0-9-]+|color|background|background-color|border-color|box-shadow|fill|stroke|opacity|width|height|min-width|max-width|min-height|max-height|margin|margin-(top|bottom|left|right|inline-start|inline-end)|padding|padding-(top|bottom|left|right|inline-start|inline-end)|padding-inline-start|font-size|font-weight|line-height|text-align|text-decoration|white-space|justify-content|align-items|flex|flex-direction|gap|display|cursor|overflow|top|left|right|bottom|position)$/;
+  const applyCss = (el) => {
+    const raw = el.getAttribute('data-css');
+    el.removeAttribute('data-css');
+    if (!raw) return;
+    raw.split(';').forEach((d) => {
+      const i = d.indexOf(':'); if (i < 1) return;
+      const prop = d.slice(0, i).trim().toLowerCase(), val = d.slice(i + 1).trim();
+      if (!CSS_OK.test(prop) || !val || val.length > 200 || /url|image|expression|attr\(|[\\<>{};@]/i.test(val)) return;
+      if (prop === 'position' && !/^(relative|absolute|static)$/.test(val)) return;
+      el.style.setProperty(prop, val);
+    });
+  };
+  TK.applyCss = (root = document) => {
+    if (root.nodeType === 1 && root.hasAttribute('data-css')) applyCss(root);
+    if (root.querySelectorAll) root.querySelectorAll('[data-css]').forEach(applyCss);
+  };
+  TK.applyCss();
+  new MutationObserver((list) => list.forEach((m) => {
+    if (m.type === 'attributes') { if (m.target.hasAttribute('data-css')) applyCss(m.target); return; }
+    m.addedNodes.forEach((n) => { if (n.nodeType === 1) TK.applyCss(n); });
+  })).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-css'] });
+
   TK.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   TK.fa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
   TK.boot = () => { try { return JSON.parse(TK.qs('#boot')?.textContent || '{}') || {}; } catch { return {}; } };
@@ -111,7 +138,7 @@
     if (!m) {
       m = document.createElement('div');
       m.className = 'modal'; m.id = 'tk-info';
-      m.innerHTML = '<div class="modal-box sm"><div class="modal-body center"><div class="info-ico"><i class="fa-solid"></i></div><h3 class="mt-1" data-title></h3><p class="muted" data-msg style="line-height:1.9"></p><button type="button" class="btn btn-primary mt-1" data-close>متوجه شدم</button></div></div>';
+      m.innerHTML = '<div class="modal-box sm"><div class="modal-body center"><div class="info-ico"><i class="fa-solid"></i></div><h3 class="mt-1" data-title></h3><p class="muted" data-msg data-css="line-height:1.9"></p><button type="button" class="btn btn-primary mt-1" data-close>متوجه شدم</button></div></div>';
       document.body.appendChild(m);
     }
     m.querySelector('.info-ico i').className = 'fa-solid ' + icon;
@@ -167,7 +194,7 @@
     host.innerHTML = `<input type="hidden" name="${TK.esc(name)}" value=""><button type="button" class="input rselect-btn"><span class="rselect-val"></span><i class="fa-solid fa-chevron-down xs faint"></i></button><div class="rselect-menu" role="listbox"></div>`;
     const inp = host.querySelector('input'), btn = host.querySelector('.rselect-btn'), val = host.querySelector('.rselect-val'), menu = host.querySelector('.rselect-menu');
     const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
-    menu.innerHTML = options.length ? options.map((o) => `<div class="rselect-opt" role="option" data-v="${TK.esc(o.value)}">${av(o)}<span class="truncate">${TK.esc(o.label)}</span></div>`).join('') : '<div class="faint small" style="padding:.6rem">موردی وجود ندارد</div>';
+    menu.innerHTML = options.length ? options.map((o) => `<div class="rselect-opt" role="option" data-v="${TK.esc(o.value)}">${av(o)}<span class="truncate">${TK.esc(o.label)}</span></div>`).join('') : '<div class="faint small" data-css="padding:.6rem">موردی وجود ندارد</div>';
     const set = (v) => {
       v = v === null || v === undefined ? '' : String(v);
       inp.value = v;
@@ -391,16 +418,16 @@
         s.data.forEach((v, i) => {
           if (v === null || v === undefined) return;
           g += solo ? `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="5.5" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`
-            + `<text class="pt-name" x="${x(i)}" y="${Math.max(12, y(v) - 10)}" text-anchor="middle" style="fill:${c}">${TK.esc(s.name)}</text>`
-            : `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" style="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`;
+            + `<text class="pt-name" x="${x(i)}" y="${Math.max(12, y(v) - 10)}" text-anchor="middle" data-css="fill:${c}">${TK.esc(s.name)}</text>`
+            : `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" data-css="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`;
         });
         g += '</g>';
       });
       // ناحیه‌های هاور (یک ستون برای هر برچسب)
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
-      g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" style="display:none"/>`;
+      g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" data-css="display:none"/>`;
       labels.forEach((l, i) => { const x0 = Math.max(0, x(i) - bw / 2), x1 = Math.min(W, x(i) + bw / 2); g += `<rect class="hz" data-i="${i}" x="${x0}" y="0" width="${x1 - x0}" height="${H - p.b}" fill="transparent"/>`; });
-      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i data-css="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
       // هاور روی راهنما: بقیه‌ی سری‌ها کم‌رنگ شوند
       if (series.length > 1) TK.qsa('.legend [data-k]', el).forEach((lg) => {
         lg.addEventListener('mouseenter', () => TK.qsa('.sr', el).forEach((sr) => sr.classList.toggle('dim', sr.dataset.k !== lg.dataset.k)));
@@ -410,7 +437,7 @@
       const show = (i) => {
         TK.qsa('.pt', svg).forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
         hl.setAttribute('x1', x(i)); hl.setAttribute('x2', x(i)); hl.style.display = '';
-        tip.innerHTML = `<b>${TK.esc(labels[i])}</b>` + series.map((s, k) => `<div><i style="background:${col(s, k)}"></i>${TK.esc(s.name)}: <b>${s.data[i] === null || s.data[i] === undefined ? '—' : TK.fa(s.data[i]) + suffix}</b></div>`).join('');
+        tip.innerHTML = `<b>${TK.esc(labels[i])}</b>` + series.map((s, k) => `<div><i data-css="background:${col(s, k)}"></i>${TK.esc(s.name)}: <b>${s.data[i] === null || s.data[i] === undefined ? '—' : TK.fa(s.data[i]) + suffix}</b></div>`).join('');
         tip.hidden = false;
         const r = svg.getBoundingClientRect(), bx = box.getBoundingClientRect();
         const px = r.left - bx.left + (x(i) / W) * r.width;
@@ -441,14 +468,14 @@
       // رنگ فقط #hex یا var(--…) پذیرفته می‌شود (دفاع لایه‌ای در برابر تزریق در صفت style/stroke)
       const col = (c, i) => (/^#[0-9a-fA-F]{3,8}$|^var\(--[a-z0-9-]+\)$/.test(String(c || '')) ? c : C[i % C.length]);
       const total = items.reduce((s, i) => s + i.value, 0) || 1, R = 54, S = 18, CIRC = 2 * Math.PI * R;
-      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" style="stroke:var(--surface-3)" stroke-width="${S}"/>`;
+      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" data-css="stroke:var(--surface-3)" stroke-width="${S}"/>`;
       items.forEach((it, i) => {
         const len = (it.value / total) * CIRC;
         if (it.value > 0) g += `<circle class="seg" data-i="${i}" cx="70" cy="70" r="${R}" fill="none" stroke="${col(it.color, i)}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;
         off += len;
       });
       const pct = (v) => Math.round((v / total) * 100);
-      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140">${g}</svg><div class="center-txt">${center}</div></div><div class="legend" style="justify-content:center">${items.map((it, i) => `<span><i style="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
+      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140">${g}</svg><div class="center-txt">${center}</div></div><div class="legend" data-css="justify-content:center">${items.map((it, i) => `<span><i data-css="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
       const ctr = el.querySelector('.center-txt'), base = ctr.innerHTML;
       TK.qsa('.seg', el).forEach((c) => {
         c.addEventListener('mouseenter', () => { const it = items[+c.dataset.i]; c.classList.add('on'); ctr.innerHTML = `<div><div class="donut-v">${TK.fa(it.value)}<small> (${TK.fa(pct(it.value))}٪)</small></div><div class="donut-l">${TK.esc(it.label)}</div></div>`; });
@@ -517,6 +544,19 @@
       return outcome;
     },
   };
+  // خروج: اشتراک اعلان همین مرورگر هم از حساب جدا می‌شود (روی دستگاه مشترک، اعلان‌های حساب قبلی به نفر بعدی نرسد)
+  document.addEventListener('submit', async (e) => {
+    const f = e.target;
+    if (!(f instanceof HTMLFormElement) || !/\/logout$/.test(f.getAttribute('action') || '') || f.dataset.pushDone) return;
+    e.preventDefault();
+    f.dataset.pushDone = '1';
+    try {
+      const sub = TK.pwa.pushSupported() ? await Promise.race([TK.pwa.subscription(), new Promise((r) => setTimeout(() => r(null), 1500))]) : null;
+      if (sub) { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'push_endpoint'; i.value = sub.endpoint; f.appendChild(i); }
+      ls.set('tk_push_sync', '');
+    } catch { /* بدون اشتراک */ }
+    f.submit();
+  });
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); TK.pwa.installEvt = e; document.dispatchEvent(new CustomEvent('tk:installable', { detail: true })); });
   window.addEventListener('appinstalled', () => { TK.pwa.installEvt = null; TK.toast('تسکام نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید. 🎉', 'success', 6000); document.dispatchEvent(new CustomEvent('tk:installed')); });
   if ('serviceWorker' in navigator && swUrl && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
@@ -600,7 +640,10 @@
         if (TK.state.chatUser === m.sender && document.hasFocus() && !document.hidden) return;   // همین گفتگو باز است
         TK.notify({ title: m.title, body: m.body, url: m.url, tag: 'msg-' + m.sender });
       });
-      (r.due || []).forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
+      // یادآوری‌ها: نمایش و بعد ثبت «نمایش داده شد» با POST (poll خودش فقط می‌خواند)؛ تب‌های هم‌زمان با localStorage تکرار نمی‌کنند
+      const dueNew = (r.due || []).filter((t) => { const k = 'tk_due_' + t.id; if (ls.get(k)) return false; ls.set(k, '1'); return true; });
+      dueNew.forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
+      if (dueNew.length) TK.post('/notifications/ack', { ids: dueNew.map((t) => t.id) });
       if (r.sig) {
         if (TK.live.sig !== null && r.sig !== TK.live.sig && !TK.live.skip) TK.live.refresh();
         TK.live.skip = false;

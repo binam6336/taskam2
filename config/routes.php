@@ -79,6 +79,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/notes/{id}/delete', [TaskController::class, 'deleteNote']);
     $r->post('/files/{kind}/{id}/delete', [TaskController::class, 'deleteFile']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
+    $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
 
     // بورد پروژه (کانبان، دمو)
     $r->get('/board', [BoardController::class, 'index']);
@@ -120,6 +121,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues/{userId}/remove', [ColleagueController::class, 'remove']);
     $r->post('/colleagues/followers/{userId}/remove', [ColleagueController::class, 'removeFollower']);
     $r->post('/colleagues/{userId}/block', [ColleagueController::class, 'block']);
+    $r->post('/colleagues/unblock-key', [ColleagueController::class, 'unblockKey']);
     $r->post('/colleagues/{userId}/unblock', [ColleagueController::class, 'unblock']);
 
     // پروژه‌ها
@@ -155,6 +157,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/chat/api/saved_info', [ChatController::class, 'savedInfo']);
     $r->post('/chat/api/send', [ChatController::class, 'send']);
     $r->post('/chat/api/start', [ChatController::class, 'start']);
+    $r->post('/chat/api/accept', [ChatController::class, 'accept']);
     $r->post('/chat/api/send_file', [ChatController::class, 'sendFile']);
     $r->post('/chat/api/mark_read', [ChatController::class, 'markRead']);
     $r->post('/chat/api/edit', [ChatController::class, 'edit']);

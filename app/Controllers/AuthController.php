@@ -109,6 +109,10 @@ final class AuthController extends Controller
 
     public function logout()
     {
+        $ep = $this->request->str('push_endpoint', 1000);
+        if ($ep !== '' && ($uid = Auth::id())) {
+            \App\Services\Push::unsubscribe($uid, $ep);          // اشتراک اعلان همین مرورگر از حساب جدا شود
+        }
         Auth::logout();
         Session::start();
         Session::flash('با موفقیت از سامانه خارج شدید.', 'success');

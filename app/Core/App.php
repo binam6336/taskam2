@@ -44,9 +44,9 @@ final class App
         header('Cross-Origin-Resource-Policy: same-origin');
         header('X-Permitted-Cross-Domain-Policies: none');
         header("Content-Security-Policy: default-src 'self'; script-src 'self'; "
-            // فونت و آیکون‌ها روی همین سرور (بدون CDN). تگ <style> و فایل CSS فقط از خود سایت (style-src-elem)؛
-            // 'unsafe-inline' فقط برای ویژگی style روی عناصر (رنگ/عرض پویا) مانده و style-src برای مرورگرهای قدیمی است
-            . "style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; "
+            // فونت و آیکون‌ها روی همین سرور (بدون CDN) و بدون 'unsafe-inline': نه تگ <style> درون‌خطی و نه ویژگی style؛
+            // استایل‌های پویا با data-css و CSSOM (TK.applyCss در app.js، فقط ویژگی‌های مجاز و بدون url())
+            . "style-src 'self'; "
             . "font-src 'self'; "
             . "img-src 'self' data: blob:; connect-src 'self'; media-src 'self'; object-src 'none'; "
             . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'");

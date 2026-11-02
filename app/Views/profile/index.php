@@ -5,7 +5,7 @@ $this->scripts[] = 'profile';
 ?>
 <div class="card mb-2"><div class="profile-head">
     <label class="avatar lg av-pick" id="av-preview" for="av-file" title="انتخاب تصویر پروفایل"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></label>
-    <div class="grow"><h2 style="margin:0"><?= e($name) ?></h2><div class="muted ltr" style="text-align:right"><?= e($u['mobile']) ?></div>
+    <div class="grow"><h2 data-css="margin:0"><?= e($name) ?></h2><div class="muted ltr" data-css="text-align:right"><?= e($u['mobile']) ?></div>
         <div class="flex gap-1 mt-1 wrap"><span class="badge green"><?= $u['role'] === 'admin' ? 'مدیر' : 'کاربر' ?></span><span class="chip"><i class="fa-solid fa-list-check"></i> <?= e(fa_num($stats['tasks'])) ?> تسک</span><span class="chip"><i class="fa-solid fa-users"></i> <?= e(fa_num($stats['colleagues'])) ?> همکار</span><span class="chip"><i class="fa-solid fa-diagram-project"></i> <?= e(fa_num($stats['projects'])) ?> پروژه</span></div></div>
     <?php // انتخاب تصویر با آیکون (یا کلیک روی خود آواتار)؛ بعد از انتخاب، خودکار بارگذاری می‌شود ?>
     <form method="post" action="<?= e(url('/profile/avatar')) ?>" enctype="multipart/form-data" data-ajax class="flex gap-1 wrap items-center" id="f-avatar"><?= csrf_field() ?>
@@ -13,15 +13,15 @@ $this->scripts[] = 'profile';
         <?php if ($u['avatar']): ?><button type="button" class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/avatar/delete')) ?>" data-confirm="تصویر حذف شود؟">حذف</button><?php endif; ?></form>
 </div></div>
 
-<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" style="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
+<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" data-css="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
     <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
         <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
         <?php $cur = user_theme($u); foreach (themes() as $key => $th): [$pBg, $pSide, $pCard, $pAcc] = $th['preview']; ?>
             <label class="theme-opt"><input type="radio" name="theme" value="<?= e($key) ?>" <?= $cur === $key ? 'checked' : '' ?>>
                 <span class="theme-card">
-                    <span class="theme-prev" style="background:<?= e($pBg) ?>" aria-hidden="true">
-                        <span class="tp-main"><span class="tp-bar" style="background:<?= e($pAcc) ?>;width:55%"></span><span class="tp-cards"><i style="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i><i style="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i></span></span>
-                        <span class="tp-side" style="background:<?= e($pSide) ?>"><i style="background:<?= e($pAcc) ?>"></i><i style="background:rgba(127,127,127,.35)"></i><i style="background:rgba(127,127,127,.35)"></i></span>
+                    <span class="theme-prev" data-css="background:<?= e($pBg) ?>" aria-hidden="true">
+                        <span class="tp-main"><span class="tp-bar" data-css="background:<?= e($pAcc) ?>;width:55%"></span><span class="tp-cards"><i data-css="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i><i data-css="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i></span></span>
+                        <span class="tp-side" data-css="background:<?= e($pSide) ?>"><i data-css="background:<?= e($pAcc) ?>"></i><i data-css="background:rgba(127,127,127,.35)"></i><i data-css="background:rgba(127,127,127,.35)"></i></span>
                     </span>
                     <span class="theme-meta"><span><b><?= e($th['title']) ?></b><br><span><?= e($th['desc']) ?></span></span><span class="theme-check"><i class="fa-solid fa-check"></i></span></span>
                 </span></label>
@@ -52,7 +52,8 @@ $this->scripts[] = 'profile';
     <div class="list">
     <?php foreach ($sessions as $s): ?><div class="item">
         <span class="avatar sm"><i class="fa-solid <?= preg_match('/Android|iPhone|iPad|Mobile/', (string) $s['user_agent']) ? 'fa-mobile-screen' : 'fa-laptop' ?>"></i></span>
-        <div class="grow"><div class="bold"><?= e(device_name($s['user_agent'])) ?> <?php if ($s['current']): ?><span class="badge green">همین دستگاه</span><?php endif; ?></div>
+        <div class="grow"><div class="bold"><?= e(device_name($s['user_agent'])) ?> <?php if ($s['current']): ?><span class="badge green">همین دستگاه</span><?php endif; ?>
+            <?php if (!empty($s['reauth_at'])): ?><span class="badge red" title="این نشست از شبکه‌ی دیگری استفاده شده و منتظر وارد کردن دوباره‌ی رمز است"><i class="fa-solid fa-triangle-exclamation"></i> ورود از شبکه‌ی دیگر — منتظر تأیید رمز</span><?php endif; ?></div>
             <div class="xs muted"><span class="ltr"><?= e((string) $s['ip']) ?></span> • ورود: <?= e(jdate((string) $s['created_at'])) ?> • آخرین فعالیت: <?= e(time_ago(date('Y-m-d H:i:s', (int) $s['last_activity']))) ?></div></div>
         <?php if (!$s['current']): ?><button class="btn btn-sm" data-post="<?= e(url('/profile/sessions/revoke')) ?>" data-data='<?= e(json_encode(['id' => $s['id_hash']])) ?>' data-confirm="این دستگاه از حساب شما خارج شود؟" data-after="reload" aria-label="خروج این دستگاه"><i class="fa-solid fa-right-from-bracket"></i> خروج</button><?php endif; ?>
     </div><?php endforeach; ?>
@@ -69,10 +70,10 @@ $this->scripts[] = 'profile';
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> امنیت تسک‌ها</h3></div>
         <form method="post" action="<?= e(url('/profile/task-security')) ?>" data-ajax data-keep-open data-autosave data-after="none"><?= csrf_field() ?>
             <div class="field"><label for="task-link-access">دسترسی به مشاهده‌ی تسک از طریق لینک برای</label>
-                <div class="flex items-center gap-1 wrap"><select class="input" id="task-link-access" name="task_link_access" style="max-width:240px">
+                <div class="flex items-center gap-1 wrap"><select class="input" id="task-link-access" name="task_link_access" data-css="max-width:240px">
                     <?php foreach (\App\Services\TaskService::LINK_ACCESS as $k => [$label]): ?><option value="<?= e($k) ?>" <?= ($u['task_link_access'] ?? 'members') === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                 </select><span class="muted">فعال است.</span></div></div>
-            <ul class="hint mb-2" style="padding-inline-start:1.1rem;line-height:2">
+            <ul class="hint mb-2" data-css="padding-inline-start:1.1rem;line-height:2">
                 <?php foreach (\App\Services\TaskService::LINK_ACCESS as [$label, $desc]): ?><li><b><?= e($label) ?>:</b> <?= e($desc) ?></li><?php endforeach; ?>
             </ul>
             <p class="hint mb-2">سازنده، مسئول و همکارانی که به تسک‌هایتان دسترسی داده‌اید همیشه تسک را می‌بینند. اگر کسی بدون دسترسی لینک را باز کند، پیام خطا می‌گیرد و به صفحه‌ی تسک‌های خودش برمی‌گردد.</p>

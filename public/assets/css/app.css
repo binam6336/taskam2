@@ -1718,3 +1718,23 @@ html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 .chat-new-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
 .chat-new-btn:focus-visible { outline: 3px solid var(--g-300, #86efac); outline-offset: 2px; }
 .chat-contacts { padding-bottom: 4.5rem; }
+
+/* درخواست گفتگو از غیرهمکار (N-01) */
+.chat-req { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding: .75rem 1rem; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--warn, #fbbf24) 10%, transparent); }
+.chat-req[hidden] { display: none; }
+.chat-input label.is-disabled { opacity: .4; pointer-events: none; }
+.chat-input.is-waiting textarea { cursor: not-allowed; }
+.chat-input.is-waiting .btn { opacity: .45; pointer-events: none; }
+
+/* لوگو بدون ویژگی style (CSP بدون unsafe-inline) */
+.lg-a { stop-color: var(--logo-a, #22c55e); }
+.lg-b { stop-color: var(--logo-b, #10b981); }
+.lg-bg1 { stop-color: var(--logo-bg1, #121816); }
+.lg-bg2 { stop-color: var(--logo-bg2, #0a0f0d); }
+rect.lg-inner { fill: var(--logo-inner, #111c16); }
+/* data-css: استایل پویا که app.js با CSSOM اعمال می‌کند؛ display:none از همان لحظه‌ی اول (بدون پرش) */
+[data-css*="display:none"] { display: none; }
+/* صفحه‌ی خطا (بدون app.js، پس بدون data-css) */
+.err-ico { color: var(--g-400); }
+.err-detail { max-width: 640px; margin: 1rem auto; text-align: left; white-space: pre-wrap; }
+.err-actions { justify-content: center; }

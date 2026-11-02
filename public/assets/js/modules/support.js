@@ -114,7 +114,7 @@
     const rows = texts.filter((t) => !k || t.title.includes(k) || t.content.includes(k));
     list.innerHTML = rows.length
       ? rows.map((t) => `<button type="button" class="desk-pop-item" data-i="${texts.indexOf(t)}"><b>${TK.esc(t.title)}</b><small>${TK.esc(t.content.slice(0, 90))}</small></button>`).join('')
-      : `<div class="faint small" style="padding:.5rem">${texts.length ? 'موردی پیدا نشد.' : 'هنوز متن آماده‌ای نساخته‌اید.'}</div>`;
+      : `<div class="faint small" data-css="padding:.5rem">${texts.length ? 'موردی پیدا نشد.' : 'هنوز متن آماده‌ای نساخته‌اید.'}</div>`;
   };
   document.addEventListener('click', (e) => {
     const b = e.target.closest('#desk-texts-btn, #desk-help-btn');

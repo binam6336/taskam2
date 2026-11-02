@@ -7,6 +7,7 @@ use App\Core\Auth;
 use App\Core\HttpException;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Throttle;
 
 /** کاربر واردشده با وضعیت active (مدیر مسدود/غیرفعال هم استثنا ندارد). */
 final class Authenticate
@@ -25,6 +26,11 @@ final class Authenticate
                 throw new HttpException(401, 'نشست شما منقضی شده است. دوباره وارد شوید.', 'UNAUTHORIZED');
             }
             Response::redirect('/login');
+        }
+        // سقف کلی درخواست‌های تغییر‌دهنده‌ی پنل وب برای هر کاربر (گروه‌های auth و panel؛ API سقف خودش را دارد)
+        if ($r->method() === 'POST' && !Throttle::attempt('web_write', (string) $u['id'], UserPanel::WRITE_PER_MIN, 60)) {
+            header('Retry-After: 60');
+            throw new HttpException(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
         }
         if ($u['status'] !== 'active') {
             if ($r->wantsJson()) {

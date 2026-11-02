@@ -255,6 +255,11 @@ final class TaskService
                 $reassigned = true;
             }
         }
+        // تغییر پروژه: مسئول فعلی (اگر عوضش نکرده‌اند) باید عضو پروژه‌ی جدید باشد، وگرنه محتوای پروژه‌ی دیگر را می‌بیند
+        if (isset($set['project_id']) && !isset($set['assignee_id']) && $t['assignee_id'] !== null
+            && !Access::isProjectMember((int) $set['project_id'], (int) $t['assignee_id'])) {
+            return self::err('مسئول فعلی تسک عضو پروژه‌ی انتخاب‌شده نیست؛ همراه با تغییر پروژه، مسئول را هم به یکی از اعضای آن پروژه تغییر دهید.', 'ASSIGNEE_NOT_MEMBER');
+        }
         if ($set) {
             DB::update('tasks', $set, 'id = ?', [$id]);
             TaskHistory::changes($t, $set, $actor);

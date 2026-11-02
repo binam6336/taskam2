@@ -16,10 +16,10 @@ $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 
 <body>
 <div class="error-page"><div>
     <div class="code"><?= e(fa_num($status)) ?></div>
-    <h2 class="mt-1"><i class="fa-solid <?= e($icons[$status] ?? 'fa-circle-exclamation') ?>" style="color:var(--g-400)"></i> <?= e($titles[$status] ?? 'خطا') ?></h2>
+    <h2 class="mt-1"><i class="fa-solid <?= e($icons[$status] ?? 'fa-circle-exclamation') ?> err-ico"></i> <?= e($titles[$status] ?? 'خطا') ?></h2>
     <p class="muted"><?= e($message) ?></p>
-    <?php if (!empty($detail)): ?><pre class="card flat ltr small" style="max-width:640px;margin:1rem auto;text-align:left;white-space:pre-wrap"><?= e($detail) ?></pre><?php endif; ?>
-    <div class="flex gap-2" style="justify-content:center"><a class="btn btn-primary" href="<?= e(url('/')) ?>"><i class="fa-solid fa-house"></i> صفحه‌ی اصلی</a></div>
+    <?php if (!empty($detail)): ?><pre class="card flat ltr small err-detail"><?= e($detail) ?></pre><?php endif; ?>
+    <div class="flex gap-2 err-actions"><a class="btn btn-primary" href="<?= e(url('/')) ?>"><i class="fa-solid fa-house"></i> صفحه‌ی اصلی</a></div>
 </div></div>
 </body>
 </html>

@@ -32,13 +32,13 @@ foreach (\App\Services\BoardService::LIMITED as $st) {
 $projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
-<div class="page-head"><h2><i class="fa-solid fa-diagram-project" style="color:var(--g-400)"></i> پروژه‌ها</h2>
+<div class="page-head"><h2><i class="fa-solid fa-diagram-project" data-css="color:var(--g-400)"></i> پروژه‌ها</h2>
     <button class="btn btn-primary" id="btn-new-project"><i class="fa-solid fa-plus"></i> پروژه جدید</button></div>
 
 <div data-live="proj-body">
 <script type="application/json" id="proj-data"><?= json_html($projData) ?></script>
 <?php if ($requests): ?>
-<div class="card mb-2" style="border-color:rgba(251,191,36,.4)"><div class="card-head"><h3><i class="fa-solid fa-envelope-open-text" style="color:var(--warn)"></i> دعوت‌های عضویت</h3></div>
+<div class="card mb-2" data-css="border-color:rgba(251,191,36,.4)"><div class="card-head"><h3><i class="fa-solid fa-envelope-open-text" data-css="color:var(--warn)"></i> دعوت‌های عضویت</h3></div>
     <div class="list"><?php foreach ($requests as $r): ?>
         <div class="item"><span class="avatar sq"><?php if ($r['profile_image']): ?><img src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($r['title']) ?></div><div class="xs muted">دعوت از <?= e(full_name($r)) ?> • <?= e(time_ago($r['created_at'])) ?></div></div>
@@ -66,14 +66,14 @@ $this->scripts[] = 'projects';
                     <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/delete')) ?>" data-confirm="پروژه حذف شود؟ تسک‌ها حذف نمی‌شوند ولی از پروژه جدا می‌شوند."><i class="fa-solid fa-trash"></i> حذف پروژه</button>
                 <?php endif; ?>
                 </div></div>
-            <span class="avatar sq lg" style="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
+            <span class="avatar sq lg" data-css="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($p['title']) ?></div>
                 <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
         </div>
         <?php if ($p['description']): ?><p class="muted small proj-desc" title="<?= e($p['description']) ?>"><?= e($p['description']) ?></p><?php endif; ?>
         <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span><?= e(fa_num($p['tasks_done'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تسک</span></div>
-        <div class="progress mb-2"><div style="width:<?= $pct ?>%"></div></div>
+        <div class="progress mb-2"><div data-css="width:<?= $pct ?>%"></div></div>
         <div class="flex gap-1 wrap">
             <button class="btn btn-sm" data-project="<?= (int) $p['id'] ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
             <a class="btn btn-sm" href="<?= e(url('/board?project=' . $p['id'])) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
@@ -104,7 +104,7 @@ $this->scripts[] = 'projects';
             <div class="field"><label>نوع اولویت تسک‌ها</label>
                 <div class="seg-radio"><?php foreach (\App\Services\Priority::TYPES as $pk => $pl): ?><label><input type="radio" name="priority_type" value="<?= e($pk) ?>" <?= $pk === 'category' ? 'checked' : '' ?>><span><i class="fa-solid <?= $pk === 'percent' ? 'fa-percent' : 'fa-layer-group' ?>"></i> <?= e($pl) ?></span></label><?php endforeach; ?></div>
                 <div class="hint">در حالت درصدی، اولویت هنگام ثبت/ویرایش با نوار انتخاب می‌شود (مضرب ۵٪). با تغییر به درصدی: کم = ۲۵٪، متوسط = ۵۰٪، زیاد = ۷۵٪.</div></div>
-            <div class="field" id="members-field"><label>اعضا (از همکاران شما)</label><div id="members-list" class="perm-grid" style="max-height:220px;overflow:auto"></div>
+            <div class="field" id="members-field"><label>اعضا (از همکاران شما)</label><div id="members-list" class="perm-grid" data-css="max-height:220px;overflow:auto"></div>
                 <div class="hint">اگر کاربری تأیید دستی عضویت را فعال کرده باشد، برایش درخواست ارسال می‌شود.</div></div>
         </div>
         <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div>

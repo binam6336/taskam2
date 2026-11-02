@@ -11,7 +11,7 @@ $card = static function (array $c) use ($edit): void { ?>
                 <div><div class="bold"><?= e($c['first_name'] . ' ' . $c['last_name']) ?></div><a class="small ltr" href="tel:<?= e($c['mobile']) ?>"><?= e($c['mobile']) ?></a></div></div>
             <span class="badge <?= (int) $c['status'] === 1 ? 'green' : 'yellow' ?>"><?= (int) $c['status'] === 1 ? 'انجام‌شده' : 'جدید' ?></span>
         </div>
-        <div class="item-meta" style="margin:0 0 .5rem">
+        <div class="item-meta" data-css="margin:0 0 .5rem">
             <?php if ($c['store']): ?><span><i class="fa-solid fa-store"></i><?= e($c['store']) ?></span><?php endif; ?>
             <?php if ($c['email']): ?><span class="ltr"><i class="fa-regular fa-envelope"></i><?= e($c['email']) ?></span><?php endif; ?>
             <?php if ($c['website']): ?><span class="ltr"><i class="fa-solid fa-globe"></i><?= e($c['website']) ?></span><?php endif; ?>
@@ -37,7 +37,7 @@ $card = static function (array $c) use ($edit): void { ?>
     </div>
     <button class="btn btn-primary" id="btn-new-call"><i class="fa-solid fa-plus"></i> درخواست جدید</button>
 </div>
-<form method="get" class="search mb-2" style="max-width:420px"><input type="hidden" name="tab" value="<?= e($tab) ?>"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('calls_search')) ?>"></form>
+<form method="get" class="search mb-2" data-css="max-width:420px"><input type="hidden" name="tab" value="<?= e($tab) ?>"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('calls_search')) ?>"></form>
 <div data-live="c-list">
 <?php if (!$calls): ?><div class="card empty"><i class="fa-solid fa-phone-volume"></i><p>درخواستی وجود ندارد.</p></div>
 <?php else: ?><div class="grid grid-auto"><?php foreach ($calls as $c) { $card($c); } ?></div>
@@ -45,7 +45,7 @@ $card = static function (array $c) use ($edit): void { ?>
 </div>
 
 <?php if ($shared): ?><div class="modal open" id="m-shared"><div class="modal-box sm"><div class="modal-body">
-    <div class="flex between mb-2"><h3 style="margin:0">درخواست تماس</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="flex between mb-2"><h3 data-css="margin:0">درخواست تماس</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <?php $card($shared); ?></div></div></div><?php endif; ?>
 
 <div class="modal" id="m-call" data-guard><div class="modal-box">

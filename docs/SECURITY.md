@@ -101,6 +101,18 @@
 - **I-03 DDL:** همه‌ی DDL زمان اجرا فقط در `Schema::ensure` (۰۰۷ و ۰۰۸ هم به آن منتقل شد؛ `Push::diagnose` و `SupportModel` دیگر ALTER/CREATE اجرا نمی‌کنند). پیش‌فرض `SCHEMA_AUTO` برای سازگاری روشن مانده؛ در محیط واقعی `SCHEMA_AUTO=false` + کاربر DB بدون ALTER/CREATE + `php bin/migrate.php` بعد از هر به‌روزرسانی. وضعیت در مستندات پنل نمایش داده می‌شود (`Schema::pending()`).
 - **I-04 نشست:** مرورگر متفاوت = نابودی نشست؛ فقط تغییر شبکه = `Auth::needsReauth()` و صفحه‌ی `/reauth` (رمز دوباره، ۵ تلاش، بعد نشست باطل؛ API: ۴۰۱ `REAUTH_REQUIRED`). پروفایل ← نشست‌های فعال (`DbSessionHandler::listFor/revoke/destroyOthers`).
 
+## ۳-۹) گزارش بخش کاربر v2 (v3.48)
+- **N-01 درخواست گفتگو:** `ChatModel::canChat` = همکار تأییدشده یا پروژه‌ی مشترک یا ردیف accepted در `chat_requests` (نه «هر پیام قبلی»). غیرهمکار پیدا‌شده با `/chat/api/start` فقط یک پیام متنی (`assertReceiver` حالت request، سقف `chat_request` ۲۰/روز)؛ گیرنده `POST /chat/api/accept` یا مسدود؛ پاسخ گیرنده هم پذیرش است. migration ۰۲۵ گفتگوهای قبلی را به accepted/pending تبدیل می‌کند.
+- **R-01:** منبع متمایز قفل حساب = `Request::widePrefix()` (IPv4 ‎/24، IPv6 ‎/48) با شمارنده‌ی `login_src`.
+- **R-05:** ردیف پنهان مسدودها `user_id=null` + `blocked_key` (HMAC)؛ شناسه‌ی ناموجود → `colleague_block_ghosts` با همان شکل؛ رفع با `unblockByKey`.
+- **R-06:** فرم خروج endpoint اشتراک Push مرورگر را می‌فرستد و `Push::unsubscribe` می‌شود.
+- **R-07:** `/tour/start` فقط `?tour=start` (بدون نوشتن)؛ یادآوری‌ها در `/live/poll` فقط خوانده و با `POST /notifications/ack` ثبت می‌شوند.
+- **R-08:** `Throttle::attempt` وقتی به سقف رسیده hit ثبت نمی‌کند؛ `web_write` در `Authenticate` (همه‌ی گروه‌های نیازمند ورود).
+- **R-09:** `Csrf::verify` فقط هدر یا بدنه‌ی POST/JSON. **R-10:** تغییر پروژه با مسئول غیرعضو = خطا. **R-14:** `Response::redirect` مسیرهای `//` و `/\` را به `/` برمی‌گرداند.
+- **R-13:** `Uploader::archiveProblem` (ساختار OOXML، ماکرو، zip bomb)، `reencode` تصویرها (حذف EXIF)، اسکن اختیاری `VIRUS_SCAN`.
+- **I-01:** CSP `style-src 'self'` بدون هیچ 'unsafe-inline'؛ ویژگی‌های style به `data-css` تبدیل و با `TK.applyCss` (CSSOM، allowlist ویژگی‌ها، بدون url()) اعمال می‌شوند؛ لوگو با کلاس‌های `.lg-*`.
+- **I-03:** صفحه‌ی reauth فقط نام کوچک + موبایل ماسک؛ رمز اشتباه در `login_user` هم شمرده می‌شود؛ `user_sessions.reauth_at` و هشدار در «نشست‌های فعال».
+
 ## ۴) رمزگذاری پیام‌های چت (Encryption at rest)
 - **الگوریتم:** AES-256-GCM (رمزنگاری احرازشده). کلید با PBKDF2-HMAC-SHA256 از `ENCODE_PASSWORD` ساخته می‌شود؛ برای هر پیام nonce تصادفی ۹۶ بیتی.
 - **رمز اشتباه یا دست‌کاری ⇒ دیکد ناموفق (null)**؛ هیچ‌وقت متن اشتباه برنمی‌گردد. ciphertext با AAD (`chat:<فرستنده>:<گیرنده>`) به همان پیام بسته می‌شود و به رکورد دیگر قابل انتقال نیست.

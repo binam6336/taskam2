@@ -1,6 +1,6 @@
 <?php /** @var array $group */ use App\Services\DocsHelper as D; ?>
 <article class="dx-article">
-<h1><i class="fa-solid <?= e($group['icon']) ?>" style="color:var(--g-400)"></i> <?= e($group['title']) ?></h1>
+<h1><i class="fa-solid <?= e($group['icon']) ?>" data-css="color:var(--g-400)"></i> <?= e($group['title']) ?></h1>
 <p class="muted"><?= e($group['desc']) ?></p>
 <table class="dx-table"><thead><tr><th>#</th><th>متد</th><th>مسیر</th><th>توضیحات</th></tr></thead><tbody>
 <?php foreach ($group['endpoints'] as $i => $ep): ?>

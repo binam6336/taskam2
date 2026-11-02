@@ -206,6 +206,16 @@ final class Request
         return $bin === false ? $ip : bin2hex(substr($bin, 0, 8)) . '::/64';
     }
 
+    /** شبکه‌ی بزرگ برای شمارش «منابع متمایز» قفل حساب: IPv4 ‎/24، IPv6 ‎/48 */
+    public function widePrefix(): string
+    {
+        $bin = @inet_pton($this->ip());
+        if ($bin === false) {
+            return $this->ip();
+        }
+        return strlen($bin) === 4 ? bin2hex(substr($bin, 0, 3)) . '/24' : bin2hex(substr($bin, 0, 6)) . '/48';
+    }
+
     private static function proxyMode(): string
     {
         return strtolower(trim((string) env('TRUSTED_PROXY', 'false')));

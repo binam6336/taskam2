@@ -239,7 +239,7 @@ final class TaskModel
         }
     }
 
-    /** تسک‌های سررسیدشده‌ی اخیر که هنوز اعلان نشده‌اند (و علامت‌گذاری آن‌ها). */
+    /** تسک‌های سررسیدشده‌ی اخیر که هنوز اعلان نشده‌اند (فقط خواندن؛ علامت‌گذاری با markNotified بعد از نمایش، از مسیر POST) */
     public static function dueNotifications(int $uid): array
     {
         $rows = DB::all("SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.share_token, p.title AS project_title
@@ -248,10 +248,18 @@ final class TaskModel
                AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
                AND TIMESTAMP(t.due_date, t.due_time) <= NOW()
                AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)", [$uid]);
-        foreach ($rows as $r) {
-            DB::run('UPDATE tasks SET notified_at = NOW() WHERE id = ?', [(int) $r['id']]);
-        }
         return $rows;
+    }
+
+    /** «یادآوری نمایش داده شد» (POST /notifications/ack) — فقط تسک‌هایی که مسئولشان همین کاربر است */
+    public static function markNotified(int $uid, array $ids): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($v) => $v > 0)));
+        if (!$ids) {
+            return 0;
+        }
+        $ids = array_slice($ids, 0, 50);
+        return DB::run('UPDATE tasks SET notified_at = NOW() WHERE assignee_id = ? AND notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
     }
 
     // ───── آمار داشبورد ─────

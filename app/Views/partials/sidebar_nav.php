@@ -46,11 +46,11 @@ $badge = static function (string $key) use ($badges, $badgeAs): string {
             </div>
             <?php foreach ($item['items'] as $i => $c): ?>
                 <?php if (isset($c['link'])): ?>
-                    <a href="<?= e($c['link']) ?>" class="nav-sub" target="_blank" rel="noopener noreferrer" role="menuitem" style="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span><?= e($c['label']) ?></span></a>
+                    <a href="<?= e($c['link']) ?>" class="nav-sub" target="_blank" rel="noopener noreferrer" role="menuitem" data-css="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span><?= e($c['label']) ?></span></a>
                 <?php elseif (isset($c['soon'])): ?>
-                    <span class="nav-sub soon" role="menuitem" aria-disabled="true" style="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span><?= e($c['label']) ?></span><span class="soon-chip">به‌زودی</span></span>
+                    <span class="nav-sub soon" role="menuitem" aria-disabled="true" data-css="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span><?= e($c['label']) ?></span><span class="soon-chip">به‌زودی</span></span>
                 <?php else: [$key, $path, $icon, $label] = $c; ?>
-                    <a href="<?= e(url($path)) ?>" class="nav-sub<?= $active === $key ? ' active' : '' ?>" role="menuitem" style="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($icon) ?>"></i></span><span><?= e($label) ?></span><?= $badge($key) ?></a>
+                    <a href="<?= e(url($path)) ?>" class="nav-sub<?= $active === $key ? ' active' : '' ?>" role="menuitem" data-css="--i:<?= $i ?>"><span class="nav-ico"><i class="fa-solid <?= e($icon) ?>"></i></span><span><?= e($label) ?></span><?= $badge($key) ?></a>
                 <?php endif; ?>
             <?php endforeach; ?>
         </div></div>

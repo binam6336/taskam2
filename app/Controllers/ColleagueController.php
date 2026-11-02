@@ -99,6 +99,13 @@ final class ColleagueController extends Controller
         $ok ? $this->ok($msg) : $this->fail($msg, $code === 'RATE_LIMITED' ? 429 : 422);
     }
 
+    /** رفع مسدودی ردیف پنهان (کاربر غیرهمکار) با شناسه‌ی مبهم */
+    public function unblockKey()
+    {
+        $ok = ColleagueService::unblockByKey($this->uid(), $this->request->str('key', 40));
+        $ok ? $this->ok('کاربر از حالت مسدود خارج شد.') : $this->fail('مسدودی یافت نشد.', 404);
+    }
+
     public function unblock(string $userId)
     {
         DB::run('DELETE FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?', [$this->uid(), (int) $userId]);

@@ -55,7 +55,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if (!$wCount): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
 
         <?php if ($w['review']): ?>
-        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" style="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" data-css="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
             <div class="list"><?php foreach ($w['review'] as $t): ?>
                 <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
@@ -65,7 +65,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php endif; ?>
 
         <?php if ($w['rework']): ?>
-        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-rotate-left" style="color:#fb923c"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
             <div class="list"><?php foreach ($w['rework'] as $t): ?>
                 <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
                     <span class="avatar sm sq dash-rework-ico"><i class="fa-solid fa-rotate-left"></i></span>
@@ -126,7 +126,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
         <div id="ch-ratio"></div>
-        <div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" style="color:var(--g-300)"><?= e($d['top_subject']) ?></b></div></div>
+        <div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" data-css="color:var(--g-300)"><?= e($d['top_subject']) ?></b></div></div>
 </div>
 
 <div class="grid grid-3 mb-2">
@@ -146,11 +146,11 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 
 <div class="grid grid-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-phone-volume"></i> درخواست‌های تماس</h3><a class="btn btn-sm" href="<?= e(url('/calls')) ?>">مشاهده</a></div>
-        <div class="grid grid-3"><div class="center"><div class="num bold" style="font-size:1.4rem"><?= e(fa_num($d['calls']['total'])) ?></div><div class="xs muted">کل</div></div>
-            <div class="center"><div class="num bold" style="font-size:1.4rem;color:var(--warn)"><?= e(fa_num($d['calls']['new'])) ?></div><div class="xs muted">جدید</div></div>
-            <div class="center"><div class="num bold" style="font-size:1.4rem;color:var(--g-400)"><?= e(fa_num($d['calls']['done'])) ?></div><div class="xs muted">انجام‌شده</div></div></div></div>
+        <div class="grid grid-3"><div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['calls']['total'])) ?></div><div class="xs muted">کل</div></div>
+            <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:var(--warn)"><?= e(fa_num($d['calls']['new'])) ?></div><div class="xs muted">جدید</div></div>
+            <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:var(--g-400)"><?= e(fa_num($d['calls']['done'])) ?></div><div class="xs muted">انجام‌شده</div></div></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-message"></i> متن‌های آماده</h3><a class="btn btn-sm" href="<?= e(url('/texts')) ?>">مشاهده</a></div>
-        <div class="center"><div class="num bold" style="font-size:1.4rem"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">متن ذخیره‌شده</div></div></div>
+        <div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">متن ذخیره‌شده</div></div></div>
 </div>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $projects, 'assignees' => $assignees, 'shared' => null, 'context' => 'dashboard']); ?>

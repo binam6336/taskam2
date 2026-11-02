@@ -29,7 +29,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <?php $sp = $sum['split']; $segs = [['done_ontime', 'به‌موقع انجام‌شده', 'ok'], ['done_late', 'با تأخیر انجام‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
     <?php // یک نوار انباشته با جمع ۱۰۰٪ (بخش‌ها هم‌پوشانی ندارند) ?>
     <div class="an-stack" role="img" aria-label="<?= e(implode('، ', array_map(static fn($g) => $g[1] . ' ' . fa_num($sp[$g[0]]) . '٪', $segs))) ?>">
-        <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" style="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪"></div><?php endif; endforeach; ?>
+        <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" data-css="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪"></div><?php endif; endforeach; ?>
     </div>
     <div class="an-stack-legend">
         <?php foreach ($segs as [$sk, $l, $tone]): ?><span><i class="<?= $tone ?>"></i><?= e($l) ?> <b><?= e(fa_num($sp[$sk])) ?>٪</b></span><?php endforeach; ?>
@@ -38,7 +38,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 </div>
 
 <div class="grid mb-2 an-row">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> ۱۴ روز اخیر</h3><span class="hint" style="margin:0">برای دیدن عدد، موس را روی نمودار ببرید</span></div><div class="chart" id="ch-trend"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> ۱۴ روز اخیر</h3><span class="hint" data-css="margin:0">برای دیدن عدد، موس را روی نمودار ببرید</span></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> توزیع اولویت</h3></div><div id="ch-prio"></div>
         <p class="small muted center mt-2">میانگین زمان انجام: <b><?= e(duration_fa((float) $t['avg_hours'])) ?></b></p></div>
 </div>
@@ -64,13 +64,13 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 </div>
 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th>باز</th><th>عقب‌افتاده</th><th style="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
         <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => (int) $m['id']])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
             <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= e(fa_num($m['open'])) ?></td>
             <td><?= (int) $m['overdue'] > 0 ? '<span class="badge red">' . e(fa_num($m['overdue'])) . '</span>' : '—' ?></td>
             <td><?php if ($r['score'] === null): ?><span class="faint small">هنوز تسکی انجام نداده</span><?php else: ?>
-                <div class="an-speed"><div class="progress <?= e($toneBar[$r['tone']]) ?>" title="امتیاز سرعت <?= e(fa_num($r['score'])) ?> از ۱۰۰"><div style="width:<?= (int) $r['score'] ?>%"></div></div><b><?= e(fa_num($r['score'])) ?></b><span class="badge <?= e($r['tone']) ?>"><?= e($r['label']) ?></span></div><?php endif; ?></td></tr>
+                <div class="an-speed"><div class="progress <?= e($toneBar[$r['tone']]) ?>" title="امتیاز سرعت <?= e(fa_num($r['score'])) ?> از ۱۰۰"><div data-css="width:<?= (int) $r['score'] ?>%"></div></div><b><?= e(fa_num($r['score'])) ?></b><span class="badge <?= e($r['tone']) ?>"><?= e($r['label']) ?></span></div><?php endif; ?></td></tr>
     <?php endforeach; ?></tbody></table></div>
     <p class="hint">«پیشرفت سرعت» امتیاز ۰ تا ۱۰۰ سرعت انجام وظایف هر عضو است: ۶۰٪ آن از زمان انجام (۲۴ ساعت یا کمتر = کامل، ۱۴ روز یا بیشتر = صفر) و ۴۰٪ از انجام به‌موقع (تا پایان سررسید) به دست می‌آید.</p>
 </div>
@@ -95,5 +95,5 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 
 <div class="card"><div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> آخرین تسک‌ها</h3></div>
     <?php if (!$a['recent']): ?><p class="muted">تسکی در این پروژه ثبت نشده است.</p><?php else: ?><div class="list"><?php foreach ($a['recent'] as $r): ?>
-        <div class="flex between items-center gap-2"><span class="<?= $r['is_completed'] ? 'faint' : '' ?>" style="<?= $r['is_completed'] ? 'text-decoration:line-through' : '' ?>"><?= e($r['title']) ?></span>
+        <div class="flex between items-center gap-2"><span class="<?= $r['is_completed'] ? 'faint' : '' ?>" data-css="<?= $r['is_completed'] ? 'text-decoration:line-through' : '' ?>"><?= e($r['title']) ?></span>
             <span class="flex gap-1"><span class="badge <?= e($pc[$r['priority']][1]) ?>"><?= e($pc[$r['priority']][0]) ?></span><span class="xs muted"><?= e($r['first_name'] ? full_name($r) : '—') ?></span></span></div><?php endforeach; ?></div><?php endif; ?></div>

@@ -2,7 +2,7 @@
 /** تقویم تسک‌ها. @var array $subjects @var array $projects @var array $assignees */
 $this->scripts[] = 'calendar';
 ?>
-<div class="page-head"><h2><i class="fa-regular fa-calendar-days" style="color:var(--g-400)"></i> تقویم تسک‌ها</h2>
+<div class="page-head"><h2><i class="fa-regular fa-calendar-days" data-css="color:var(--g-400)"></i> تقویم تسک‌ها</h2>
     <div class="flex gap-1">
         <a class="btn" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-list-check"></i> لیست تسک‌ها</a>
         <button type="button" class="btn btn-primary" data-cal-new><i class="fa-solid fa-plus"></i> تسک جدید</button>

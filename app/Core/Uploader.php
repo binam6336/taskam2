@@ -151,13 +151,120 @@ final class Uploader
         if (!in_array($mime, $types[$ext], true)) {
             return ['ok' => false, 'error' => ErrorText::apply($orig . ' (محتوای فایل با پسوند مطابقت ندارد)')];
         }
+        // آرشیوها: docx/xlsx باید ساختار واقعی OOXML داشته باشند (نه هر zip با پسوند عوض‌شده)، بدون ماکرو؛ zip بمب نباشد
+        if (in_array($ext, ['docx', 'xlsx', 'zip'], true) && ($why = self::archiveProblem((string) $file['tmp_name'], $ext)) !== null) {
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (' . $why . ')')];
+        }
+        if (($why = self::virusScan((string) $file['tmp_name'])) !== null) {
+            return ['ok' => false, 'error' => ErrorText::apply($orig . ' (' . $why . ')')];
+        }
         $name = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
         $dest = self::dir($type) . '/' . $name;
         if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
             return ['ok' => false, 'error' => ErrorText::apply($orig . ' (خطا در ذخیره)')];
         }
         @chmod($dest, 0640);
+        // تصویرهای پیوست دوباره ساخته می‌شوند تا EXIF (مثل موقعیت GPS) و داده‌ی پنهان حذف شود
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) && self::reencode($dest, $ext)) {
+            clearstatcache(true, $dest);
+            $size = (int) @filesize($dest) ?: $size;
+        }
         return ['ok' => true, 'name' => $name, 'original' => $orig, 'size' => $size, 'ext' => $ext, 'mime' => $mime];
+    }
+
+    /** حداکثر حجم بازشده و تعداد فایل داخل آرشیو (ضد zip bomb) */
+    private const ARCHIVE_MAX_BYTES = 300 * 1024 * 1024;
+    private const ARCHIVE_MAX_FILES = 5000;
+
+    /** مشکل آرشیو یا null: ساختار OOXML برای docx/xlsx، ماکرو، zip bomb */
+    private static function archiveProblem(string $tmp, string $ext): ?string
+    {
+        if (!class_exists('ZipArchive')) {
+            return in_array($ext, ['docx', 'xlsx'], true) ? 'بررسی فایل روی این سرور ممکن نیست' : null;
+        }
+        $z = new \ZipArchive();
+        if ($z->open($tmp, \ZipArchive::RDONLY) !== true) {
+            return 'فایل فشرده‌ی معتبر نیست';
+        }
+        try {
+            if ($z->numFiles > self::ARCHIVE_MAX_FILES) {
+                return 'تعداد فایل‌های داخل آرشیو بیش از حد است';
+            }
+            $total = 0;
+            $names = [];
+            for ($i = 0; $i < $z->numFiles; $i++) {
+                $st = $z->statIndex($i);
+                if ($st === false) {
+                    return 'فایل فشرده‌ی معتبر نیست';
+                }
+                $total += (int) $st['size'];
+                $names[strtolower((string) $st['name'])] = true;
+            }
+            if ($total > self::ARCHIVE_MAX_BYTES) {
+                return 'حجم بازشده‌ی آرشیو بیش از حد است';
+            }
+            if ($ext === 'zip') {
+                return null;
+            }
+            $main = $ext === 'docx' ? 'word/document.xml' : 'xl/workbook.xml';
+            if (!isset($names['[content_types].xml']) || !isset($names[$main])) {
+                return 'ساختار فایل ' . strtoupper($ext) . ' معتبر نیست';
+            }
+            foreach (array_keys($names) as $n) {
+                if (substr($n, -15) === 'vbaproject.bin') {
+                    return 'فایل دارای ماکرو مجاز نیست';
+                }
+            }
+            return null;
+        } finally {
+            $z->close();
+        }
+    }
+
+    /**
+     * اسکن ضدبدافزار اختیاری با ClamAV: VIRUS_SCAN=clamdscan (یا clamscan) در .env.
+     * خاموش (پیش‌فرض) = بدون اسکن؛ اگر اسکنر در دسترس نباشد آپلود رد نمی‌شود و خطا در لاگ ثبت می‌شود.
+     */
+    private static function virusScan(string $tmp): ?string
+    {
+        $bin = strtolower(trim((string) env('VIRUS_SCAN', '')));
+        if (!in_array($bin, ['clamdscan', 'clamscan'], true) || !function_exists('exec')) {
+            return null;
+        }
+        $out = [];
+        $code = 0;
+        @exec($bin . ' --no-summary ' . ($bin === 'clamdscan' ? '--fdpass ' : '') . escapeshellarg($tmp) . ' 2>&1', $out, $code);
+        if ($code === 1) {
+            return 'فایل آلوده تشخیص داده شد';
+        }
+        if ($code !== 0) {
+            error_log('virus scan: ' . $bin . ' exit ' . $code . ' — ' . implode(' ', array_slice($out, 0, 3)));
+        }
+        return null;
+    }
+
+    /** بازسازی تصویر با GD (حذف EXIF/متادیتا)؛ false اگر GD نتواند (فایل همان می‌ماند) */
+    private static function reencode(string $path, string $ext): bool
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return false;
+        }
+        $data = @file_get_contents($path);
+        $im = $data !== false ? @imagecreatefromstring($data) : false;
+        if ($im === false) {
+            return false;
+        }
+        $ok = false;
+        if ($ext === 'png') {
+            imagesavealpha($im, true);
+            $ok = @imagepng($im, $path, 6);
+        } elseif ($ext === 'webp' && function_exists('imagewebp')) {
+            $ok = @imagewebp($im, $path, 90);
+        } elseif ($ext === 'jpg' || $ext === 'jpeg') {
+            $ok = @imagejpeg($im, $path, 90);
+        }
+        imagedestroy($im);
+        return (bool) $ok;
     }
 
     /**

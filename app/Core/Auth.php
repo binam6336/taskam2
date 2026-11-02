@@ -149,10 +149,20 @@ final class Auth
             self::logout();
             return [false, 'تلاش‌های ناموفق زیاد بود؛ نشست باطل شد. دوباره وارد شوید.'];
         }
+        // تلاش‌های reauth در همان شمارنده‌ی ورود (موبایل + IP) هم حساب می‌شوند: کوکی دزدیده‌شده راه حدس جدا ندارد
+        $win = max(1, (int) env('LOGIN_WINDOW_MINUTES', 15)) * 60;
+        $loginKey = (string) $u['mobile'] . '|' . $req->rateIp();
+        if (Throttle::count('login_user', $loginKey, $win) >= max(3, (int) env('LOGIN_MAX_ATTEMPTS', 5))) {
+            Audit::log((int) $u['id'], 'session_reauth_locked', ['by' => 'login_user']);
+            self::logout();
+            return [false, 'تلاش‌های ناموفق زیاد بود؛ نشست باطل شد. دوباره وارد شوید.'];
+        }
         if (!password_verify($password, (string) $u['password_hash'])) {
+            Throttle::hit('login_user', $loginKey);
             Audit::log((int) $u['id'], 'session_reauth_failed');
             return [false, 'رمز عبور اشتباه است.'];
         }
+        Throttle::clear('login_user', $loginKey);
         Session::regenerate();
         Session::put('ipf', $req->ip());
         Session::put('ipp', $req->ipPrefix());
@@ -251,19 +261,16 @@ final class Auth
 
         // سقف‌ها به ترتیب: کل IP → موبایل+IP → خود حساب. اول ثبت، بعد شمارش (Race). درخواستی که به سقف IP خورده
         // در شمارنده‌های بعدی ثبت نمی‌شود (نه قفل حساب دیگران، نه رشد بی‌دلیل جدول). ورود موفق ثبت‌ها را برمی‌دارد.
-        Throttle::hit('login_ip', $ip);
-        if (Throttle::count('login_ip', $ip, $win) > $max * 5) {
+        if (!Throttle::attempt('login_ip', $ip, $max * 5, $win)) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile, 'scope' => 'ip']);
             return ['ok' => false, 'message' => $busy];
         }
-        Throttle::hit('login_user', $keyUser);
-        $fromHere = Throttle::count('login_user', $keyUser, $win);
-        if ($fromHere > $max) {
+        if (!Throttle::attempt('login_user', $keyUser, $max, $win)) {
             Audit::log(null, 'login_throttled', ['mobile' => $mobile]);
             return ['ok' => false, 'message' => $busy];
         }
 
-        // قفل حساب فقط برای حمله‌ی توزیع‌شده: هر IP/شبکه در هر بازه فقط «یک بار» در شمارنده‌ی حساب حساب می‌شود،
+        // قفل حساب فقط برای حمله‌ی توزیع‌شده: هر شبکه (IPv4 ‎/24، IPv6 ‎/48) در هر بازه فقط «یک بار» در شمارنده‌ی حساب حساب می‌شود،
         // پس مهاجمِ تنها (یا چند IP معدود) نمی‌تواند حساب کسی را قفل کند؛ سقف موبایل+IP جلوی حدس رمزش را می‌گیرد.
         // دستگاهی که قبلاً با همین حساب موفق وارد شده مشمول قفل نیست (صاحب حساب همیشه می‌تواند وارد شود و قفل را بردارد).
         if (!self::trustedDevice($mobile)) {
@@ -271,7 +278,10 @@ final class Auth
                 Audit::log(null, 'login_locked', ['mobile' => $mobile]);
                 return ['ok' => false, 'message' => $locked];
             }
-            if ($fromHere === 1) {
+            // «منبع» = شبکه‌ی بزرگ (IPv4 ‎/24، IPv6 ‎/48): یک مشترک IPv6 یا VPS با هزاران آدرس فقط یک منبع حساب می‌شود
+            $src = $mobile . '|' . $req->widePrefix();
+            if (Throttle::count('login_src', $src, $win) === 0) {
+                Throttle::hit('login_src', $src);
                 Throttle::hit('login_acct', $mobile);
             }
             if (Throttle::count('login_acct', $mobile, $win) > self::lockSources()) {

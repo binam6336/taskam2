@@ -21,12 +21,12 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* ستون دسترسی‌ها: سه گروه تسک، پروژه و بورد پروژه */
-  const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" style="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
+  const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" data-css="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
     <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
-    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" style="margin:2px"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" style="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}${limitChip(m.board_limits)}</div>`;
+    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" data-css="margin:2px"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" data-css="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}${limitChip(m.board_limits)}</div>`;
   const limitText = (l) => Object.entries(data().limitDefs).filter(([k]) => l && l[k] !== undefined && l[k] !== '').map(([k, d]) => `${d.label}: ${TK.fa(l[k])}`).join('، ');
-  const limitChip = (l) => { const t = limitText(l); return t ? `<span class="chip" style="margin:2px" title="سقف تعداد تسک"><i class="fa-solid fa-gauge-high"></i> ${E(t)}</span>` : ''; };
+  const limitChip = (l) => { const t = limitText(l); return t ? `<span class="chip" data-css="margin:2px" title="سقف تعداد تسک"><i class="fa-solid fa-gauge-high"></i> ${E(t)}</span>` : ''; };
   const viewSummary = (n) => (n ? `تسک‌های خودش + ${TK.fa(n)} نفر` : 'فقط تسک‌های خودش');
   const roleBadge = (k) => { const r = data().roles[k] || data().roles.custom; return `<span class="badge role-badge ${E(r.tone)}" title="${E(r.desc)}"><i class="fa-solid ${E(r.icon)}"></i> ${E(r.label)}</span>`; };
 

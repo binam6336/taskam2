@@ -11,6 +11,9 @@ $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
 // تور آموزشی: تا وقتی کاربر رد یا تمامش نکرده (NULL = هنوز پرسیده نشده)
 $tour = array_key_exists('tour', $u) ? $u['tour'] : 'done';
+if (($_GET['tour'] ?? '') === 'start') {
+    $tour = null;                                     // «آموزش» در سایدبار: پرسش شروع تور؛ وضعیت فقط با POST /tour ذخیره می‌شود
+}
 if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
     $this->boot['tour'] = ['state' => $tour, 'page' => $active, 'texts' => \App\Models\ContentModel::tour()];
     $this->scripts[] = 'tour';
@@ -48,7 +51,7 @@ $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => 
             <h1><?= e($this->title) ?></h1>
             <div class="grow"></div>
             <button type="button" class="btn btn-ghost btn-icon" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell"></i></button>
-            <a class="btn btn-ghost btn-icon" href="<?= e(url('/chat')) ?>" title="گفتگو" style="position:relative"><i class="fa-regular fa-comments"></i><span class="badge-count zero" data-badge="chat" style="position:absolute;top:-2px;left:-2px">0</span></a>
+            <a class="btn btn-ghost btn-icon" href="<?= e(url('/chat')) ?>" title="گفتگو" data-css="position:relative"><i class="fa-regular fa-comments"></i><span class="badge-count zero" data-badge="chat" data-css="position:absolute;top:-2px;left:-2px">0</span></a>
         </header>
         <main class="content"><?= $content ?></main>
     </div>

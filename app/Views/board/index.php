@@ -3,7 +3,7 @@
 $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 ?>
-<div class="page-head"><h2><i class="fa-solid fa-table-columns" style="color:var(--g-400)"></i> بورد پروژه</h2>
+<div class="page-head"><h2><i class="fa-solid fa-table-columns" data-css="color:var(--g-400)"></i> بورد پروژه</h2>
     <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button></div>
 
 <button type="button" class="btn kb-filter-toggle" id="kb-filter-toggle" aria-expanded="false" aria-controls="kb-filters"><i class="fa-solid fa-filter"></i> فیلترها<?php $fc = ($filters['project'] ? 1 : 0) + ($filters['q'] !== '' ? 1 : 0) + ($filters['mine'] ? 1 : 0); if ($fc): ?> <span class="badge-count"><?= e(fa_num($fc)) ?></span><?php endif; ?></button>
@@ -82,7 +82,7 @@ $total = array_sum(array_map('count', $columns));
 
 <!-- علت توقف -->
 <div class="modal" id="m-kb-block"><div class="modal-box sm"><form id="f-kb-block">
-    <div class="modal-head"><h3><i class="fa-solid fa-ban" style="color:var(--danger)"></i> علت توقف</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><h3><i class="fa-solid fa-ban" data-css="color:var(--danger)"></i> علت توقف</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div class="field"><label>چرا این تسک متوقف شده؟ (اختیاری)</label>
         <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_block')) ?>"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-danger">انتقال به مسدودشده</button></div>
@@ -90,7 +90,7 @@ $total = array_sum(array_map('count', $columns));
 
 <!-- علت برگشت به بازبینی مسئول -->
 <div class="modal" id="m-kb-rework"><div class="modal-box sm"><form id="f-kb-rework">
-    <div class="modal-head"><h3><i class="fa-solid fa-rotate-left" style="color:#fb923c"></i> برگشت به بازبینی مسئول</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><h3><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشت به بازبینی مسئول</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div class="field"><label>چه ایرادی دیدید که باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)</label>
         <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_rework')) ?>"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">برگرداندن برای اصلاح</button></div>

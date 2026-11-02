@@ -38,15 +38,26 @@ final class ChatController extends Controller
 
     private const NEW_CHAT_KEY = '_chat_new';
 
-    /** گفتگو مجاز است: همکار / سابقه‌ی گفتگو (ChatModel::canChat) یا کاربری که همین نشست با «پیام جدید» (شماره موبایل) پیدا کرده — بدون مسدودی */
+    /** هر نوع ارتباط گفتگو (برای وضعیت آنلاین/خواندن): گفتگوی آزاد، درخواست گفتگو در هر جهت، یا کاربری که همین نشست با شماره پیدا کرده */
     private function canTalk(int $uid, int $other): bool
     {
         if (ChatModel::canChat($uid, $other)) {
             return true;
         }
-        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
-        return is_array($ids) && in_array($other, $ids, true) && !\App\Services\Access::isBlockedBetween($uid, $other);
+        if (\App\Services\Access::isBlockedBetween($uid, $other)) {
+            return false;
+        }
+        return ChatModel::requestState($uid, $other) !== 'none' || $this->foundByMobile($other);
     }
+
+    private function foundByMobile(int $other): bool
+    {
+        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
+        return is_array($ids) && in_array($other, $ids, true);
+    }
+
+    /** سقف شروع گفتگوی جدید با غیرهمکاران در روز */
+    public const REQUESTS_PER_DAY = 20;
 
     /**
      * «پیام جدید»: پیدا کردن کاربر با شماره موبایل برای شروع گفتگو.
@@ -77,10 +88,16 @@ final class ChatController extends Controller
         $this->json(['status' => 'success', 'contact' => [
             'user_id' => $id, 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $mobile,
             'avatar_url' => avatar_url($u['avatar']), 'is_bot' => false, 'is_blocked_by_me' => false, 'has_blocked_me' => false, 'unread_count' => 0,
+            'chat_request' => ChatModel::canChat($uid, $id) ? null : ChatModel::requestState($uid, $id),
         ]]);
     }
 
-    private function assertReceiver(int $uid, int $rid): void
+    /**
+     * بررسی گیرنده؛ برمی‌گرداند: free = گفتگوی آزاد، request = پیام اول به غیرهمکار (درخواست گفتگو)،
+     * accept = پاسخ به درخواست گفتگوی طرف مقابل (یعنی پذیرفتن آن).
+     * $first: این ارسال می‌تواند «پیام اول» باشد (فقط متن ساده؛ فایل و بازارسال فقط در گفتگوی پذیرفته‌شده).
+     */
+    private function assertReceiver(int $uid, int $rid, bool $first = false): string
     {
         if ($rid <= 0) {
             $this->fail('اطلاعات ناقص');
@@ -91,9 +108,40 @@ final class ChatController extends Controller
         if ($m = \App\Services\Access::blockMessage($uid, $rid)) {
             $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
         }
-        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid]) || !$this->canTalk($uid, $rid)) {
+        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid])) {
             $this->fail('امکان ارسال پیام وجود ندارد', 403);
         }
+        if ($uid === $rid || ChatModel::canChat($uid, $rid)) {
+            return 'free';
+        }
+        $state = ChatModel::requestState($uid, $rid);
+        if ($state === 'received') {
+            return 'accept';
+        }
+        if ($state === 'sent') {
+            $this->fail('پیام اول شما ارسال شده است؛ تا وقتی این کاربر درخواست گفتگو را نپذیرد، امکان ارسال پیام دیگری ندارید.', 403);
+        }
+        if (!$this->foundByMobile($rid)) {
+            $this->fail('امکان ارسال پیام وجود ندارد', 403);
+        }
+        if (!$first) {
+            $this->fail('به کسی که همکار شما نیست فقط یک پیام متنی می‌توانید بفرستید؛ فایل و بازارسال بعد از پذیرفتن گفتگو ممکن است.', 403);
+        }
+        if (!Throttle::attempt('chat_request', (string) $uid, self::REQUESTS_PER_DAY, 86400)) {
+            $this->fail('تعداد گفتگوهای جدید امروز به سقف رسیده است؛ فردا دوباره تلاش کنید.', 429);
+        }
+        return 'request';
+    }
+
+    /** پذیرفتن درخواست گفتگو (دکمه‌ی «پذیرفتن» در گفتگو) */
+    public function accept()
+    {
+        $uid = $this->uid();
+        $other = $this->request->int('user_id');
+        if ($other <= 0 || \App\Services\Access::isBlockedBetween($uid, $other) || !ChatModel::acceptRequest($uid, $other)) {
+            $this->fail('درخواست گفتگو یافت نشد.', 404);
+        }
+        $this->json(['status' => 'success', 'message' => 'گفتگو پذیرفته شد؛ حالا می‌توانید با هم پیام بدهید.']);
     }
 
     public function time()
@@ -106,14 +154,19 @@ final class ChatController extends Controller
         $uid = $this->uid();
         $rid = $this->request->int('receiver_id');
         $msg = $this->request->str('message', 2000);
-        $this->assertReceiver($uid, $rid);
-        $this->throttleSend($uid);
         if ($msg === '') {
             $this->fail('اطلاعات ناقص');
         }
+        $mode = $this->assertReceiver($uid, $rid, true);
+        $this->throttleSend($uid);
         $this->touch($uid);
         $saved = $uid === $rid;
         $id = ChatModel::create($uid, $rid, $msg);
+        if ($mode === 'request') {
+            ChatModel::createRequest($uid, $rid);           // تا پذیرفتن گیرنده، پیام دیگری ممکن نیست
+        } elseif ($mode === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);           // پاسخ دادن = پذیرفتن گفتگو
+        }
         $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => null, 'attachment_name' => null, 'attachment_size' => null, 'attachment_type' => null, 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s'), 'ts' => time()]]);
     }
 
@@ -121,7 +174,9 @@ final class ChatController extends Controller
     {
         $uid = $this->uid();
         $rid = $this->request->int('receiver_id');
-        $this->assertReceiver($uid, $rid);
+        if ($this->assertReceiver($uid, $rid) === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);
+        }
         $this->throttleSend($uid);
         $f = $this->request->file('attachment');
         if ($f === null) {
@@ -267,7 +322,9 @@ final class ChatController extends Controller
         if ($id <= ChatModel::clearedUpTo($uid, $other)) {
             $this->fail('پیام یافت نشد', 404);
         }
-        $this->assertReceiver($uid, $rid);
+        if ($this->assertReceiver($uid, $rid) === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);
+        }
         $this->throttleSend($uid);
         $m = ChatModel::normalize($m);
         $file = ['forwarded_from' => $m['forwarded_from'] ?: $m['sender_id']];

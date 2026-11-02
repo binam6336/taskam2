@@ -3,14 +3,14 @@
     <aside class="chat-side">
         <div class="chat-side-head">
             <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="<?= e(ph('chat_search')) ?>" autocomplete="off"></div>
-            <?php if (\App\Core\Crypto::configured()): ?><div class="xs muted mt-1" title="متن پیام‌ها و نام فایل‌ها در دیتابیس رمزگذاری‌شده ذخیره می‌شود"><i class="fa-solid fa-lock" style="color:var(--g-400)"></i> پیام‌ها در دیتابیس رمزگذاری می‌شوند</div><?php endif; ?>
+            <?php if (\App\Core\Crypto::configured()): ?><div class="xs muted mt-1" title="متن پیام‌ها و نام فایل‌ها در دیتابیس رمزگذاری‌شده ذخیره می‌شود"><i class="fa-solid fa-lock" data-css="color:var(--g-400)"></i> پیام‌ها در دیتابیس رمزگذاری می‌شوند</div><?php endif; ?>
         </div>
         <div class="chat-contacts" id="contacts"></div>
         <button type="button" class="chat-new-btn" id="chat-new" title="پیام جدید با شماره موبایل" aria-label="پیام جدید با شماره موبایل"><i class="fa-solid fa-pen"></i></button>
     </aside>
     <section class="chat-main">
-        <div class="chat-empty" id="chat-empty"><i class="fa-regular fa-comments" style="font-size:3rem;color:var(--border-2)"></i><p class="mt-1">یک گفتگو را انتخاب کنید.</p></div>
-        <div id="chat-conv" style="display:none;flex-direction:column;min-height:0;flex:1">
+        <div class="chat-empty" id="chat-empty"><i class="fa-regular fa-comments" data-css="font-size:3rem;color:var(--border-2)"></i><p class="mt-1">یک گفتگو را انتخاب کنید.</p></div>
+        <div id="chat-conv" data-css="display:none;flex-direction:column;min-height:0;flex:1">
             <div class="chat-head">
                 <button class="btn btn-ghost btn-icon btn-sm" id="chat-back" aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button>
                 <span class="avatar" id="ch-avatar"></span>
@@ -19,8 +19,14 @@
                 <button type="button" class="btn btn-ghost btn-icon conv-search-btn" id="conv-search-btn" title="جستجو در این گفتگو" aria-label="جستجو در این گفتگو"><i class="fa-solid fa-magnifying-glass"></i></button>
             </div>
             <div class="chat-msgs" id="msgs"></div>
+            <div class="chat-req" id="chat-req" hidden role="region" aria-label="درخواست گفتگو">
+                <div class="grow"><b><i class="fa-solid fa-user-clock"></i> درخواست گفتگو</b>
+                    <div class="xs muted">«<span data-req-name></span>» همکار شما نیست و برایتان پیام فرستاده است. اگر گفتگو را بپذیرید می‌توانید با هم پیام بدهید؛ وگرنه می‌توانید مسدودش کنید.</div></div>
+                <div class="flex gap-1"><button type="button" class="btn btn-primary btn-sm" data-req-accept><i class="fa-solid fa-check"></i> پذیرفتن گفتگو</button>
+                    <button type="button" class="btn btn-danger btn-sm" data-req-block><i class="fa-solid fa-ban"></i> مسدود کردن</button></div>
+            </div>
             <form class="chat-input" id="chat-form" enctype="multipart/form-data">
-                <label class="btn btn-icon" title="ارسال فایل" style="cursor:pointer"><i class="fa-solid fa-paperclip"></i><input type="file" id="chat-file" class="hidden" accept=".png,.jpg,.jpeg,.pdf,.zip,.txt"></label>
+                <label class="btn btn-icon" title="ارسال فایل" data-css="cursor:pointer"><i class="fa-solid fa-paperclip"></i><input type="file" id="chat-file" class="hidden" accept=".png,.jpg,.jpeg,.pdf,.zip,.txt"></label>
                 <textarea class="input" id="chat-text" rows="1" placeholder="<?= e(ph('chat_message')) ?>" maxlength="2000"></textarea>
                 <button class="btn btn-primary btn-icon" aria-label="ارسال"><i class="fa-solid fa-paper-plane"></i></button>
             </form>

@@ -18,7 +18,8 @@ final class Csrf
 
     public static function verify(Request $r): bool
     {
-        $sent = $r->header('X-CSRF-Token') ?? (string) $r->input('_csrf', '');
+        // فقط هدر یا بدنه‌ی POST/JSON — نه query string (توکن در URL از راه لاگ و Referer نشت می‌کند)
+        $sent = $r->header('X-CSRF-Token') ?? (string) ($r->post['_csrf'] ?? ($r->json()['_csrf'] ?? ''));
         $real = (string) Session::get('_csrf', '');
         return $real !== '' && $sent !== '' && hash_equals($real, (string) $sent);
     }

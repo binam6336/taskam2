@@ -103,19 +103,59 @@ final class ColleagueService
     {
         $rows = DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar, b.created_at,
               EXISTS (SELECT 1 FROM colleagues c WHERE (c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?)) AS related
-            FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?', [$uid, $uid, $uid, $limit, $offset]);
+            FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT 1000', [$uid, $uid, $uid]);
         $ok = self::approvedIds($uid);
-        foreach ($rows as &$r) {
-            $r['hidden'] = (int) $r['related'] === 0;
+        $hidden = static fn(string $key, string $at): array => ['user_id' => null, 'block_key' => $key, 'first_name' => 'کاربر', 'last_name' => 'ناشناس', 'mobile' => null, 'email' => null, 'avatar' => null, 'created_at' => $at, 'hidden' => true];
+        $out = [];
+        foreach ($rows as $r) {
+            if ((int) $r['related'] === 0) {
+                // غیرهمکار: نه اطلاعات و نه شناسه‌ی واقعی؛ فقط شناسه‌ی مبهم برای رفع مسدودی (مثل ردیف‌های «شبح»)
+                $out[] = $hidden(self::blockKey($uid, (int) $r['user_id']), (string) $r['created_at']);
+                continue;
+            }
             unset($r['related']);
-            if ($r['hidden']) {
-                $r = ['user_id' => $r['user_id'], 'first_name' => 'کاربر', 'last_name' => 'ناشناس', 'mobile' => null, 'email' => null, 'avatar' => null, 'created_at' => $r['created_at'], 'hidden' => true];
-            } elseif (!isset($ok[(int) $r['user_id']])) {
+            $r['hidden'] = false;
+            $r['block_key'] = null;
+            if (!isset($ok[(int) $r['user_id']])) {
                 $r['mobile'] = mask_mobile((string) $r['mobile']);
                 $r['email'] = null;
             }
+            $out[] = $r;
         }
-        return $rows;
+        foreach (DB::all('SELECT ghost_key, created_at FROM colleague_block_ghosts WHERE blocker_user_id = ? LIMIT 1000', [$uid]) as $g) {
+            $out[] = $hidden((string) $g['ghost_key'], (string) $g['created_at']);
+        }
+        usort($out, static fn($x, $y) => strcmp((string) $y['created_at'], (string) $x['created_at']));
+        return array_slice($out, $offset, $limit);
+    }
+
+    /** تعداد مسدودها (همراه ردیف‌های شبح، تا شمارش هم وجود حساب را لو ندهد) */
+    public static function blockedCount(int $uid): int
+    {
+        return (int) DB::value('SELECT (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ?) + (SELECT COUNT(*) FROM colleague_block_ghosts WHERE blocker_user_id = ?)', [$uid, $uid]);
+    }
+
+    /** شناسه‌ی مبهم یک مسدودی (برای ردیف‌های پنهان)؛ برای شناسه‌ی واقعی و ناموجود به یک شکل ساخته می‌شود */
+    public static function blockKey(int $uid, int $target): string
+    {
+        return substr(hash_hmac('sha256', $uid . '|' . $target, (string) env('APP_KEY', 'taskam') . '|block'), 0, 24);
+    }
+
+    /** رفع مسدودی با شناسه‌ی مبهم (ردیف پنهان یا شبح) */
+    public static function unblockByKey(int $uid, string $key): bool
+    {
+        if (!preg_match('/^[a-f0-9]{24}$/', $key)) {
+            return false;
+        }
+        if (DB::run('DELETE FROM colleague_block_ghosts WHERE blocker_user_id = ? AND ghost_key = ?', [$uid, $key]) > 0) {
+            return true;
+        }
+        foreach (DB::column('SELECT blocked_user_id FROM colleague_blocks WHERE blocker_user_id = ?', [$uid]) as $t) {
+            if (hash_equals(self::blockKey($uid, (int) $t), $key)) {
+                return DB::run('DELETE FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?', [$uid, (int) $t]) > 0;
+            }
+        }
+        return false;
     }
 
     /**
@@ -133,7 +173,9 @@ final class ColleagueService
             return [false, 'کاربر نامعتبر است.', 'INVALID_USER_ID'];
         }
         if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$target])) {
-            return [true, 'کاربر مسدود شد.', ''];                  // پاسخ یکسان: وجود/نبود حساب لو نرود
+            // شناسه‌ی ناموجود: ردیف «شبح» با همان شکل ردیف پنهان، تا پاسخ، فهرست و شمارش مسدودها وجود حساب را لو ندهند
+            DB::run('INSERT IGNORE INTO colleague_block_ghosts (blocker_user_id, ghost_key) VALUES (?, ?)', [$uid, self::blockKey($uid, $target)]);
+            return [true, 'کاربر مسدود شد.', ''];
         }
         DB::transaction(static function () use ($uid, $target): void {
             DB::run('INSERT IGNORE INTO colleague_blocks (blocker_user_id, blocked_user_id) VALUES (?, ?)', [$uid, $target]);

@@ -87,6 +87,7 @@ CREATE TABLE `user_sessions` (
   `life`          INT UNSIGNED NOT NULL DEFAULT 0   COMMENT 'ثانیه‌ی مجاز بدون فعالیت',
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `last_activity` INT UNSIGNED NOT NULL             COMMENT 'Unix time آخرین درخواست',
+  `reauth_at`     INT UNSIGNED NULL DEFAULT NULL    COMMENT 'Unix time شروع انتظار تأیید دوباره‌ی رمز (تغییر شبکه)',
   PRIMARY KEY (`id_hash`),
   KEY `idx_us_user` (`user_id`),
   KEY `idx_us_activity` (`last_activity`),
@@ -341,6 +342,16 @@ CREATE TABLE `colleague_blocks` (
   CONSTRAINT `fk_cb_blocked` FOREIGN KEY (`blocked_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `colleague_block_ghosts` (
+  `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `blocker_user_id` INT UNSIGNED NOT NULL,
+  `ghost_key`       CHAR(24) NOT NULL                  COMMENT 'همان شناسه‌ی مبهم (HMAC) که برای ردیف‌های پنهان واقعی هم ساخته می‌شود',
+  `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_block_ghost` (`blocker_user_id`, `ghost_key`),
+  CONSTRAINT `fk_bg_blocker` FOREIGN KEY (`blocker_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `colleague_requests` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `requester_id` INT UNSIGNED NOT NULL,
@@ -376,6 +387,20 @@ CREATE TABLE `chat_messages` (
   KEY `idx_chat_created` (`created_at`),
   CONSTRAINT `fk_chat_sender`   FOREIGN KEY (`sender_id`)   REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_chat_receiver` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chat_requests` (
+  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `requester_id` INT UNSIGNED NOT NULL                 COMMENT 'فرستنده‌ی پیام اول',
+  `target_id`    INT UNSIGNED NOT NULL                 COMMENT 'گیرنده که باید بپذیرد',
+  `status`       ENUM('pending','accepted') NOT NULL DEFAULT 'pending',
+  `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `responded_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_chat_request` (`requester_id`, `target_id`),
+  KEY `idx_chat_request_target` (`target_id`, `status`),
+  CONSTRAINT `fk_chr_requester` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_chr_target`    FOREIGN KEY (`target_id`)    REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `chat_history_clears` (

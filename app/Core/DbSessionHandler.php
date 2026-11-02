@@ -75,12 +75,18 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
         $uid = isset($_SESSION['uid']) && (int) $_SESSION['uid'] > 0 ? (int) $_SESSION['uid'] : null;
         $life = (int) ($_SESSION['_life'] ?? 0);
         $b = $uid !== null ? (self::$bind ?? self::$row) : null;      // مهمان اتصال دستگاه ندارد
-        $sql = 'INSERT INTO user_sessions (id_hash, user_id, data, ip, ip_prefix, user_agent, life, last_activity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), data = VALUES(data), life = VALUES(life), last_activity = VALUES(last_activity)';
+        $reauth = isset($_SESSION['reauth']) ? (int) $_SESSION['reauth'] : null;     // منتظر تأیید دوباره‌ی رمز (تغییر شبکه)
+        $cols = self::hasReauthCol();
+        $sql = 'INSERT INTO user_sessions (id_hash, user_id, data, ip, ip_prefix, user_agent, life, last_activity' . ($cols ? ', reauth_at' : '') . ') VALUES (?, ?, ?, ?, ?, ?, ?, ?' . ($cols ? ', ?' : '') . ')
+                ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), data = VALUES(data), life = VALUES(life), last_activity = VALUES(last_activity)' . ($cols ? ', reauth_at = VALUES(reauth_at)' : '');
         if (self::$bind !== null || $uid === null) {
             $sql .= ', ip = VALUES(ip), ip_prefix = VALUES(ip_prefix), user_agent = VALUES(user_agent)';
         }
-        DB::run($sql, [self::hash((string) $id), $uid, (string) $data, $b['ip'] ?? null, $b['ip_prefix'] ?? null, $b['user_agent'] ?? null, $life, time()]);
+        $params = [self::hash((string) $id), $uid, (string) $data, $b['ip'] ?? null, $b['ip_prefix'] ?? null, $b['user_agent'] ?? null, $life, time()];
+        if ($cols) {
+            $params[] = $reauth;
+        }
+        DB::run($sql, $params);
         return true;
     }
 
@@ -117,11 +123,25 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
             [$now - 7200, $now, $now - Session::rememberSeconds() - 86400]);
     }
 
+    /** ستون reauth_at (migration ۰۲۵) هست؟ — تا قبل از اجرای migration، نوشتن نشست خراب نشود */
+    private static function hasReauthCol(): bool
+    {
+        static $has = null;
+        if ($has === null) {
+            try {
+                $has = (bool) DB::value("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user_sessions' AND column_name = 'reauth_at'");
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+        }
+        return $has;
+    }
+
     /** نشست‌های فعال یک کاربر برای «نشست‌های فعال» پروفایل (جدیدترین فعالیت اول) */
     public static function listFor(int $uid): array
     {
         $cur = session_id() !== '' ? self::hash(session_id()) : '';
-        $rows = DB::all('SELECT id_hash, ip, user_agent, created_at, last_activity FROM user_sessions WHERE user_id = ? ORDER BY last_activity DESC LIMIT 50', [$uid]);
+        $rows = DB::all('SELECT id_hash, ip, user_agent, created_at, last_activity' . (self::hasReauthCol() ? ', reauth_at' : ', NULL AS reauth_at') . ' FROM user_sessions WHERE user_id = ? ORDER BY last_activity DESC LIMIT 50', [$uid]);
         foreach ($rows as &$r) {
             $r['current'] = $cur !== '' && hash_equals((string) $r['id_hash'], $cur);
         }

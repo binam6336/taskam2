@@ -31,6 +31,10 @@ final class Response
         while (ob_get_level() > 0) {
             @ob_end_clean();
         }
+        // مسیر protocol-relative (//evil.com) یا با بک‌اسلش (/\evil.com) مقصد بیرونی است؛ فقط مسیر داخلی /x یا آدرس کامل همین سایت
+        if (preg_match('#^\s*[/\\\\]{2}#', $to) || preg_match('#^/[\\\\]#', $to) || preg_match('#[\r\n]#', $to)) {
+            $to = '/';
+        }
         if (!preg_match('#^https?://#i', $to)) {
             $to = str_starts_with($to, base_url() . '/') || $to === base_url() ? $to : url($to);
         } else {

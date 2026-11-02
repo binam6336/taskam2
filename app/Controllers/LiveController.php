@@ -141,6 +141,7 @@ final class LiveController extends Controller
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', c.id, c.permissions, u.first_name, u.last_name, u.status))), 0) h FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ?", [$uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM colleague_requests WHERE (target_id = ? OR requester_id = ?) AND status = 'pending'", [$uid, $uid]);
                 $p[] = $agg('SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM colleague_blocks WHERE blocker_user_id = ?', [$uid]);
+                $p[] = $agg('SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM colleague_block_ghosts WHERE blocker_user_id = ?', [$uid]);
                 break;
             case 'projects':
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.description, p.max_members, p.profile_image, p.status))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);

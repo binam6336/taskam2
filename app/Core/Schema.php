@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '024';
+    public const VERSION = '025';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 025
+        ['user_sessions', 'reauth_at', "ADD COLUMN `reauth_at` INT UNSIGNED NULL DEFAULT NULL AFTER `last_activity`", null],
         // 008
         ['support_messages', 'attachment', "ADD COLUMN `attachment` VARCHAR(255) NULL DEFAULT NULL AFTER `message`, ADD COLUMN `attachment_name` VARCHAR(255) NULL DEFAULT NULL AFTER `attachment`, ADD COLUMN `attachment_size` INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_name`, ADD KEY `idx_sm_attachment` (`attachment`)", null],
         // 004
@@ -59,12 +61,15 @@ final class Schema
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
     private const DATA = [
         ['022', '022_member_board_perms.sql'],
+        ['025', '025_chat_requests_block_ghosts.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
     private const TABLES = [
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
         ['push_subscriptions', '007_push_subscriptions.sql'],
+        ['chat_requests', '025_chat_requests_block_ghosts.sql'],
+        ['colleague_block_ghosts', '025_chat_requests_block_ghosts.sql'],
         ['content_texts', '015_content_texts.sql'],
         ['task_events', '017_task_events.sql'],
         ['user_sessions', '019_user_sessions.sql'],

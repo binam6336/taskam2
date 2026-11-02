@@ -282,6 +282,13 @@ final class TaskController extends Controller
     }
 
     /** اعلان سررسید برای مرورگر (polling). */
+    /** یادآوری‌هایی که مرورگر نمایش داد: ثبت notified_at (POST + CSRF) */
+    public function dueAck()
+    {
+        $n = TaskModel::markNotified($this->uid(), $this->request->arr('ids'));
+        $this->json(['status' => 'success', 'marked' => $n]);
+    }
+
     public function due()
     {
         $rows = TaskModel::dueNotifications($this->uid());

@@ -32,7 +32,7 @@ document.addEventListener('tk:ready', () => {
     msgData.set(m.id, m);
     return `<div class="msg ${mine ? 'mine' : ''}" data-id="${m.id}">
       <button type="button" class="msg-more" data-msg-menu="${m.id}" aria-label="گزینه‌های پیام"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-      ${body(m)}<div class="meta">${m.is_edited ? '<span>ویرایش‌شده</span>' : ''}<span>${TK.fa(m.created_at.slice(11, 16))}</span>${mine && m.sender_id !== m.receiver_id ? `<i class="fa-solid ${m.is_read ? 'fa-check-double' : 'fa-check'}" style="color:${m.is_read ? 'var(--g-400)' : 'inherit'}"></i>` : ''}</div></div>`;
+      ${body(m)}<div class="meta">${m.is_edited ? '<span>ویرایش‌شده</span>' : ''}<span>${TK.fa(m.created_at.slice(11, 16))}</span>${mine && m.sender_id !== m.receiver_id ? `<i class="fa-solid ${m.is_read ? 'fa-check-double' : 'fa-check'}" data-css="color:${m.is_read ? 'var(--g-400)' : 'inherit'}"></i>` : ''}</div></div>`;
   };
   const withDays = (list, prevDay) => { let out = '', d = prevDay; list.forEach((m) => { const day = m.created_at.slice(0, 10); if (day !== d) { out += `<div class="day-sep" data-day="${day}">${E(dayLabel(day))}</div>`; d = day; } out += msgHtml(m); }); return out; };
   const atBottom = () => el.msgs.scrollHeight - el.msgs.scrollTop - el.msgs.clientHeight < 80;
@@ -59,7 +59,7 @@ document.addEventListener('tk:ready', () => {
       const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
       return `<div class="contact ${cur && cur.user_id === c.user_id ? 'active' : ''}" data-uid="${c.user_id}"><span class="avatar">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}${!c.saved && !c.is_bot ? `<span class="dot ${c.online ? 'on' : ''}"></span>` : ''}</span>
         <div class="grow"><div class="flex between"><b class="truncate">${E(nm)}</b><span class="xs faint" title="${E(c.last_msg_time || '')}">${timeList(c.last_msg_time)}</span></div>
-        <div class="flex between gap-1"><span class="xs muted truncate">${c.is_blocked_by_me ? 'مسدود' : c.last_msg_preview ? (c.last_msg_mine ? 'شما: ' : '') + E(c.last_msg_preview) : c.is_bot ? 'ربات اطلاع‌رسانی' : ''}</span>${c.unread_count ? `<span class="badge-count">${TK.fa(c.unread_count)}</span>` : ''}</div></div></div>`;
+        <div class="flex between gap-1"><span class="xs muted truncate">${c.is_blocked_by_me ? 'مسدود' : c.chat_request === 'received' ? '<span class="badge yellow">درخواست گفتگو</span>' : c.last_msg_preview ? (c.last_msg_mine ? 'شما: ' : '') + E(c.last_msg_preview) : c.is_bot ? 'ربات اطلاع‌رسانی' : ''}</span>${c.unread_count ? `<span class="badge-count">${TK.fa(c.unread_count)}</span>` : ''}</div></div></div>`;
     }).join('') || '<div class="empty small">مخاطبی یافت نشد.</div>';
   };
   const loadContacts = async () => {
@@ -70,6 +70,37 @@ document.addEventListener('tk:ready', () => {
     drawContacts();
   };
 
+  /* وضعیت فیلد ارسال: مسدودی، یا «درخواست گفتگو» با غیرهمکار (N-01: فقط یک پیام تا پذیرفتن گیرنده) */
+  const formState = (c) => {
+    const form = TK.qs('#chat-form'), bar = TK.qs('#chat-req');
+    const blk = c.has_blocked_me ? 'این کاربر شما را مسدود کرده است؛ امکان ارسال پیام ندارید.' : c.is_blocked_by_me ? 'شما این کاربر را مسدود کرده‌اید؛ برای ارسال پیام، مسدودی را بردارید.' : '';
+    const req = blk ? null : c.chat_request;
+    const lock = blk || (req === 'sent' ? 'پیام اول شما ارسال شد؛ تا وقتی این کاربر گفتگو را نپذیرد، امکان ارسال پیام دیگری ندارید.' : req === 'received' ? 'برای پاسخ دادن، اول گفتگو را بپذیرید.' : '');
+    form.style.display = c.is_bot ? 'none' : 'flex';
+    form.classList.toggle('is-blocked', !!blk);
+    form.classList.toggle('is-waiting', !blk && !!lock);
+    el.text.dataset.ph ??= el.text.placeholder;
+    el.text.placeholder = lock || (req === 'none' ? 'این کاربر همکار شما نیست؛ فقط یک پیام متنی می‌توانید بفرستید تا گفتگو را بپذیرد.' : el.text.dataset.ph);
+    el.text.disabled = !!lock;
+    TK.qsa('button, input', form).forEach((x) => { x.disabled = !!lock; });
+    const file = TK.qs('#chat-file'); if (file) { file.disabled = !!lock || req === 'none'; file.closest('label')?.classList.toggle('is-disabled', file.disabled); }
+    if (bar) {
+      bar.hidden = req !== 'received';
+      if (req === 'received') bar.querySelector('[data-req-name]').textContent = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || 'این کاربر';
+    }
+  };
+  TK.qs('#chat-req')?.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-req-accept], [data-req-block]'); if (!b || !cur) return;
+    if (b.dataset.reqBlock !== undefined) {
+      if (!(await TK.confirm('«' + (cur.first_name + ' ' + cur.last_name).trim() + '» مسدود شود؟ دیگر نمی‌تواند به شما پیام بدهد.'))) return;
+      const r = await TK.post('/colleagues/' + cur.user_id + '/block'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
+      if (TK.ok(r)) { cur.is_blocked_by_me = true; cur.chat_request = null; formState(cur); loadContacts(); }
+      return;
+    }
+    const r = await TK.post(API + 'accept', { user_id: cur.user_id }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
+    if (TK.ok(r)) { cur.chat_request = null; formState(cur); el.text.focus(); loadContacts(); }
+  });
+
   /* باز کردن گفتگو */
   const open = async (uid, target = 0) => {
     const c = uid === ME ? { user_id: ME, first_name: 'پیام‌های ذخیره‌شده', last_name: '', saved: true } : contacts.find((x) => x.user_id === uid);
@@ -77,13 +108,7 @@ document.addEventListener('tk:ready', () => {
     cur = c; TK.state.chatUser = c.user_id; root.classList.add('in-conv'); el.empty.style.display = 'none'; el.conv.style.display = 'flex';
     const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
     el.name.textContent = nm; el.avatar.innerHTML = c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm));
-    // مسدودی: پیام‌های قبلی خوانده می‌شود ولی فیلد ارسال غیرفعال است و علتش را می‌گوید
-    const form = TK.qs('#chat-form'), blk = c.has_blocked_me ? 'این کاربر شما را مسدود کرده است؛ امکان ارسال پیام ندارید.' : c.is_blocked_by_me ? 'شما این کاربر را مسدود کرده‌اید؛ برای ارسال پیام، مسدودی را بردارید.' : '';
-    form.style.display = c.is_bot ? 'none' : 'flex';
-    form.classList.toggle('is-blocked', !!blk);
-    el.text.dataset.ph ??= el.text.placeholder;
-    el.text.placeholder = blk || el.text.dataset.ph; el.text.disabled = !!blk;
-    TK.qsa('button, input', form).forEach((x) => { x.disabled = !!blk; });
+    formState(c);
     history.replaceState(null, '', TK.url('/chat?user=' + uid));
     el.msgs.innerHTML = '<div class="chat-empty muted">در حال بارگذاری…</div>'; lastId = firstId = 0;
     const r = await TK.get(API + 'fetch', target ? { user_id: uid, mode: 'around', target_id: target, limit: 40 } : { user_id: uid, limit: 30 });
@@ -99,7 +124,7 @@ document.addEventListener('tk:ready', () => {
   const statusLine = async () => {
     if (!cur || cur.saved) { el.status.textContent = cur?.saved ? 'فقط برای شما قابل مشاهده است' : ''; return; }
     const r = await TK.get(API + 'user_status', { user_id: cur.user_id }); if (r.status !== 'success') return;
-    el.status.innerHTML = r.is_bot ? 'ربات اطلاع‌رسانی' : r.is_online ? '<span style="color:var(--g-400)">آنلاین</span>' : E(r.last_seen_text || '');
+    el.status.innerHTML = r.is_bot ? 'ربات اطلاع‌رسانی' : r.is_online ? '<span data-css="color:var(--g-400)">آنلاین</span>' : E(r.last_seen_text || '');
   };
 
   /* پیام جدید با شماره موبایل (دکمه‌ی مداد) */
@@ -135,7 +160,9 @@ document.addEventListener('tk:ready', () => {
     else r = await TK.post(API + 'send', { receiver_id: cur.user_id, message: t });
     if (r.status !== 'success') { TK.toast(r.message, 'error'); el.text.value = t; return; }
     if (el.msgs.querySelector('.chat-empty')) el.msgs.innerHTML = '';
-    el.msgs.insertAdjacentHTML('beforeend', withDays([r.message], TK.qsa('.msg', el.msgs).length ? lastDay() : '')); lastId = r.message.id; toBottom(); loadContacts();
+    el.msgs.insertAdjacentHTML('beforeend', withDays([r.message], TK.qsa('.msg', el.msgs).length ? lastDay() : '')); lastId = r.message.id; toBottom();
+    if (cur.chat_request === 'none') { cur.chat_request = 'sent'; formState(cur); }
+    loadContacts();
   };
   const lastDay = () => { const s = TK.qsa('.day-sep', el.msgs).pop(); return s ? s.dataset.day : ''; };
   TK.qs('#chat-form').addEventListener('submit', (e) => { e.preventDefault(); send(); });
@@ -159,14 +186,14 @@ document.addEventListener('tk:ready', () => {
   const searchAll = TK.debounce(async (q) => {
     filter = q; drawContacts(); if (q.trim().length < 2) return;
     const r = await TK.get(API + 'search', { q: q.trim(), scope: 'all', limit: 30 });
-    if (r.status === 'success' && r.results.length) { TK.qs('#results-body').innerHTML = r.results.map((m) => `<div class="item" style="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow"><b class="small">${E(m.from_name)}</b><div class="small muted truncate">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div></div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join(''); TK.modal.open('m-results'); }
+    if (r.status === 'success' && r.results.length) { TK.qs('#results-body').innerHTML = r.results.map((m) => `<div class="item" data-css="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow"><b class="small">${E(m.from_name)}</b><div class="small muted truncate">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div></div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join(''); TK.modal.open('m-results'); }
   }, 450);
   TK.qs('#chat-search').addEventListener('input', (e) => searchAll(e.target.value));
   const searchConv = async (q) => {
     q = q.trim(); if (!cur) return;
     if (q.length < 2) return TK.toast('حداقل ۲ نویسه وارد کنید', 'warning');
     const r = await TK.get(API + 'search', { q, scope: 'conversation', user_id: cur.user_id });
-    TK.qs('#results-body').innerHTML = r.status === 'success' && r.results.length ? r.results.map((m) => `<div class="item" style="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow small">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join('') : '<div class="empty small">نتیجه‌ای پیدا نشد.</div>';
+    TK.qs('#results-body').innerHTML = r.status === 'success' && r.results.length ? r.results.map((m) => `<div class="item" data-css="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow small">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join('') : '<div class="empty small">نتیجه‌ای پیدا نشد.</div>';
     TK.modal.close('m-conv-search'); TK.modal.open('m-results');
   };
   TK.qs('#conv-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchConv(e.target.value); } });

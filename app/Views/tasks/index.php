@@ -12,7 +12,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
     <?php if ($projScope): ?>
     <div class="t-proj-head">
         <a class="small muted" href="<?= e(url('/projects/' . $projScope['id'] . '/analytics')) ?>"><i class="fa-solid fa-arrow-right"></i> تحلیل پروژه</a>
-        <h2><i class="fa-solid fa-diagram-project" style="color:var(--g-400)"></i> تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?>
+        <h2><i class="fa-solid fa-diagram-project" data-css="color:var(--g-400)"></i> تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?>
             <?php if ($filters['when'] === 'overdue'): ?> <span class="badge red">عقب‌افتاده</span><?php endif; ?></h2>
     </div>
     <?php else: ?>
@@ -91,7 +91,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
             <div class="item-meta">
                 <?= priority_badge($t) ?>
                 <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i><?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $t['due_time'] ? ' - ' . e(fa_num(substr((string) $t['due_time'], 0, 5))) : '' ?><?= $overdue ? ' (گذشته)' : '' ?></span><?php endif; ?>
-                <?php if ($t['subject_title']): ?><span class="t-label"><i class="fa-solid fa-tag" style="color:<?= e($t['subject_color']) ?>"></i> <?= e($t['subject_title']) ?></span><?php endif; ?>
+                <?php if ($t['subject_title']): ?><span class="t-label"><i class="fa-solid fa-tag" data-css="color:<?= e($t['subject_color']) ?>"></i> <?= e($t['subject_title']) ?></span><?php endif; ?>
                 <?php if ($t['project_title']): ?><span><i class="fa-solid fa-diagram-project"></i><?= e($t['project_title']) ?></span><?php endif; ?>
                 <?php if ($scope === 'others' && $t['assignee_id']): ?><span><i class="fa-solid fa-user"></i><?= e(full_name($t, 'assignee_')) ?></span><?php endif; ?>
                 <?php if ($scope === 'mine' && (int) $t['user_id'] !== (int) $currentUser['id']): ?><span><i class="fa-solid fa-user-pen"></i>از طرف <?= e(full_name($t, 'creator_')) ?></span><?php endif; ?>

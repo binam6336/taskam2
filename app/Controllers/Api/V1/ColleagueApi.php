@@ -72,7 +72,9 @@ final class ColleagueApi extends ApiController
     {
         [$limit, $offset] = $this->paging();
         $rows = ColleagueService::blocked($this->uid, $limit, $offset);       // اطلاعات فقط برای همکاران
-        $out = array_map(static fn($r) => self::person($r) + ['blocked_at' => $r['created_at'], 'is_hidden' => $r['hidden']], $rows);
+        $out = array_map(static fn($r) => $r['hidden']
+            ? ['user_id' => null, 'blocked_key' => $r['block_key'], 'first_name' => $r['first_name'], 'last_name' => $r['last_name'], 'full_name' => full_name($r), 'mobile' => null, 'email' => null, 'avatar_url' => null, 'blocked_at' => $r['created_at'], 'is_hidden' => true]
+            : self::person($r) + ['blocked_key' => null, 'blocked_at' => $r['created_at'], 'is_hidden' => false], $rows);
         $this->ok(['count' => count($out), 'limit' => $limit, 'offset' => $offset, 'blocked' => $out]);
     }
 
@@ -94,7 +96,7 @@ final class ColleagueApi extends ApiController
     {
         $u = $this->uid;
         $r = DB::one('SELECT (SELECT COUNT(*) FROM colleagues WHERE user_id = ?) colleagues_count, (SELECT COUNT(*) FROM colleagues WHERE colleague_user_id = ?) followers_count,
-              (SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ?) blocked_count, (SELECT COUNT(*) FROM colleague_blocks WHERE blocked_user_id = ?) blocked_by_count', [$u, $u, $u, $u]) ?? [];
+              ((SELECT COUNT(*) FROM colleague_blocks WHERE blocker_user_id = ?) + (SELECT COUNT(*) FROM colleague_block_ghosts WHERE blocker_user_id = ' . (int) $u . ')) blocked_count, (SELECT COUNT(*) FROM colleague_blocks WHERE blocked_user_id = ?) blocked_by_count', [$u, $u, $u, $u]) ?? [];
         $this->ok(['colleagues' => (int) ($r['colleagues_count'] ?? 0), 'followers' => (int) ($r['followers_count'] ?? 0), 'blocked' => (int) ($r['blocked_count'] ?? 0), 'blocked_by' => (int) ($r['blocked_by_count'] ?? 0)]);
     }
 
@@ -179,9 +181,17 @@ final class ColleagueApi extends ApiController
 
     public function unblock()
     {
+        $key = (string) $this->request->input('blocked_key', '');
+        if ($key !== '') {
+            // ردیف پنهان (کاربر غیرهمکار) فقط با شناسه‌ی مبهم برداشته می‌شود
+            if (!ColleagueService::unblockByKey($this->uid, $key)) {
+                $this->err('مسدودی یافت نشد.', 404, 'BLOCK_NOT_FOUND');
+            }
+            $this->ok(['unblocked_key' => $key], 'مسدودیت کاربر برداشته شد.');
+        }
         $t = (int) $this->request->input('user_id', 0);
         if ($t <= 0) {
-            $this->err('پارامتر user_id الزامی است.', 400, 'INVALID_USER_ID');
+            $this->err('پارامتر user_id یا blocked_key الزامی است.', 400, 'INVALID_USER_ID');
         }
         DB::run('DELETE FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?', [$this->uid, $t]);
         $this->ok(['unblocked_user_id' => $t], 'مسدودیت کاربر برداشته شد.');

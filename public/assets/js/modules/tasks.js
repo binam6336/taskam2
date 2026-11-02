@@ -10,7 +10,7 @@ document.addEventListener('tk:ready', () => {
   /* ───── رنگ و نشان اولویت ───── */
   const prioColor = (p) => { p = Math.max(0, Math.min(100, p)); const h = p <= 50 ? 142 - (p / 50) * 97 : 45 - ((p - 50) / 50) * 45; return `hsl(${Math.round(h)}, 85%, 60%)`; };
   const prioBadge = (t) => {
-    if (t.priority_type === 'percent') { const p = t.priority_percent ?? PCT[t.priority] ?? 50; return `<span class="badge prio-pct" style="--pc:${prioColor(p)}"><i class="fa-solid fa-signal"></i> ${F(p)}٪</span>`; }
+    if (t.priority_type === 'percent') { const p = t.priority_percent ?? PCT[t.priority] ?? 50; return `<span class="badge prio-pct" data-css="--pc:${prioColor(p)}"><i class="fa-solid fa-signal"></i> ${F(p)}٪</span>`; }
     const [l, c] = PR[t.priority] || PR.medium; return `<span class="badge ${c}">${l}</span>`;
   };
 
@@ -277,7 +277,7 @@ document.addEventListener('tk:ready', () => {
     const c = t.can || {}, b = t.board;
     const st = b ? `<span class="badge board-st tone-${E(b.tone)}" title="وضعیت در بورد پروژه"><i class="fa-solid ${E(b.icon)}"></i> ${E(b.label)}</span>`
       : `<span class="badge ${t.is_completed ? 'green' : 'yellow'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`;
-    const lbl = t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" style="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>`
+    const lbl = t.subject_title ? `<span class="chip" title="لیبل"><i class="fa-solid fa-tag" data-css="color:${E(t.subject_color || 'var(--muted)')}"></i> ${E(t.subject_title)}</span>`
       : (c.edit_meta ? '<span class="chip faint"><i class="fa-solid fa-tag"></i> بدون لیبل</span>' : '');
     const prj = t.project_title ? `<span class="chip"><i class="fa-solid fa-diagram-project"></i> ${E(t.project_title)}</span>` : '';
     const due = t.due_fa ? `<span class="chip"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa)}</span>`
@@ -322,7 +322,7 @@ document.addEventListener('tk:ready', () => {
         + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
     } else if (key === 'label') {
       body = '<div class="qe-h">لیبل</div><div class="qe-list">' + opt('data-qe-label=""', '<i class="fa-solid fa-ban faint"></i> بدون لیبل', !t.subject_id)
-        + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" style="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, Number(t.subject_id) === Number(x.id))).join('') + '</div>';
+        + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" data-css="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, Number(t.subject_id) === Number(x.id))).join('') + '</div>';
     } else if (key === 'project') {
       body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, Number(t.project_id) === x.id)).join('') + '</div>';
     } else if (key === 'due') {
@@ -384,7 +384,7 @@ document.addEventListener('tk:ready', () => {
     const canEdit = t.can.edit;
     detail.innerHTML = `
       <div class="flex between gap-2 items-center mb-2">
-        <h3 class="grow" style="margin:0">${E(t.title)}</h3>
+        <h3 class="grow" data-css="margin:0">${E(t.title)}</h3>
         ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
         ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
         <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
@@ -403,15 +403,15 @@ document.addEventListener('tk:ready', () => {
         ${nextBtn(t.board)}
         <button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button>
       </div>
-      <h4><i class="fa-solid fa-paperclip" style="color:var(--g-400)"></i> پیوست‌های تسک</h4>
+      <h4><i class="fa-solid fa-paperclip" data-css="color:var(--g-400)"></i> پیوست‌های تسک</h4>
       <div id="task-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div>
       ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row mt-1 mb-2" enctype="multipart/form-data"><label class="btn btn-icon btn-sm file-pick" title="افزودن فایل به پیوست‌ها" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden data-auto-upload></label><span class="file-pick-names faint small" data-file-names></span></form>` : ''}
       <hr>
-      <h4><i class="fa-regular fa-comments" style="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
+      <h4><i class="fa-regular fa-comments" data-css="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
       ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
         <div class="flex gap-1 mt-1 wrap items-center file-pick-row"><label class="btn btn-icon file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label><span class="file-pick-names faint small grow" data-file-names></span>
           <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
-            <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" style="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" style="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
+            <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" data-css="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" data-css="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
           <button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button></div></form>` : ''}
       <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="faint small mb-2">هنوز یادداشتی ثبت نشده است.</div>'}</div>
       <div class="detail-foot"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچه‌ی تغییرات" aria-label="تاریخچه‌ی تغییرات"><i class="fa-solid fa-clock-rotate-left"></i></button></div>`;

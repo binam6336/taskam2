@@ -47,6 +47,10 @@ final class Throttle
      */
     public static function attempt(string $bucket, string $key, int $max, int $windowSeconds): bool
     {
+        // وقتی از قبل به سقف رسیده، ردیف تازه ثبت نمی‌شود (سیل درخواستِ ردشده جدول را بزرگ نکند)
+        if (self::count($bucket, $key, $windowSeconds) >= $max) {
+            return false;
+        }
         self::hit($bucket, $key);
         return self::count($bucket, $key, $windowSeconds) <= $max;
     }

@@ -248,9 +248,9 @@ function logo_svg(string $uid = '', ?string $theme = null, bool $bleed = false):
     static $n = 0;
     $u = $uid !== '' ? $uid : 'lg' . (++$n);
     $c = logo_palette($theme ?? 'dark');
-    $vars = ['--logo-a', '--logo-b', '--logo-bg1', '--logo-bg2', '--logo-inner'];
     // رنگ i: ثابت یا var(--logo-*, پیش‌فرض)
-    $col = static fn(int $i, string $prop) => $theme !== null ? $prop . '="' . $c[$i] . '"' : 'style="' . $prop . ':var(' . $vars[$i] . ',' . $c[$i] . ')"';
+    // بدون ویژگی style (CSP): رنگ از کلاس‌های .lg-* در CSS (app.css / offline.css) با متغیرهای --logo-*
+    $col = static fn(int $i, string $prop) => $theme !== null ? $prop . '="' . $c[$i] . '"' : 'class="' . ['lg-a', 'lg-b', 'lg-bg1', 'lg-bg2', 'lg-inner'][$i] . '"';
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" aria-hidden="true" focusable="false">'
         . '<defs>'
         . '<linearGradient id="' . $u . 'g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" ' . $col(0, 'stop-color') . '/><stop offset="100%" ' . $col(1, 'stop-color') . '/></linearGradient>'
@@ -261,7 +261,7 @@ function logo_svg(string $uid = '', ?string $theme = null, bool $bleed = false):
         . ($bleed ? '<g transform="translate(40 40) scale(.8)">' : '')
         . '<path d="M 200 75 A 125 125 0 1 1 85 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" opacity="0.35"/>'
         . '<path d="M 85 160 L 85 200 L 125 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>'
-        . '<rect x="125" y="125" width="150" height="150" rx="40" ' . ($theme !== null ? 'fill="' . $c[4] . '"' : 'style="fill:var(--logo-inner,' . $c[4] . ')"') . ' stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
+        . '<rect x="125" y="125" width="150" height="150" rx="40" ' . ($theme !== null ? 'fill="' . $c[4] . '"' : 'class="lg-inner"') . ' stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
         . '<path d="M 160 200 L 195 235 L 245 170" fill="none" stroke="url(#' . $u . 'g)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>'
         . ($bleed ? '</g>' : '')
         . '</svg>';
@@ -292,7 +292,7 @@ function priority_badge(array $t): string
 {
     if (($t['project_priority_type'] ?? 'category') === 'percent') {
         $p = isset($t['priority_percent']) ? (int) $t['priority_percent'] : (\App\Services\Priority::PERCENT[$t['priority']] ?? 50);
-        return '<span class="badge prio-pct" style="--pc:' . priority_color($p) . '" title="اولویت ' . fa_num($p) . '٪"><i class="fa-solid fa-signal"></i> ' . fa_num($p) . '٪</span>';
+        return '<span class="badge prio-pct" data-css="--pc:' . priority_color($p) . '" title="اولویت ' . fa_num($p) . '٪"><i class="fa-solid fa-signal"></i> ' . fa_num($p) . '٪</span>';
     }
     $map = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
     [$label, $tone] = $map[$t['priority']] ?? $map['medium'];

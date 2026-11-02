@@ -76,7 +76,8 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 <?php else: ?>
     <?php if (!$blocked): ?><div class="card empty"><i class="fa-solid fa-ban"></i><p>کاربر مسدودی ندارید.</p></div><?php else: ?><div class="list">
         <?php foreach ($blocked as $b): $nm = full_name($b); ?><div class="item"><?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($b['avatar'])]); ?><div class="grow"><div class="bold"><?= e($nm) ?></div><?php if (!empty($b['hidden'])): ?><div class="xs faint">اطلاعات کاربری که همکار شما نیست نمایش داده نمی‌شود.</div><?php else: ?><div class="xs muted ltr"><?= e($b['mobile']) ?></div><?php endif; ?></div>
-            <button class="btn btn-sm" data-post="<?= e(url('/colleagues/' . $b['user_id'] . '/unblock')) ?>">رفع مسدودی</button></div><?php endforeach; ?></div><?php endif; ?>
+            <?php if (!empty($b['hidden'])): ?><button class="btn btn-sm" data-post="<?= e(url('/colleagues/unblock-key')) ?>" data-data='<?= e(json_encode(['key' => $b['block_key']])) ?>' data-after="reload">رفع مسدودی</button>
+            <?php else: ?><button class="btn btn-sm" data-post="<?= e(url('/colleagues/' . $b['user_id'] . '/unblock')) ?>" data-after="reload">رفع مسدودی</button><?php endif; ?></div><?php endforeach; ?></div><?php endif; ?>
 <?php endif; ?>
 </div>
 

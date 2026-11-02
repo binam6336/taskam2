@@ -12,7 +12,7 @@ $me = (int) $currentUser['id'];
     <div class="card stat"><div class="ico warn"><i class="fa-solid fa-user-clock"></i></div><div><div class="num"><?= e(fa_num($counts['pending'])) ?></div><div class="lbl">در انتظار تأیید</div></div></div>
     <div class="card stat"><div class="ico danger"><i class="fa-solid fa-user-slash"></i></div><div><div class="num"><?= e(fa_num($counts['blocked'] + $counts['deactivated'])) ?></div><div class="lbl">مسدود / غیرفعال</div></div></div>
 </div>
-<div class="page-head"><div class="search" style="min-width:280px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="user-filter" placeholder="جستجوی نام یا موبایل…"></div>
+<div class="page-head"><div class="search" data-css="min-width:280px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="user-filter" placeholder="جستجوی نام یا موبایل…"></div>
     <?php if ($can('add_user')): ?><button class="btn btn-primary" id="btn-new-user"><i class="fa-solid fa-user-plus"></i> کاربر جدید</button><?php endif; ?></div>
 <div class="table-wrap" data-live="a-users"><table class="table" id="users-table"><thead><tr><th>کاربر</th><th>موبایل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead><tbody>
 <?php foreach ($users as $u):

@@ -1,9 +1,9 @@
 <?php /** @var string $tab */ $isReg = $tab === 'register'; ?>
 <div class="brand"><span class="logo"><?= logo_svg() ?></span><span>تسکام<small>مدیریت وظایف، تیم و مشتریان</small></span></div>
 <div class="card">
-    <div class="tabs mb-2" style="display:flex">
-        <button type="button" class="tab grow <?= $isReg ? '' : 'active' ?>" data-auth-tab="login" style="justify-content:center">ورود</button>
-        <button type="button" class="tab grow <?= $isReg ? 'active' : '' ?>" data-auth-tab="register" style="justify-content:center">ثبت‌نام</button>
+    <div class="tabs mb-2" data-css="display:flex">
+        <button type="button" class="tab grow <?= $isReg ? '' : 'active' ?>" data-auth-tab="login" data-css="justify-content:center">ورود</button>
+        <button type="button" class="tab grow <?= $isReg ? 'active' : '' ?>" data-auth-tab="register" data-css="justify-content:center">ثبت‌نام</button>
     </div>
 
     <form method="post" action="<?= e(url('/login')) ?>" id="form-login" class="<?= $isReg ? 'hidden' : '' ?>" autocomplete="on">
