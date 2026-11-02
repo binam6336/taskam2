@@ -22,11 +22,27 @@ document.addEventListener('tk:ready', () => {
     const norm = (v) => [...v].map((ch) => FA[ch] || ch).join('')
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
       .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, +cap.maxLength || 5);
-    cap.addEventListener('input', () => { const v = norm(cap.value); if (v !== cap.value) cap.value = v; });
+    cap.addEventListener('input', () => { const v = norm(cap.value); if (v !== cap.value) cap.value = v; cap.classList.remove('is-invalid'); });
     const refresh = () => { capImg.src = TK.url('/captcha') + '?t=' + Date.now(); cap.value = ''; };
     TK.qs('[data-captcha-refresh]')?.addEventListener('click', () => { refresh(); cap.focus(); });
     capImg?.addEventListener('click', refresh);
-    window.addEventListener('pageshow', (e) => { if (e.persisted) refresh(); });   // برگشت با دکمه‌ی Back: کد قبلی مصرف شده
+    // «ورود» اول پنجره‌ی کپچا را باز می‌کند؛ با «تأیید» کد در فرم گذاشته و درخواست ورود ارسال می‌شود
+    const form = TK.qs('#form-login'), hidden = TK.qs('[data-captcha-value]');
+    let sending = false;
+    form?.addEventListener('submit', (e) => {
+      if (sending) return;
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+      refresh(); TK.modal.open('m-captcha'); setTimeout(() => cap.focus(), 50);
+    });
+    const ok = () => {
+      if (cap.value.length !== (+cap.maxLength || 5)) { cap.classList.add('is-invalid'); cap.focus(); return; }
+      hidden.value = cap.value; sending = true;
+      TK.qs('[data-captcha-ok]').disabled = true;
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    };
+    TK.qs('[data-captcha-ok]')?.addEventListener('click', ok);
+    cap.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
   }
   // صفحه‌ی انتظار: بررسی خودکار فعال‌شدن
   if (TK.boot().pendingPoll) setInterval(async () => { const r = await TK.get('/pending/status'); if (r.active) location.href = TK.url('/'); }, 8000);

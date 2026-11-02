@@ -12,12 +12,7 @@
             <input class="input ltr" id="l-mobile" name="mobile" data-mobile inputmode="numeric" autocomplete="username" placeholder="<?= e(ph('login_mobile')) ?>" value="<?= e(old('mobile')) ?>" required autofocus></div>
         <div class="field"><label for="l-pass">رمز عبور</label>
             <input class="input ltr" id="l-pass" type="password" name="password" autocomplete="current-password" required></div>
-        <?php if (\App\Core\Captcha::enabled()): ?><div class="field"><label for="l-captcha">کد امنیتی</label>
-            <div class="captcha-box">
-                <div class="captcha-row"><button type="button" class="btn btn-icon" data-captcha-refresh title="کد جدید" aria-label="نمایش کد امنیتی جدید"><i class="fa-solid fa-rotate"></i></button>
-                    <img class="captcha-img" src="<?= e(url('/captcha')) ?>?t=<?= time() ?>" width="170" height="52" alt="کد امنیتی" data-captcha-img></div>
-                <input class="input ltr captcha-input" id="l-captcha" name="captcha" data-captcha required maxlength="<?= \App\Core\Captcha::LENGTH ?>" minlength="<?= \App\Core\Captcha::LENGTH ?>" lang="en" inputmode="latin" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="<?= e(ph('login_captcha')) ?>">
-            </div></div><?php endif; ?>
+        <?php if (\App\Core\Captcha::enabled()): ?><input type="hidden" name="captcha" data-captcha-value><?php endif; ?>
         <label class="check mb-2" for="l-remember"><input type="checkbox" id="l-remember" name="remember" value="1"><div><b>من را به خاطر بسپار</b><span>فعال: نشست تا ۳۰ روز می‌ماند و خارج نمی‌شوید. غیرفعال: پس از ۱ ساعت عدم فعالیت خارج می‌شوید.</span></div></label>
         <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-right-to-bracket"></i> ورود به پنل</button>
     </form>
@@ -37,4 +32,17 @@
         <p class="hint center mt-1">حساب جدید پس از تأیید مدیر فعال می‌شود.</p>
     </form>
 </div>
+
+<?php if (\App\Core\Captcha::enabled()): ?>
+<div class="modal" id="m-captcha"><div class="modal-box sm"><div class="modal-body">
+    <h3 class="mb-1"><i class="fa-solid fa-shield-halved"></i> کد امنیتی</h3>
+    <p class="hint mb-1">برای ورود، حروف و اعداد تصویر را وارد کنید.</p>
+    <div class="captcha-box">
+        <div class="captcha-row"><button type="button" class="btn btn-icon" data-captcha-refresh title="کد جدید" aria-label="نمایش کد امنیتی جدید"><i class="fa-solid fa-rotate"></i></button>
+            <img class="captcha-img" alt="کد امنیتی" width="170" height="52" data-captcha-img></div>
+        <div class="captcha-row"><input class="input ltr captcha-input" id="l-captcha" data-captcha aria-label="کد امنیتی" maxlength="<?= \App\Core\Captcha::LENGTH ?>" lang="en" inputmode="latin" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="<?= e(ph('login_captcha')) ?>">
+            <button type="button" class="btn btn-primary" data-captcha-ok>تأیید</button></div>
+    </div>
+</div></div></div>
+<?php endif; ?>
 <?php $this->scripts[] = 'auth'; ?>

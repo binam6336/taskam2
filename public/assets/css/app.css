@@ -1702,9 +1702,10 @@ html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 @media (max-width: 640px) { .tick { position: relative; } .tick::after { content: ''; position: absolute; inset: -11px; border-radius: 12px; } }
 .chart text.pt-name { font-size: 11px; font-weight: 700; }
 
-/* ───── کپچای صفحه‌ی ورود ───── */
-.captcha-box { display: flex; flex-direction: column; gap: .5rem; padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius, 12px); background: var(--bg-soft, transparent); }
+/* ───── کپچای ورود (پنجره‌ی بعد از کلیک «ورود») ───── */
+.captcha-box { display: flex; flex-direction: column; gap: .5rem; padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius); }
 .captcha-row { display: flex; align-items: center; gap: .5rem; }
-.captcha-img { flex: 1; min-width: 0; height: 52px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
-.captcha-input { text-transform: uppercase; letter-spacing: .3em; font-weight: 700; text-align: center; }
-.captcha-input::placeholder { text-transform: none; letter-spacing: normal; font-weight: 400; }
+.captcha-img { flex: 1; min-width: 0; height: 46px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.captcha-row .captcha-input { flex: 1; min-width: 0; height: 40px; text-transform: uppercase; letter-spacing: .25em; font-weight: 700; text-align: center; }
+.captcha-input::placeholder { text-transform: none; letter-spacing: normal; font-weight: 400; font-size: .85em; }
+.captcha-input.is-invalid { border-color: var(--danger, #ef4444); }
