@@ -71,8 +71,8 @@ final class ColleagueApi extends ApiController
     public function blocked()
     {
         [$limit, $offset] = $this->paging();
-        $rows = ColleagueService::blocked($this->uid, $limit, $offset);       // موبایل ماسک، ایمیل null
-        $out = array_map(static fn($r) => self::person($r) + ['blocked_at' => $r['created_at']], $rows);
+        $rows = ColleagueService::blocked($this->uid, $limit, $offset);       // اطلاعات فقط برای همکاران
+        $out = array_map(static fn($r) => self::person($r) + ['blocked_at' => $r['created_at'], 'is_hidden' => $r['hidden']], $rows);
         $this->ok(['count' => count($out), 'limit' => $limit, 'offset' => $offset, 'blocked' => $out]);
     }
 

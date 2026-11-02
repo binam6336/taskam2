@@ -83,8 +83,8 @@
 - با چرخش ۶ ساعته‌ی شناسه، اتصال دستگاه به شناسه‌ی جدید منتقل می‌شود. تغییر رمز ردیف‌های نشست دیگر کاربر را حذف می‌کند.
 
 ## ۳-۶) v3.44 (گزارش ممیزی آبان ۱۴۰۵)
-- **H-01 مسدودسازی:** `ColleagueService::block()` (وب و API) فقط برای کاربران مرتبط (`ColleagueService::related`: همکاری/درخواست/گفتگو/پروژه‌ی مشترک) ردیف می‌سازد؛ بقیه پاسخ یکسان بدون ذخیره. فهرست مسدودها `mask_mobile` و email=null. سقف `colleague_block` ۲۰/ساعت.
-- **M-06:** block ردیف‌های `colleagues` دو طرف و درخواست‌های pending را حذف می‌کند؛ `Access::canAssignTo` و `ProjectService::invite` مسدودی دوطرفه را رد می‌کنند؛ `Notifier::sendFrom` به طرف مسدود اعلان نمی‌فرستد.
+- **H-01 مسدودسازی:** `ColleagueService::block()` (وب و API) هر کاربری را می‌پذیرد (پاسخ برای شناسه‌ی ناموجود یکسان). `ColleagueService::blocked()` اطلاعات را فقط برای همکاران (ردیف `colleagues` در هر جهت) برمی‌گرداند (موبایل کامل/ایمیل فقط همکاری تأییدشده، وگرنه ماسک)؛ بقیه «کاربر ناشناس» با `is_hidden`. سقف `colleague_block` ۲۰/ساعت.
+- **M-06 (v3.44.1):** block درخواست‌های pending دو طرف را حذف می‌کند (ردیف همکاری می‌ماند)؛ `Access::canAssignTo`، `ProjectService::invite`، چت و `Notifier::sendFrom` مسدودی دوطرفه را رد می‌کنند.
 - **M-01:** در `Access::taskPerms` مجوزهای نقش پروژه فقط روی تسک‌های `canBoardView` اعمال می‌شود (دارنده‌ی `view_analytics` بقیه را فقط view)؛ `BoardService::setStatus/advance` هم `canBoardView` می‌خواهند.
 - **M-02:** `TaskController::detail` خروجی پیوست‌ها را whitelist می‌کند؛ `NoteModel::taskAttachments` موبایل نمی‌خواند.
 - **M-03:** `Request::ip()` در حالت cloudflare فقط `CF-Connecting-IP`، در حالت true الگوی rightmost-untrusted روی XFF؛ فهرست خالی = فقط loopback. `Request::rateIp()` برای سقف‌ها (IPv6 ‎/64).

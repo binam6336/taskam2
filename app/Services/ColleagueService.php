@@ -95,37 +95,33 @@ final class ColleagueService
     }
 
     /**
-     * فهرست مسدودشده‌ها: فقط نام و آواتار؛ موبایل همیشه ماسک و ایمیل null
-     * (مسدود کردن نباید راهی برای دیدن موبایل/ایمیل کاربران بی‌ارتباط باشد).
+     * فهرست مسدودشده‌ها. اطلاعات کاربر فقط وقتی نمایش داده می‌شود که همکار باشد (من او را همکار کرده‌ام یا او مرا)؛
+     * موبایل کامل و ایمیل فقط برای همکاری تأییدشده، وگرنه موبایل ماسک. برای بقیه نام/آواتار/موبایل پنهان است
+     * (مسدود کردن با شناسه‌ی دلخواه نباید راهی برای دیدن اطلاعات کاربران بی‌ارتباط باشد).
      */
     public static function blocked(int $uid, int $limit = 500, int $offset = 0): array
     {
-        $rows = DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.avatar, b.created_at FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?', [$uid, $limit, $offset]);
+        $rows = DB::all('SELECT u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar, b.created_at,
+              EXISTS (SELECT 1 FROM colleagues c WHERE (c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?)) AS related
+            FROM colleague_blocks b INNER JOIN users u ON u.id = b.blocked_user_id WHERE b.blocker_user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?', [$uid, $uid, $uid, $limit, $offset]);
+        $ok = self::approvedIds($uid);
         foreach ($rows as &$r) {
-            $r['mobile'] = mask_mobile((string) $r['mobile']);
-            $r['email'] = null;
+            $r['hidden'] = (int) $r['related'] === 0;
+            unset($r['related']);
+            if ($r['hidden']) {
+                $r = ['user_id' => $r['user_id'], 'first_name' => 'کاربر', 'last_name' => 'ناشناس', 'mobile' => null, 'email' => null, 'avatar' => null, 'created_at' => $r['created_at'], 'hidden' => true];
+            } elseif (!isset($ok[(int) $r['user_id']])) {
+                $r['mobile'] = mask_mobile((string) $r['mobile']);
+                $r['email'] = null;
+            }
         }
         return $rows;
     }
 
     /**
-     * آیا بین دو کاربر رابطه‌ای هست که مسدودسازی معنا داشته باشد؟
-     * همکاری (هر جهت)، درخواست همکاری (هر جهت)، گفتگو، یا پروژه‌ی مشترک.
-     */
-    public static function related(int $a, int $b): bool
-    {
-        return (bool) DB::value('SELECT 1 FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?) LIMIT 1', [$a, $b, $b, $a])
-            || (bool) DB::value('SELECT 1 FROM colleague_requests WHERE (requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?) LIMIT 1', [$a, $b, $b, $a])
-            || (bool) DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$a, $b, $b, $a])
-            || (bool) DB::value('SELECT 1 FROM projects p WHERE (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?))
-                  AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m2 WHERE m2.project_id = p.id AND m2.user_id = ?)) LIMIT 1', [$a, $a, $b, $b]);
-    }
-
-    /**
-     * مسدود کردن یک کاربر.
-     * - فقط کاربری که با او رابطه‌ای دارید واقعاً ثبت می‌شود؛ برای بقیه همان پاسخ «انجام شد» برمی‌گردد ولی چیزی ذخیره نمی‌شود
-     *   (تا شناسه‌های ترتیبی راهی برای شمارش/استخراج کاربران نباشند).
-     * - ردیف‌های همکاری و درخواست‌های در انتظار در هر دو جهت حذف می‌شوند تا امتیازهای ناشی از همکاری (واگذاری، دعوت به پروژه) باقی نماند.
+     * مسدود کردن یک کاربر (هر کاربری؛ پاسخ برای شناسه‌ی نامعتبر و معتبر یکسان است).
+     * همکاری باقی می‌ماند (تا اطلاعاتش در فهرست مسدودها دیده شود) ولی با مسدودی در هر جهت، واگذاری، دعوت به پروژه،
+     * گفتگو و اعلان بین دو طرف بسته است؛ درخواست‌های همکاری در انتظار دو طرف حذف می‌شوند.
      * @return array{0:bool,1:string,2:string} [ok, پیام، کد خطا]
      */
     public static function block(int $uid, int $target): array
@@ -136,12 +132,11 @@ final class ColleagueService
         if ($target <= 0 || $target === $uid) {
             return [false, 'کاربر نامعتبر است.', 'INVALID_USER_ID'];
         }
-        if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$target]) || !self::related($uid, $target)) {
-            return [true, 'کاربر مسدود شد.', ''];                  // پاسخ یکسان، بدون ذخیره
+        if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$target])) {
+            return [true, 'کاربر مسدود شد.', ''];                  // پاسخ یکسان: وجود/نبود حساب لو نرود
         }
         DB::transaction(static function () use ($uid, $target): void {
             DB::run('INSERT IGNORE INTO colleague_blocks (blocker_user_id, blocked_user_id) VALUES (?, ?)', [$uid, $target]);
-            DB::run('DELETE FROM colleagues WHERE (user_id = ? AND colleague_user_id = ?) OR (user_id = ? AND colleague_user_id = ?)', [$uid, $target, $target, $uid]);
             DB::run("DELETE FROM colleague_requests WHERE status = 'pending' AND ((requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?))", [$uid, $target, $target, $uid]);
         });
         return [true, 'کاربر مسدود شد.', ''];
