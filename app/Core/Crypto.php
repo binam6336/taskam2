@@ -20,6 +20,8 @@ final class Crypto
     private const SALT = 'taskam.crypto.v1';
     private const MIN_PASSWORD = 12;
     private const MAX_ITER = 2000000;
+    /** حداکثر کلید متفاوت (رمز × تعداد تکرار) که در یک درخواست ساخته می‌شود */
+    private const MAX_KEYS_PER_REQUEST = 4;
 
     /** @var array<string,string> */
     private static $keyCache = [];
@@ -62,10 +64,32 @@ final class Crypto
         return max(1000, min(self::MAX_ITER, is_numeric($i) ? (int) $i : 20000));
     }
 
+    /**
+     * تعداد تکرار خوانده‌شده از خود ciphertext فقط از فهرست مقادیر شناخته‌شده پذیرفته می‌شود:
+     * مقدار فعلی ENCODE_KDF_ITER، پیش‌فرض ۲۰۰۰۰ و مقادیر قبلی در ENCODE_KDF_ITER_OLD (با کاما) — نه هر عددی تا ۲ میلیون.
+     */
+    private static function iterAllowed(int $iter): bool
+    {
+        static $allowed = null;
+        if ($allowed === null) {
+            $allowed = [self::iterations() => true, 20000 => true];
+            foreach (explode(',', (string) Env::get('ENCODE_KDF_ITER_OLD', '')) as $v) {
+                if (is_numeric(trim($v))) {
+                    $allowed[(int) trim($v)] = true;
+                }
+            }
+        }
+        return isset($allowed[$iter]);
+    }
+
     private static function key(string $password, int $iter): string
     {
         $id = hash('sha256', $iter . '|' . $password);
         if (!isset(self::$keyCache[$id])) {
+            // هر تعداد تکرار متفاوت = یک PBKDF2 کامل؛ ردیف‌های دست‌کاری‌شده با تکرارهای گوناگون نباید CPU را قفل کنند
+            if (count(self::$keyCache) >= self::MAX_KEYS_PER_REQUEST) {
+                throw new \RuntimeException('Crypto: تعداد کلیدهای متفاوت در یک درخواست بیش از حد است.');
+            }
             self::$keyCache[$id] = hash_pbkdf2('sha256', $password, self::SALT, $iter, 32, true);
         }
         return self::$keyCache[$id];
@@ -107,13 +131,18 @@ final class Crypto
             return null;
         }
         $iter = (int) unpack('N', substr($raw, 0, 4))[1];
-        if ($iter < 1000 || $iter > self::MAX_ITER) {
+        if ($iter < 1000 || $iter > self::MAX_ITER || !self::iterAllowed($iter)) {
             return null;
         }
         $iv = substr($raw, 4, 12);
         $tag = substr($raw, 16, 16);
         $ct = (string) substr($raw, 32);
-        $plain = openssl_decrypt($ct, self::CIPHER, self::key($password, $iter), OPENSSL_RAW_DATA, $iv, $tag, $aad);
+        try {
+            $key = self::key($password, $iter);
+        } catch (\RuntimeException $e) {
+            return null;
+        }
+        $plain = openssl_decrypt($ct, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv, $tag, $aad);
         return $plain === false ? null : $plain;
     }
 

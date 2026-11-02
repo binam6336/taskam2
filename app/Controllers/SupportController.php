@@ -21,13 +21,11 @@ final class SupportController extends Controller
 
     public function index()
     {
-        SupportModel::ensureSchema();
         $this->desk(null);
     }
 
     private function owned(string $id): array
     {
-        SupportModel::ensureSchema();
         $t = SupportModel::find((int) $id, $this->uid());
         if ($t === null) {
             $this->abort(404, 'تیکت پشتیبانی یافت نشد.', 'NOT_FOUND');
@@ -42,7 +40,6 @@ final class SupportController extends Controller
 
     public function store()
     {
-        SupportModel::ensureSchema();
         $uid = $this->uid();
         $subject = $this->request->str('subject', 255);
         $message = $this->request->str('message', SupportModel::MSG_MAX);

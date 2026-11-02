@@ -15,6 +15,6 @@
 <meta name="apple-mobile-web-app-title" content="<?= e(env('APP_NAME', 'تسکام')) ?>">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="sw-url" content="<?= e(url('service-worker')) ?>">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">

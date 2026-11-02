@@ -41,6 +41,9 @@ $router->group(['guest'], function ($r) {
     $r->post('/register', [AuthController::class, 'register']);
 });
 $router->post('/logout', [AuthController::class, 'logout'], ['authany']);
+$router->get('/reauth', [AuthController::class, 'showReauth']);
+$router->post('/reauth', [AuthController::class, 'reauth']);
+$router->post('/reauth/cancel', [AuthController::class, 'reauthCancel']);
 $router->get('/pending', [AuthController::class, 'pending'], ['authany']);
 $router->get('/pending/status', [AuthController::class, 'pendingStatus'], ['authany']);
 // نسخه‌ی PWA (مسیرها عمداً بدون پسوند فایل‌اند تا وب‌سرور آن‌ها را فایل ایستا فرض نکند)
@@ -186,6 +189,8 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/quick-links', [ProfileController::class, 'quickLinks']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
+    $r->post('/profile/sessions/revoke', [ProfileController::class, 'revokeSession']);
+    $r->post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions']);
     $r->post('/tour', [TourController::class, 'update']);
     $r->get('/tour/start', [TourController::class, 'start']);
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);

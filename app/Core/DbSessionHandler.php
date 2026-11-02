@@ -117,6 +117,26 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
             [$now - 7200, $now, $now - Session::rememberSeconds() - 86400]);
     }
 
+    /** نشست‌های فعال یک کاربر برای «نشست‌های فعال» پروفایل (جدیدترین فعالیت اول) */
+    public static function listFor(int $uid): array
+    {
+        $cur = session_id() !== '' ? self::hash(session_id()) : '';
+        $rows = DB::all('SELECT id_hash, ip, user_agent, created_at, last_activity FROM user_sessions WHERE user_id = ? ORDER BY last_activity DESC LIMIT 50', [$uid]);
+        foreach ($rows as &$r) {
+            $r['current'] = $cur !== '' && hash_equals((string) $r['id_hash'], $cur);
+        }
+        return $rows;
+    }
+
+    /** خروج یک نشست مشخص همان کاربر (نه نشست فعلی) */
+    public static function revoke(int $uid, string $idHash): bool
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/', $idHash) || (session_id() !== '' && hash_equals(self::hash(session_id()), $idHash))) {
+            return false;
+        }
+        return DB::run('DELETE FROM user_sessions WHERE user_id = ? AND id_hash = ?', [$uid, $idHash]) > 0;
+    }
+
     /** نشست‌های دیگر یک کاربر (همه به‌جز نشست فعلی) */
     public static function destroyOthers(int $uid, string $currentId): void
     {

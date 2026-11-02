@@ -15,7 +15,7 @@ final class RequireAdmin
     {
         $u = Auth::user();
         if ($u === null) {
-            Response::redirect('/login');
+            Response::redirect(Auth::needsReauth() ? '/reauth' : '/login');
         }
         // اگر مدیر در حال مشاهده‌ی پنل کاربر است و صفحه‌ی مدیریت را باز می‌کند، به‌جای ۴۰۳ به نشست مدیر برمی‌گردد
         if (Auth::isImpersonating() && $r->method() === 'GET' && !$r->wantsJson()) {

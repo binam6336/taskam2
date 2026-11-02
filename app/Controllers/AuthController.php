@@ -115,6 +115,34 @@ final class AuthController extends Controller
         $this->redirect('/login');
     }
 
+    /** شبکه عوض شده: فقط رمز دوباره (نشست و صفحه‌ی کاربر حفظ می‌شود) */
+    public function showReauth()
+    {
+        $u = Auth::reauthUser();
+        if ($u === null) {
+            $this->redirect(Auth::check() ? '/' : '/login');
+        }
+        $this->view('auth/reauth', ['u' => $u], ['title' => 'تأیید دوباره‌ی رمز'], 'auth');
+    }
+
+    public function reauth()
+    {
+        [$ok, $msg] = Auth::reauth((string) $this->request->input('password', ''), $this->request);
+        if (!$ok) {
+            Session::flash($msg, 'error');
+            $this->redirect(Auth::needsReauth() ? '/reauth' : '/login');
+        }
+        $this->redirect('/');
+    }
+
+    public function reauthCancel()
+    {
+        Auth::logout();
+        Session::start();
+        Session::flash('با موفقیت از سامانه خارج شدید.', 'success');
+        $this->redirect('/login');
+    }
+
     public function pending()
     {
         $u = $this->user();

@@ -37,35 +37,6 @@ final class SupportModel
     public const MSG_MAX = 5000;
 
     /**
-     * migration 008 اگر روی سرور اجرا نشده باشد، همین‌جا اعمال می‌شود (فقط ستون/مقدار اضافه می‌کند).
-     * در هر درخواست صفحه‌ی تیکت یک کوئری سبک روی information_schema است.
-     */
-    public static function ensureSchema(): void
-    {
-        static $done = false;
-        if ($done) {
-            return;
-        }
-        $done = true;
-        try {
-            $col = (int) DB::value("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'support_messages' AND column_name = 'attachment'");
-            $enum = (string) DB::value("SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'support_tickets' AND column_name = 'status'");
-            if (strpos($enum, 'in_progress') === false) {
-                DB::run("ALTER TABLE `support_tickets` MODIFY `status` ENUM('open','in_progress','answered','closed') NOT NULL DEFAULT 'open'");
-            }
-            if ($col === 0) {
-                DB::run("ALTER TABLE `support_messages`
-                    ADD COLUMN `attachment` VARCHAR(255) NULL DEFAULT NULL AFTER `message`,
-                    ADD COLUMN `attachment_name` VARCHAR(255) NULL DEFAULT NULL AFTER `attachment`,
-                    ADD COLUMN `attachment_size` INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_name`,
-                    ADD KEY `idx_sm_attachment` (`attachment`)");
-            }
-        } catch (\Throwable $e) {
-            error_log('support schema: ' . $e->getMessage() . ' — database/migrations/008_support_desk.sql را اجرا کنید.');
-        }
-    }
-
-    /**
      * فهرست صفحه‌بندی‌شده‌ی تیکت‌ها.
      * @param int|null $uid null = همه‌ی تیکت‌ها (ادمین)
      * @return array{rows:array,total:int,page:int,per:int,pages:int}

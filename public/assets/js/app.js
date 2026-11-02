@@ -34,7 +34,7 @@
     let json = null;
     try { json = await res.json(); } catch { json = { status: 'error', message: 'پاسخ نامعتبر از سرور (' + res.status + ')' }; }
     if (res.status === 419) { TK.toast(json.message || 'نشست منقضی شد؛ صفحه رفرش می‌شود.', 'warning'); setTimeout(() => location.reload(), 1400); }
-    if (res.status === 401) { location.href = TK.url('/login'); }
+    if (res.status === 401) { location.href = TK.url(json.error_code === 'REAUTH_REQUIRED' || json.code === 'REAUTH_REQUIRED' ? '/reauth' : '/login'); }
     json._http = res.status;
     return json;
   };

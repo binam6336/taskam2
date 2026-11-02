@@ -202,7 +202,6 @@ final class AdminController extends Controller
 
     private function ticket(string $id): array
     {
-        SupportModel::ensureSchema();
         $t = SupportModel::find((int) $id);
         if ($t === null) {
             $this->abort(404, 'تیکت یافت نشد.', 'NOT_FOUND');
@@ -212,7 +211,6 @@ final class AdminController extends Controller
 
     public function support()
     {
-        SupportModel::ensureSchema();
         $this->desk(null);
     }
 

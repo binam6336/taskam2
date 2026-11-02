@@ -13,6 +13,8 @@ use App\Core\Validate;
 use App\Models\TokenModel;
 use App\Models\UserModel;
 use App\Services\TaskService;
+use App\Core\DbSessionHandler;
+use App\Core\Session;
 
 final class ProfileController extends Controller
 {
@@ -23,6 +25,7 @@ final class ProfileController extends Controller
         $sel = json_decode((string) $u['quick_links'], true);
         $this->view('profile/index', [
             'u' => $u, 'links' => $links, 'selected' => is_array($sel) ? $sel : [],
+            'sessions' => Session::usesDb() && !\App\Core\Auth::isImpersonating() ? DbSessionHandler::listFor((int) $u['id']) : null,
             'stats' => [
                 'tasks' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [(int) $u['id']]),
                 'colleagues' => (int) DB::value('SELECT COUNT(*) FROM colleagues WHERE user_id = ?', [(int) $u['id']]),
@@ -81,6 +84,28 @@ final class ProfileController extends Controller
         Throttle::clear('pwd_change', (string) $u['id']);
         Audit::log((int) $u['id'], 'password_changed');
         $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند و توکن‌های API حذف شدند.', '/profile');
+    }
+
+    /** خروج یک دستگاه از «نشست‌های فعال» */
+    public function revokeSession()
+    {
+        $this->denyImpersonation('/profile');
+        $ok = Session::usesDb() && DbSessionHandler::revoke($this->uid(), $this->request->str('id', 64));
+        if ($ok) {
+            Audit::log($this->uid(), 'session_revoked');
+        }
+        $this->respond($ok, $ok ? 'آن دستگاه از حساب شما خارج شد.' : 'نشست یافت نشد.', '/profile#sessions');
+    }
+
+    /** خروج همه‌ی دستگاه‌های دیگر */
+    public function revokeOtherSessions()
+    {
+        $this->denyImpersonation('/profile');
+        if (Session::usesDb()) {
+            DbSessionHandler::destroyOthers($this->uid(), session_id());
+        }
+        Audit::log($this->uid(), 'session_revoked_others');
+        $this->respond(true, 'همه‌ی دستگاه‌های دیگر از حساب شما خارج شدند.', '/profile#sessions');
     }
 
     public function avatar()

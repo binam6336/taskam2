@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '023';
+    public const VERSION = '024';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 008
+        ['support_messages', 'attachment', "ADD COLUMN `attachment` VARCHAR(255) NULL DEFAULT NULL AFTER `message`, ADD COLUMN `attachment_name` VARCHAR(255) NULL DEFAULT NULL AFTER `attachment`, ADD COLUMN `attachment_size` INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_name`, ADD KEY `idx_sm_attachment` (`attachment`)", null],
         // 004
         ['projects', 'priority_type', "ADD COLUMN `priority_type` ENUM('category','percent') NOT NULL DEFAULT 'category' AFTER `max_members`", null],
         ['tasks', 'priority_percent', 'ADD COLUMN `priority_percent` TINYINT UNSIGNED NULL DEFAULT NULL AFTER `priority`',
@@ -48,6 +50,8 @@ final class Schema
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */
     private const ENUMS = [
+        // 008
+        ['support_tickets', 'status', 'in_progress', "MODIFY `status` ENUM('open','in_progress','answered','closed') NOT NULL DEFAULT 'open'"],
         // 021
         ['tasks', 'board_status', 'rework', "MODIFY `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog'"],
     ];
@@ -57,14 +61,21 @@ final class Schema
         ['022', '022_member_board_perms.sql'],
     ];
 
-    /** جدول‌های جدید: [نام، فایل migration] (۰۰۷ و ۰۰۸ را Push و SupportModel خودشان بررسی می‌کنند) */
+    /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
     private const TABLES = [
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
+        ['push_subscriptions', '007_push_subscriptions.sql'],
         ['content_texts', '015_content_texts.sql'],
         ['task_events', '017_task_events.sql'],
         ['user_sessions', '019_user_sessions.sql'],
         ['task_mentions', '020_task_mentions.sql'],
     ];
+
+    /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */
+    public static function pending(): bool
+    {
+        return !is_file(STORAGE_PATH . '/cache/schema-' . self::VERSION);
+    }
 
     public static function ensure(): void
     {

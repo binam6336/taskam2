@@ -325,3 +325,14 @@ function mask_mobile(?string $m): ?string
     $m = (string) $m;
     return $m === '' ? null : (strlen($m) > 7 ? substr($m, 0, 4) . '***' . substr($m, -4) : '***');
 }
+
+/** نام کوتاه دستگاه از User-Agent برای «نشست‌های فعال» (مثلاً «Chrome روی Android») */
+function device_name(?string $ua): string
+{
+    $ua = (string) $ua;
+    $b = preg_match('/Edg\//', $ua) ? 'Edge' : (preg_match('/OPR\/|Opera/', $ua) ? 'Opera' : (preg_match('/Firefox\//', $ua) ? 'Firefox'
+        : (preg_match('/Chrome\//', $ua) ? 'Chrome' : (preg_match('/Safari\//', $ua) ? 'Safari' : 'مرورگر'))));
+    $o = preg_match('/Android/', $ua) ? 'Android' : (preg_match('/iPhone|iPad|iOS/', $ua) ? 'iOS' : (preg_match('/Windows/', $ua) ? 'Windows'
+        : (preg_match('/Mac OS X|Macintosh/', $ua) ? 'macOS' : (preg_match('/Linux/', $ua) ? 'Linux' : ''))));
+    return $o !== '' ? $b . ' روی ' . $o : $b;
+}

@@ -46,20 +46,7 @@ final class Push
                 $hasTable = false;
             }
         }
-        if (!$hasTable) {
-            // جدول فقط اضافه می‌شود و به داده‌های دیگر کاری ندارد؛ اگر کاربر دیتابیس اجازه‌ی CREATE دارد خودکار ساخته می‌شود
-            try {
-                $sql = (string) file_get_contents(BASE_PATH . '/database/migrations/007_push_subscriptions.sql');
-                $sql = trim((string) preg_replace('/^\s*--.*$/m', '', $sql));
-                if ($sql !== '') {
-                    DB::run($sql);
-                    $hasTable = true;
-                }
-            } catch (\Throwable $e) {
-                ErrorHandler::log($e);
-            }
-        }
-        $d['table'] = ['جدول push_subscriptions در دیتابیس', $hasTable, 'فایل database/migrations/007_push_subscriptions.sql را روی همین دیتابیس اجرا کنید (phpMyAdmin ← SQL).'];
+        $d['table'] = ['جدول push_subscriptions در دیتابیس', $hasTable, 'php bin/migrate.php را روی سرور اجرا کنید، یا فایل database/migrations/007_push_subscriptions.sql را روی همین دیتابیس اجرا کنید (phpMyAdmin ← SQL).'];
         $dir = STORAGE_PATH;
         $keyOk = is_file($dir . '/vapid.json') || ((string) env('VAPID_PUBLIC_KEY', '') !== '' && (string) env('VAPID_PRIVATE_KEY', '') !== '') || is_writable($dir);
         $d['keys'] = ['ذخیره‌ی کلید VAPID در پوشه‌ی storage', $keyOk, 'به پوشه‌ی storage دسترسی نوشتن (755 یا 775) بدهید، یا VAPID_PUBLIC_KEY و VAPID_PRIVATE_KEY را در .env بگذارید.'];
@@ -224,6 +211,13 @@ final class Push
 
     // ───── رویدادها ─────
 
+    /** نمایش متن پیام چت در اعلان (PUSH_PREVIEW، پیش‌فرض روشن). متن اعلان با aes128gcm تا مرورگر رمز است، ولی خاموش کردنش متن پیام را اصلاً به سرویس Push نمی‌فرستد. */
+    public static function preview(): bool
+    {
+        $v = env('PUSH_PREVIEW', true);
+        return is_bool($v) ? $v : !in_array(strtolower(trim((string) $v)), ['false', '0', 'off', 'no'], true);
+    }
+
     /** پیام چت (کاربر یا ربات اطلاع‌رسانی) → اعلان برای گیرنده */
     public static function chatMessage(int $msgId, int $sender, int $receiver, string $text, ?string $fileName, bool $senderIsBot): void
     {
@@ -246,6 +240,9 @@ final class Push
         $u = DB::one('SELECT first_name, last_name, mobile FROM users WHERE id = ?', [$sender]);
         if ($clean === '' && $fileName) {
             $clean = '📎 ' . $fileName;
+        }
+        if (!self::preview()) {
+            $clean = 'برای خواندن، گفتگو را باز کنید.';            // PUSH_PREVIEW=false: متن پیام از سرور خارج نمی‌شود
         }
         self::toUser($receiver, ['title' => 'پیام جدید – ' . ($u ? full_name($u) : 'کاربر'), 'body' => $clean, 'url' => 'chat?user=' . $sender, 'tag' => 'msg' . $sender, 'kind' => 'chat']);
     }

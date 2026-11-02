@@ -81,6 +81,9 @@ final class ApiAuth
 
         $u = Auth::user();
         if ($u === null) {
+            if (Auth::needsReauth()) {
+                throw new HttpException(401, 'شبکه‌ی اینترنت شما عوض شده است؛ برای ادامه رمز عبور را دوباره وارد کنید.', 'REAUTH_REQUIRED');
+            }
             throw new HttpException(401, 'دسترسی غیرمجاز. توکن ارسال کنید یا وارد شوید.', 'UNAUTHORIZED');
         }
         if ($u['status'] !== 'active') {

@@ -95,6 +95,12 @@
 ## ۳-۷) کپچای ورود (v3.45)
 - `App\Core\Captcha`: تصویر GD (بدون فایل فونت) از `GET /captcha` (گروه guest، سقف `captcha_ip` ۶۰/دقیقه)؛ فقط HMAC کد در نشست، یک‌بارمصرف (pull)، انقضای ۱۰ دقیقه، مقایسه‌ی حساس به حروف (فقط بزرگ). در `AuthController::login` قبل از `Auth::attempt` بررسی می‌شود. `CAPTCHA_LOGIN=false` فقط برای توسعه/تست خودکار.
 
+## ۳-۸) موارد اطلاعاتی گزارش آبان ۱۴۰۵ (v3.47)
+- **I-01 CSP:** فونت Vazirmatn و Font Awesome در `public/assets/vendor` (از npm، shasum بررسی‌شده)؛ CSP بدون هیچ دامنه‌ی CDN: `style-src-elem 'self'` (بدون `<style>` درون‌خطی؛ صفحه‌ی آفلاین → `assets/css/offline.css`)، `style-src-attr 'unsafe-inline'` فقط برای ویژگی style پویا (۱۵۰+ مورد در view/JS؛ حذف کامل آن بازنویسی بزرگ است)، `font-src 'self'`. Trusted Types فعال نشد چون همه‌ی ماژول‌ها با innerHTML + `TK.esc` کار می‌کنند و policy پیش‌فرضِ عبوری هیچ حفاظتی نمی‌دهد.
+- **I-02 رمزنگاری:** `Crypto::decode` فقط تعداد تکرارهای شناخته‌شده (`ENCODE_KDF_ITER`، ۲۰۰۰۰ و `ENCODE_KDF_ITER_OLD`) را می‌پذیرد و هر درخواست حداکثر ۴ کلید متفاوت می‌سازد. salt ثابت مانده (تغییرش یعنی بازرمزگذاری همه‌ی پیام‌ها)؛ کلید را بیرون از وب‌روت و جدا از بکاپ DB نگه دارید. `PUSH_PREVIEW=false` متن پیام را به سرویس Push نمی‌فرستد.
+- **I-03 DDL:** همه‌ی DDL زمان اجرا فقط در `Schema::ensure` (۰۰۷ و ۰۰۸ هم به آن منتقل شد؛ `Push::diagnose` و `SupportModel` دیگر ALTER/CREATE اجرا نمی‌کنند). پیش‌فرض `SCHEMA_AUTO` برای سازگاری روشن مانده؛ در محیط واقعی `SCHEMA_AUTO=false` + کاربر DB بدون ALTER/CREATE + `php bin/migrate.php` بعد از هر به‌روزرسانی. وضعیت در مستندات پنل نمایش داده می‌شود (`Schema::pending()`).
+- **I-04 نشست:** مرورگر متفاوت = نابودی نشست؛ فقط تغییر شبکه = `Auth::needsReauth()` و صفحه‌ی `/reauth` (رمز دوباره، ۵ تلاش، بعد نشست باطل؛ API: ۴۰۱ `REAUTH_REQUIRED`). پروفایل ← نشست‌های فعال (`DbSessionHandler::listFor/revoke/destroyOthers`).
+
 ## ۴) رمزگذاری پیام‌های چت (Encryption at rest)
 - **الگوریتم:** AES-256-GCM (رمزنگاری احرازشده). کلید با PBKDF2-HMAC-SHA256 از `ENCODE_PASSWORD` ساخته می‌شود؛ برای هر پیام nonce تصادفی ۹۶ بیتی.
 - **رمز اشتباه یا دست‌کاری ⇒ دیکد ناموفق (null)**؛ هیچ‌وقت متن اشتباه برنمی‌گردد. ciphertext با AAD (`chat:<فرستنده>:<گیرنده>`) به همان پیام بسته می‌شود و به رکورد دیگر قابل انتقال نیست.

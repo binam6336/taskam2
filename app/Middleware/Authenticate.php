@@ -15,6 +15,12 @@ final class Authenticate
     {
         $u = Auth::user();
         if ($u === null) {
+            if (Auth::needsReauth()) {                     // شبکه عوض شده: فقط رمز دوباره (نه ورود کامل)
+                if ($r->wantsJson()) {
+                    throw new HttpException(401, 'شبکه‌ی اینترنت شما عوض شده است؛ برای ادامه رمز عبور را دوباره وارد کنید.', 'REAUTH_REQUIRED');
+                }
+                Response::redirect('/reauth');
+            }
             if ($r->wantsJson()) {
                 throw new HttpException(401, 'نشست شما منقضی شده است. دوباره وارد شوید.', 'UNAUTHORIZED');
             }

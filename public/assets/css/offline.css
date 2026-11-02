@@ -1,0 +1,6 @@
+/* صفحه‌ی آفلاین PWA (بدون <style> درون‌خطی به‌خاطر CSP) */
+html, body { margin: 0; height: 100%; background: #060908; color: #e9f3ee; font-family: Vazirmatn, Tahoma, system-ui, sans-serif; }
+.w { min-height: 100%; display: grid; place-items: center; text-align: center; padding: 2rem; box-sizing: border-box; }
+.logo { width: 96px; height: 96px; margin: 0 auto 1.2rem; }
+h1 { font-size: 1.3rem; margin: 0 0 .5rem; } p { color: #8fa89b; line-height: 2; margin: 0 0 1.4rem; }
+a { display: inline-block; padding: .7rem 1.6rem; border-radius: 12px; background: linear-gradient(180deg, #5eea8f, #22c55e); color: #04210f; font-weight: 800; text-decoration: none; }

@@ -8,7 +8,7 @@ const STATIC = 'tk-static-' + VERSION;
 const SCOPE = self.registration.scope;                 // مثل https://example.com/taskam2/
 const abs = (p) => new URL(p || '', SCOPE).href;
 const OFFLINE = abs('offline');
-const PRECACHE = [OFFLINE, abs('assets/img/icon-192.png'), abs('assets/img/badge-96.png')];
+const PRECACHE = [OFFLINE, abs('assets/css/offline.css'), abs('assets/img/icon-192.png'), abs('assets/img/badge-96.png')];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(STATIC).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

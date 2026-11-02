@@ -44,11 +44,22 @@ final class Auth
         if ($id <= 0) {
             return self::$user = null;
         }
-        // اتصال نشست به دستگاه ورود: مرورگر + شبکه (دو بخش اول IP). استفاده از همین نشست روی دستگاه دیگر = نابودی کامل نشست
+        // اتصال نشست به دستگاه ورود: مرورگر + شبکه (دو بخش اول IP).
+        // مرورگر دیگر = نابودی کامل نشست (نشانه‌ی سرقت کوکی). فقط عوض شدن شبکه (Wi-Fi ↔ دیتا) = نشست می‌ماند ولی
+        // تا وارد کردن دوباره‌ی رمز (صفحه‌ی /reauth) کاربر واردشده حساب نمی‌شود.
         $req = Request::capture();
         $ua = self::uaHash($req);
         $bound = Session::get('ua');
-        if (($bound !== null && !hash_equals((string) $bound, $ua)) || !self::sameNetwork($req)) {
+        $uaOk = $bound !== null && hash_equals((string) $bound, $ua);
+        if ($uaOk && !self::isImpersonating() && !self::sameNetwork($req)) {
+            if (Session::get('reauth') === null) {
+                Audit::log($id, 'session_network_changed', ['ip' => $req->ip(), 'login_ip' => DbSessionHandler::binding()['ip'] ?? Session::get('ipf')]);
+                Session::put('reauth', time());
+            }
+            self::$reauth = true;
+            return self::$user = null;
+        }
+        if (!$uaOk || !self::sameNetwork($req)) {
             Audit::log($id, 'session_device_mismatch', ['ip' => $req->ip(), 'login_ip' => DbSessionHandler::binding()['ip'] ?? Session::get('ipf')]);
             Session::destroy();                               // ردیف/فایل نشست حذف می‌شود؛ دستگاه اصلی هم باید دوباره وارد شود
             Session::flash('این نشست روی دستگاه یا شبکه‌ی دیگری استفاده شد و برای امنیت باطل شد. دوباره وارد شوید.', 'error');
@@ -99,6 +110,63 @@ final class Auth
         }
         return $mode === 'full' ? hash_equals((string) $ip, $req->ip()) : hash_equals((string) $prefix, $req->ipPrefix());
     }
+
+    /** نشست معتبر است ولی شبکه عوض شده و باید رمز دوباره وارد شود (Auth::user() در این حالت null است) */
+    private static bool $reauth = false;
+
+    public static function needsReauth(): bool
+    {
+        self::user();
+        return self::$reauth;
+    }
+
+    /** کاربرِ نشستی که منتظر تأیید دوباره‌ی رمز است (برای صفحه‌ی /reauth) */
+    public static function reauthUser(): ?array
+    {
+        if (!self::needsReauth()) {
+            return null;
+        }
+        return DB::one("SELECT * FROM users WHERE id = ? AND is_bot = 0 LIMIT 1", [(int) Session::get('uid', 0)]);
+    }
+
+    /**
+     * تأیید دوباره‌ی رمز بعد از عوض شدن شبکه: موفق = اتصال نشست به شبکه‌ی جدید و چرخش شناسه‌ی نشست؛
+     * بعد از REAUTH_MAX تلاش ناموفق نشست کامل باطل می‌شود.
+     * @return array{0:bool,1:string}
+     */
+    public static function reauth(
+        #[\SensitiveParameter]
+        string $password,
+        Request $req
+    ): array {
+        $u = self::reauthUser();
+        if ($u === null) {
+            return [false, 'نشست شما منقضی شده است. دوباره وارد شوید.'];
+        }
+        $key = (string) $u['id'] . '|' . Session::get('reauth');
+        if (!Throttle::attempt('reauth', $key, self::REAUTH_MAX, 900)) {
+            Audit::log((int) $u['id'], 'session_reauth_locked');
+            self::logout();
+            return [false, 'تلاش‌های ناموفق زیاد بود؛ نشست باطل شد. دوباره وارد شوید.'];
+        }
+        if (!password_verify($password, (string) $u['password_hash'])) {
+            Audit::log((int) $u['id'], 'session_reauth_failed');
+            return [false, 'رمز عبور اشتباه است.'];
+        }
+        Session::regenerate();
+        Session::put('ipf', $req->ip());
+        Session::put('ipp', $req->ipPrefix());
+        Session::forget('reauth');
+        DbSessionHandler::bind($req->ip(), $req->ipPrefix(), $req->userAgent());
+        Throttle::clear('reauth', $key);
+        Audit::log((int) $u['id'], 'session_reauth', ['ip' => $req->ip()]);
+        self::$loaded = false;
+        self::$reauth = false;
+        self::$user = null;
+        return [true, ''];
+    }
+
+    public const REAUTH_MAX = 5;
 
     public static function id(): ?int
     {
@@ -358,6 +426,7 @@ final class Auth
         DbSessionHandler::bind($req->ip(), $req->ipPrefix(), $req->userAgent());
         Session::forget('imp_admin');
         Session::forget('imp_pv');
+        Session::forget('reauth');
         Session::forget('_csrf');
         DB::update('users', ['last_login_at' => date('Y-m-d H:i:s'), 'last_login_ip' => $req->ip()], 'id = ?', [(int) $u['id']]);
         Audit::log((int) $u['id'], 'login');
@@ -374,6 +443,7 @@ final class Auth
         Session::destroy();
         self::$user = null;
         self::$loaded = true;
+        self::$reauth = false;
     }
 
     /** ثبت‌نام کاربر جدید (وضعیت pending). */

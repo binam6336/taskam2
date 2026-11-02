@@ -1,5 +1,5 @@
 <?php
-/** @var array $u @var array $links @var array $selected @var array $stats */
+/** @var array $u @var array $links @var array $selected @var array $stats @var array|null $sessions */
 $name = full_name($u);
 $this->scripts[] = 'profile';
 ?>
@@ -44,6 +44,21 @@ $this->scripts[] = 'profile';
             <div class="field"><label>تکرار رمز جدید</label><input class="input ltr" type="password" name="confirm_password" autocomplete="new-password" data-pw-match="new_password" required></div>
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> تغییر رمز</button></form></div>
 </div>
+
+<?php if ($sessions !== null): $others = count(array_filter($sessions, static fn($s) => !$s['current'])); ?>
+<div class="card mb-2" id="sessions"><div class="card-head"><h3><i class="fa-solid fa-desktop"></i> نشست‌های فعال</h3>
+    <?php if ($others > 0): ?><button class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/sessions/revoke-others')) ?>" data-confirm="همه‌ی دستگاه‌های دیگر (<?= e(fa_num($others)) ?> دستگاه) از حساب شما خارج شوند؟" data-after="reload"><i class="fa-solid fa-right-from-bracket"></i> خروج همه‌ی دستگاه‌های دیگر</button><?php endif; ?></div>
+    <p class="hint mb-1">دستگاه‌هایی که الان با حساب شما وارد هستند. اگر دستگاهی را نمی‌شناسید، خارجش کنید و رمز عبور را عوض کنید.</p>
+    <div class="list">
+    <?php foreach ($sessions as $s): ?><div class="item">
+        <span class="avatar sm"><i class="fa-solid <?= preg_match('/Android|iPhone|iPad|Mobile/', (string) $s['user_agent']) ? 'fa-mobile-screen' : 'fa-laptop' ?>"></i></span>
+        <div class="grow"><div class="bold"><?= e(device_name($s['user_agent'])) ?> <?php if ($s['current']): ?><span class="badge green">همین دستگاه</span><?php endif; ?></div>
+            <div class="xs muted"><span class="ltr"><?= e((string) $s['ip']) ?></span> • ورود: <?= e(jdate((string) $s['created_at'])) ?> • آخرین فعالیت: <?= e(time_ago(date('Y-m-d H:i:s', (int) $s['last_activity']))) ?></div></div>
+        <?php if (!$s['current']): ?><button class="btn btn-sm" data-post="<?= e(url('/profile/sessions/revoke')) ?>" data-data='<?= e(json_encode(['id' => $s['id_hash']])) ?>' data-confirm="این دستگاه از حساب شما خارج شود؟" data-after="reload" aria-label="خروج این دستگاه"><i class="fa-solid fa-right-from-bracket"></i> خروج</button><?php endif; ?>
+    </div><?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="grid grid-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-user-shield"></i> حریم خصوصی</h3></div>

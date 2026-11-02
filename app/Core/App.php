@@ -44,8 +44,10 @@ final class App
         header('Cross-Origin-Resource-Policy: same-origin');
         header('X-Permitted-Cross-Domain-Policies: none');
         header("Content-Security-Policy: default-src 'self'; script-src 'self'; "
-            . "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-            . "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; "
+            // فونت و آیکون‌ها روی همین سرور (بدون CDN). تگ <style> و فایل CSS فقط از خود سایت (style-src-elem)؛
+            // 'unsafe-inline' فقط برای ویژگی style روی عناصر (رنگ/عرض پویا) مانده و style-src برای مرورگرهای قدیمی است
+            . "style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; "
+            . "font-src 'self'; "
             . "img-src 'self' data: blob:; connect-src 'self'; media-src 'self'; object-src 'none'; "
             . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'");
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
