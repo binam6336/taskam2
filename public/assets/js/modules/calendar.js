@@ -57,9 +57,11 @@ document.addEventListener('tk:ready', () => {
 
   // رنگ اولویت: در پروژه‌های درصدی از خود درصد (همان فرمول priority_color در PHP)، وگرنه کلاس کم/متوسط/زیاد
   let overdueTotal = null;
+  const GM = ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'];   // تاریخ میلادی کنار روز (رقم فارسی)
   const pcolor = (p) => { p = Math.max(0, Math.min(100, p)); const h = p <= 50 ? 142 - (p / 50) * 97 : 45 - ((p - 50) / 50) * 45; return `hsl(${Math.round(h)}, 85%, 60%)`; };
+  const isPct = (t) => t.priority_type === 'percent' && t.percent !== null;
   const pStyle = (t) => (t.priority_type === 'percent' && t.percent !== null ? ` style="--pc:${pcolor(t.percent)}"` : '');
-  const chip = (t) => `<div class="cal-chip${t.done ? ' done' : ''}${t.overdue ? ' late' : ''} p-${E(t.priority)}"${pStyle(t)} ${t.can_move ? 'draggable="true"' : ''} data-task="${t.id}" title="${E(t.title)}">
+  const chip = (t) => `<div class="cal-chip${t.done ? ' done' : ''}${t.overdue ? ' late' : ''}${isPct(t) ? '' : ' p-' + E(t.priority)}"${pStyle(t)} ${t.can_move ? 'draggable="true"' : ''} data-task="${t.id}" title="${E(t.title)}">
       <i></i>${t.time ? `<b>${F(t.time)}</b>` : ''}<span>${E(t.title)}</span></div>`;
 
   const render = (c) => {
@@ -69,10 +71,10 @@ document.addEventListener('tk:ready', () => {
       const heat = open >= 5 ? 'h3' : open >= 3 ? 'h2' : open ? 'h1' : '';
       const g = iso.split('-');
       return `<div class="cal-day${cur ? '' : ' out'}${iso === todayIso ? ' today' : ''}${i % 7 === 6 ? ' fri' : ''}${iso < todayIso ? ' past' : ''}" role="gridcell" tabindex="0" data-day="${iso}" aria-label="${F(d)} ${J.MONTHS[m - 1]}${list.length ? '، ' + F(list.length) + ' تسک' : ''}">
-        <div class="cal-day-head"><span class="cal-num">${F(d)}</span>${iso === todayIso ? '<span class="cal-today-tag">امروز</span>' : ''}<span class="cal-g ltr">${+g[2]}/${+g[1]}</span>
+        <div class="cal-day-head"><span class="cal-num">${F(d)}</span>${iso === todayIso ? '<span class="cal-today-tag">امروز</span>' : ''}<span class="cal-g">${F(+g[2])} ${GM[+g[1] - 1]}</span>
           ${list.length ? `<span class="cal-count ${heat}" title="${F(list.length)} تسک${open !== list.length ? '، ' + F(list.length - open) + ' انجام‌شده' : ''}">${F(list.length)}</span>` : ''}</div>
         <div class="cal-chips">${list.slice(0, 3).map(chip).join('')}${list.length > 3 ? `<div class="cal-more">+${F(list.length - 3)} تسک دیگر</div>` : ''}</div>
-        <div class="cal-dots">${list.slice(0, 6).map((t) => `<i class="p-${E(t.priority)}${t.done ? ' done' : ''}"${t.priority_type === 'percent' && t.percent !== null ? ` style="background:${pcolor(t.percent)}"` : ''}></i>`).join('')}</div>
+        <div class="cal-dots">${list.slice(0, 6).map((t) => `<i class="${isPct(t) ? '' : 'p-' + E(t.priority)}${t.done ? ' done' : ''}"${t.priority_type === 'percent' && t.percent !== null ? ` style="background:${pcolor(t.percent)}"` : ''}></i>`).join('')}</div>
       </div>`;
     }).join('');
     // آمار ماه جاری
@@ -105,7 +107,9 @@ document.addEventListener('tk:ready', () => {
         <div class="cal-task-main">
           <a href="#" class="cal-task-title" data-open-task="${t.id}">${t.done ? '<i class="fa-solid fa-circle-check"></i> ' : ''}${E(t.title)}</a>
           <div class="cal-task-meta">
-            <span class="badge p-${E(t.priority)}"${t.priority_type === 'percent' && t.percent !== null ? ` style="color:${pcolor(t.percent)}"` : ''}>${E(prioTxt(t))}</span>
+            ${t.priority_type === 'percent' && t.percent !== null
+              ? `<span class="badge prio-pct" style="--pc:${pcolor(t.percent)}">${E(prioTxt(t))}</span>`   /* فقط متغیر رنگ؛ قاعده‌ی تم روشن روی prio-pct اعمال می‌شود */
+              : `<span class="badge p-${E(t.priority)}">${E(prioTxt(t))}</span>`}
             ${t.label ? `<span><i class="fa-solid fa-tag" style="color:${E(t.label_color || 'var(--muted)')}"></i> ${E(t.label)}</span>` : ''}
             ${t.project ? `<span><i class="fa-solid fa-diagram-project"></i> ${E(t.project)}</span>` : ''}
             ${t.assignee ? `<span class="cal-who"><span class="avatar xs">${t.assignee_avatar ? `<img src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee))}</span>${E(t.assignee)}</span>` : ''}

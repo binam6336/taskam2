@@ -9,8 +9,8 @@ document.addEventListener('tk:ready', () => {
       <div class="card hover text-card" draggable="true" data-id="${E(t.id)}">
         <div class="flex between items-center gap-1 mb-1"><b class="truncate"><i class="fa-solid fa-grip-vertical sort-handle"></i> ${E(t.title)}</b>
           <div class="flex gap-1"><button class="btn btn-xs" data-copy-text="${E(t.id)}"><i class="fa-regular fa-copy"></i> کپی</button>
-          <button class="btn btn-xs btn-icon" data-edit-text="${E(t.id)}"><i class="fa-solid fa-pen"></i></button>
-          <button class="btn btn-xs btn-icon btn-danger" data-del-text="${E(t.id)}"><i class="fa-solid fa-trash"></i></button></div></div>
+          <button class="btn btn-xs btn-icon" data-edit-text="${E(t.id)}" title="ویرایش متن" aria-label="ویرایش متن"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-xs btn-icon btn-danger" data-del-text="${E(t.id)}" title="حذف متن" aria-label="حذف متن"><i class="fa-solid fa-trash"></i></button></div></div>
         <pre>${E(t.content)}</pre></div>`).join('');
   };
   draw();

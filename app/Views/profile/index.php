@@ -9,7 +9,7 @@ $this->scripts[] = 'profile';
         <div class="flex gap-1 mt-1 wrap"><span class="badge green"><?= $u['role'] === 'admin' ? 'مدیر' : 'کاربر' ?></span><span class="chip"><i class="fa-solid fa-list-check"></i> <?= e(fa_num($stats['tasks'])) ?> تسک</span><span class="chip"><i class="fa-solid fa-users"></i> <?= e(fa_num($stats['colleagues'])) ?> همکار</span><span class="chip"><i class="fa-solid fa-diagram-project"></i> <?= e(fa_num($stats['projects'])) ?> پروژه</span></div></div>
     <?php // انتخاب تصویر با آیکون (یا کلیک روی خود آواتار)؛ بعد از انتخاب، خودکار بارگذاری می‌شود ?>
     <form method="post" action="<?= e(url('/profile/avatar')) ?>" enctype="multipart/form-data" data-ajax class="flex gap-1 wrap items-center" id="f-avatar"><?= csrf_field() ?>
-        <label class="btn btn-sm file-pick av-pick-btn" title="انتخاب تصویر پروفایل" aria-label="انتخاب تصویر پروفایل"><i class="fa-solid fa-link"></i> تصویر پروفایل<input type="file" name="avatar" accept="image/*" id="av-file" hidden></label>
+        <label class="btn btn-sm file-pick av-pick-btn" title="انتخاب تصویر پروفایل" aria-label="انتخاب تصویر پروفایل"><i class="fa-solid fa-camera"></i> تصویر پروفایل<input type="file" name="avatar" accept="image/*" id="av-file" hidden></label>
         <?php if ($u['avatar']): ?><button type="button" class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/avatar/delete')) ?>" data-confirm="تصویر حذف شود؟">حذف</button><?php endif; ?></form>
 </div></div>
 
@@ -34,7 +34,7 @@ $this->scripts[] = 'profile';
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-id-card"></i> اطلاعات حساب</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>
         <form method="post" action="<?= e(url('/profile/info')) ?>" data-ajax data-keep-open data-dirty><?= csrf_field() ?>
             <div class="row"><div class="field"><label>نام</label><input class="input" name="first_name" value="<?= e($u['first_name']) ?>" maxlength="100" required></div><div class="field"><label>نام خانوادگی</label><input class="input" name="last_name" value="<?= e($u['last_name']) ?>" maxlength="100"></div></div>
-            <div class="field"><label>شماره موبایل</label><input class="input ltr" value="<?= e($u['mobile']) ?>" disabled><div class="hint">برای تغییر شماره با مدیر تماس بگیرید.</div></div>
+            <div class="field"><label for="pf-mobile">شماره موبایل <i class="fa-solid fa-lock faint xs" title="غیرقابل ویرایش" aria-hidden="true"></i></label><input class="input ltr" id="pf-mobile" value="<?= e($u['mobile']) ?>" disabled aria-describedby="pf-mobile-hint"><div class="hint" id="pf-mobile-hint">برای تغییر شماره با مدیر تماس بگیرید.</div></div>
             <div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email" value="<?= e($u['email'] ?? '') ?>" maxlength="150"></div>
             <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></form></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> تغییر رمز عبور</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>

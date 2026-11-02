@@ -216,6 +216,17 @@
   const a11y = () => {
     TK.qsa('[data-close]:not([aria-label]):not([title])').forEach((b) => { if (!b.textContent.trim()) { b.setAttribute('aria-label', 'بستن'); b.title = 'بستن'; } });
     TK.qsa('.btn-icon[title]:not([aria-label]), a.btn[title]:not([aria-label])').forEach((b) => { if (!b.textContent.trim()) b.setAttribute('aria-label', b.title); });
+    // برچسب فرم ← فیلد: هر .field که یک برچسب بدون for و یک فیلد اصلی دارد، با id/for به هم وصل شوند (کلیک روی برچسب و صفحه‌خوان)
+    TK.qsa('.field > label:not([for])').forEach((l) => {
+      const f = l.parentElement.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea');
+      if (f.length !== 1 || l.contains(f[0])) return;
+      if (!f[0].id) f[0].id = 'f-' + Math.random().toString(36).slice(2, 9);
+      l.htmlFor = f[0].id;
+    });
+    // فیلدهای جستجو و فیلدهای بی‌برچسب: نام از placeholder
+    TK.qsa('input:not([type=hidden]):not([aria-label]), textarea:not([aria-label])').forEach((i) => {
+      if (i.placeholder && !(i.id && document.querySelector(`label[for="${CSS.escape(i.id)}"]`)) && !i.closest('label')) i.setAttribute('aria-label', i.placeholder);
+    });
   };
   a11y(); document.addEventListener('tk:ready', a11y); document.addEventListener('tk:live', a11y);
 
@@ -373,10 +384,16 @@
         g += `<defs><linearGradient id="lg${k}${el.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="${series.length > 2 ? '.12' : '.24'}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>`;
         segs.forEach((idx) => {
           const pts = idx.map((i) => `${x(i)},${y(s.data[i])}`).join(' ');
-          if (idx.length > 1) g += `<polygon points="${x(idx[0])},${y(0)} ${pts} ${x(idx[idx.length - 1])},${y(0)}" fill="url(#lg${k}${el.id})"/>`;
+          if (idx.length > 1 && !connect) g += `<polygon points="${x(idx[0])},${y(0)} ${pts} ${x(idx[idx.length - 1])},${y(0)}" fill="url(#lg${k}${el.id})"/>`;
           g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
         });
-        s.data.forEach((v, i) => { if (v !== null && v !== undefined) g += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" style="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`; });
+        const solo = s.data.filter((v) => v !== null && v !== undefined).length === 1;   // سری تک‌نقطه‌ای: نقطه‌ی پررنگ با نام
+        s.data.forEach((v, i) => {
+          if (v === null || v === undefined) return;
+          g += solo ? `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="5.5" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`
+            + `<text class="pt-name" x="${x(i)}" y="${Math.max(12, y(v) - 10)}" text-anchor="middle" style="fill:${c}">${TK.esc(s.name)}</text>`
+            : `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" style="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`;
+        });
         g += '</g>';
       });
       // ناحیه‌های هاور (یک ستون برای هر برچسب)
