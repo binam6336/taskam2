@@ -1709,3 +1709,6 @@ html[data-theme="sage"] .dp-row { background: #FBFAEB; }
 .captcha-row .captcha-input { flex: 1; min-width: 0; height: 40px; text-transform: uppercase; letter-spacing: .25em; font-weight: 700; text-align: center; }
 .captcha-input::placeholder { text-transform: none; letter-spacing: normal; font-weight: 400; font-size: .85em; }
 .captcha-input.is-invalid { border-color: var(--danger, #ef4444); }
+.chat-input.is-blocked textarea { border-color: var(--danger, #ef4444); opacity: 1; cursor: not-allowed; }
+.chat-input.is-blocked textarea::placeholder { color: var(--danger, #ef4444); opacity: .9; }
+.chat-input.is-blocked .btn { opacity: .45; pointer-events: none; }

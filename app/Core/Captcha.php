@@ -19,7 +19,8 @@ final class Captcha
     /** کپچای ورود فعال است؟ (CAPTCHA_LOGIN=false فقط برای محیط توسعه/تست خودکار) */
     public static function enabled(): bool
     {
-        return !in_array(strtolower(trim((string) env('CAPTCHA_LOGIN', 'true'))), ['false', '0', 'off', 'no'], true);
+        $v = env('CAPTCHA_LOGIN', true);                    // env() مقدار true/false را به bool تبدیل می‌کند
+        return is_bool($v) ? $v : !in_array(strtolower(trim((string) $v)), ['false', '0', 'off', 'no'], true);
     }
 
     /** ساخت کد جدید، ذخیره‌ی هش در نشست و ارسال تصویر PNG */

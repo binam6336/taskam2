@@ -53,6 +53,9 @@ final class CallService
             return self::res(false, $lim, 'RATE_LIMITED', 429);
         }
         $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
+        if ($m = Access::blockMessage($actor, $assignee)) {
+            return self::res(false, $m . ' امکان واگذاری درخواست تماس به او وجود ندارد.', 'USER_BLOCKED', 403);
+        }
         if (!Access::canAssignTo($actor, $assignee, null)) {
             return self::res(false, 'امکان واگذاری به این کاربر وجود ندارد (باید همکار شما باشد).', 'ASSIGNEE_INVALID', 403);
         }
@@ -85,6 +88,9 @@ final class CallService
                 return self::res(false, 'اجازه‌ی تغییر مسئول را ندارید.', 'FORBIDDEN', 403);
             }
             $aid = (int) $in['assignee_id'];
+            if ($m = Access::blockMessage($actor, $aid)) {
+                return self::res(false, $m . ' امکان واگذاری درخواست تماس به او وجود ندارد.', 'USER_BLOCKED', 403);
+            }
             if (!Access::canAssignTo((int) $row['user_id'], $aid, null) && !Access::canAssignTo($actor, $aid, null)) {
                 return self::res(false, 'امکان واگذاری به این کاربر وجود ندارد.', 'ASSIGNEE_INVALID', 403);
             }

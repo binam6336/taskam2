@@ -25,8 +25,18 @@ final class TaskService
         return self::res(false, $msg, $code, $http);
     }
 
+    /** خطای واگذاری به کاربری که مسدودی بین او و انجام‌دهنده هست (null = مشکلی نیست) */
+    private static function blockError(int $actor, int $assignee): ?array
+    {
+        $m = Access::blockMessage($actor, $assignee);
+        return $m === null ? null : self::err($m . ' امکان واگذاری تسک به او وجود ندارد.', 'USER_BLOCKED', 403);
+    }
+
     private static function assigneeAllowed(int $ownerId, int $actorId, int $assigneeId, ?int $projectId): bool
     {
+        if ($assigneeId !== $actorId && Access::isBlockedBetween($actorId, $assigneeId)) {
+            return false;                                                  // مسدودی در هر جهت (پیام دقیق‌تر با blockError)
+        }
         if ($projectId !== null) {
             return Access::isProjectMember($projectId, $assigneeId);       // مسئول تسک پروژه فقط از اعضای همان پروژه
         }
@@ -89,6 +99,9 @@ final class TaskService
             return self::err('پروژه‌ی انتخاب‌شده معتبر نیست یا عضو آن نیستید.', 'PROJECT_INVALID');
         }
         $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
+        if ($e = self::blockError($actor, $assignee)) {
+            return $e;
+        }
         // واگذاری تسک جدید به دیگران فقط با مجوز «تغییر مسئول» در همین پروژه (سازنده‌ی پروژه همیشه)
         if ($assignee !== $actor && !in_array('reassign', Access::projectTaskPerms($projectId, $actor), true)) {
             return self::err('برای واگذاری تسک به عضو دیگر، دسترسی «تغییر مسئول» در این پروژه لازم است؛ تسک را برای خودتان بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
@@ -230,6 +243,9 @@ final class TaskService
             if ($aid !== (int) $t['assignee_id']) {
                 if (!Access::canTask($t, $actor, 'reassign')) {
                     return self::err('اجازه‌ی تغییر مسئول این تسک را ندارید.', 'FORBIDDEN', 403);
+                }
+                if ($e = self::blockError($actor, $aid)) {
+                    return $e;
                 }
                 if (!self::assigneeAllowed((int) $t['user_id'], $actor, $aid, $newProject)) {
                     return self::err('امکان واگذاری تسک به این کاربر وجود ندارد.', 'ASSIGNEE_INVALID', 403);

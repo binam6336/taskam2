@@ -77,14 +77,20 @@ document.addEventListener('tk:ready', () => {
     cur = c; TK.state.chatUser = c.user_id; root.classList.add('in-conv'); el.empty.style.display = 'none'; el.conv.style.display = 'flex';
     const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
     el.name.textContent = nm; el.avatar.innerHTML = c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm));
-    TK.qs('#chat-form').style.display = c.is_bot || c.is_blocked_by_me || c.has_blocked_me ? 'none' : 'flex';
+    // مسدودی: پیام‌های قبلی خوانده می‌شود ولی فیلد ارسال غیرفعال است و علتش را می‌گوید
+    const form = TK.qs('#chat-form'), blk = c.has_blocked_me ? 'این کاربر شما را مسدود کرده است؛ امکان ارسال پیام ندارید.' : c.is_blocked_by_me ? 'شما این کاربر را مسدود کرده‌اید؛ برای ارسال پیام، مسدودی را بردارید.' : '';
+    form.style.display = c.is_bot ? 'none' : 'flex';
+    form.classList.toggle('is-blocked', !!blk);
+    el.text.dataset.ph ??= el.text.placeholder;
+    el.text.placeholder = blk || el.text.dataset.ph; el.text.disabled = !!blk;
+    TK.qsa('button, input', form).forEach((x) => { x.disabled = !!blk; });
     history.replaceState(null, '', TK.url('/chat?user=' + uid));
     el.msgs.innerHTML = '<div class="chat-empty muted">در حال بارگذاری…</div>'; lastId = firstId = 0;
     const r = await TK.get(API + 'fetch', target ? { user_id: uid, mode: 'around', target_id: target, limit: 40 } : { user_id: uid, limit: 30 });
     if (r.status !== 'success') { el.msgs.innerHTML = `<div class="chat-empty">${E(r.message || 'خطا')}</div>`; return; }
     hasOlder = r.has_more_before; draw(r.messages, true);
     if (target) { const m = TK.qs(`.msg[data-id="${target}"]`, el.msgs); m?.scrollIntoView({ block: 'center' }); m?.classList.add('hl'); } else toBottom();
-    c.unread_count = 0; drawContacts(); statusLine(); el.text.focus();
+    c.unread_count = 0; drawContacts(); statusLine(); if (!el.text.disabled) el.text.focus();
   };
   const draw = (list, replace) => {
     if (!list.length) { if (replace) el.msgs.innerHTML = '<div class="chat-empty muted">هنوز پیامی نیست. اولین پیام را بفرستید 👋</div>'; return; }

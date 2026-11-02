@@ -44,6 +44,9 @@ final class ChatController extends Controller
         if ($this->isBot($rid)) {
             $this->fail('این حساب ربات اطلاع‌رسانی است و امکان ارسال پیام به آن وجود ندارد');
         }
+        if ($m = \App\Services\Access::blockMessage($uid, $rid)) {
+            $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
+        }
         if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid]) || !ChatModel::canChat($uid, $rid)) {
             $this->fail('امکان ارسال پیام وجود ندارد', 403);
         }
@@ -99,7 +102,8 @@ final class ChatController extends Controller
         if ($other <= 0) {
             $this->fail('شناسه نامعتبر');
         }
-        if (!ChatModel::canChat($uid, $other)) {
+        // بعد از مسدودی، پیام‌های قبلی همچنان قابل خواندن است (فقط ارسال بسته است)
+        if (!ChatModel::canChat($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
             $this->fail('دسترسی ندارید', 403);
         }
         $this->touch($uid);

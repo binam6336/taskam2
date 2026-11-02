@@ -326,6 +326,24 @@ final class Access
         return (bool) DB::value('SELECT 1 FROM colleagues c WHERE ((c.user_id = ? AND c.colleague_user_id = ?) OR (c.user_id = ? AND c.colleague_user_id = ?)) AND ' . self::approvedSql('c') . ' LIMIT 1', [$a, $b, $b, $a]);
     }
 
+    /**
+     * پیام مسدودی بین انجام‌دهنده و طرف مقابل (null = مسدودی نیست):
+     * او شما را مسدود کرده / شما او را مسدود کرده‌اید.
+     */
+    public static function blockMessage(int $actor, int $other): ?string
+    {
+        if ($actor === $other || $other <= 0) {
+            return null;
+        }
+        if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ? LIMIT 1', [$other, $actor])) {
+            return 'این کاربر شما را مسدود کرده است.';
+        }
+        if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ? LIMIT 1', [$actor, $other])) {
+            return 'شما این کاربر را مسدود کرده‌اید.';
+        }
+        return null;
+    }
+
     public static function isBlockedBetween(int $a, int $b): bool
     {
         return (bool) DB::value('SELECT 1 FROM colleague_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?) LIMIT 1', [$a, $b, $b, $a]);
