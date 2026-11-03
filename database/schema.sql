@@ -214,6 +214,7 @@ CREATE TABLE `tasks` (
   `priority`     ENUM('low','medium','high') NOT NULL DEFAULT 'medium',
   `priority_percent` TINYINT UNSIGNED NULL DEFAULT NULL COMMENT '۰ تا ۱۰۰، مضرب ۵',
   `is_completed` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_quick`     TINYINT(1) NOT NULL DEFAULT 0       COMMENT '1 = با «ثبت سریع» ساخته شده و هنوز وضعیتش در بورد تغییر نکرده',
   `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog' COMMENT 'وضعیت در برد تیمی (تسک جدید: backlog)',
   `blocked_reason` VARCHAR(255) NULL DEFAULT NULL,
   `board_moved_at` TIMESTAMP NULL DEFAULT NULL,

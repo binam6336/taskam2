@@ -65,6 +65,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/calendar', [CalendarController::class, 'index']);
     $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
+    $r->get('/tasks/quick-options', [TaskController::class, 'quickOptions']);
     $r->get('/tasks/{id}', [TaskController::class, 'show']);
     $r->post('/tasks/{id}/update', [TaskController::class, 'update']);
     $r->post('/tasks/{id}/toggle', [TaskController::class, 'toggle']);
@@ -80,6 +81,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/files/{kind}/{id}/delete', [TaskController::class, 'deleteFile']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
+    $r->post('/tasks/quick', [TaskController::class, 'quick']);
 
     // بورد پروژه (کانبان، دمو)
     $r->get('/board', [BoardController::class, 'index']);
@@ -189,7 +191,6 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/avatar', [ProfileController::class, 'avatar']);
     $r->post('/profile/avatar/delete', [ProfileController::class, 'removeAvatar']);
     $r->post('/profile/privacy', [ProfileController::class, 'privacy']);
-    $r->post('/profile/quick-links', [ProfileController::class, 'quickLinks']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
     $r->post('/profile/sessions/revoke', [ProfileController::class, 'revokeSession']);

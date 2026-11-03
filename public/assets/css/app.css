@@ -1738,3 +1738,23 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .err-ico { color: var(--g-400); }
 .err-detail { max-width: 640px; margin: 1rem auto; text-align: left; white-space: pre-wrap; }
 .err-actions { justify-content: center; }
+
+/* ───── ثبت سریع تسک ───── */
+.qk-field { position: relative; }
+.qk-menu { position: absolute; inset-inline: 0; top: 100%; margin-top: 4px; z-index: 30; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: .3rem; max-height: 260px; overflow: auto; }
+.qk-menu[hidden] { display: none; }
+.qk-opt { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: 8px; cursor: pointer; }
+.qk-opt.active, .qk-opt:hover { background: var(--surface-3); color: var(--g-300); }
+.qk-opt > i { width: 20px; text-align: center; color: var(--g-400); }
+.qk-empty { padding: .5rem .6rem; color: var(--muted); font-size: .85rem; }
+.avatar.xs { width: 24px; height: 24px; font-size: .7rem; }
+.qk-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .2rem 0 .5rem; }
+.qk-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--border-2); font-size: .8rem; }
+.qk-chip > i { color: var(--g-400); }
+.qk-chip.warn { border-color: var(--warn, #fbbf24); color: var(--warn, #fbbf24); }
+.qk-chip.warn > i { color: inherit; }
+.qk-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 .1rem; }
+.qk-x:hover { color: var(--danger, #f87171); }
+.qk-badge { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: color-mix(in srgb, var(--warn, #fbbf24) 18%, transparent); color: var(--warn, #f59e0b); cursor: default; }
+.qk-badge::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--surface-3); color: var(--text); border: 1px solid var(--border-2); border-radius: 8px; padding: .2rem .55rem; font-size: .75rem; opacity: 0; pointer-events: none; transition: opacity .15s; box-shadow: var(--shadow); }
+.qk-badge:hover::after, .qk-badge:focus::after { opacity: 1; }

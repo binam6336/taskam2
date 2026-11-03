@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '025';
+    public const VERSION = '026';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 026
+        ['tasks', 'is_quick', "ADD COLUMN `is_quick` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_completed`", null],
         // 025
         ['user_sessions', 'reauth_at', "ADD COLUMN `reauth_at` INT UNSIGNED NULL DEFAULT NULL AFTER `last_activity`", null],
         // 008

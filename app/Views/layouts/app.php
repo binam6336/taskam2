@@ -18,9 +18,7 @@ if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
     $this->boot['tour'] = ['state' => $tour, 'page' => $active, 'texts' => \App\Models\ContentModel::tour()];
     $this->scripts[] = 'tour';
 }
-$allLinks = require BASE_PATH . '/config/quick_links.php';
-$sel = json_decode((string) ($u['quick_links'] ?? ''), true);
-$quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => in_array($l['id'], $sel, true))) : [];
+$this->scripts[] = 'quicktask';                       // «ثبت سریع تسک» (دکمه‌ی صاعقه، همه‌ی صفحه‌ها)
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
@@ -57,9 +55,9 @@ $quick = is_array($sel) ? array_values(array_filter($allLinks, static fn($l) => 
     </div>
 </div>
 <div class="qa">
-    <button class="btn btn-primary qa-fab" aria-label="دسترسی سریع" <?= $quick ? '' : 'data-qa-empty' ?>><i class="fa-solid fa-bolt"></i></button>
-    <?php if ($quick): ?><div class="qa-panel"><?php foreach ($quick as $l): ?><a href="<?= e(url($l['path'])) ?>"><i class="fa-solid <?= e($l['icon']) ?>"></i><?= e($l['title']) ?></a><?php endforeach; ?></div><?php endif; ?>
+    <button type="button" class="btn btn-primary qa-fab" aria-label="ثبت سریع تسک" title="ثبت سریع تسک" data-quick-task><i class="fa-solid fa-bolt"></i></button>
 </div>
+<?php require __DIR__ . '/../partials/quick_task.php'; ?>
 <?php require __DIR__ . '/../partials/confirm.php'; ?>
 <?php require __DIR__ . '/scripts.php'; ?>
 </body>

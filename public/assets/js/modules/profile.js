@@ -20,7 +20,7 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#f-avatar').requestSubmit();
   });
 
-  // گزینه‌های انتخابی (حریم خصوصی، امنیت تسک‌ها، دسترسی سریع): ذخیره‌ی خودکار با هر تغییر
+  // گزینه‌های انتخابی (حریم خصوصی، امنیت تسک‌ها): ذخیره‌ی خودکار با هر تغییر
   TK.qsa('form[data-autosave]').forEach((f) => f.addEventListener('change', () => f.requestSubmit()));
 
   // فرم‌های متنی (اطلاعات حساب، رمز): نشان «تغییرات ذخیره نشده» و هشدار هنگام ترک صفحه

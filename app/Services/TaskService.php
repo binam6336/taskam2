@@ -45,7 +45,8 @@ final class TaskService
             || Access::canAssignTo($actorId, $assigneeId, $projectId);
     }
 
-    public static function create(int $actor, array $in): array
+    /** $quick: از «ثبت سریع تسک» (فقط عنوان) — is_quick = 1 تا اولین تغییر وضعیت در بورد */
+    public static function create(int $actor, array $in, bool $quick = false): array
     {
         $title = trim((string) ($in['title'] ?? ''));
         if ($title === '') {
@@ -114,11 +115,62 @@ final class TaskService
             'user_id' => $actor, 'assignee_id' => $assignee, 'subject_id' => $subjectId, 'project_id' => $projectId,
             'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
             'due_date' => $due, 'due_time' => $time,
-        ]);
+        ] + ($quick ? ['is_quick' => 1] : []));
         $task = TaskModel::raw($id);
         $pt = $projectId ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [$projectId]) : null;
         Notifier::taskAssigned($task, $actor, $pt);
         return self::res(true, 'تسک با موفقیت ایجاد شد.', '', 201, $task);
+    }
+
+    /**
+     * داده‌ی «ثبت سریع تسک»: پروژه‌های کاربر (با اعضا و اینکه می‌تواند به دیگران واگذار کند) و پروژه‌ی پیش‌فرض
+     * (آخرین پروژه‌ای که در آن تسک ساخته، وگرنه اولین پروژه). افراد = خودش + اعضای پروژه‌هایش (بدون مسدودی).
+     */
+    public static function quickOptions(int $uid): array
+    {
+        $projects = DB::all('SELECT p.id, p.title, p.user_id FROM projects p WHERE p.status = 1 AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]);
+        $ids = array_map(static fn($p) => (int) $p['id'], $projects);
+        $members = [];
+        if ($ids) {
+            foreach (DB::all('SELECT project_id, user_id FROM project_members WHERE project_id IN (' . DB::in($ids) . ')', $ids) as $m) {
+                $members[(int) $m['project_id']][] = (int) $m['user_id'];
+            }
+        }
+        $people = [];
+        $out = [];
+        foreach ($projects as $p) {
+            $pid = (int) $p['id'];
+            $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
+            $out[] = ['id' => $pid, 'title' => $p['title'], 'members' => $mem, 'can_assign' => in_array('reassign', Access::projectTaskPerms($pid, $uid), true)];
+            foreach ($mem as $m) {
+                $people[$m] = true;
+            }
+        }
+        $people[$uid] = true;
+        $pids = array_keys($people);
+        $rows = DB::all("SELECT id, first_name, last_name, avatar FROM users WHERE id IN (" . DB::in($pids) . ") AND status = 'active' AND is_bot = 0", $pids);
+        $list = [];
+        foreach ($rows as $r) {
+            if ((int) $r['id'] !== $uid && Access::isBlockedBetween($uid, (int) $r['id'])) {
+                continue;
+            }
+            $list[] = ['id' => (int) $r['id'], 'name' => full_name($r) . ((int) $r['id'] === $uid ? ' (خودم)' : ''), 'avatar' => avatar_url($r['avatar']), 'me' => (int) $r['id'] === $uid];
+        }
+        usort($list, static fn($a, $b) => ($b['me'] <=> $a['me']) ?: strcmp($a['name'], $b['name']));
+        return ['projects' => $out, 'people' => $list, 'default_project' => self::defaultProject($uid, $ids)];
+    }
+
+    /** پروژه‌ی پیش‌فرض ثبت سریع: آخرین پروژه‌ای که کاربر در آن تسک ساخته (اگر هنوز عضو است)، وگرنه اولین پروژه */
+    public static function defaultProject(int $uid, ?array $allowed = null): ?int
+    {
+        if ($allowed === null) {
+            $allowed = array_map('intval', DB::column('SELECT p.id FROM projects p WHERE p.status = 1 AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]));
+        }
+        if (!$allowed) {
+            return null;
+        }
+        $last = (int) DB::value('SELECT project_id FROM tasks WHERE user_id = ? AND project_id IN (' . DB::in($allowed) . ') ORDER BY id DESC LIMIT 1', array_merge([$uid], $allowed));
+        return $last > 0 ? $last : $allowed[0];
     }
 
     public static function update(int $actor, int $id, array $in): array

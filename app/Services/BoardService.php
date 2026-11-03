@@ -462,7 +462,8 @@ final class BoardService
         $reason = trim(mb_substr($reason, 0, 255));
         $reason = in_array($status, ['blocked', 'rework'], true) && $reason !== '' ? $reason : null;
         $done = $status === 'done';
-        DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?,
+        // is_quick = 0: اولین تغییر وضعیت در بورد علامت «ثبت سریع» را برمی‌دارد
+        DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?, is_quick = 0,
                    completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END WHERE id = ?',
             [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $id]);
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);

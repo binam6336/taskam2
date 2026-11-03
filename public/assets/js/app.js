@@ -284,10 +284,6 @@
     qa.classList.toggle('qa-hide', window.innerWidth <= 640 && y > qaY && y > 80);
     qaY = y;
   }, { passive: true });
-  TK.on('click', '.qa-fab', (e, t) => {
-    if (t.hasAttribute('data-qa-empty')) { TK.toast('از تنظیمات (بخش پروفایل ← دسترسی سریع)، گزینه‌های دسترسی سریع را تنظیم کنید.', 'info', 5500); return; }
-    t.closest('.qa').classList.toggle('open');
-  });
   TK.on('click', '[data-sidebar]', () => { TK.qs('.sidebar')?.classList.toggle('open'); TK.qs('.overlay')?.classList.toggle('show'); });
   TK.on('click', '.overlay', () => { TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); });
 

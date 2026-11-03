@@ -1,5 +1,5 @@
 <?php
-/** @var array $u @var array $links @var array $selected @var array $stats @var array|null $sessions */
+/** @var array $u @var array $stats @var array|null $sessions */
 $name = full_name($u);
 $this->scripts[] = 'profile';
 ?>
@@ -77,9 +77,5 @@ $this->scripts[] = 'profile';
                 <?php foreach (\App\Services\TaskService::LINK_ACCESS as [$label, $desc]): ?><li><b><?= e($label) ?>:</b> <?= e($desc) ?></li><?php endforeach; ?>
             </ul>
             <p class="hint mb-2">سازنده، مسئول و همکارانی که به تسک‌هایتان دسترسی داده‌اید همیشه تسک را می‌بینند. اگر کسی بدون دسترسی لینک را باز کند، پیام خطا می‌گیرد و به صفحه‌ی تسک‌های خودش برمی‌گردد.</p>
-            <p class="hint autosave-hint"><i class="fa-solid fa-cloud-arrow-up"></i> تغییرات خودکار ذخیره می‌شود.</p></form></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bolt"></i> دسترسی سریع</h3></div>
-        <form method="post" action="<?= e(url('/profile/quick-links')) ?>" data-ajax data-keep-open data-autosave data-after="none"><?= csrf_field() ?>
-            <div class="perm-grid mb-2"><?php foreach ($links as $l): ?><label class="check"><input type="checkbox" name="links[]" value="<?= e($l['id']) ?>" <?= in_array($l['id'], $selected, true) ? 'checked' : '' ?>><div><b><i class="fa-solid <?= e($l['icon']) ?>"></i> <?= e($l['title']) ?></b></div></label><?php endforeach; ?></div>
             <p class="hint autosave-hint"><i class="fa-solid fa-cloud-arrow-up"></i> تغییرات خودکار ذخیره می‌شود.</p></form></div>
 </div>

@@ -21,10 +21,8 @@ final class ProfileController extends Controller
     public function index()
     {
         $u = $this->user();
-        $links = require BASE_PATH . '/config/quick_links.php';
-        $sel = json_decode((string) $u['quick_links'], true);
         $this->view('profile/index', [
-            'u' => $u, 'links' => $links, 'selected' => is_array($sel) ? $sel : [],
+            'u' => $u,
             'sessions' => Session::usesDb() && !\App\Core\Auth::isImpersonating() ? DbSessionHandler::listFor((int) $u['id']) : null,
             'stats' => [
                 'tasks' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [(int) $u['id']]),
@@ -167,12 +165,4 @@ final class ProfileController extends Controller
         $this->respond(true, 'تنظیمات امنیت تسک‌ها ذخیره شد.', '/profile');
     }
 
-    public function quickLinks()
-    {
-        $u = $this->user();
-        $all = array_column(require BASE_PATH . '/config/quick_links.php', 'id');
-        $ids = array_values(array_intersect($all, array_map('strval', $this->request->arr('links'))));
-        DB::update('users', ['quick_links' => json_encode($ids)], 'id = ?', [(int) $u['id']]);
-        $this->respond(true, 'دسترسی سریع ذخیره شد.', '/profile');
-    }
 }
