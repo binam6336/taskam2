@@ -25,6 +25,7 @@ final class TaskApi extends ApiController
             'creator_first_name' => $t['creator_first_name'] ?? null, 'creator_last_name' => $t['creator_last_name'] ?? null, 'creator_mobile' => mask_mobile($t['creator_mobile'] ?? null),
             'notes_count' => (int) ($t['notes_count'] ?? 0), 'attachments_count' => (int) ($t['attachments_count'] ?? 0),
             'is_blocked' => !empty($t['blocked_at']), 'blocked_at' => $t['blocked_at'] ?? null,
+            'delivered_at' => $t['delivered_at'] ?? null, 'approved_by' => isset($t['approved_by']) ? (int) $t['approved_by'] : null,
         ];
     }
 

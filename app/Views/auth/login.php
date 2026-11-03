@@ -6,12 +6,13 @@
         <button type="button" class="tab grow <?= $isReg ? 'active' : '' ?>" data-auth-tab="register" data-css="justify-content:center">ثبت‌نام</button>
     </div>
 
+    <?php $regMobile = $isReg ? null : \App\Core\Session::pull('registered_mobile'); // بعد از ثبت‌نام: شماره پر و فوکوس روی رمز ?>
     <form method="post" action="<?= e(url('/login')) ?>" id="form-login" class="<?= $isReg ? 'hidden' : '' ?>" autocomplete="on">
         <?= csrf_field() ?>
         <div class="field"><label for="l-mobile">شماره موبایل</label>
-            <input class="input ltr" id="l-mobile" name="mobile" data-mobile inputmode="numeric" autocomplete="username" placeholder="<?= e(ph('login_mobile')) ?>" value="<?= e(old('mobile')) ?>" required autofocus></div>
+            <input class="input ltr" id="l-mobile" name="mobile" data-mobile inputmode="numeric" autocomplete="username" placeholder="<?= e(ph('login_mobile')) ?>" value="<?= e($regMobile ?? old('mobile')) ?>" required <?= $regMobile ? '' : 'autofocus' ?>></div>
         <div class="field"><label for="l-pass">رمز عبور</label>
-            <input class="input ltr" id="l-pass" type="password" name="password" autocomplete="current-password" required></div>
+            <input class="input ltr" id="l-pass" type="password" name="password" autocomplete="current-password" required <?= $regMobile ? 'autofocus' : '' ?>></div>
         <?php if (\App\Core\Captcha::enabled()): ?><input type="hidden" name="captcha" data-captcha-value><?php endif; ?>
         <label class="check mb-2" for="l-remember"><input type="checkbox" id="l-remember" name="remember" value="1"><div><b>من را به خاطر بسپار</b><span>فعال: نشست تا ۳۰ روز می‌ماند و خارج نمی‌شوید. غیرفعال: پس از ۱ ساعت عدم فعالیت خارج می‌شوید.</span></div></label>
         <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-right-to-bracket"></i> ورود به پنل</button>

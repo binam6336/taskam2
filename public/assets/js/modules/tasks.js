@@ -48,6 +48,20 @@ document.addEventListener('tk:ready', () => {
   const range = form.priority_percent, rangeVal = TK.qs('#prio-pct-val');
   const paintRange = () => { const v = +range.value; rangeVal.textContent = F(v) + '٪'; rangeVal.style.color = prioColor(v); range.style.setProperty('--pos', v + '%'); };
   range.addEventListener('input', paintRange);
+  /* «مسئول انجام» بر اساس پروژه: «اعضای این پروژه» و «همکاران غیرعضو» (با گزینه‌ی افزودن به پروژه و واگذاری) */
+  const projOf = (id) => (cfg.projects || []).find((p) => String(p.id) === String(id)) || null;
+  const assigneeOpts = (pid) => {
+    const all = (cfg.assignees || []).map((a) => ({ value: a.id, label: a.name, img: a.avatar }));
+    const p = projOf(pid); if (!p) return all;
+    const mem = all.filter((a) => a.value === cfg.me || (p.members || []).includes(a.value));
+    const others = all.filter((a) => !mem.includes(a));
+    const why = !p.can_add ? 'برای افزودن این همکار به پروژه دسترسی «افزودن کاربر» لازم است؛ با مدیر پروژه هماهنگ کنید.'
+      : !p.can_assign ? 'برای واگذاری تسک به دیگران دسترسی «تغییر مسئول» در این پروژه لازم است.' : '';
+    const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'برای واگذاری تسک به دیگران دسترسی «تغییر مسئول» در این پروژه لازم است.' }));
+    const out = [{ group: 'اعضای این پروژه' }, ...memOpts];
+    if (others.length) out.push({ group: 'همکاران غیرعضو' }, ...others.map((a) => ({ ...a, note: why ? 'عضو پروژه نیست' : 'افزودن به پروژه و واگذاری', addTo: p.id, disabled: !!why, hint: why })));
+    return out;
+  };
   const projType = (id) => (cfg.projects || []).find((p) => String(p.id) === String(id))?.priority_type || 'category';
   const setPrioMode = (type) => {
     const pct = type === 'percent';
@@ -57,7 +71,7 @@ document.addEventListener('tk:ready', () => {
     if (!form.priority.dataset.locked) { range.disabled = !pct; form.priority.disabled = pct; }
     paintRange();
   };
-  rs.project_id.input.addEventListener('change', () => setPrioMode(projType(rs.project_id.get())));
+  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); });
 
   /* ───── افزودن سریع لیبل ───── */
   const subjSel = form.subject_id, subjNew = TK.qs('#subj-pick .subj-new'), subjIn = subjNew.querySelector('input');
@@ -186,8 +200,8 @@ document.addEventListener('tk:ready', () => {
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
-    rs.assignee_id.set(cfg.me); rs.project_id.set(pid);
-    dp.set(opts.date || dp.today()); tp.set('');     // پیش‌فرض: تاریخ امروز (در تقویم: روز انتخاب‌شده)
+    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me);
+    dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
@@ -203,7 +217,7 @@ document.addEventListener('tk:ready', () => {
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
-    rs.assignee_id.set(d.assignee_id ?? cfg.me); rs.project_id.set(d.project_id ?? '');
+    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
@@ -218,7 +232,19 @@ document.addEventListener('tk:ready', () => {
   TK.on('click', '[data-edit-task]', (e, t) => openEdit(JSON.parse(t.dataset.editTask)));
 
   /* اعتبارسنجی سمت کاربر: پروژه اجباری است، لیبل اختیاری (قبل از ارسال AJAX) */
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
+    // همکار غیرعضو انتخاب شده: اول به پروژه اضافه شود (همان‌جا)، بعد فرم ارسال شود
+    const ao = rs.assignee_id.option(rs.assignee_id.get());
+    if (ao?.addTo && String(ao.addTo) === String(rs.project_id.get()) && !ao.added) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (!(await TK.confirm(`«${ao.label}» عضو این پروژه نیست. به پروژه اضافه شود و تسک به او واگذار شود؟`, { okText: 'افزودن و واگذاری', danger: false }))) return;
+      const r = await TK.post('/projects/' + ao.addTo + '/members/add', { user_id: ao.value });
+      if (!TK.ok(r) || r.state !== 'added') { TK.toast(TK.ok(r) ? r.message + ' بعد از تأیید او می‌توانید تسک را واگذار کنید.' : r.message, TK.ok(r) ? 'warning' : 'error', 7000); return; }
+      const p = projOf(ao.addTo); if (p) p.members = [...(p.members || []), ao.value];
+      ao.added = true; TK.toast(r.message, 'success');
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+      return;
+    }
     const missing = [];
     if (tp.get() && !dp.get() && !dp.input.disabled) dp.set(dp.today());   // ساعت بدون تاریخ → امروز
     if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); setMore(true); return TK.toast('لیبل جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
@@ -232,7 +258,7 @@ document.addEventListener('tk:ready', () => {
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
     TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label'] : ['when', 'prio', 'project', 'label']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=created]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label'] : ['when', 'prio', 'project', 'label']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=smart]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {
@@ -263,6 +289,23 @@ document.addEventListener('tk:ready', () => {
   const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id, _id: t.id, _can: t.can });
 
   // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
+  /* دکمه‌های انجام (v4.1): «انجام شد» = تحویل برای بررسی سرپرست (برای همه)؛ در بررسی: «تأیید و بستن» / «برگرداندن برای اصلاح» */
+  const doneBtns = (t) => {
+    const c = t.can || {}, lock = (txt, why) => `<button class="btn btn-sm locked" data-lock-reason="${E(why)}" data-lock-title="انجام شد" aria-disabled="true"><i class="fa-solid fa-lock"></i> ${txt}</button>`;
+    if (t.is_blocked) return '';
+    if (c.status === 'review') {
+      if (c.approve) {
+        return `<button class="btn btn-sm btn-primary" data-detail-approve><i class="fa-solid fa-check-double"></i> تأیید و بستن</button>`
+          + (c.rework ? `<button class="btn btn-sm" data-detail-rework><i class="fa-solid fa-rotate-left"></i> برگرداندن برای اصلاح</button>` : '');
+      }
+      return c.withdraw ? '<button class="btn btn-sm" data-detail-toggle><i class="fa-solid fa-hourglass-half"></i> منتظر تأیید سرپرست — پس گرفتن تحویل</button>'
+        : '<span class="badge board-st tone-purple"><i class="fa-solid fa-hourglass-half"></i> منتظر تأیید سرپرست</span>';
+    }
+    if (t.is_completed) return c.complete ? '<button class="btn btn-sm" data-detail-toggle><i class="fa-solid fa-rotate-left"></i> بازگشت به بررسی سرپرست</button>' : '';
+    if (c.status === null || c.status === undefined) return c.complete ? '<button class="btn btn-sm btn-primary" data-detail-toggle><i class="fa-solid fa-check"></i> انجام شد</button>' : lock('انجام شد', 'شما دسترسی لازم برای تکمیل تسک را ندارید.');
+    return c.deliver ? '<button class="btn btn-sm btn-primary" data-detail-toggle title="ارسال برای بررسی سرپرست"><i class="fa-solid fa-check"></i> انجام شد</button>'
+      : lock('انجام شد', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.');
+  };
   const nextBtn = (b) => {
     if (!b || !b.next || b.next === 'done') return '';
     const txt = `انتقال به «${E(b.next_label)}»`;
@@ -411,8 +454,7 @@ document.addEventListener('tk:ready', () => {
         <dt>ایجاد</dt><dd>${E(t.created_fa)}</dd>${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
       </dl>
       <div class="flex gap-1 wrap mb-2">
-        ${t.can.complete ? `<button class="btn btn-sm ${t.is_completed ? '' : 'btn-primary'}" data-detail-toggle><i class="fa-solid fa-check"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`
-          : `<button class="btn btn-sm locked" data-no-complete aria-disabled="true"><i class="fa-solid fa-lock"></i> ${t.is_completed ? 'بازگشت به انجام‌نشده' : 'انجام شد'}</button>`}
+        ${doneBtns(t)}
         ${nextBtn(t.board)}
         <button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button>
       </div>
@@ -531,7 +573,13 @@ document.addEventListener('tk:ready', () => {
     if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
     if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); await refresh(); if (TK.ok(r)) TK.reload(); return; }
-    if (b.hasAttribute('data-detail-toggle')) { const r = await TK.post('/tasks/' + currentId + '/toggle'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-toggle')) {
+      const r = await TK.post('/tasks/' + currentId + '/toggle');
+      const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) { await refresh(); TK.reload(); } } } : null;
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { await refresh(); TK.reload(); }
+    }
+    if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.hasAttribute('data-detail-block') || b.hasAttribute('data-detail-unblock')) {

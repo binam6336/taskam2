@@ -103,6 +103,7 @@ final class AuthController extends Controller
             ProjectService::createSample($id);
         }
         Session::forget('_old');
+        Session::put('registered_mobile', $mobile);       // فرم ورود با همین شماره پر و فوکوس روی رمز عبور (یک‌بار)
         Session::flash('درخواست ثبت‌نام ثبت شد. با شماره موبایل و رمز خود وارد شوید؛ حساب پس از تأیید مدیر فعال می‌شود.', 'success');
         $this->redirect('/login');
     }

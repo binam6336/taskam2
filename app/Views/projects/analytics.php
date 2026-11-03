@@ -26,15 +26,15 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div class="card-head"><h3><i class="fa-solid fa-clipboard-check"></i> خلاصه‌ی تحلیل پروژه</h3>
         <?php if ($sum['rating']['score'] !== null): ?><span class="badge <?= e($sum['rating']['tone']) ?>">عملکرد کلی: <?= e($sum['rating']['label']) ?> (<?= e(fa_num($sum['rating']['score'])) ?> از ۱۰۰)</span><?php endif; ?></div>
     <p class="an-summary-text"><?= e($sum['text']) ?></p>
-    <?php $sp = $sum['split']; $segs = [['done_ontime', 'به‌موقع انجام‌شده', 'ok'], ['done_late', 'با تأخیر انجام‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
+    <?php $sp = $sum['split']; $cn = $sum['counts']; $segs = [['done_ontime', 'به‌موقع انجام‌شده', 'ok'], ['done_late', 'با تأخیر انجام‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
     <?php // یک نوار انباشته با جمع ۱۰۰٪ (بخش‌ها هم‌پوشانی ندارند) ?>
     <div class="an-stack" role="img" aria-label="<?= e(implode('، ', array_map(static fn($g) => $g[1] . ' ' . fa_num($sp[$g[0]]) . '٪', $segs))) ?>">
-        <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" data-css="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪"></div><?php endif; endforeach; ?>
+        <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" data-css="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪ (<?= e(fa_num($cn[$sk])) ?> تسک)"></div><?php endif; endforeach; ?>
     </div>
     <div class="an-stack-legend">
-        <?php foreach ($segs as [$sk, $l, $tone]): ?><span><i class="<?= $tone ?>"></i><?= e($l) ?> <b><?= e(fa_num($sp[$sk])) ?>٪</b></span><?php endforeach; ?>
+        <?php foreach ($segs as [$sk, $l, $tone]): ?><span><i class="<?= $tone ?>"></i><?= e($l) ?> <b><?= e(fa_num($sp[$sk])) ?>٪</b> <span class="faint">(<?= e(fa_num($cn[$sk])) ?> تسک)</span></span><?php endforeach; ?>
     </div>
-    <p class="hint">بخش‌ها روی هم ۱۰۰٪ همه‌ی وظایف‌اند. «با تأخیر» یعنی دیرتر از سررسیدش انجام شده؛ «عقب‌افتاده» یعنی سررسیدش گذشته و هنوز باز است. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
+    <p class="hint">بخش‌ها روی هم ۱۰۰٪ همه‌ی وظایف‌اند. «انجام‌شده» یعنی مسئول آن را تحویل داده (تأییدشده یا منتظر تأیید سرپرست)؛ «با تأخیر» یعنی روز تحویل بعد از روز سررسید بوده (ساعت سررسید حساب نمی‌شود)؛ «عقب‌افتاده» یعنی روز سررسیدش گذشته و هنوز تحویل نشده. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
 </div>
 
 <div class="grid mb-2 an-row">
@@ -60,19 +60,20 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
         <p class="hint">حداکثر ۵ کاربر را برای مقایسه انتخاب کنید. «امتیاز سرعت» میانگین امتیاز تسک‌هایی است که در هر بازه انجام شده‌اند (۰ تا ۱۰۰)؛ نقطه‌ی خالی یعنی در آن بازه تسکی انجام نشده است.</p>
     </div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> توزیع لیبل‌ها</h3></div>
-        <?php if (!$k['subjects']): ?><p class="muted center">تسکی ثبت نشده است.</p><?php else: ?><div id="ch-subjects"></div><?php endif; ?></div>
+        <?php // «بدون لیبل» شمرده نمی‌شود؛ اگر هیچ تسکی لیبل ندارد، به‌جای نمودار راهنما ?>
+        <?php if (!$k['subjects']): ?><div class="empty small"><i class="fa-solid fa-tags"></i><p>هیچ تسکی در این پروژه لیبل ندارد.</p><a class="btn btn-sm" href="<?= e(url('/labels')) ?>"><i class="fa-solid fa-plus"></i> افزودن لیبل</a></div><?php else: ?><div id="ch-subjects"></div><p class="hint center">سهم هر لیبل از تسک‌های لیبل‌دار (تسک‌های بدون لیبل شمرده نمی‌شوند).</p><?php endif; ?></div>
 </div>
 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
         <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => (int) $m['id']])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
-            <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= e(fa_num($m['open'])) ?></td>
+            <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= (int) $m['waiting'] > 0 ? '<span class="badge purple">' . e(fa_num($m['waiting'])) . '</span>' : '—' ?></td><td><?= e(fa_num($m['open'])) ?></td>
             <td><?= (int) $m['overdue'] > 0 ? '<span class="badge red">' . e(fa_num($m['overdue'])) . '</span>' : '—' ?></td>
             <td><?php if ($r['score'] === null): ?><span class="faint small">هنوز تسکی انجام نداده</span><?php else: ?>
                 <div class="an-speed"><div class="progress <?= e($toneBar[$r['tone']]) ?>" title="امتیاز سرعت <?= e(fa_num($r['score'])) ?> از ۱۰۰"><div data-css="width:<?= (int) $r['score'] ?>%"></div></div><b><?= e(fa_num($r['score'])) ?></b><span class="badge <?= e($r['tone']) ?>"><?= e($r['label']) ?></span></div><?php endif; ?></td></tr>
     <?php endforeach; ?></tbody></table></div>
-    <p class="hint">«پیشرفت سرعت» امتیاز ۰ تا ۱۰۰ سرعت انجام وظایف هر عضو است: ۶۰٪ آن از زمان انجام (۲۴ ساعت یا کمتر = کامل، ۱۴ روز یا بیشتر = صفر) و ۴۰٪ از انجام به‌موقع (تا پایان سررسید) به دست می‌آید.</p>
+    <p class="hint">«پیشرفت سرعت» امتیاز ۰ تا ۱۰۰ سرعت انجام وظایف هر عضو است: ۶۰٪ آن از زمان انجام (۲۴ ساعت یا کمتر = کامل، ۱۴ روز یا بیشتر = صفر) و ۴۰٪ از تحویل به‌موقع (تا پایان روز سررسید) به دست می‌آید. زمان مسئول تا لحظه‌ی تحویل برای بررسی حساب می‌شود؛ زمان انتظار برای تأیید سرپرست به پای مسئول نوشته نمی‌شود.</p>
 </div>
 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> KPI میانگین زمان انجام</h3></div>
@@ -81,7 +82,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
         <div class="an-kpi">
             <div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><b class="truncate"><?= e(full_name($m)) ?></b></div>
             <div class="an-kpi-v"><?= e($m['avg_hours'] === null ? '—' : duration_fa((float) $m['avg_hours'])) ?></div>
-            <div class="xs muted">میانگین زمان انجام · <?= e(fa_num($m['done'])) ?> تسک</div>
+            <div class="xs muted">میانگین زمان تا تحویل · <?= e(fa_num($m['done'] + $m['waiting'])) ?> تسک</div>
             <div class="flex between items-center mt-1"><span class="xs muted">به‌موقع: <?= $m['on_time'] === null ? '—' : e(fa_num($m['on_time'])) . '٪' ?></span><span class="badge <?= e($r['tone']) ?>"><?= e($r['label']) ?></span></div>
         </div>
     <?php endforeach; ?>
@@ -91,6 +92,18 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
         <?php $prev = 100; foreach (TaskAnalytics::RATINGS as [$min, $label, $tone]): ?>
             <tr><td><?= e(fa_num($min)) ?> تا <?= e(fa_num($prev)) ?></td><td><span class="badge <?= e($tone) ?>"><?= e($label) ?></span></td></tr>
         <?php $prev = $min - 1; endforeach; ?></tbody></table></details>
+</div>
+
+<div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-user-check"></i> KPI میانگین زمان تأیید</h3></div>
+    <?php // سرپرست‌ها: فاصله‌ی تحویل مسئول تا تأیید در «بررسی سرپرست»، به نام تأییدکننده ?>
+    <?php if (!$k['reviewers']): ?><p class="muted small">هنوز تسکی در «بررسی سرپرست» تأیید نشده است.</p><?php else: ?>
+    <div class="an-kpis"><?php foreach ($k['reviewers'] as $rv): ?>
+        <div class="an-kpi">
+            <div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($rv), 'src' => avatar_url($rv['avatar']), 'size' => 'sm']); ?><b class="truncate"><?= e(full_name($rv)) ?></b></div>
+            <div class="an-kpi-v"><?= e(duration_fa((float) $rv['avg_hours'])) ?></div>
+            <div class="xs muted">میانگین زمان تأیید · <?= e(fa_num($rv['count'])) ?> تسک</div>
+        </div><?php endforeach; ?></div><?php endif; ?>
+    <p class="hint">از لحظه‌ی تحویل تسک برای بررسی تا تأیید و بستن آن.</p>
 </div>
 
 <div class="card"><div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> آخرین تسک‌ها</h3></div>

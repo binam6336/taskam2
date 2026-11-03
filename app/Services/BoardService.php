@@ -276,6 +276,12 @@ final class BoardService
         return self::res(true, fa_num(count($ids)) . ' تسک انجام‌شده به آرشیو منتقل شد.', '', 200, ['archived' => count($ids)]);
     }
 
+    /** وضعیت فعلی تسک در برد (archived برای آرشیوشده) */
+    public static function statusOf(array $t): string
+    {
+        return self::status($t);
+    }
+
     private static function status(array $t): string
     {
         if (!empty($t['archived_at'])) {
@@ -410,7 +416,7 @@ final class BoardService
      */
     public static function waiting(int $uid, int $limit = 10): array
     {
-        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, p.title AS project_title,
+        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, p.title AS project_title,
                 u.first_name, u.last_name, u.avatar FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
         $review = [];
         foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
@@ -460,22 +466,41 @@ final class BoardService
         if ($status === 'done' && !Access::canTask($t, $actor, 'complete')) {
             return self::res(false, 'شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
+        // تکمیل فقط با تأیید در «بررسی سرپرست» (v4.1): هیچ‌کس، حتی مدیر کل، مستقیم به «انجام‌شده» نمی‌برد
+        if ($status === 'done' && $from !== 'review') {
+            return self::res(false, 'تسک اول باید با تیک «انجام شد» به «بررسی سرپرست» برود؛ تکمیل فقط با تأیید در همان مرحله است.', 'REVIEW_REQUIRED', 409);
+        }
         if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
             return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);
         }
         if ($err = self::limitError($t, $status)) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
+        self::apply($t, $actor, $from, $status, $reason);
+        return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+    }
+
+    /**
+     * ثبت تغییر وضعیت (بعد از همه‌ی بررسی‌ها) + ستون‌های تحویل/تأیید برای KPI:
+     * review ← delivered_at/by = حالا/انجام‌دهنده؛ done ← approved_by = تأییدکننده (delivered_at می‌ماند)؛ مراحل قبل ← تحویل پاک می‌شود.
+     */
+    private static function apply(array $t, int $actor, string $from, string $status, string $reason = ''): void
+    {
+        $id = (int) $t['id'];
         // علت: برای «بازبینی مسئول» ایرادی که سرپرست دیده (ستون blocked_reason؛ نامش از ستون «مسدودشده»ی قدیمی بورد مانده)
         $reason = trim(mb_substr($reason, 0, 255));
         $reason = $status === 'rework' && $reason !== '' ? $reason : null;
         $done = $status === 'done';
+        $review = $status === 'review';
         // is_quick = 0: اولین تغییر وضعیت در بورد علامت «ثبت سریع» را برمی‌دارد
         DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?, is_quick = 0,
-                   completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END WHERE id = ?',
-            [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $id]);
+                   completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END,
+                   delivered_at = CASE WHEN ? = 1 THEN NOW() WHEN ? = 1 THEN COALESCE(delivered_at, NOW()) ELSE NULL END,
+                   delivered_by = CASE WHEN ? = 1 THEN ? WHEN ? = 1 THEN COALESCE(delivered_by, ?) ELSE NULL END,
+                   approved_by = CASE WHEN ? = 1 THEN ? ELSE NULL END WHERE id = ?',
+            [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $actor, $done ? 1 : 0, $actor, $done ? 1 : 0, $actor, $id]);
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
-        if ($status === 'review' && $from !== 'done') {
+        if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {
             // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
@@ -483,6 +508,55 @@ final class BoardService
                 'note' => '↩️ برگشت به «' . self::STATUSES['rework']['label'] . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
             Notifier::taskReturned($t, $actor, $reason);
         }
-        return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $done]);
+    }
+
+    /**
+     * تیک «انجام شد» (v4.1): برای همه — حتی مدیر کل و سرپرست — تسک را به «بررسی سرپرست» می‌برد (تحویل).
+     * مجوز مرحله‌های برد لازم نیست؛ کافی است کاربر مسئول، سازنده یا دارای مجوز تکمیل/ارسال برای بررسی باشد (Access::canDeliver).
+     * تکمیل نهایی فقط با تأیید در «بررسی سرپرست» است (move به done).
+     */
+    public static function deliver(int $actor, int $id): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::res(false, 'این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canDeliver($t, $actor)) {
+            return self::res(false, 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.', 'FORBIDDEN', 403);
+        }
+        $from = self::status($t);
+        if ($from === 'review') {
+            return self::res(true, 'این تسک همین حالا منتظر تأیید سرپرست است.', '', 200, ['id' => $id, 'status' => 'review', 'is_completed' => false]);
+        }
+        if ($from === 'done' || $from === 'archived') {
+            return self::res(false, 'این تسک انجام‌شده است.', 'ALREADY_COMPLETED', 409);
+        }
+        if ($err = self::limitError($t, 'review')) {
+            return self::res(false, $err, 'BOARD_LIMIT', 409);
+        }
+        self::apply($t, $actor, $from, 'review');
+        return self::res(true, 'تسک انجام شد و برای «' . self::STATUSES['review']['label'] . '» ارسال شد.', '', 200, ['id' => $id, 'status' => 'review', 'from' => $from, 'is_completed' => false]);
+    }
+
+    /** پس گرفتن تحویل (دکمه‌ی «بازگردانی» بعد از تیک): فقط همان کسی که تحویل داده، تا وقتی هنوز تأیید نشده؛ برمی‌گردد به وضعیت قبل از تحویل */
+    public static function withdraw(int $actor, int $id): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (self::status($t) !== 'review' || (int) ($t['delivered_by'] ?? 0) !== $actor) {
+            return self::res(false, 'این تسک دیگر قابل بازگرداندن نیست (تأیید یا جابه‌جا شده است).', 'CANNOT_WITHDRAW', 409);
+        }
+        $last = DB::value("SELECT data FROM task_events WHERE task_id = ? AND type = 'board' ORDER BY id DESC LIMIT 1", [$id]);
+        $prev = json_decode((string) $last, true)['from'] ?? 'in_progress';
+        if (!isset(self::STATUSES[$prev]) || in_array($prev, ['review', 'done'], true)) {
+            $prev = 'in_progress';
+        }
+        self::apply($t, $actor, 'review', $prev);
+        return self::res(true, 'تحویل پس گرفته شد؛ تسک به «' . self::STATUSES[$prev]['label'] . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
     }
 }

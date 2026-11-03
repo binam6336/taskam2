@@ -346,18 +346,23 @@ final class TaskService
         if (!empty($t['blocked_at'])) {
             return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
         }
+        // تسک پروژه‌دار (v4.1): تیک برای همه = تحویل برای «بررسی سرپرست»؛ تکمیل فقط با تأیید سرپرست در همان مرحله.
+        // تیک دوباره روی تسک منتظر تأیید = پس گرفتن تحویل (فقط همان تحویل‌دهنده)؛ روی تسک انجام‌شده = بازکردن (برگشت به بررسی، مجوز تأیید)
+        if ($t['project_id'] !== null) {
+            if ((int) $t['is_completed'] === 1) {
+                $m = BoardService::move($actor, $id, 'review', '', true);
+                return $m['ok'] ? self::res(true, 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => false, 'status' => 'review']) : $m;
+            }
+            if (BoardService::statusOf($t) === 'review') {
+                if ((int) ($t['delivered_by'] ?? 0) === $actor) {
+                    return BoardService::withdraw($actor, $id);
+                }
+                return self::err('این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن از جزئیات تسک انجام می‌شود.', 'IN_REVIEW', 409);
+            }
+            return BoardService::deliver($actor, $id);
+        }
         if (!Access::canTask($t, $actor, 'complete')) {
             return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
-        }
-        // تسک پروژه‌دار: یک مسیر واحد با بورد پروژه (مجوزهای مراحل برد و سقف ستون‌ها هم اعمال می‌شود)
-        if ($t['project_id'] !== null) {
-            $to = (int) $t['is_completed'] === 1 ? 'review' : 'done';
-            $m = BoardService::move($actor, $id, $to, '', true);
-            if (!$m['ok']) {
-                return $m;
-            }
-            $done = $to === 'done';
-            return self::res(true, $done ? 'تسک انجام شد.' : 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => $done, 'completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
         }
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
@@ -510,6 +515,16 @@ final class TaskService
         }
         // هر نوع ویرایشی که فرم ویرایش را لازم دارد
         $out['edit'] = $out['edit_info'] || $out['edit_due'] || $out['edit_meta'] || $out['reassign'] || $out['change_project'];
+        // تیک «انجام شد» (v4.1): تحویل برای بررسی؛ پس گرفتن تحویل؛ تأیید/برگرداندن در «بررسی سرپرست»
+        $st = $task['project_id'] !== null ? BoardService::statusOf($task) : null;
+        $out['deliver'] = $st !== null && !in_array($st, ['review', 'done', 'archived'], true) && Access::canDeliver($task, $uid);
+        $out['withdraw'] = $st === 'review' && (int) ($task['delivered_by'] ?? 0) === $uid && empty($task['blocked_at']);
+        $out['approve'] = $st === 'review' && empty($task['blocked_at']) && Access::canTask($task, $uid, 'complete')
+            && in_array('done', Access::boardTargets($task, $uid, 'review', ['done']), true);
+        $out['rework'] = $out['approve'] && in_array('rework', Access::boardTargets($task, $uid, 'review', ['rework']), true);
+        // تیک ردیف: تسک بی‌پروژه‌ی قدیمی = تکمیل مستقیم؛ تسک پروژه = تحویل / پس گرفتن / بازکردن تسک انجام‌شده
+        $out['tick'] = $st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || (in_array($st, ['done', 'archived'], true) && $out['complete']));
+        $out['status'] = $st;
         return $out;
     }
 }

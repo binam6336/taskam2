@@ -32,9 +32,17 @@ final class BoardController extends Controller
         $pid = in_array($pid, $ids, true) ? $pid : 0;
         $f = ['project' => $pid, 'mine' => !empty($q['mine']), 'q' => trim(mb_substr((string) ($q['q'] ?? ''), 0, 100)), 'focus' => $focus];
         [$columns, $archivable] = BoardService::columns($uid, $f);
+        // ستون شروع (v4.1): کسی که در پروژه‌ای می‌تواند تأیید کند (سازنده یا مجوز to_done) ← «بررسی سرپرست»؛ بقیه ← «در حال انجام»
+        $canApprove = false;
+        foreach ($ids as $p) {
+            if (in_array('to_done', \App\Services\Access::projectBoardPerms($p, $uid), true)) {
+                $canApprove = true;
+                break;
+            }
+        }
         $this->view('board/index', [
             'columns' => $columns, 'archivable' => $archivable, 'archive' => BoardService::archive($uid, $f),
-            'statuses' => BoardService::STATUSES, 'order' => BoardService::order($this->user()['board_order'] ?? null), 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid),
+            'statuses' => BoardService::STATUSES, 'order' => BoardService::order($this->user()['board_order'] ?? null), 'projects' => $projects, 'filters' => $f, 'over' => BoardService::overLimits($uid, $pid), 'startCol' => $canApprove ? 'review' : 'in_progress',
             // پنجره‌های مشاهده و ویرایش تسک داخل خود برد
             'subjects' => SubjectModel::forUser($uid), 'taskProjects' => ProjectModel::forUser($uid), 'assignees' => TaskController::assigneeOptions($uid),
         ], ['title' => 'بورد پروژه', 'page' => 'board', 'bodyClass' => 'page-board']);

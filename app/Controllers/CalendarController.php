@@ -42,7 +42,8 @@ final class CalendarController extends Controller
             $done = (int) $t['is_completed'] === 1;
             $items[] = [
                 'id' => (int) $t['id'], 'title' => $t['title'], 'date' => $t['due_date'], 'time' => $time, 'done' => $done,
-                'overdue' => !$done && strtotime($t['due_date'] . ' ' . ($time ?: '23:59') . ':59') < time(),
+                'overdue' => !$done && $t['due_date'] < date('Y-m-d'),            // عقب‌افتاده = روزهای قبل (تعریف واحد)
+                'hour_past' => !$done && $t['due_date'] === date('Y-m-d') && $time && strtotime($t['due_date'] . ' ' . $time . ':59') < time(),
                 'priority' => $t['priority'], 'percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'priority_type' => $t['project_priority_type'] ?? 'category',
                 'label' => $t['subject_title'], 'label_color' => $t['subject_color'], 'project' => $t['project_title'],
                 'assignee' => $t['assignee_id'] ? full_name($t, 'assignee_') : null, 'assignee_avatar' => avatar_url($t['assignee_avatar'] ?? null),

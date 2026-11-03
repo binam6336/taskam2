@@ -1,4 +1,6 @@
 document.addEventListener('tk:ready', () => {
+  // بعد از ثبت‌نام: شماره پر است، فوکوس روی رمز عبور
+  const pass = TK.qs('#l-pass[autofocus]'); if (pass) setTimeout(() => pass.focus(), 30);
   // تب ورود / ثبت‌نام
   TK.qsa('[data-auth-tab]').forEach((b) => b.addEventListener('click', () => {
     const reg = b.dataset.authTab === 'register';

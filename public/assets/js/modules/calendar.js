@@ -113,7 +113,7 @@ document.addEventListener('tk:ready', () => {
             ${t.label ? `<span><i class="fa-solid fa-tag" data-css="color:${E(t.label_color || 'var(--muted)')}"></i> ${E(t.label)}</span>` : ''}
             ${t.project ? `<span><i class="fa-solid fa-diagram-project"></i> ${E(t.project)}</span>` : ''}
             ${t.assignee ? `<span class="cal-who"><span class="avatar xs">${t.assignee_avatar ? `<img src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee))}</span>${E(t.assignee)}</span>` : ''}
-            ${t.overdue ? '<span class="cal-late-tag">عقب‌افتاده</span>' : ''}
+            ${t.overdue ? '<span class="cal-late-tag">عقب‌افتاده</span>' : t.hour_past ? '<span class="cal-late-tag">ساعت گذشته</span>' : ''}
           </div>
         </div>
         <div class="cal-task-act">

@@ -205,6 +205,21 @@ final class Access
         return array_values(array_unique($out));
     }
 
+    /**
+     * تیک «انجام شد» = تحویل برای «بررسی سرپرست» (v4.1): مسئول، سازنده‌ی تسک، یا عضوی با مجوز تکمیل تسک
+     * یا مجوز برد «ارسال برای بررسی» — بدون نیاز به مجوز مرحله‌های میانی برد.
+     */
+    public static function canDeliver(array $task, int $uid): bool
+    {
+        if (!empty($task['blocked_at']) || !self::canTask($task, $uid, 'view')) {
+            return false;
+        }
+        if ((int) ($task['assignee_id'] ?? 0) === $uid || (int) $task['user_id'] === $uid) {
+            return true;
+        }
+        return self::canTask($task, $uid, 'complete') || in_array('to_review', self::boardPerms($task, $uid), true);
+    }
+
     public static function canTask(array $task, int $uid, string $action): bool
     {
         // تسک مسدودشده فقط دیده می‌شود (و دارنده‌ی مجوز «مسدود کردن» می‌تواند مسدودی‌اش را بردارد)

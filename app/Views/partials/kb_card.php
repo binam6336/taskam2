@@ -1,6 +1,6 @@
 <?php
 /** کارت بورد پروژه. @var array $t @var string $key @var array $filters */
-$overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strtotime($t['due_date'] . ' ' . ($t['due_time'] ?: '23:59:59')) < time();
+$overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && $t['due_date'] < date('Y-m-d');   // عقب‌افتاده = روزهای قبل
 ?>
             <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
                 <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>
@@ -12,7 +12,7 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strt
                 <?php if ($key === 'rework' && $t['blocked_reason']): ?><div class="kb-reason rework"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
                 <div class="kb-meta">
                     <?= priority_badge($t) ?>
-                    <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i> <?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $overdue ? ' (گذشته)' : '' ?></span><?php endif; ?>
+                    <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i> <?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $overdue ? ' (عقب‌افتاده)' : '' ?></span><?php endif; ?>
                     <?php if ((int) $t['notes_count'] > 0): ?><span><i class="fa-regular fa-comment"></i> <?= e(fa_num($t['notes_count'])) ?></span><?php endif; ?>
                     <?php if ((int) $t['attachments_count'] > 0): ?><span><i class="fa-solid fa-paperclip"></i> <?= e(fa_num($t['attachments_count'])) ?></span><?php endif; ?>
                 </div>

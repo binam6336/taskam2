@@ -31,8 +31,8 @@ final class TaskController extends Controller
         $done = $statusQ === 'done';
         $q = trim((string) ($r->query['q'] ?? ''));
         $page = max(1, (int) ($r->query['page'] ?? 1));
-        $sort = (string) ($r->query['sort'] ?? 'created');
-        $sort = isset(TaskModel::SORTS[$sort]) ? $sort : 'created';
+        $sort = (string) ($r->query['sort'] ?? 'smart');
+        $sort = isset(TaskModel::SORTS[$sort]) ? $sort : 'smart';      // پیش‌فرض هوشمند: عقب‌افتاده، امروز، پیش رو
         $when = (string) ($r->query['when'] ?? '');
         $when = in_array($when, ['overdue', 'today', 'tomorrow'], true) || Validate::date($when) !== null ? $when : '';
         $prio = in_array($r->query['prio'] ?? '', ['high', 'low'], true) ? (string) $r->query['prio'] : '';
@@ -56,7 +56,13 @@ final class TaskController extends Controller
         }
         // «همه» (باز و انجام‌شده با هم): تب همه، و کارت‌های «کل تسک‌ها»/«اولویت زیاد» پیشخوان
         $completed = $statusQ === 'all' ? null : $done;
-        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee, 'label' => $label];
+        // فیلتر سریع جریان کار: review = «منتظر تأیید من» (تسک‌هایی که می‌توانم تأیید کنم)، rework = «برگشت‌خورده برای اصلاح» (مسئولش منم)
+        $flow = in_array($r->query['flow'] ?? '', ['review', 'rework'], true) ? (string) $r->query['flow'] : '';
+        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee, 'label' => $label, 'flow' => $flow];
+        $flowIds = $flow !== '' ? array_map(static fn($x) => (int) $x['id'], BoardService::waiting($uid, 500)[$flow]) : null;
+        if ($flowIds !== null) {
+            $filters['ids'] = $flowIds;
+        }
         $res = TaskModel::paginate($uid, $scope, $completed, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $filters);
         $pages = max(1, (int) ceil($res['total'] / self::PER_PAGE));
         foreach ($res['rows'] as &$t) {
@@ -69,6 +75,8 @@ final class TaskController extends Controller
             $projScope['counts'] = ['all' => (int) $pc['total'], 'done' => (int) $pc['done'], 'open' => (int) $pc['total'] - (int) $pc['done']];
             $projScope['status'] = $completed === null ? 'all' : ($done ? 'done' : 'open');
         }
+        $wf = BoardService::waiting($uid, 500);
+        $flowCounts = ['review' => count($wf['review']), 'rework' => count($wf['rework'])];
         $counts = [
             'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
             'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1 AND blocked_at IS NULL', [$uid]),
@@ -99,6 +107,7 @@ final class TaskController extends Controller
             'projects' => ProjectModel::forUser($uid),
             'assignees' => self::assigneeOptions($uid),
             'shared' => $shared,
+            'flowCounts' => $flowCounts,
             'blockedCount' => \App\Services\BlockService::list('task', $uid, 1)['total'],
         ], ['title' => 'تسک‌ها', 'page' => 'tasks']);
     }
@@ -252,8 +261,18 @@ final class TaskController extends Controller
     {
         $res = TaskService::toggle($this->uid(), (int) $id);
         // بعد از «انجام شد»، دکمه‌ی «بازگردانی» در پیام (همان مسیر تیک، چند ثانیه)
-        $extra = $res['ok'] ? (array) $res['data'] + (!empty($res['data']['is_completed']) ? ['undo' => url('/tasks/' . (int) $id . '/toggle')] : []) : [];
+        // تحویل برای بررسی ← «بازگردانی» = پس گرفتن تحویل؛ تکمیل مستقیم (تسک قدیمی بی‌پروژه) ← همان تیک
+        $d = $res['ok'] ? (array) $res['data'] : [];
+        $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . (int) $id . '/withdraw') : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . (int) $id . '/toggle') : null);
+        $extra = $res['ok'] ? $d + ($undo ? ['undo' => $undo] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
+    }
+
+    /** پس گرفتن تحویل (دکمه‌ی «بازگردانی» پیام بعد از تیک) */
+    public function withdraw(string $id)
+    {
+        $res = BoardService::withdraw($this->uid(), (int) $id);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
     }
 
     public function share(string $id)

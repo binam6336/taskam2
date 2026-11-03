@@ -37,9 +37,10 @@ $total = array_sum(array_map('count', $columns));
 <div class="kb-wrap" id="kb-wrap">
 <button type="button" class="kb-nav kb-nav-start" data-kb-scroll="-1" aria-label="ستون‌های قبلی" hidden><i class="fa-solid fa-chevron-right"></i></button>
 <button type="button" class="kb-nav kb-nav-end" data-kb-scroll="1" aria-label="ستون‌های بعدی" hidden><i class="fa-solid fa-chevron-left"></i></button>
-<div class="kb-board" id="kb-board">
+<?php // ستون‌های خالی جمع‌شده (باریک با شمارنده؛ کلیک = باز کردن)؛ ستون شروع برای سرپرست «بررسی سرپرست»، برای بقیه «در حال انجام» ?>
+<div class="kb-board" id="kb-board" data-kb-start="<?= e($startCol ?? 'in_progress') ?>">
 <?php foreach ($order as $key): if ($key === 'archived'): ?>
-    <section class="kb-col tone-archive" data-col="archived" aria-label="آرشیو">
+    <section class="kb-col tone-archive<?= $archive['total'] ? '' : ' kb-collapsed' ?>" data-col="archived" aria-label="آرشیو">
         <header class="kb-col-head" title="تسک‌های انجام‌شده‌ای که بایگانی شده‌اند">
             <i class="fa-solid fa-box-archive"></i>
             <div class="grow"><b>آرشیو</b><span>Archived</span></div>
@@ -54,7 +55,7 @@ $total = array_sum(array_map('count', $columns));
         <?php endif; ?>
     </section>
 <?php continue; endif; $s = $statuses[$key]; $cards = $columns[$key]; $ov = $over[$key] ?? []; ?>
-    <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
+    <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?><?= $cards ? '' : ' kb-collapsed' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
         <header class="kb-col-head" title="<?= e($s['desc']) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
             <div class="grow"><b><?= e($s['label']) ?></b><span><?= e($s['en']) ?></span></div>

@@ -13,6 +13,10 @@ use App\Core\Jalali;
  *   ۶۰٪ زمان انجام  → ۲۴ ساعت یا کمتر = ۱۰۰، ۱۴ روز یا بیشتر = ۰ (بین این دو لگاریتمی)
  *   ۴۰٪ به‌موقع بودن → تا پایان سررسید (یا بدون سررسید) = ۱۰۰، دیرتر = ۰
  * امتیاز یک کاربر میانگین امتیاز تسک‌های انجام‌شده‌ی اوست.
+ *
+ * v4.1: زمان مسئول تا لحظه‌ی «تحویل برای بررسی» (delivered_at) حساب می‌شود، نه تأیید سرپرست؛ تسکِ منتظر تأیید برای مسئول
+ * «تحویل‌شده» است (نه باز). زمان بررسی جدا به نام تأییدکننده (approved_by) در KPI «میانگین زمان تأیید» ثبت می‌شود.
+ * تأخیر (KPI) روزانه است: فقط وقتی روز تحویل از روز سررسید گذشته باشد (ساعت سررسید اثر ندارد)؛ «عقب‌افتاده» = سررسید روزهای قبل.
  */
 final class TaskAnalytics
 {
@@ -61,13 +65,32 @@ final class TaskAnalytics
         return $ts === false ? null : $ts;
     }
 
-    /** امتیاز سرعت یک تسک انجام‌شده (یا null برای تسک باز). */
+    /** لحظه‌ی پایان کار مسئول: تحویل برای بررسی، وگرنه تکمیل (تسک‌های قدیمی/بی‌پروژه)؛ null = هنوز تحویل نشده */
+    public static function finishedAt(array $t): ?string
+    {
+        if (!empty($t['delivered_at']) && ((int) $t['is_completed'] === 1 || ($t['board_status'] ?? '') === 'review')) {
+            return (string) $t['delivered_at'];
+        }
+        return (int) $t['is_completed'] === 1 && !empty($t['completed_at']) ? (string) $t['completed_at'] : null;
+    }
+
+    /** با تأخیر؟ فقط وقتی روزِ تحویل بعد از روزِ سررسید باشد (برای تسک باز: سررسید روزهای قبل) */
+    public static function isLate(array $t, ?string $finished): bool
+    {
+        if (empty($t['due_date'])) {
+            return false;
+        }
+        return $finished !== null ? substr($finished, 0, 10) > $t['due_date'] : $t['due_date'] < date('Y-m-d');
+    }
+
+    /** امتیاز سرعت یک تسک تحویل‌شده/انجام‌شده (یا null برای تسک باز). */
     public static function taskScore(array $t): ?float
     {
-        if ((int) $t['is_completed'] !== 1 || empty($t['completed_at'])) {
+        $fin = self::finishedAt($t);
+        if ($fin === null) {
             return null;
         }
-        $hours = max(0.0, (strtotime($t['completed_at']) - strtotime($t['created_at'])) / 3600);
+        $hours = max(0.0, (strtotime($fin) - strtotime($t['created_at'])) / 3600);
         if ($hours <= self::FAST_HOURS) {
             $time = 100.0;
         } elseif ($hours >= self::SLOW_HOURS) {
@@ -75,15 +98,13 @@ final class TaskAnalytics
         } else {
             $time = 100 * (1 - log($hours / self::FAST_HOURS) / log(self::SLOW_HOURS / self::FAST_HOURS));
         }
-        $due = self::dueTs($t);
-        $onTime = $due === null || strtotime($t['completed_at']) <= $due;
-        return 0.6 * $time + 0.4 * ($onTime ? 100 : 0);
+        return 0.6 * $time + 0.4 * (self::isLate($t, $fin) ? 0 : 100);
     }
 
     /** همه‌ی تسک‌های پروژه با فیلدهای لازم برای محاسبه. */
     private static function tasks(int $projectId): array
     {
-        return DB::all('SELECT t.id, t.assignee_id, t.subject_id, t.priority, t.is_completed, t.created_at, t.completed_at, t.due_date, t.due_time,
+        return DB::all('SELECT t.id, t.assignee_id, t.subject_id, t.priority, t.is_completed, t.board_status, t.created_at, t.completed_at, t.delivered_at, t.approved_by, t.due_date, t.due_time,
                 s.title AS subject_title, s.color AS subject_color
             FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id WHERE t.project_id = ? AND t.blocked_at IS NULL', [$projectId]);
     }
@@ -106,23 +127,33 @@ final class TaskAnalytics
         $tasks = self::tasks($projectId);
         $members = [];
         foreach (self::people($projectId) as $u) {
-            $members[(int) $u['id']] = $u + ['total' => 0, 'done' => 0, 'open' => 0, 'overdue' => 0, 'late' => 0, 'hours' => [], 'scores' => []];
+            $members[(int) $u['id']] = $u + ['total' => 0, 'done' => 0, 'waiting' => 0, 'open' => 0, 'overdue' => 0, 'late' => 0, 'hours' => [], 'scores' => []];
         }
         $sum = ['total' => 0, 'done' => 0, 'open' => 0, 'delayed' => 0, 'done_late' => 0, 'open_late' => 0];
         $subjects = [];
+        $reviewers = [];
         foreach ($tasks as $t) {
             $sum['total']++;
-            $done = (int) $t['is_completed'] === 1;
-            $due = self::dueTs($t);
-            $late = $done ? ($due !== null && $t['completed_at'] && strtotime($t['completed_at']) > $due) : ($due !== null && $due < $now);
+            $fin = self::finishedAt($t);               // تحویل‌شده (منتظر تأیید یا تأییدشده) = کار مسئول تمام است
+            $done = $fin !== null;
+            $waiting = $done && (int) $t['is_completed'] !== 1;
+            $late = self::isLate($t, $fin);
             $sum[$done ? 'done' : 'open']++;
             if ($late) {
                 $sum['delayed']++;
                 $sum[$done ? 'done_late' : 'open_late']++;
             }
-            $sk = $t['subject_id'] !== null ? (int) $t['subject_id'] : 0;
-            $subjects[$sk] = $subjects[$sk] ?? ['label' => $t['subject_title'] ?? 'بدون لیبل', 'color' => $t['subject_color'] ?: '#5f776a', 'value' => 0];
-            $subjects[$sk]['value']++;
+            // توزیع لیبل‌ها: «بدون لیبل» شمرده نمی‌شود
+            if ($t['subject_id'] !== null) {
+                $sk = (int) $t['subject_id'];
+                $subjects[$sk] = $subjects[$sk] ?? ['label' => $t['subject_title'] ?? 'لیبل', 'color' => $t['subject_color'] ?: '#5f776a', 'value' => 0];
+                $subjects[$sk]['value']++;
+            }
+            // KPI سرپرست: زمان تأیید (تحویل ← تأیید) به نام تأییدکننده
+            if ((int) $t['is_completed'] === 1 && !empty($t['approved_by']) && !empty($t['delivered_at']) && !empty($t['completed_at'])) {
+                $rid = (int) $t['approved_by'];
+                $reviewers[$rid][] = max(0, (strtotime($t['completed_at']) - strtotime($t['delivered_at'])) / 3600);
+            }
 
             $aid = (int) $t['assignee_id'];
             if (!isset($members[$aid])) {
@@ -131,13 +162,11 @@ final class TaskAnalytics
             $m = &$members[$aid];
             $m['total']++;
             if ($done) {
-                $m['done']++;
+                $m[$waiting ? 'waiting' : 'done']++;
                 if ($late) {
                     $m['late']++;
                 }
-                if ($t['completed_at']) {
-                    $m['hours'][] = max(0, (strtotime($t['completed_at']) - strtotime($t['created_at'])) / 3600);
-                }
+                $m['hours'][] = max(0, (strtotime($fin) - strtotime($t['created_at'])) / 3600);
                 $sc = self::taskScore($t);
                 if ($sc !== null) {
                     $m['scores'][] = $sc;
@@ -164,13 +193,14 @@ final class TaskAnalytics
             unset($m['hours'], $m['scores']);
             $out[] = $m + [
                 'avg_hours' => $avgH,
-                'on_time' => $m['done'] > 0 ? (int) round(($m['done'] - $m['late']) / $m['done'] * 100) : null,
+                'on_time' => $m['done'] + $m['waiting'] > 0 ? (int) round(($m['done'] + $m['waiting'] - $m['late']) / ($m['done'] + $m['waiting']) * 100) : null,
                 'rating' => self::rating($score),
             ];
         }
         usort($out, static fn($a, $b) => [$b['rating']['score'] ?? -1, $b['done']] <=> [$a['rating']['score'] ?? -1, $a['done']]);
 
         $pct = static fn(int $n) => $sum['total'] > 0 ? (int) round($n / $sum['total'] * 100) : 0;
+        $labeled = array_sum(array_column($subjects, 'value'));
         // تفکیک بدون هم‌پوشانی با جمع دقیق ۱۰۰٪ (بزرگ‌ترین باقی‌مانده): به‌موقع / با تأخیر انجام‌شده، باز در مهلت / عقب‌افتاده
         $parts = ['done_ontime' => $sum['done'] - $sum['done_late'], 'done_late' => $sum['done_late'], 'open_ontime' => $sum['open'] - $sum['open_late'], 'open_late' => $sum['open_late']];
         $split = array_fill_keys(array_keys($parts), 0);
@@ -199,11 +229,23 @@ final class TaskAnalytics
         $subjects = array_values($subjects);
         usort($subjects, static fn($a, $b) => $b['value'] <=> $a['value']);
         foreach ($subjects as &$s) {
-            $s['pct'] = $pct($s['value']);
+            $s['pct'] = $labeled > 0 ? (int) round($s['value'] / $labeled * 100) : 0;   // سهم از تسک‌های لیبل‌دار
         }
         unset($s);
 
-        return ['members' => $out, 'summary' => $summary, 'subjects' => $subjects];
+        // KPI «میانگین زمان تأیید» هر سرپرست (تأییدکننده)
+        $names = array_column(array_map(static fn($u) => ['id' => (int) $u['id'], 'u' => $u], self::people($projectId)), 'u', 'id');
+        $rev = [];
+        foreach ($reviewers as $rid => $hrs) {
+            $u = $names[$rid] ?? DB::one('SELECT id, first_name, last_name, mobile, avatar FROM users WHERE id = ?', [$rid]);
+            if ($u === null) {
+                continue;
+            }
+            $rev[] = $u + ['count' => count($hrs), 'avg_hours' => array_sum($hrs) / count($hrs)];
+        }
+        usort($rev, static fn($a, $b) => $a['avg_hours'] <=> $b['avg_hours']);
+
+        return ['members' => $out, 'summary' => $summary + ['counts' => $parts, 'total' => $sum['total']], 'subjects' => $subjects, 'reviewers' => $rev];
     }
 
     /**
@@ -245,7 +287,7 @@ final class TaskAnalytics
         $series = [];
         if ($userIds) {
             $in = implode(',', array_fill(0, count($userIds), '?'));
-            $rows = DB::all("SELECT assignee_id, is_completed, created_at, completed_at, due_date, due_time FROM tasks
+            $rows = DB::all("SELECT assignee_id, is_completed, board_status, created_at, completed_at, delivered_at, due_date, due_time FROM tasks
                 WHERE project_id = ? AND is_completed = 1 AND blocked_at IS NULL AND completed_at >= ? AND assignee_id IN ($in)", array_merge([$projectId, date('Y-m-d H:i:s', $from)], $userIds));
             $buckets = [];
             foreach ($rows as $t) {

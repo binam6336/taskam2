@@ -39,6 +39,7 @@ document.addEventListener('tk:ready', () => {
   /* شمارنده‌ی ستون‌ها بعد از هر جابه‌جایی */
   const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => {
     const n = c.querySelectorAll('.kb-card').length; c.querySelector('.kb-count').textContent = TK.fa(n);
+    if (n) c.classList.remove('kb-collapsed');
     const tab = TK.qs(`[data-kb-goto="${c.dataset.col}"]`); if (tab) { tab.querySelector('span').textContent = TK.fa(n); tab.classList.toggle('empty', !n); }
   });
 
@@ -125,11 +126,22 @@ document.addEventListener('tk:ready', () => {
     const c = TK.qs(`#kb-board > .kb-col[data-col="${btn.dataset.kbGoto}"]`); if (!c) return;
     c.scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });
   });
-  // موبایل: اگر ستون اول خالی است، از اولین ستونِ دارای کارت شروع شود (مگر کارت برجسته‌ای باشد)
-  if (matchMedia('(max-width: 640px)').matches && !TK.qs('.kb-card.kb-focus')) {
-    const first = TK.qsa('#kb-board > .kb-col').find((c) => c.querySelector('.kb-card'));
+  // ستون جمع‌شده (خالی): کلیک روی آن بازش می‌کند؛ کشیدن کارت رویش هم کار می‌کند
+  TK.on('click', '.kb-col.kb-collapsed', (e, c) => { if (!e.target.closest('button:not(.kb-col-head *)')) { c.classList.remove('kb-collapsed'); setTimeout(navState, 50); } });
+  document.addEventListener('dragenter', (e) => { const c = e.target.closest?.('.kb-col.kb-collapsed'); if (c && !c.classList.contains('kb-deny')) c.classList.remove('kb-collapsed'); });
+  // ستون شروع (مگر کارت برجسته‌ای باشد): سرپرست «بررسی سرپرست»، بقیه «در حال انجام»؛ اگر خالی بود اولین ستون دارای کارت
+  if (!TK.qs('.kb-card.kb-focus')) {
     const b = TK.qs('#kb-board');
-    if (first && b && first !== b.firstElementChild) b.scrollLeft += first.getBoundingClientRect().right - b.getBoundingClientRect().right;
+    const want = b && TK.qs(`#kb-board > .kb-col[data-col="${b.dataset.kbStart}"]`);
+    const first = want && want.querySelector('.kb-card') ? want : TK.qsa('#kb-board > .kb-col').find((c) => c.querySelector('.kb-card'));
+    if (first && b && b.scrollWidth > b.clientWidth + 2) {
+      const br = b.getBoundingClientRect(), fr = first.getBoundingClientRect();
+      // RTL: ستون را به لبه‌ی شروع (راست) بیاور
+      b.scrollLeft += kbRtl() ? fr.right - br.right : fr.left - br.left;
+    }
+    // نوار ستون‌ها (موبایل): زبانه‌ی همان ستون دیده شود
+    const tab = first && TK.qs(`[data-kb-goto="${first.dataset.col}"]`), bar = TK.qs('#kb-tabs');
+    if (tab && bar) { const tr = tab.getBoundingClientRect(), r2 = bar.getBoundingClientRect(); bar.scrollLeft += kbRtl() ? tr.right - r2.right + 8 : tr.left - r2.left - 8; }
   }
   setTimeout(navState, 50);
   // موبایل: فیلترها پشت دکمه‌ی «فیلترها»

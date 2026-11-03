@@ -43,6 +43,7 @@ final class TaskModel
     }
 
     public const SORTS = [
+        'smart'    => 'هوشمند (عقب‌افتاده، امروز، پیش رو)',
         'created'  => 'تاریخ ایجاد',
         'due'      => 'تاریخ انجام (سررسید)',
         'priority' => 'اولویت',
@@ -99,6 +100,12 @@ final class TaskModel
     public static function paginate(int $uid, string $scope, ?bool $completed, int $limit, int $offset, array $f = []): array
     {
         [$where, $params] = self::scopeWhere($uid, $scope, $completed, (int) ($f['project'] ?? 0));
+        // فیلترهای سریع «منتظر تأیید من» / «برگشت‌خورده برای اصلاح»: فهرست شناسه‌های آماده (مستقل از تب)
+        if (isset($f['ids'])) {
+            $ids = array_values(array_filter(array_map('intval', (array) $f['ids'])));
+            $where = 't.blocked_at IS NULL AND ' . ($ids ? 't.id IN (' . DB::in($ids) . ')' : '0');
+            $params = $ids;
+        }
         if (!empty($f['assignee'])) {
             $where .= ' AND t.assignee_id = ?';
             $params[] = (int) $f['assignee'];
@@ -111,7 +118,7 @@ final class TaskModel
         }
         $when = (string) ($f['when'] ?? '');
         if ($when === 'overdue') {
-            $where .= " AND t.is_completed = 0 AND t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
+            $where .= ' AND t.is_completed = 0 AND ' . self::OVERDUE;
         } elseif ($when === 'today') {
             $where .= ' AND t.due_date = CURDATE()';
         } elseif ($when === 'tomorrow') {
@@ -147,8 +154,12 @@ final class TaskModel
             case 'subject':
                 $order = 's.title IS NULL, s.title ASC, t.created_at DESC, t.id DESC';
                 break;
-            default:
+            case 'created':
                 $order = $completed ? 't.completed_at DESC, t.id DESC' : 't.created_at DESC, t.id DESC';
+                break;
+            default:
+                // هوشمند (پیش‌فرض): عقب‌افتاده، امروز، فردا، بعدها، بدون تاریخ، انجام‌شده؛ در هر گروه اولویت بیشتر بالاتر
+                $order = self::GROUP_SQL . ', ' . "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id DESC";
         }
         $rows = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge([$uid], $params, [$limit, $offset]));
         return ['rows' => $rows, 'total' => $total];
@@ -260,7 +271,13 @@ final class TaskModel
         return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
     }
 
-    private const OVERDUE = "t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
+    /**
+     * «عقب‌افتاده» فقط روزهای قبل (v4.1، تعریف واحد در پیشخوان، تقویم، فهرست و تحلیل): تسکی که سررسیدش امروز است
+     * در «امروز» می‌ماند و اگر ساعتش گذشته باشد فقط برچسب «ساعت گذشته» می‌گیرد.
+     */
+    public const OVERDUE = 't.due_date IS NOT NULL AND t.due_date < CURDATE()';
+    /** گروه مرتب‌سازی هوشمند: ۰ عقب‌افتاده، ۱ امروز، ۲ فردا، ۳ بعدها، ۴ بدون تاریخ، ۵ انجام‌شده */
+    public const GROUP_SQL = 'CASE WHEN t.is_completed = 1 THEN 5 WHEN t.due_date IS NULL THEN 4 WHEN t.due_date < CURDATE() THEN 0 WHEN t.due_date = CURDATE() THEN 1 WHEN t.due_date = CURDATE() + INTERVAL 1 DAY THEN 2 ELSE 3 END';
 
     /**
      * پیشخوان: تسک‌های امروز (سررسید امروز که هنوز دیر نشده) و عقب‌افتاده‌ی کاربر (مسئول = خودش، انجام‌نشده).
@@ -268,7 +285,7 @@ final class TaskModel
      */
     public static function focus(int $uid, int $limit = 12): array
     {
-        $today = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE() AND NOT (' . self::OVERDUE . ')';
+        $today = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
         $late = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
         $rows = static function (string $where, string $order) use ($uid, $limit): array {
             $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
@@ -301,8 +318,13 @@ final class TaskModel
     public static function dashboard(int $uid): array
     {
         $s = self::stats($uid);
-        $split = DB::one('SELECT COALESCE(SUM(user_id = ? AND assignee_id <> ?),0) by_me, COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'to_me' => 0];
-        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s LEFT JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid]);
+        // «گردش کار»: هر عدد «باز از کل» (پایه‌ی شمارش یکی، مثل تب‌های فهرست تسک‌ها)
+        $split = DB::one('SELECT COALESCE(SUM(user_id = ? AND assignee_id <> ?),0) by_me, COALESCE(SUM(user_id = ? AND assignee_id <> ? AND is_completed = 0),0) by_me_open,
+                COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me, COALESCE(SUM(assignee_id = ? AND user_id <> ? AND is_completed = 0),0) to_me_open
+                FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'by_me_open' => 0, 'to_me' => 0, 'to_me_open' => 0];
+        // پرتکرارترین لیبل: فقط وقتی دست‌کم یک تسک (مسئولش کاربر) لیبل دارد
+        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid, $uid]);
+        $prioOpen = DB::one("SELECT COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL", [$uid]) ?? [];
         $dur = static fn(string $table, string $cond, array $p) => DB::one("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 a, MIN(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 mi, MAX(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 ma, COUNT(*) c FROM $table WHERE $cond AND completed_at IS NOT NULL AND completed_at > created_at", $p) ?? [];
 
         $trend = ['labels' => [], 'tasks' => []];
@@ -315,8 +337,9 @@ final class TaskModel
         return [
             'stats' => $s,
             'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : 0,
-            'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'],
-            'top_subject' => $top['title'] ?? 'بدون لیبل',
+            'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'], 'by_me_open' => (int) $split['by_me_open'], 'to_me_open' => (int) $split['to_me_open'],
+            'top_subject' => $top ? $top['title'] : null, 'top_subject_count' => $top ? (int) $top['cnt'] : 0,
+            'prio_open' => array_map('intval', $prioOpen + ['high' => 0, 'medium' => 0, 'low' => 0]),
             'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
             'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1 AND blocked_at IS NULL', [$uid, $uid]),
             'calls' => CallModel::stats($uid),

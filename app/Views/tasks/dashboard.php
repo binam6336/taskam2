@@ -1,7 +1,7 @@
 <?php
 /** @var array $d @var array $me @var array $focus @var array $waiting @var array $subjects @var array $projects @var array $assignees */
 $s = $d['stats'];
-$this->boot['d'] = ['stats' => $s, 'trend' => $d['trend'], 'calls' => $d['calls']];
+$this->boot['d'] = ['stats' => $s, 'trend' => $d['trend'], 'calls' => $d['calls'], 'prio_open' => $d['prio_open']];
 $this->scripts[] = 'dashboard';
 $time = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['a']) : '—';
 $nToday = $focus['today_count'];
@@ -19,10 +19,12 @@ if ($nToday && $nLate) {
 $taskRow = static function (array $t, bool $late): string {
     $due = $late ? jdate($t['due_date'] . ' 00:00:00', false) : '';
     $time = $t['due_time'] ? fa_num(substr((string) $t['due_time'], 0, 5)) : '';
+    // امروز با ساعت گذشته: در «امروز» می‌ماند (عقب‌افتاده فقط روزهای قبل) و برچسب قرمز «ساعت گذشته» می‌گیرد
+    $hourPast = !$late && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
     return '<a class="dash-task p-' . e($t['priority']) . '" href="' . e(url('/tasks?task=' . $t['share_token'])) . '" data-open-task="' . (int) $t['id'] . '">'
         . '<span class="dash-task-dot"></span><span class="grow truncate">' . e($t['title']) . '</span>'
         . ($t['project_title'] ? '<span class="dash-task-proj truncate"><i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . '</span>' : '')
-        . '<span class="dash-task-due' . ($late ? ' late' : '') . '">' . e(trim($due . ' ' . $time)) . '</span></a>';
+        . '<span class="dash-task-due' . ($late || $hourPast ? ' late' : '') . '">' . e(trim($due . ' ' . $time)) . ($hourPast ? ' <span class="hour-past">ساعت گذشته</span>' : '') . '</span></a>';
 };
 $w = $waiting;
 $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']) + count($w['review']) + count($w['rework']);
@@ -57,10 +59,16 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if ($w['review']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" data-css="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
             <div class="list"><?php foreach ($w['review'] as $t): ?>
-                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
+                <div class="item dash-wait-item dash-review-item">
+                    <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
-                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['board_moved_at'] ?? '')) ?></div></div></a>
+                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div></div></a>
+                    <?php // تأیید یا برگرداندن بدون باز کردن تسک ?>
+                    <div class="flex gap-1 dash-review-acts">
+                        <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . (int) $t['id'] . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
+                        <button type="button" class="btn btn-xs" data-dash-rework="<?= (int) $t['id'] ?>" title="برگرداندن برای اصلاح"><i class="fa-solid fa-rotate-left"></i> اصلاح</button>
+                    </div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>
 
@@ -126,16 +134,17 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
         <div id="ch-ratio"></div>
-        <div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" data-css="color:var(--g-300)"><?= e($d['top_subject']) ?></b></div></div>
+        <?php if ($d['top_subject'] !== null): // فقط وقتی دست‌کم یک تسک لیبل دارد ?><div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" data-css="color:var(--g-300)"><?= e($d['top_subject']) ?></b> · <?= e(fa_num($d['top_subject_count'])) ?> تسک</div><?php endif; ?></div>
 </div>
 
 <div class="grid grid-3 mb-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> اولویت‌ها</h3></div><div class="chart" id="ch-prio"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> اولویت تسک‌های باز</h3></div><div class="chart" id="ch-prio"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-people-arrows"></i> گردش کار</h3></div>
         <div class="list">
-            <div class="flex between"><span class="muted">ساخته‌شده توسط من برای دیگران</span><b><?= e(fa_num($d['by_me'])) ?></b></div>
-            <div class="flex between"><span class="muted">واگذارشده به من از دیگران</span><b><?= e(fa_num($d['to_me'])) ?></b></div>
-            <div class="flex between"><span class="muted">متن‌های آماده</span><b><?= e(fa_num($d['texts'])) ?></b></div>
+            <?php // «باز از کل»؛ هر ردیف به فهرست فیلترشده‌ی خودش می‌رود ?>
+            <a class="flex between dash-flow-row" href="<?= e(url('/tasks?scope=others&status=open')) ?>" title="تسک‌های باز واگذارشده به دیگران"><span class="muted">ساخته‌شده توسط من برای دیگران</span><b><?= e(fa_num($d['by_me_open'])) ?> باز <span class="faint xs">از <?= e(fa_num($d['by_me'])) ?></span></b></a>
+            <a class="flex between dash-flow-row" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="وظایف باز من"><span class="muted">واگذارشده به من از دیگران</span><b><?= e(fa_num($d['to_me_open'])) ?> باز <span class="faint xs">از <?= e(fa_num($d['to_me'])) ?></span></b></a>
+            <a class="flex between dash-flow-row" href="<?= e(url('/texts')) ?>"><span class="muted">متن‌های آماده</span><b><?= e(fa_num($d['texts'])) ?></b></a>
         </div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> میانگین زمان انجام</h3></div>
         <div class="list">

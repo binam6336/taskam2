@@ -35,7 +35,12 @@ document.addEventListener('tk:ready', () => {
     const p = data().list[id]; const can = (k) => p.perms.includes(k);
     TK.qs('#mem-title').textContent = p.title;
     TK.qs('#mem-body').innerHTML = `
-      <div class="flex gap-1 wrap mb-2">${can('edit_project') || can('add_member') || can('remove_member') ? `<button class="btn btn-primary btn-sm" data-edit-proj="${id}"><i class="fa-solid fa-pen"></i> ویرایش اطلاعات و اعضا</button>` : ''}</div>
+      <div class="flex gap-1 wrap mb-2">${can('add_member') ? `<button class="btn btn-primary btn-sm" data-add-mem="${id}"><i class="fa-solid fa-user-plus"></i> افزودن عضو</button>` : ''}${can('edit_project') ? `<button class="btn btn-sm" data-edit-proj="${id}"><i class="fa-solid fa-pen"></i> ویرایش اطلاعات پروژه</button>` : ''}</div>
+      <div class="card flat mb-2 add-mem-box" id="add-mem-box" hidden>
+        <div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="add-mem-q" placeholder="${E(TK.ph('project_member_search', 'جستجو در همکاران (نام یا موبایل)…'))}"></div>
+        <div class="add-mem-list" id="add-mem-list"></div>
+        <div class="flex gap-1 mt-1"><button type="button" class="btn btn-primary btn-sm" id="add-mem-go" disabled><i class="fa-solid fa-check"></i> افزودن انتخاب‌شده‌ها</button><button type="button" class="btn btn-sm" data-add-mem-close>انصراف</button></div>
+      </div>
       <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>نقش</th><th></th></tr></thead><tbody>
       ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
         <td>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</td>
@@ -46,6 +51,29 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open('m-members');
   };
   TK.on('click', '[data-project]', (e, t) => manage(t.dataset.project));
+
+  /* «افزودن عضو» بالای جدول اعضا: جستجو در همکاران و انتخاب چندتایی (ویرایش اطلاعات پروژه جدا ماند) */
+  let addPid = 0;
+  const addDraw = () => {
+    const p = data().list[addPid]; if (!p) return;
+    const q = TK.qs('#add-mem-q').value.trim().toLowerCase(), have = new Set([...p.members.map((m) => m.id), ...(p.pending || [])]);
+    const rows = data().colleagues.filter((c) => !have.has(c.id) && (!q || c.name.toLowerCase().includes(q) || String(c.mobile || '').includes(q)));
+    TK.qs('#add-mem-list').innerHTML = rows.length ? rows.map((c) => `<label class="check"><input type="checkbox" value="${c.id}"><div class="flex items-center gap-1"><span class="avatar xs">${c.avatar ? `<img src="${E(c.avatar)}" alt="">` : E(TK.initial(c.name))}</span><b>${E(c.name)}</b></div></label>`).join('')
+      : `<div class="muted small">${data().colleagues.length ? 'همکاری با این جستجو پیدا نشد یا همه عضو پروژه‌اند.' : 'همکاری ندارید؛ از بخش «همکاران» همکار اضافه کنید.'}</div>`;
+    TK.qs('#add-mem-go').disabled = true;
+  };
+  TK.on('click', '[data-add-mem]', (e, t) => { addPid = +t.dataset.addMem; const b = TK.qs('#add-mem-box'); b.hidden = false; TK.qs('#add-mem-q').value = ''; addDraw(); TK.qs('#add-mem-q').focus(); });
+  TK.on('click', '[data-add-mem-close]', () => { TK.qs('#add-mem-box').hidden = true; });
+  TK.on('input', '#add-mem-q', addDraw);
+  TK.on('change', '#add-mem-list input', () => { TK.qs('#add-mem-go').disabled = !TK.qs('#add-mem-list input:checked'); });
+  TK.on('click', '#add-mem-go', async (e, b) => {
+    const ids = TK.qsa('#add-mem-list input:checked').map((i) => i.value); if (!ids.length) return;
+    TK.busy(b, true); const msgs = [];
+    for (const id of ids) { const r = await TK.post('/projects/' + addPid + '/members/add', { user_id: id }); msgs.push(r.message); if (!TK.ok(r)) { TK.toast(r.message, 'error'); break; } }
+    TK.busy(b, false);
+    if (msgs.length) TK.toast(ids.length > 1 ? 'اعضای انتخاب‌شده اضافه شدند (یا برایشان درخواست عضویت رفت).' : msgs[0], 'success');
+    TK.modal.close('m-members'); TK.reload();
+  });
 
   /* جزئیات دسترسی‌های یک عضو (در فهرست اعضا فقط نشان نقش دیده می‌شود) */
   TK.on('click', '[data-mdetail]', (e, t) => {

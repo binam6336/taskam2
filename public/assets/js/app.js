@@ -132,6 +132,28 @@
     TK.modal.open(m);
   });
 
+  // پنجره‌ی پرسیدن یک متن کوتاه (مثلاً علت برگرداندن تسک برای اصلاح)؛ انصراف = null
+  TK.prompt = (message, { title = 'توضیح', okText = 'تأیید', multiline = false, value = '' } = {}) => new Promise((resolve) => {
+    let m = document.getElementById('tk-prompt');
+    if (!m) {
+      m = document.createElement('div'); m.className = 'modal'; m.id = 'tk-prompt';
+      m.innerHTML = '<div class="modal-box sm"><form><div class="modal-head"><h3 data-title></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-cancel aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>'
+        + '<div class="modal-body"><div class="field"><label data-msg></label><div data-in></div></div></div>'
+        + '<div class="modal-foot"><button type="button" class="btn" data-cancel>انصراف</button><button class="btn btn-primary" data-ok></button></div></form></div>';
+      document.body.appendChild(m);
+    }
+    m.querySelector('[data-title]').textContent = title; m.querySelector('[data-msg]').textContent = message; m.querySelector('[data-ok]').textContent = okText;
+    m.querySelector('[data-in]').innerHTML = multiline ? '<textarea class="input" rows="3" maxlength="255"></textarea>' : '<input class="input" maxlength="255">';
+    const inp = m.querySelector('[data-in] .input'); inp.value = value;
+    const form = m.querySelector('form');
+    let settled = false;
+    const done = (v) => { if (settled) return; settled = true; form.onsubmit = null; TK.modal.close(m); resolve(v); };
+    form.onsubmit = (e) => { e.preventDefault(); done(inp.value.trim()); };
+    m.querySelectorAll('[data-cancel]').forEach((b) => { b.onclick = () => done(null); });
+    m.addEventListener('tk:close', () => done(null), { once: true });
+    TK.modal.open(m); setTimeout(() => inp.focus(), 50);
+  });
+
   // پنجره‌ی توضیح ساده (مثلاً دلیل قفل بودن تغییر وضعیت تسک)؛ عنصرش در صورت نبود (بعد از جابه‌جایی صفحه) ساخته می‌شود
   TK.info = (message, { title = 'توضیح', icon = 'fa-circle-info' } = {}) => {
     let m = document.getElementById('tk-info');
@@ -189,16 +211,22 @@
   };
 
   /* ───── انتخابگر با لوگو/آواتار (جایگزین <select> برای کاربر و پروژه) ───── */
-  TK.rselect = (host, { name, options, placeholder = 'انتخاب کنید', square = false }) => {
+  TK.rselect = (host, { name, options, placeholder = 'انتخاب کنید', square = false }) => {   // eslint-disable-line prefer-const
     host.classList.add('rselect');
     host.innerHTML = `<input type="hidden" name="${TK.esc(name)}" value=""><button type="button" class="input rselect-btn"><span class="rselect-val"></span><i class="fa-solid fa-chevron-down xs faint"></i></button><div class="rselect-menu" role="listbox"></div>`;
     const inp = host.querySelector('input'), btn = host.querySelector('.rselect-btn'), val = host.querySelector('.rselect-val'), menu = host.querySelector('.rselect-menu');
     const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
-    menu.innerHTML = options.length ? options.map((o) => `<div class="rselect-opt" role="option" data-v="${TK.esc(o.value)}">${av(o)}<span class="truncate">${TK.esc(o.label)}</span></div>`).join('') : '<div class="faint small" data-css="padding:.6rem">موردی وجود ندارد</div>';
+    // گزینه‌ها: {value,label,img|icon} + اختیاری note (توضیح کوچک زیر نام)، disabled + hint (دلیل)، یا {group:'عنوان'} برای سرتیتر گروه
+    const draw = () => {
+      menu.innerHTML = options.length ? options.map((o) => (o.group !== undefined ? `<div class="rselect-group">${TK.esc(o.group)}</div>`
+        : `<div class="rselect-opt${o.disabled ? ' disabled' : ''}" role="option" data-v="${TK.esc(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}>${av(o)}<span class="truncate grow">${TK.esc(o.label)}${o.note ? `<small class="rselect-note">${TK.esc(o.note)}</small>` : ''}</span></div>`)).join('')
+        : '<div class="faint small" data-css="padding:.6rem">موردی وجود ندارد</div>';
+    };
+    draw();
     const set = (v) => {
       v = v === null || v === undefined ? '' : String(v);
       inp.value = v;
-      const o = options.find((x) => String(x.value) === v);
+      const o = options.find((x) => x.group === undefined && String(x.value) === v);
       val.innerHTML = o ? `${av(o)}<span class="truncate">${TK.esc(o.label)}</span>` : `<span class="faint">${TK.esc(placeholder)}</span>`;
       TK.qsa('.rselect-opt', menu).forEach((el) => el.classList.toggle('active', el.dataset.v === v));
       host.classList.remove('invalid');
@@ -206,10 +234,16 @@
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; TK.qsa('.rselect.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.toggle('open');
       // نزدیک پایین صفحه/کشو: منو رو به بالا باز شود
       if (host.classList.contains('open')) { const r = btn.getBoundingClientRect(), box = host.closest('.t-drawer, .modal-box')?.getBoundingClientRect(), bottom = Math.min(innerHeight, box ? box.bottom - 70 : innerHeight); host.classList.toggle('up', bottom - r.bottom < Math.min(250, menu.scrollHeight + 10) && r.top > bottom - r.bottom); } });
-    menu.addEventListener('click', (e) => { const o = e.target.closest('.rselect-opt'); if (!o) return; set(o.dataset.v); host.classList.remove('open'); inp.dispatchEvent(new Event('change', { bubbles: true })); });
+    menu.addEventListener('click', (e) => {
+      const o = e.target.closest('.rselect-opt'); if (!o) return;
+      if (o.classList.contains('disabled')) { const d = options.find((x) => String(x.value) === o.dataset.v); if (d?.hint) TK.info(d.hint, { title: d.label, icon: 'fa-lock' }); return; }
+      set(o.dataset.v); host.classList.remove('open'); inp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     document.addEventListener('click', (e) => { if (!host.contains(e.target)) host.classList.remove('open'); });
     set('');
-    return { input: inp, host, set, get: () => inp.value, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; }, invalid() { host.classList.add('invalid'); } };
+    return { input: inp, host, set, get: () => inp.value, option: (v) => options.find((x) => x.group === undefined && String(x.value) === String(v)) || null,
+      setOptions(list) { const cur = inp.value; options = list; draw(); set(options.some((x) => x.group === undefined && String(x.value) === cur && !x.disabled) ? cur : ''); },
+      disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; }, invalid() { host.classList.add('invalid'); } };
   };
 
   /*

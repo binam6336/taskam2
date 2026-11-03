@@ -5,10 +5,21 @@
  * @var string $context (اختیاری) 'board' = داخل برد: دکمه‌ی «نمایش در برد» در جزئیات نیست
  */
 $me = \App\Core\Auth::user() ?? [];
+$meId = (int) ($me['id'] ?? 0);
+// اعضای هر پروژه + اجازه‌ی افزودن عضو/واگذاری برای گروه‌بندی فهرست «مسئول انجام» (اعضای پروژه / همکاران غیرعضو)
+$pIds = array_map(static fn($p) => (int) $p['id'], $projects);
+$pMembers = [];
+if ($pIds) {
+    foreach (\App\Core\DB::all('SELECT project_id, user_id FROM project_members WHERE project_id IN (' . \App\Core\DB::in($pIds) . ') UNION SELECT id, user_id FROM projects WHERE id IN (' . \App\Core\DB::in($pIds) . ')', array_merge($pIds, $pIds)) as $m) {
+        $pMembers[(int) $m['project_id']][] = (int) $m['user_id'];
+    }
+}
 $this->boot['tasks'] = [
     'subjects' => $subjects,
     'label_colors' => \App\Models\SubjectModel::COLORS,
-    'projects' => array_map(static fn($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category'], $projects),
+    'projects' => array_map(static fn($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category',
+        'members' => $pMembers[(int) $p['id']] ?? [], 'can_add' => !empty($p['is_creator']) || in_array('add_member', $p['perms'] ?? [], true),
+        'can_assign' => !empty($p['is_creator']) || in_array('reassign', $p['task_perms'] ?? [], true)], $projects),
     'me_name' => full_name($me),
     'assignees' => $assignees,
     'shared' => $shared ?? null,
