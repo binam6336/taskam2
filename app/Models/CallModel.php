@@ -24,7 +24,7 @@ final class CallModel
     /** @return array{rows:array,total:int} */
     public static function paginate(int $uid, int $status, int $limit, int $offset, string $q = ''): array
     {
-        $w = '(r.user_id = ? OR r.assignee_id = ?) AND r.status = ?';
+        $w = '(r.user_id = ? OR r.assignee_id = ?) AND r.status = ? AND r.blocked_at IS NULL';
         $p = [$uid, $uid, $status];
         if ($q !== '') {
             $w .= ' AND (r.first_name LIKE ? OR r.last_name LIKE ? OR r.mobile LIKE ? OR r.store LIKE ?)';
@@ -38,7 +38,7 @@ final class CallModel
 
     public static function apiList(int $uid, string $status, string $q, int $limit, int $offset): array
     {
-        $w = '(r.user_id = ? OR r.assignee_id = ?)';
+        $w = '(r.user_id = ? OR r.assignee_id = ?) AND r.blocked_at IS NULL';
         $p = [$uid, $uid];
         if ($status === 'new') {
             $w .= ' AND r.status = 0';
@@ -65,7 +65,7 @@ final class CallModel
 
     public static function stats(int $uid): array
     {
-        $r = DB::one('SELECT COUNT(*) total, COALESCE(SUM(status = 0),0) new, COALESCE(SUM(status = 1),0) done FROM call_requests WHERE user_id = ? OR assignee_id = ?', [$uid, $uid]) ?? [];
+        $r = DB::one('SELECT COUNT(*) total, COALESCE(SUM(status = 0),0) new, COALESCE(SUM(status = 1),0) done FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid]) ?? [];
         return array_map('intval', $r + ['total' => 0, 'new' => 0, 'done' => 0]);
     }
 }

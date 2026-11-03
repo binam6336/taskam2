@@ -67,6 +67,7 @@ final class TaskModel
             $where = '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))';
             $params = [$uid, $uid];
         }
+        $where .= ' AND t.blocked_at IS NULL';               // مسدودشده‌ها فقط در پنجره‌ی «مسدودشده‌ها»
         if ($completed !== null) {
             $where .= ' AND t.is_completed = ?';
             $params[] = $completed ? 1 : 0;
@@ -85,7 +86,7 @@ final class TaskModel
         if ($scope === 'mine') {
             $params = [$uid];
         }
-        $sql = self::base() . ' WHERE ' . $where . ' AND t.due_date BETWEEN ? AND ?' . ($withDone ? '' : ' AND t.is_completed = 0') . ' ORDER BY t.due_date, t.due_time IS NULL, t.due_time, t.id LIMIT 2000';
+        $sql = self::base() . ' WHERE ' . $where . ' AND t.blocked_at IS NULL AND t.due_date BETWEEN ? AND ?' . ($withDone ? '' : ' AND t.is_completed = 0') . ' ORDER BY t.due_date, t.due_time IS NULL, t.due_time, t.id LIMIT 2000';
         return DB::all($sql, array_merge([$uid], $params, [$from, $to]));
     }
 
@@ -163,7 +164,7 @@ final class TaskModel
     /** لیست API: تسک‌هایی که کاربر سازنده یا مسئول آن‌هاست. */
     public static function apiList(int $uid, string $status, int $limit, int $offset): array
     {
-        $where = '(t.user_id = ? OR t.assignee_id = ?)';
+        $where = '(t.user_id = ? OR t.assignee_id = ?) AND t.blocked_at IS NULL';
         $params = [$uid, $uid];
         if ($status === 'pending') {
             $where .= ' AND t.is_completed = 0';
@@ -177,7 +178,7 @@ final class TaskModel
     {
         $r = DB::one("SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) completed, COALESCE(SUM(is_completed = 0),0) pending,
                 COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low
-                FROM tasks WHERE assignee_id = ?", [$uid]) ?? [];
+                FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL", [$uid]) ?? [];
         return array_map('intval', $r + ['total' => 0, 'completed' => 0, 'pending' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
     }
 
@@ -193,13 +194,13 @@ final class TaskModel
     /** کارت‌های بورد پروژه: WHERE آماده با پارامترهایش (اولین پارامتر = بیننده برای دسترسی تسک). */
     public static function board(string $where, array $params, int $limit = 600): array
     {
-        return DB::all(self::base() . ' WHERE ' . $where . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT " . max(1, $limit), $params);
+        return DB::all(self::base() . ' WHERE (' . $where . ') AND t.blocked_at IS NULL' . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT " . max(1, $limit), $params);
     }
 
     /** تسک‌های آرشیوشده‌ی برد (جدیدترین آرشیو اول). */
     public static function archived(string $where, array $params): array
     {
-        return DB::all(self::base() . ' WHERE ' . $where . ' AND t.archived_at IS NOT NULL ORDER BY t.archived_at DESC, t.id DESC LIMIT 2000', $params);
+        return DB::all(self::base() . ' WHERE ' . $where . ' AND t.archived_at IS NOT NULL AND t.blocked_at IS NULL ORDER BY t.archived_at DESC, t.id DESC LIMIT 2000', $params);
     }
 
     public static function ensureShareToken(int $id): string
@@ -225,26 +226,12 @@ final class TaskModel
         return ['id' => $id, 'is_completed' => !$done];
     }
 
-    /** حذف تسک + فایل‌های پیوست و یادداشت‌ها از دیسک. */
-    public static function delete(int $id): void
-    {
-        $tf = DB::column('SELECT file_path FROM task_attachments WHERE task_id = ?', [$id]);
-        $nf = DB::column('SELECT na.file_path FROM note_attachments na INNER JOIN task_notes tn ON tn.id = na.note_id WHERE tn.task_id = ?', [$id]);
-        DB::run('DELETE FROM tasks WHERE id = ?', [$id]);
-        foreach ($tf as $f) {
-            Uploader::delete('task_attachments', $f);
-        }
-        foreach ($nf as $f) {
-            Uploader::delete('note_attachments', $f);
-        }
-    }
-
     /** تسک‌های سررسیدشده‌ی اخیر که هنوز اعلان نشده‌اند (فقط خواندن؛ علامت‌گذاری با markNotified بعد از نمایش، از مسیر POST) */
     public static function dueNotifications(int $uid): array
     {
         $rows = DB::all("SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.share_token, p.title AS project_title
               FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE t.assignee_id = ? AND t.is_completed = 0 AND t.notified_at IS NULL
+             WHERE t.assignee_id = ? AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
                AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
                AND TIMESTAMP(t.due_date, t.due_time) <= NOW()
                AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)", [$uid]);
@@ -270,7 +257,7 @@ final class TaskModel
     {
         $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
         $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
-        return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
+        return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
     }
 
     private const OVERDUE = "t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()";
@@ -281,8 +268,8 @@ final class TaskModel
      */
     public static function focus(int $uid, int $limit = 12): array
     {
-        $today = 't.assignee_id = ? AND t.is_completed = 0 AND t.due_date = CURDATE() AND NOT (' . self::OVERDUE . ')';
-        $late = 't.assignee_id = ? AND t.is_completed = 0 AND ' . self::OVERDUE;
+        $today = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE() AND NOT (' . self::OVERDUE . ')';
+        $late = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
         $rows = static function (string $where, string $order) use ($uid, $limit): array {
             $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
             foreach ($list as &$t) {
@@ -303,7 +290,7 @@ final class TaskModel
     {
         $mentions = DB::all('SELECT m.id, m.task_id, m.created_at, t.title, t.share_token, u.first_name, u.last_name, u.avatar
             FROM task_mentions m INNER JOIN tasks t ON t.id = m.task_id LEFT JOIN users u ON u.id = m.actor_id
-            WHERE m.user_id = ? AND m.seen_at IS NULL ORDER BY m.id DESC LIMIT 10', [$uid]);
+            WHERE m.user_id = ? AND m.seen_at IS NULL AND t.blocked_at IS NULL ORDER BY m.id DESC LIMIT 10', [$uid]);
         $chats = DB::all('SELECT c.sender_id, COUNT(*) AS cnt, MAX(c.id) AS last_id, MAX(c.created_at) AS last_at, u.first_name, u.last_name, u.avatar, u.is_bot
             FROM chat_messages c INNER JOIN users u ON u.id = c.sender_id
             WHERE c.receiver_id = ? AND c.is_read = 0 AND c.sender_id <> c.receiver_id
@@ -314,12 +301,12 @@ final class TaskModel
     public static function dashboard(int $uid): array
     {
         $s = self::stats($uid);
-        $split = DB::one('SELECT COALESCE(SUM(user_id = ? AND assignee_id <> ?),0) by_me, COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me FROM tasks WHERE user_id = ? OR assignee_id = ?', [$uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'to_me' => 0];
-        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s LEFT JOIN tasks t ON t.subject_id = s.id WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid]);
+        $split = DB::one('SELECT COALESCE(SUM(user_id = ? AND assignee_id <> ?),0) by_me, COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'to_me' => 0];
+        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s LEFT JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid]);
         $dur = static fn(string $table, string $cond, array $p) => DB::one("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 a, MIN(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 mi, MAX(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 ma, COUNT(*) c FROM $table WHERE $cond AND completed_at IS NOT NULL AND completed_at > created_at", $p) ?? [];
 
         $trend = ['labels' => [], 'tasks' => []];
-        $td = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE assignee_id = ? AND created_at >= (CURDATE() - INTERVAL 6 DAY) GROUP BY DATE(created_at)', [$uid]), 'c', 'd');
+        $td = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL AND created_at >= (CURDATE() - INTERVAL 6 DAY) GROUP BY DATE(created_at)', [$uid]), 'c', 'd');
         for ($i = 6; $i >= 0; $i--) {
             $d = date('Y-m-d', strtotime("-$i days"));
             $trend['labels'][] = \App\Core\Jalali::md($d);
@@ -330,8 +317,8 @@ final class TaskModel
             'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : 0,
             'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'],
             'top_subject' => $top['title'] ?? 'بدون لیبل',
-            'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1', [$uid, $uid]),
-            'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1', [$uid, $uid]),
+            'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
+            'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1 AND blocked_at IS NULL', [$uid, $uid]),
             'calls' => CallModel::stats($uid),
             'texts' => (int) DB::value('SELECT COUNT(*) FROM texts WHERE user_id = ?', [$uid]),
             'trend' => $trend,

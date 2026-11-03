@@ -99,8 +99,8 @@ final class ProjectApi extends ApiController
     public function stats()
     {
         $u = $this->uid;
-        $r = DB::one('SELECT (SELECT COUNT(*) FROM projects WHERE user_id = ?) created_count,
-              (SELECT COUNT(*) FROM projects p WHERE p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) total_projects,
+        $r = DB::one('SELECT (SELECT COUNT(*) FROM projects WHERE user_id = ? AND blocked_at IS NULL) created_count,
+              (SELECT COUNT(*) FROM projects p WHERE (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) AND p.blocked_at IS NULL) total_projects,
               (SELECT COUNT(*) FROM project_members WHERE user_id = ?) total_memberships,
               (SELECT COUNT(*) FROM project_blocks WHERE user_id = ?) blocked_count', [$u, $u, $u, $u, $u]) ?? [];
         $this->ok(['created' => (int) ($r['created_count'] ?? 0), 'total_projects' => (int) ($r['total_projects'] ?? 0), 'total_members' => (int) ($r['total_memberships'] ?? 0), 'blocked' => (int) ($r['blocked_count'] ?? 0)]);
@@ -127,13 +127,6 @@ final class ProjectApi extends ApiController
             $this->err($msg, str_contains($msg, 'اجازه') ? 403 : 400, str_contains($msg, 'اجازه') ? 'FORBIDDEN' : 'PROJECT_UPDATE_FAILED');
         }
         $this->ok($this->format(ProjectModel::find($id) ?? $p, Access::projectPerms($id, $this->uid)) + ['updated_at' => date('Y-m-d H:i:s')], $msg);
-    }
-
-    public function delete()
-    {
-        $id = $this->pid();
-        [$ok, $msg] = ProjectService::delete($id, $this->uid);
-        $ok ? $this->ok(['id' => $id], $msg) : $this->err($msg, str_contains($msg, 'فقط') ? 403 : 404, str_contains($msg, 'فقط') ? 'FORBIDDEN' : 'PROJECT_NOT_FOUND');
     }
 
     public function leave()

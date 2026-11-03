@@ -1758,3 +1758,20 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .qk-badge { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: color-mix(in srgb, var(--warn, #fbbf24) 18%, transparent); color: var(--warn, #f59e0b); cursor: default; }
 .qk-badge::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--surface-3); color: var(--text); border: 1px solid var(--border-2); border-radius: 8px; padding: .2rem .55rem; font-size: .75rem; opacity: 0; pointer-events: none; transition: opacity .15s; box-shadow: var(--shadow); }
 .qk-badge:hover::after, .qk-badge:focus::after { opacity: 1; }
+
+/* ───── مسدود کردن به‌جای حذف (v4.0): دکمه‌ی «مسدودشده‌ها»، پنجره‌ی فهرست، منوی ⋮ جزئیات تسک ───── */
+.blk-btn { position: relative; color: var(--danger); }
+.blk-btn .blk-count { position: absolute; top: -6px; left: -6px; min-width: 18px; height: 18px; padding: 0 4px; font-size: .68rem; line-height: 18px; }
+.t-bar-start { flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.t-bar-start > .tabs { min-width: 0; flex: 0 1 auto; flex-wrap: nowrap; overflow-x: auto; }
+@media (max-width: 640px) { .t-bar-start { width: 100%; } .t-bar-start > .tabs { flex: 1 1 auto; } .t-bar-start > .tabs .tab { padding-inline: .6rem; white-space: nowrap; } }
+.blk-list .blk-item { display: flex; align-items: center; gap: .7rem; }
+.blk-ico { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--danger-bg); color: var(--danger); }
+.blk-ico[data-css] { color: #fff; }
+.blk-list .empty { text-align: center; padding: 1.5rem .5rem; color: var(--muted); }
+.blk-list .empty i { font-size: 1.6rem; display: block; margin-bottom: .4rem; }
+.detail-more .dropdown-menu { min-width: 200px; }
+.dropdown-menu button:not(.btn):disabled { opacity: .5; cursor: not-allowed; }
+.dropdown-menu .dd-hint { padding: .25rem .7rem .4rem; }
+.blk-alert { align-items: center; }
+#m-blocked .modal-head h3 i { color: var(--danger); }

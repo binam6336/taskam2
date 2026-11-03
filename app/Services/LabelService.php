@@ -75,13 +75,4 @@ final class LabelService
         }
         return self::res(true, 'لیبل ویرایش شد.', '', 200, SubjectModel::owned($id, $uid));
     }
-
-    public static function delete(int $uid, int $id): array
-    {
-        if (SubjectModel::owned($id, $uid) === null) {
-            return self::res(false, 'لیبل یافت نشد.', 'LABEL_NOT_FOUND', 404);
-        }
-        DB::run('DELETE FROM subjects WHERE id = ? AND user_id = ?', [$id, $uid]);
-        return self::res(true, 'لیبل حذف شد (تسک‌های آن بدون لیبل باقی ماندند).', '', 200, ['id' => $id]);
-    }
 }

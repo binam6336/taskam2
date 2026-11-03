@@ -295,19 +295,6 @@ final class ChatController extends Controller
         $this->json(['status' => 'success', 'message' => ['id' => (int) $u['id'], 'message' => $text, 'is_edited' => (int) $u['is_edited'], 'edited_at' => $u['edited_at']]]);
     }
 
-    public function delete()
-    {
-        $uid = $this->uid();
-        $id = $this->request->int('message_id');
-        if ($id <= 0) {
-            $this->fail('شناسه پیام نامعتبر');
-        }
-        $m = $this->ownWithinWindow($uid, $id);
-        DB::run('DELETE FROM chat_messages WHERE id = ? AND sender_id = ?', [$id, $uid]);
-        Uploader::delete('chat_files', $m['attachment']);
-        $this->json(['status' => 'success', 'message' => 'پیام برای هر دو طرف حذف شد', 'deleted_id' => $id]);
-    }
-
     /** بازارسال یک پیام (متن و فایل) به گفتگوی دیگر؛ فایل کپی می‌شود تا حذف پیام اصلی روی آن اثر نگذارد. */
     public function forward()
     {

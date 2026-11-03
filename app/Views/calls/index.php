@@ -24,7 +24,7 @@ $card = static function (array $c) use ($edit): void { ?>
                 <?php if ((int) $c['status'] === 0 && ($c['can']['complete'] ?? false)): ?><button class="btn btn-sm btn-primary" data-post="<?= e(url('/calls/' . $c['id'] . '/complete')) ?>" data-confirm="این درخواست انجام‌شده ثبت شود؟" data-danger="0"><i class="fa-solid fa-check"></i> انجام شد</button><?php endif; ?>
                 <button class="btn btn-sm btn-icon" data-share-call="<?= (int) $c['id'] ?>" title="کپی لینک"><i class="fa-solid fa-link"></i></button>
                 <?php if ($c['can']['edit'] ?? false): ?><button class="btn btn-sm btn-icon" title="ویرایش درخواست" aria-label="ویرایش درخواست تماس" data-edit='<?= e($edit($c)) ?>' data-target="m-call" data-action="/calls/<?= (int) $c['id'] ?>/update"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
-                <?php if ($c['can']['delete'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" title="حذف درخواست" aria-label="حذف درخواست تماس" data-post="<?= e(url('/calls/' . $c['id'] . '/delete')) ?>" data-confirm="درخواست حذف شود؟"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
+                <?php if ($c['can']['block'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن درخواست" aria-label="مسدود کردن درخواست تماس" data-post="<?= e(url('/block/calls/' . $c['id'])) ?>" data-confirm="این درخواست تماس مسدود شود؟ از فهرست کنار می‌رود و از «درخواست‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button><?php endif; ?>
             </div>
         </div>
     </div>
@@ -35,6 +35,7 @@ $card = static function (array $c) use ($edit): void { ?>
         <a class="tab <?= $tab === 'new' ? 'active' : '' ?>" href="<?= e($url('new')) ?>">جدید <span class="badge-count"><?= e(fa_num($counts['new'])) ?></span></a>
         <a class="tab <?= $tab === 'done' ? 'active' : '' ?>" href="<?= e($url('done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts['done'])) ?></span></a>
     </div>
+    <?php $this->partial('blocked_button', ['kind' => 'calls', 'count' => $blockedCount ?? 0, 'label' => 'درخواست‌های مسدودشده']); ?>
     <button class="btn btn-primary" id="btn-new-call"><i class="fa-solid fa-plus"></i> درخواست جدید</button>
 </div>
 <form method="get" class="search mb-2" data-css="max-width:420px"><input type="hidden" name="tab" value="<?= e($tab) ?>"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('calls_search')) ?>"></form>

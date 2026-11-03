@@ -23,7 +23,7 @@ final class CallController extends Controller
         $q = trim((string) ($r->query['q'] ?? ''));
         $res = CallModel::paginate($uid, $tab === 'done' ? 1 : 0, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $q);
         foreach ($res['rows'] as &$row) {
-            $row['can'] = ['edit' => Access::can($row, $uid, 'edit'), 'reassign' => Access::can($row, $uid, 'reassign'), 'complete' => Access::can($row, $uid, 'complete'), 'delete' => Access::can($row, $uid, 'delete')];
+            $row['can'] = ['edit' => Access::can($row, $uid, 'edit'), 'reassign' => Access::can($row, $uid, 'reassign'), 'complete' => Access::can($row, $uid, 'complete'), 'block' => Access::can($row, $uid, 'block')];
         }
         unset($row);
 
@@ -39,13 +39,13 @@ final class CallController extends Controller
             }
         }
         $counts = [
-            'new' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 0', [$uid, $uid]),
-            'done' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 1', [$uid, $uid]),
+            'new' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 0 AND blocked_at IS NULL', [$uid, $uid]),
+            'done' => (int) DB::value('SELECT COUNT(*) FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND status = 1 AND blocked_at IS NULL', [$uid, $uid]),
         ];
         $assignees = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ? AND u.status = 'active' AND " . Access::approvedSql('c') . " ORDER BY u.first_name", [$uid]);
         $this->view('calls/index', [
             'calls' => $res['rows'], 'total' => $res['total'], 'tab' => $tab, 'pg' => $page, 'pages' => max(1, (int) ceil($res['total'] / self::PER_PAGE)),
-            'q' => $q, 'counts' => $counts, 'shared' => $shared,
+            'q' => $q, 'counts' => $counts, 'shared' => $shared, 'blockedCount' => \App\Services\BlockService::list('call', $uid, 1)['total'],
             'assignees' => array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u)], $assignees),
         ], ['title' => 'درخواست‌های تماس', 'page' => 'calls']);
     }
@@ -65,12 +65,6 @@ final class CallController extends Controller
     public function complete(string $id)
     {
         $res = CallService::complete($this->uid(), (int) $id);
-        $this->respond($res['ok'], $res['message'], '/calls');
-    }
-
-    public function destroy(string $id)
-    {
-        $res = CallService::delete($this->uid(), (int) $id);
         $this->respond($res['ok'], $res['message'], '/calls');
     }
 

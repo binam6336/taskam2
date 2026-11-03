@@ -47,7 +47,7 @@ final class CallApi extends ApiController
 
     public function stats()
     {
-        $r = DB::one('SELECT COUNT(*) total, COALESCE(SUM(status = 0),0) new_count, COALESCE(SUM(status = 1),0) done_count, COALESCE(SUM(DATE(created_at) = CURDATE()),0) today, COALESCE(SUM(assignee_id IS NULL),0) unassigned FROM call_requests WHERE user_id = ? OR assignee_id = ?', [$this->uid, $this->uid]) ?? [];
+        $r = DB::one('SELECT COUNT(*) total, COALESCE(SUM(status = 0),0) new_count, COALESCE(SUM(status = 1),0) done_count, COALESCE(SUM(DATE(created_at) = CURDATE()),0) today, COALESCE(SUM(assignee_id IS NULL),0) unassigned FROM call_requests WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$this->uid, $this->uid]) ?? [];
         $this->ok(['total' => (int) ($r['total'] ?? 0), 'new' => (int) ($r['new_count'] ?? 0), 'done' => (int) ($r['done_count'] ?? 0), 'today' => (int) ($r['today'] ?? 0), 'unassigned' => (int) ($r['unassigned'] ?? 0)]);
     }
 
@@ -78,10 +78,5 @@ final class CallApi extends ApiController
         $new = array_key_exists('status', $in) ? ((int) $in['status'] === 1 ? 1 : 0) : ((int) $c['status'] === 1 ? 0 : 1);
         DB::run('UPDATE call_requests SET status = ?, completed_at = ' . ($new === 1 ? 'NOW()' : 'NULL') . ' WHERE id = ?', [$new, $id]);
         $this->ok(['id' => $id, 'status' => $new, 'is_done' => $new === 1, 'completed_at' => $new === 1 ? date('Y-m-d H:i:s') : null], 'وضعیت درخواست تغییر کرد.');
-    }
-
-    public function delete()
-    {
-        $this->fromService(CallService::delete($this->uid, $this->id()), static fn($d) => ['id' => $d['id']]);
     }
 }

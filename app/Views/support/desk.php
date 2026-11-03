@@ -129,7 +129,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
                 <?php if ($canWrite): ?><button type="button" class="btn btn-icon btn-sm" id="desk-texts-btn" aria-haspopup="true" title="پاسخ‌های آماده (متن‌های آماده)"><i class="fa-solid fa-keyboard"></i></button><?php endif; ?>
                 <button type="button" class="btn btn-icon btn-sm hide-sm" id="desk-help-btn" aria-haspopup="true" title="راهنما"><i class="fa-solid fa-question"></i></button>
                 <button type="button" class="btn btn-icon btn-sm" id="desk-refresh" title="به‌روزرسانی"><i class="fa-solid fa-rotate-right"></i></button>
-                <button type="button" class="btn btn-icon btn-sm btn-danger" data-post="<?= e(url($base . '/' . $tid . '/delete')) ?>" data-confirm="تیکت و همه‌ی پیام‌ها و فایل‌هایش حذف شود؟" data-after="redirect:<?= e($base . $qs()) ?>" title="حذف تیکت"><i class="fa-solid fa-trash"></i></button>
+                <?php if ($admin): // کاربر تیکت را حذف نمی‌کند (v4.0)؛ فقط مدیر ?><button type="button" class="btn btn-icon btn-sm btn-danger" data-post="<?= e(url($base . '/' . $tid . '/delete')) ?>" data-confirm="تیکت و همه‌ی پیام‌ها و فایل‌هایش حذف شود؟" data-after="redirect:<?= e($base . $qs()) ?>" title="حذف تیکت"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
             </div>
         </header>
 

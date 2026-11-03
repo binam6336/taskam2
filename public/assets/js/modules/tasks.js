@@ -246,7 +246,7 @@ document.addEventListener('tk:ready', () => {
   }
 
   /* ───── جزئیات ───── */
-  const fileChip = (f, kind) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a>${f.can_delete ? `<button class="btn btn-xs btn-ghost" data-del-file="${kind}/${f.id}" title="حذف"><i class="fa-solid fa-xmark"></i></button>` : ''}</span>`;
+  const fileChip = (f) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a></span>`;
   const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name];
 
   const noteHtml = (n) => `
@@ -256,7 +256,7 @@ document.addEventListener('tk:ready', () => {
         <div class="flex between gap-2"><b class="small">${E(n.author)}</b><span class="xs faint">${E(n.created_fa)}${n.updated_at ? ' (ویرایش‌شده)' : ''}</span></div>
         <div class="note-body" data-note-text data-raw="${E(n.note)}">${rich(n.note, names())}</div>
         <div>${(n.attachments || []).map((f) => fileChip(f, 'note')).join('')}</div>
-        <div class="flex gap-1 mt-1">${n.can_edit ? `<button class="btn btn-xs btn-ghost" data-edit-note="${n.id}"><i class="fa-solid fa-pen"></i> ویرایش</button>` : ''}${n.can_delete ? `<button class="btn btn-xs btn-ghost" data-del-note="${n.id}"><i class="fa-solid fa-trash"></i> حذف</button>` : ''}</div>
+        <div class="flex gap-1 mt-1">${n.can_edit ? `<button class="btn btn-xs btn-ghost" data-edit-note="${n.id}"><i class="fa-solid fa-pen"></i> ویرایش</button>` : ''}</div>
       </div>
     </div>`;
 
@@ -367,19 +367,28 @@ document.addEventListener('tk:ready', () => {
     }
     if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '' }, b);
     if (b.dataset.qeStatus) {
-      if (b.dataset.qeStatus === 'blocked' || b.dataset.qeStatus === 'rework') {
+      if (b.dataset.qeStatus === 'rework') {
         const r = TK.qs('.qe-reason', p); r.hidden = false; r.dataset.st = b.dataset.qeStatus;
-        const inp = TK.qs('[data-qe-reason]', r); inp.placeholder = b.dataset.qeStatus === 'rework' ? 'چه ایرادی باید اصلاح شود؟ (اختیاری)' : 'علت توقف (اختیاری)'; inp.focus(); return;
+        const inp = TK.qs('[data-qe-reason]', r); inp.placeholder = 'چه ایرادی باید اصلاح شود؟ (اختیاری)'; inp.focus(); return;
       }
       return qeSave('/tasks/' + currentId + '/status', { status: b.dataset.qeStatus }, b);
     }
-    if (b.hasAttribute('data-qe-block')) return qeSave('/tasks/' + currentId + '/status', { status: TK.qs('.qe-reason', p).dataset.st || 'blocked', reason: TK.qs('[data-qe-reason]', p).value }, b);
+    if (b.hasAttribute('data-qe-block')) return qeSave('/tasks/' + currentId + '/status', { status: TK.qs('.qe-reason', p).dataset.st || 'rework', reason: TK.qs('[data-qe-reason]', p).value }, b);
   });
   // بستن پنجره‌ی کوچک با کلیک بیرون یا Escape (لیست باز تاریخ/ساعت داخل خود پنجره است)
   document.addEventListener('click', (e) => { if (qePop && document.contains(e.target) && !e.target.closest('.qe-pop, [data-qe]')) qeClose(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && qePop) { e.stopPropagation(); qeClose(); } }, true);
   TK.qs('#m-detail')?.addEventListener('tk:close', qeClose);
 
+  /* منوی ⋮ جزئیات تسک: مسدود کردن (به‌جای حذف) / رفع مسدودی */
+  const moreMenu = (t) => {
+    const item = t.is_blocked
+      ? `<button type="button" data-detail-unblock${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>`
+      : `<button type="button" class="text-danger" data-detail-block${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-ban"></i> مسدود کردن</button>`;
+    const hint = t.can.block ? '' : '<div class="xs faint dd-hint">دسترسی «مسدود کردن تسک» در این پروژه به شما داده نشده است.</div>';
+    return `<div class="dropdown detail-more"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-more title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+      <div class="dropdown-menu" role="menu">${item}${hint}</div></div>`;
+  };
   const render = (t) => {
     qeClose();
     currentId = t.id; current = t;
@@ -387,10 +396,12 @@ document.addEventListener('tk:ready', () => {
     detail.innerHTML = `
       <div class="flex between gap-2 items-center mb-2">
         <h3 class="grow" data-css="margin:0">${E(t.title)}</h3>
+        ${moreMenu(t)}
         ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
         ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
         <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
       </div>
+      ${t.is_blocked ? `<div class="alert error mb-2 blk-alert"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
       <div class="flex wrap gap-1 mb-2 qe-row">
         ${chipsHtml(t)}
       </div>
@@ -436,13 +447,15 @@ document.addEventListener('tk:ready', () => {
     assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
     completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
     reopened: ['fa-rotate-left', 'warn', (i) => `${who(i.actor)} تسک را به حالت انجام‌نشده برگرداند.`],
-    board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت توقف: ${E(i.data.reason)}</div>` : '')],
+    board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت: ${E(i.data.reason)}</div>` : '')],
     archived: ['fa-box-archive', 'muted', (i) => `${who(i.actor)} تسک را در برد به آرشیو برد.`],
     unarchived: ['fa-box-open', 'muted', (i) => `${who(i.actor)} تسک را از آرشیو برد برگرداند.`],
     note: ['fa-comment', 'ok', (i) => `${who(i.actor)} یک یادداشت گذاشت${i.data.edited ? ' <span class="xs faint">(ویرایش‌شده)</span>' : ''}:`, (i) => `<div class="hist-box note-body">${rich(i.data.text, names())}${(i.data.files || []).length ? `<div class="hist-files">${i.data.files.map((f) => `<span class="chip"><i class="fa-solid fa-paperclip"></i> ${E(f)}</span>`).join('')}</div>` : ''}</div>`],
     note_edited: ['fa-pen', 'info', (i) => `${who(i.actor)} یک یادداشت را ویرایش کرد.`],
     note_deleted: ['fa-trash', 'danger', (i) => `${who(i.actor)} یک یادداشت را حذف کرد:`, (i) => `<div class="hist-box hist-del">${E(i.data.text || '')}</div>`],
     file: ['fa-paperclip', 'info', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را پیوست کرد.`],
+    blocked: ['fa-ban', 'danger', (i) => `${who(i.actor)} تسک را مسدود کرد.`],
+    unblocked: ['fa-lock-open', 'ok', (i) => `${who(i.actor)} مسدودی تسک را برداشت.`],
     file_deleted: ['fa-file-circle-xmark', 'danger', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را از ${i.data.note ? 'یک یادداشت' : 'پیوست‌های تسک'} حذف کرد.`],
   };
   const openHistory = async () => {
@@ -520,8 +533,16 @@ document.addEventListener('tk:ready', () => {
     if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); await refresh(); if (TK.ok(r)) TK.reload(); return; }
     if (b.hasAttribute('data-detail-toggle')) { const r = await TK.post('/tasks/' + currentId + '/toggle'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
-    if (b.dataset.delNote) { if (!(await TK.confirm('این یادداشت و فایل‌های آن حذف شود؟'))) return; const r = await TK.post('/notes/' + b.dataset.delNote + '/delete'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { refresh(); TK.reload(); } }
-    if (b.dataset.delFile) { if (!(await TK.confirm('این فایل حذف شود؟'))) return; const r = await TK.post('/files/' + b.dataset.delFile + '/delete'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
+    if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
+    if (b.hasAttribute('data-detail-block') || b.hasAttribute('data-detail-unblock')) {
+      const on = b.hasAttribute('data-detail-block');
+      b.closest('.dropdown')?.classList.remove('open');
+      if (on && !(await TK.confirm('این تسک مسدود شود؟ از فهرست‌ها، بورد و تقویم کنار می‌رود و فقط از «تسک‌های مسدودشده» در صفحه‌ی تسک‌ها برمی‌گردد.', { okText: 'مسدود کن' }))) return;
+      const r = await TK.post((on ? '/block/tasks/' : '/unblock/tasks/') + currentId);
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
+      if (TK.ok(r)) { if (on) TK.modal.close('m-detail'); else await refresh(); TK.reload(); }
+      return;
+    }
     if (b.dataset.editNote) {
       const box = TK.qs('#note-' + b.dataset.editNote), p = box.querySelector('[data-note-text]'), old = p.dataset.raw;
       p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3">${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;

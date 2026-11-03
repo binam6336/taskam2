@@ -16,7 +16,7 @@ final class ProjectModel
     /** پروژه‌هایی که کاربر سازنده یا عضو آن‌هاست. */
     public static function forUser(int $uid, string $q = '', string $role = 'all', int $limit = 200, int $offset = 0): array
     {
-        $w = '(p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?))';
+        $w = '(p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) AND p.blocked_at IS NULL';   // مسدودشده‌ها فقط در «پروژه‌های مسدودشده»
         $p = [$uid, $uid];
         if ($q !== '') {
             $w .= ' AND p.title LIKE ?';
@@ -32,8 +32,8 @@ final class ProjectModel
         $rows = DB::all("SELECT p.*,
               (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS members_count,
               (SELECT COUNT(*) FROM project_blocks pb WHERE pb.project_id = p.id AND pb.user_id = ?) AS is_blocked_by_me,
-              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS tasks_count,
-              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_completed = 1) AS tasks_done,
+              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks_count,
+              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_completed = 1 AND t.blocked_at IS NULL) AS tasks_done,
               (SELECT permissions FROM project_members pm2 WHERE pm2.project_id = p.id AND pm2.user_id = ? LIMIT 1) AS my_permissions,
               (SELECT task_permissions FROM project_members pm3 WHERE pm3.project_id = p.id AND pm3.user_id = ? LIMIT 1) AS my_task_permissions,
               (SELECT board_permissions FROM project_members pm4 WHERE pm4.project_id = p.id AND pm4.user_id = ? LIMIT 1) AS my_board_permissions,
@@ -82,15 +82,15 @@ final class ProjectModel
               COALESCE(SUM(is_completed = 0 AND due_date IS NOT NULL AND TIMESTAMP(due_date, COALESCE(due_time, '23:59:59')) < NOW()),0) overdue,
               COALESCE(SUM(priority='high'),0) high, COALESCE(SUM(priority='medium'),0) medium, COALESCE(SUM(priority='low'),0) low,
               AVG(CASE WHEN is_completed = 1 AND completed_at > created_at THEN TIMESTAMPDIFF(MINUTE, created_at, completed_at) END)/60 avg_hours
-            FROM tasks WHERE project_id = ?", [$projectId]) ?? [];
+            FROM tasks WHERE project_id = ? AND blocked_at IS NULL", [$projectId]) ?? [];
         $perMember = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar,
               COUNT(t.id) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(t.is_completed = 0),0) open,
               COALESCE(SUM(t.is_completed = 0 AND t.due_date IS NOT NULL AND TIMESTAMP(t.due_date, COALESCE(t.due_time, '23:59:59')) < NOW()),0) overdue
             FROM project_members pm INNER JOIN users u ON u.id = pm.user_id
-            LEFT JOIN tasks t ON t.project_id = pm.project_id AND t.assignee_id = u.id
+            LEFT JOIN tasks t ON t.project_id = pm.project_id AND t.assignee_id = u.id AND t.blocked_at IS NULL
             WHERE pm.project_id = ? GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY done DESC, total DESC", [$projectId]);
-        $created = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE project_id = ? AND created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)', [$projectId]), 'c', 'd');
-        $finished = array_column(DB::all('SELECT DATE(completed_at) d, COUNT(*) c FROM tasks WHERE project_id = ? AND completed_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(completed_at)', [$projectId]), 'c', 'd');
+        $created = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE project_id = ? AND blocked_at IS NULL AND created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)', [$projectId]), 'c', 'd');
+        $finished = array_column(DB::all('SELECT DATE(completed_at) d, COUNT(*) c FROM tasks WHERE project_id = ? AND blocked_at IS NULL AND completed_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(completed_at)', [$projectId]), 'c', 'd');
         $trend = ['labels' => [], 'created' => [], 'done' => []];
         for ($i = 13; $i >= 0; $i--) {
             $d = date('Y-m-d', strtotime("-$i days"));
@@ -98,7 +98,7 @@ final class ProjectModel
             $trend['created'][] = (int) ($created[$d] ?? 0);
             $trend['done'][] = (int) ($finished[$d] ?? 0);
         }
-        $recent = DB::all('SELECT t.id, t.title, t.is_completed, t.priority, t.due_date, t.created_at, u.first_name, u.last_name, u.mobile FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id = ? ORDER BY t.created_at DESC LIMIT 8', [$projectId]);
+        $recent = DB::all('SELECT t.id, t.title, t.is_completed, t.priority, t.due_date, t.created_at, u.first_name, u.last_name, u.mobile FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id = ? AND t.blocked_at IS NULL ORDER BY t.created_at DESC LIMIT 8', [$projectId]);
         return ['totals' => array_map(static fn($v) => $v === null ? 0 : (float) $v, $totals), 'members' => $perMember, 'trend' => $trend, 'recent' => $recent];
     }
 }

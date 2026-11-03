@@ -10,10 +10,15 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '026';
+    public const VERSION = '027';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 027
+        ['tasks', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `archived_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`, ADD KEY `idx_tasks_blocked` (`blocked_at`)", null],
+        ['projects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `status`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
+        ['subjects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `color`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
+        ['call_requests', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `completed_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         // 026
         ['tasks', 'is_quick', "ADD COLUMN `is_quick` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_completed`", null],
         // 025
@@ -64,6 +69,7 @@ final class Schema
     private const DATA = [
         ['022', '022_member_board_perms.sql'],
         ['025', '025_chat_requests_block_ghosts.sql'],
+        ['027', '027_block_instead_of_delete.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */

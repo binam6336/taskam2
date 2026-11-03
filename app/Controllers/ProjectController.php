@@ -26,7 +26,7 @@ final class ProjectController extends Controller
         $colleagues = array_map(static fn($c) => ['id' => (int) $c['user_id'], 'name' => full_name($c), 'mobile' => $c['mobile'], 'avatar' => avatar_url($c['avatar'])], ColleagueService::listFor($uid));
         $this->view('projects/index', [
             'projects' => $projects, 'colleagues' => $colleagues, 'requests' => ProjectModel::pendingRequestsFor($uid),
-            'history' => ProjectModel::leaveHistory($uid), 'permDefs' => Access::PROJECT_PERMS, 'taskPermDefs' => Access::TASK_PERMS, 'boardPermDefs' => Access::BOARD_PERMS, 'roles' => Access::ROLES + ['custom' => Access::ROLE_CUSTOM],
+            'history' => ProjectModel::leaveHistory($uid), 'blockedCount' => \App\Services\BlockService::list('project', $uid, 1)['total'], 'permDefs' => Access::PROJECT_PERMS, 'taskPermDefs' => Access::TASK_PERMS, 'boardPermDefs' => Access::BOARD_PERMS, 'roles' => Access::ROLES + ['custom' => Access::ROLE_CUSTOM],
         ], ['title' => 'پروژه‌ها', 'page' => 'projects']);
     }
 
@@ -47,12 +47,6 @@ final class ProjectController extends Controller
         $r = $this->request;
         $members = $r->has('members_present') ? array_map('intval', $r->arr('members')) : null;
         [$ok, $msg] = ProjectService::update((int) $id, $this->uid(), $r->str('project_title', 255), $r->str('project_description', 3000), $r->int('max_members', 10), $members, $this->image(), $r->str('priority_type', 20) ?: null);
-        $this->respond($ok, $msg, '/projects');
-    }
-
-    public function destroy(string $id)
-    {
-        [$ok, $msg] = ProjectService::delete((int) $id, $this->uid());
         $this->respond($ok, $msg, '/projects');
     }
 

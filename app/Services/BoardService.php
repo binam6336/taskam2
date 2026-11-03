@@ -24,13 +24,12 @@ final class BoardService
         'in_progress' => ['label' => 'در حال انجام', 'en' => 'In Progress', 'icon' => 'fa-person-running', 'tone' => 'warn', 'desc' => 'مسئول کار را شروع کرده'],
         'review'      => ['label' => 'بررسی سرپرست', 'en' => 'In Review', 'icon' => 'fa-magnifying-glass', 'tone' => 'purple', 'desc' => 'انجام شده و منتظر بررسی سرپرست'],
         'done'        => ['label' => 'انجام‌شده', 'en' => 'Done', 'icon' => 'fa-circle-check', 'tone' => 'ok', 'desc' => 'تکمیل شده و معیارهای اتمام برآورده شده'],
-        'blocked'     => ['label' => 'مسدودشده', 'en' => 'Blocked', 'icon' => 'fa-ban', 'tone' => 'danger', 'desc' => 'متوقف به‌خاطر وابستگی، مشکل فنی یا انتظار'],
     ];
 
     /**
      * ترتیب پیش‌فرض ستون‌ها (همان ترتیب STATUSES + آرشیو). هر کاربر می‌تواند ترتیب خودش را بچیند (users.board_order).
      */
-    public const DEFAULT_ORDER = ['rework', 'backlog', 'todo', 'in_progress', 'review', 'done', 'blocked', 'archived'];
+    public const DEFAULT_ORDER = ['rework', 'backlog', 'todo', 'in_progress', 'review', 'done', 'archived'];
 
     /** ترتیب ستون‌های کاربر: کلیدهای نامعتبر حذف و ستون‌های جاافتاده (مثلاً وضعیت تازه) در جای پیش‌فرضشان اضافه می‌شوند */
     public static function order(?string $raw): array
@@ -52,7 +51,7 @@ final class BoardService
     /** ذخیره‌ی ترتیب ستون‌ها برای کاربر؛ ترتیب خالی یا برابر پیش‌فرض = NULL (بازگشت به پیش‌فرض) */
     public static function saveOrder(int $uid, array $keys): array
     {
-        $keys = array_values(array_map('strval', $keys));
+        $keys = array_values(array_diff(array_map('strval', $keys), ['blocked']));   // ستون حذف‌شده‌ی v4.0 (سازگاری با کلاینت‌های قدیمی)
         if ($keys && (count($keys) !== count(self::DEFAULT_ORDER) || array_diff(self::DEFAULT_ORDER, $keys))) {
             return self::res(false, 'ترتیب ستون‌ها نامعتبر است.', 'ORDER_INVALID', 422);
         }
@@ -62,7 +61,7 @@ final class BoardService
     }
 
     /** وضعیت‌هایی که برای هر عضو سقف تعداد تسک دارند (برنامه‌ریزی‌نشده، انجام‌شده و آرشیو سقف ندارند) */
-    public const LIMITED = ['todo', 'in_progress', 'blocked', 'review', 'rework'];
+    public const LIMITED = ['todo', 'in_progress', 'review', 'rework'];
     public const MAX_LIMIT = 999;
 
     /** project_members.board_limits → [status => n]؛ فقط وضعیت‌های LIMITED و اعداد ۰ تا MAX_LIMIT */
@@ -92,7 +91,7 @@ final class BoardService
         if ($limit === null) {
             return null;
         }
-        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND board_status = ? AND archived_at IS NULL AND id <> ?',
+        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND board_status = ? AND archived_at IS NULL AND blocked_at IS NULL AND id <> ?',
             [(int) $t['project_id'], $owner, $status, (int) $t['id']]);
         if ($n < $limit) {
             return null;
@@ -107,7 +106,7 @@ final class BoardService
      */
     public static function overLimits(int $uid, int $projectId = 0): array
     {
-        $sql = 'SELECT pm.project_id, pm.board_limits, p.title FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.user_id = ? AND pm.board_limits IS NOT NULL';
+        $sql = 'SELECT pm.project_id, pm.board_limits, p.title FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.user_id = ? AND pm.board_limits IS NOT NULL AND p.blocked_at IS NULL';
         $params = [$uid];
         if ($projectId > 0) {
             $sql .= ' AND pm.project_id = ?';
@@ -120,7 +119,7 @@ final class BoardService
                 continue;
             }
             $counts = [];
-            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL GROUP BY board_status', [(int) $m['project_id'], $uid]) as $r) {
+            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL AND blocked_at IS NULL GROUP BY board_status', [(int) $m['project_id'], $uid]) as $r) {
                 $counts[$r['s']] = (int) $r['n'];
             }
             foreach ($limits as $st => $limit) {
@@ -133,7 +132,7 @@ final class BoardService
     }
 
     /** مرحله‌ی بعدی هر وضعیت (دکمه‌ی «انتقال به …» در جزئیات تسک) */
-    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'blocked' => 'in_progress', 'rework' => 'backlog'];
+    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'rework' => 'backlog'];
 
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
@@ -146,7 +145,7 @@ final class BoardService
     /** پروژه‌هایی که کاربر در آن‌هاست (سازنده یا عضو). */
     public static function projects(int $uid): array
     {
-        return DB::all('SELECT p.id, p.title, p.profile_image FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.title', [$uid, $uid]);
+        return DB::all('SELECT p.id, p.title, p.profile_image FROM projects p WHERE (p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)) AND p.blocked_at IS NULL ORDER BY p.title', [$uid, $uid]);
     }
 
     /** WHERE مشترک برد و آرشیو با فیلترها (اولین پارامتر = بیننده برای دسترسی تسک). */
@@ -289,6 +288,12 @@ final class BoardService
     public static function taskState(array $t, int $uid): array
     {
         $st = self::status($t);
+        if (!empty($t['blocked_at'])) {
+            $info = self::STATUSES[$st] ?? ['label' => 'آرشیو', 'icon' => 'fa-box-archive', 'tone' => 'muted'];
+            $why = 'این تسک مسدود شده است؛ تا مسدودی‌اش برداشته نشود وضعیتش عوض نمی‌شود.';
+            return ['targets' => [], 'lock' => $why, 'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
+                'next' => null, 'next_label' => null, 'can_next' => false, 'lock_reason' => null];
+        }
         $info = self::STATUSES[$st] ?? ['label' => 'آرشیو', 'icon' => 'fa-box-archive', 'tone' => 'muted'];
         $next = self::NEXT[$st] ?? null;
         $can = $next !== null && in_array($next, Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)), true)
@@ -408,7 +413,7 @@ final class BoardService
         $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, p.title AS project_title,
                 u.first_name, u.last_name, u.avatar FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
         $review = [];
-        foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.is_completed = 0
+        foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
                 AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
             if (in_array('done', Access::boardTargets($t, $uid, 'review', ['done']), true) && Access::canTask($t, $uid, 'complete')) {
                 $review[] = $t;
@@ -417,7 +422,7 @@ final class BoardService
                 }
             }
         }
-        $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND COALESCE(t.assignee_id, t.user_id) = ?
+        $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND COALESCE(t.assignee_id, t.user_id) = ?
                 ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid]);
         return ['review' => $review, 'rework' => $rework];
     }
@@ -432,6 +437,9 @@ final class BoardService
         $t = TaskModel::raw($id);
         if ($t === null || (!$fromTask && !Access::canBoardView($t, $actor))) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::res(false, 'این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
         }
         $from = self::status($t);
         // آرشیو: فقط از «انجام‌شده» به آرشیو و از آرشیو به «انجام‌شده»
@@ -458,9 +466,9 @@ final class BoardService
         if ($err = self::limitError($t, $status)) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
-        // علت: برای «مسدودشده» علت توقف، برای «بازبینی مسئول» ایرادی که سرپرست دیده (همان ستون blocked_reason)
+        // علت: برای «بازبینی مسئول» ایرادی که سرپرست دیده (ستون blocked_reason؛ نامش از ستون «مسدودشده»ی قدیمی بورد مانده)
         $reason = trim(mb_substr($reason, 0, 255));
-        $reason = in_array($status, ['blocked', 'rework'], true) && $reason !== '' ? $reason : null;
+        $reason = $status === 'rework' && $reason !== '' ? $reason : null;
         $done = $status === 'done';
         // is_quick = 0: اولین تغییر وضعیت در بورد علامت «ثبت سریع» را برمی‌دارد
         DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?, is_quick = 0,

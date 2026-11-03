@@ -89,7 +89,7 @@ final class TaskService
 
         // لیبل اختیاری، پروژه اجباری
         $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
-        if ($subjectId !== null && SubjectModel::owned($subjectId, $actor) === null) {
+        if ($subjectId !== null && (SubjectModel::owned($subjectId, $actor) === null || BlockService::isBlocked('label', $subjectId))) {
             return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
         }
         $projectId = (int) ($in['project_id'] ?? 0);
@@ -98,6 +98,9 @@ final class TaskService
         }
         if (!Access::isProjectMember($projectId, $actor)) {
             return self::err('پروژه‌ی انتخاب‌شده معتبر نیست یا عضو آن نیستید.', 'PROJECT_INVALID');
+        }
+        if (BlockService::isBlocked('project', $projectId)) {
+            return self::err('این پروژه مسدود شده است و تسک جدید نمی‌گیرد.', 'PROJECT_BLOCKED', 403);
         }
         $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
         if ($e = self::blockError($actor, $assignee)) {
@@ -128,7 +131,7 @@ final class TaskService
      */
     public static function quickOptions(int $uid): array
     {
-        $projects = DB::all('SELECT p.id, p.title, p.user_id FROM projects p WHERE p.status = 1 AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]);
+        $projects = DB::all('SELECT p.id, p.title, p.user_id FROM projects p WHERE p.status = 1 AND p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]);
         $ids = array_map(static fn($p) => (int) $p['id'], $projects);
         $members = [];
         if ($ids) {
@@ -164,12 +167,12 @@ final class TaskService
     public static function defaultProject(int $uid, ?array $allowed = null): ?int
     {
         if ($allowed === null) {
-            $allowed = array_map('intval', DB::column('SELECT p.id FROM projects p WHERE p.status = 1 AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]));
+            $allowed = array_map('intval', DB::column('SELECT p.id FROM projects p WHERE p.status = 1 AND p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]));
         }
         if (!$allowed) {
             return null;
         }
-        $last = (int) DB::value('SELECT project_id FROM tasks WHERE user_id = ? AND project_id IN (' . DB::in($allowed) . ') ORDER BY id DESC LIMIT 1', array_merge([$uid], $allowed));
+        $last = (int) DB::value('SELECT project_id FROM tasks WHERE user_id = ? AND blocked_at IS NULL AND project_id IN (' . DB::in($allowed) . ') ORDER BY id DESC LIMIT 1', array_merge([$uid], $allowed));
         return $last > 0 ? $last : $allowed[0];
     }
 
@@ -178,6 +181,9 @@ final class TaskService
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
         }
         $set = [];
         $has = static fn(string $k): bool => array_key_exists($k, $in);
@@ -258,6 +264,9 @@ final class TaskService
                 return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
             }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
+                if ($sid !== null && BlockService::isBlocked('label', $sid)) {
+                    return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
+                }
                 $set['subject_id'] = $sid;
                 $needMeta = true;
             }
@@ -284,6 +293,9 @@ final class TaskService
                 }
                 if ($pid !== null && !Access::isProjectMember($pid, $actor)) {
                     return self::err('پروژه‌ی انتخاب‌شده معتبر نیست.', 'PROJECT_INVALID');
+                }
+                if (BlockService::isBlocked('project', $pid)) {
+                    return self::err('این پروژه مسدود شده است و تسک جدید نمی‌گیرد.', 'PROJECT_BLOCKED', 403);
                 }
                 $set['project_id'] = $pid;
                 $newProject = $pid;
@@ -331,6 +343,9 @@ final class TaskService
         if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'complete')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
         if (!Access::canTask($t, $actor, 'complete')) {
             return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
         }
@@ -349,19 +364,6 @@ final class TaskService
         return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
     }
 
-    public static function delete(int $actor, int $id): array
-    {
-        $t = TaskModel::raw($id);
-        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'delete')) {
-            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
-        }
-        if (!Access::canTask($t, $actor, 'delete')) {
-            return self::err('اجازه‌ی حذف این تسک را ندارید.', 'FORBIDDEN', 403);
-        }
-        TaskModel::delete($id);
-        return self::res(true, 'تسک حذف شد.', '', 200, ['id' => $id]);
-    }
-
     /** منشن‌های دیده‌نشده‌ی کاربر در این تسک → دیده‌شده (با باز کردن جزئیات تسک) */
     public static function markMentionsSeen(int $taskId, int $uid): void
     {
@@ -373,6 +375,9 @@ final class TaskService
         $t = TaskModel::raw($taskId);
         if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'notes')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
         }
         if (!Access::canTask($t, $actor, 'notes')) {
             return self::err('اجازه‌ی ثبت یادداشت ندارید.', 'FORBIDDEN', 403);
@@ -417,6 +422,9 @@ final class TaskService
         if ($task === null || !Access::canTask($task, $actor, 'view')) {
             return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
         }
+        if (!empty($task['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
         if ((int) $n['user_id'] !== $actor && (int) $n['task_owner_id'] !== $actor) {
             return self::err('فقط نویسنده‌ی یادداشت یا صاحب تسک می‌تواند آن را ویرایش کند.', 'FORBIDDEN', 403);
         }
@@ -429,29 +437,14 @@ final class TaskService
         return self::res(true, 'یادداشت ویرایش شد.');
     }
 
-    public static function deleteNote(int $actor, int $noteId): array
-    {
-        $n = NoteModel::find($noteId);
-        if ($n === null) {
-            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
-        }
-        $task = TaskModel::raw((int) $n['task_id']);
-        if ($task === null || !Access::canTask($task, $actor, 'view')) {
-            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
-        }
-        if ((int) $n['user_id'] !== $actor && !Access::canTask($task, $actor, 'edit_meta')) {
-            return self::err('اجازه‌ی حذف این یادداشت را ندارید.', 'FORBIDDEN', 403);
-        }
-        NoteModel::deleteNote($noteId);
-        TaskHistory::log((int) $n['task_id'], $actor, 'note_deleted', ['text' => mb_substr((string) $n['note'], 0, 300)]);
-        return self::res(true, 'یادداشت حذف شد.');
-    }
-
     public static function addTaskFiles(int $actor, int $taskId, array $files): array
     {
         $t = TaskModel::raw($taskId);
         if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'edit_info')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
         }
         if (!Access::canTask($t, $actor, 'edit_info')) {
             return self::err('اجازه‌ی افزودن پیوست ندارید.', 'FORBIDDEN', 403);
@@ -464,35 +457,6 @@ final class TaskService
             return self::err(implode('، ', $errors) ?: 'آپلود ناموفق بود.', 'UPLOAD_FAILED');
         }
         return self::res(true, 'فایل‌ها پیوست شد.', '', 201, ['attachments' => $saved, 'upload_errors' => $errors]);
-    }
-
-    public static function deleteFile(int $actor, string $kind, int $fileId): array
-    {
-        if ($kind === 'task') {
-            $f = DB::one('SELECT a.*, t.id AS tid, t.user_id AS owner_id, t.assignee_id, t.project_id FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.id = ?', [$fileId]);
-            $type = 'task_attachments';
-            $table = 'task_attachments';
-        } else {
-            $f = DB::one('SELECT a.*, t.id AS tid, t.user_id AS owner_id, t.assignee_id, t.project_id FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.id = ?', [$fileId]);
-            $type = 'note_attachments';
-            $table = 'note_attachments';
-        }
-        if ($f === null) {
-            return self::err('فایل یافت نشد.', 'FILE_NOT_FOUND', 404);
-        }
-        $row = ['user_id' => $f['owner_id'], 'assignee_id' => $f['assignee_id'], 'project_id' => $f['project_id']];
-        if (!Access::canTask($row, $actor, 'view')) {
-            return self::err('فایل یافت نشد.', 'FILE_NOT_FOUND', 404);   // بعد از از دست دادن دسترسی به تسک، فایل خودش را هم حذف نمی‌کند
-        }
-        // پیوست تسک: آپلودکننده یا دارنده‌ی «ویرایش اطلاعات تسک» — پیوست یادداشت: آپلودکننده یا سازنده‌ی تسک/پروژه
-        $allowed = (int) $f['user_id'] === $actor || Access::canTask($row, $actor, $kind === 'task' ? 'edit_info' : 'edit_meta');
-        if (!$allowed) {
-            return self::err('اجازه‌ی حذف این فایل را ندارید.', 'FORBIDDEN', 403);
-        }
-        DB::run("DELETE FROM `$table` WHERE id = ?", [$fileId]);
-        TaskHistory::log((int) $f['tid'], $actor, 'file_deleted', ['name' => (string) $f['file_name'], 'note' => $kind !== 'task']);
-        \App\Core\Uploader::delete($type, $f['file_path']);
-        return self::res(true, 'فایل حذف شد.');
     }
 
     /** اعضای پروژه (سازنده + اعضا) به‌جز خود کاربر — برای منشن در یادداشت‌ها. */
@@ -537,6 +501,9 @@ final class TaskService
     public static function effective(array $task, int $uid): array
     {
         $have = Access::taskPerms($task, $uid);
+        if (!empty($task['blocked_at'])) {
+            $have = array_values(array_intersect($have, ['view', 'block']));   // تسک مسدودشده: فقط مشاهده و رفع مسدودی
+        }
         $out = [];
         foreach (array_merge(array_keys(Access::TASK_PERMS), Access::TASK_OWNER_ONLY) as $a) {
             $out[$a] = in_array($a, $have, true);

@@ -60,18 +60,18 @@ document.addEventListener('tk:ready', () => {
     TK.reload();                               // علت توقف، مرتب‌سازی و شمارنده‌ها از سرور
   };
 
-  /* مقصدهای مجاز هر کارت (طبق دسترسی بورد پروژه) از سرور می‌آید؛ «مسدودشده» علت توقف می‌پرسد */
+  /* مقصدهای مجاز هر کارت (طبق دسترسی بورد پروژه) از سرور می‌آید؛ «بازبینی مسئول» علت برگشت را می‌پرسد */
   const allowed = (card, status) => (card.dataset.moves || '').split(' ').includes(status);
-  let pending = null; const bf = TK.qs('#f-kb-block');
+  let pending = null;
   const request = (card, status) => {
     if (card.dataset.status === status) return;
     if (!allowed(card, status)) { TK.toast(`اجازه‌ی انتقال این تسک به «${statuses[status]?.label || status}» را ندارید.`, 'error'); return; }
     const f = forms[status];
     if (!f) return move(card, status);
-    pending = card; f.reset(); TK.modal.open('m-kb-' + (status === 'blocked' ? 'block' : 'rework'));
+    pending = card; f.reset(); TK.modal.open('m-kb-rework');
   };
-  // «مسدودشده» علت توقف و «بازبینی مسئول» علت برگشت را می‌پرسد (هر دو اختیاری)
-  const forms = { blocked: bf, rework: TK.qs('#f-kb-rework') };
+  // «بازبینی مسئول» علت برگشت را می‌پرسد (اختیاری)
+  const forms = { rework: TK.qs('#f-kb-rework') };
   Object.entries(forms).forEach(([status, f]) => f?.addEventListener('submit', (e) => {
     e.preventDefault();
     const card = pending; pending = null; TK.modal.close(f.closest('.modal').id);

@@ -33,7 +33,8 @@ $projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $collea
 $this->scripts[] = 'projects';
 ?>
 <div class="page-head"><h2><i class="fa-solid fa-diagram-project" data-css="color:var(--g-400)"></i> پروژه‌ها</h2>
-    <button class="btn btn-primary" id="btn-new-project"><i class="fa-solid fa-plus"></i> پروژه جدید</button></div>
+    <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'projects', 'count' => $blockedCount ?? 0, 'label' => 'پروژه‌های مسدودشده']); ?>
+    <button class="btn btn-primary" id="btn-new-project"><i class="fa-solid fa-plus"></i> پروژه جدید</button></div></div>
 
 <div data-live="proj-body">
 <script type="application/json" id="proj-data"><?= json_html($projData) ?></script>
@@ -55,7 +56,7 @@ $this->scripts[] = 'projects';
     $pct = (int) $p['tasks_count'] > 0 ? (int) round($p['tasks_done'] / $p['tasks_count'] * 100) : 0; ?>
     <div class="card hover" id="proj-<?= (int) $p['id'] ?>">
         <div class="flex items-center gap-2 mb-1 proj-head">
-            <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج، حذف) در منوی ⋮ گوشه‌ی کارت ?>
+            <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج) در منوی ⋮ گوشه‌ی کارت ?>
             <div class="dropdown proj-menu"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-toggle title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر پروژه"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 <div class="dropdown-menu">
                 <?php if (!$p['is_creator']): ?>
@@ -63,7 +64,7 @@ $this->scripts[] = 'projects';
                     <?php else: ?><button type="button" data-post="<?= e(url('/projects/' . $p['id'] . '/block')) ?>" data-confirm="دیگر دعوتی از این پروژه نمی‌خواهید؟"><i class="fa-solid fa-ban"></i> مسدود کردن دعوت‌ها</button><?php endif; ?>
                     <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/leave')) ?>" data-confirm="از پروژه «<?= e($p['title']) ?>» خارج می‌شوید؟"><i class="fa-solid fa-right-from-bracket"></i> خروج از پروژه</button>
                 <?php else: ?>
-                    <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/delete')) ?>" data-confirm="پروژه حذف شود؟ تسک‌ها حذف نمی‌شوند ولی از پروژه جدا می‌شوند."><i class="fa-solid fa-trash"></i> حذف پروژه</button>
+                    <button type="button" class="text-danger" data-post="<?= e(url('/block/projects/' . $p['id'])) ?>" data-confirm="پروژه‌ی «<?= e($p['title']) ?>» مسدود شود؟ از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد (تسک‌های فعلی‌اش می‌مانند). از «پروژه‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i> مسدود کردن پروژه</button>
                 <?php endif; ?>
                 </div></div>
             <span class="avatar sq lg" data-css="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>

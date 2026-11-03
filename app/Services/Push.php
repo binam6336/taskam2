@@ -263,7 +263,7 @@ final class Push
         }
         $rows = DB::all("SELECT t.id, t.title, t.description, t.assignee_id, t.share_token, t.due_time, p.title AS project_title
               FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE t.is_completed = 0 AND t.notified_at IS NULL AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
+             WHERE t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
                AND TIMESTAMP(t.due_date, t.due_time) <= NOW() AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)
                AND t.assignee_id IN (SELECT user_id FROM push_subscriptions)
              LIMIT 200");

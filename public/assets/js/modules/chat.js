@@ -225,10 +225,6 @@ document.addEventListener('tk:ready', () => {
   const copyText = (m) => TK.copy(String(m.message || '').replace(/\[\[(task|call):[a-f0-9]+\]\]/gi, '').trim());
   const fileUrl = (m) => TK.url('/files/chat_files/' + encodeURIComponent(m.attachment));
   const download = (m) => { const a = document.createElement('a'); a.href = fileUrl(m) + '?dl=1'; a.download = m.attachment_name || ''; document.body.appendChild(a); a.click(); a.remove(); };
-  const deleteMsg = async (id) => {
-    const r = await TK.post(API + 'delete', { message_id: id });
-    if (r.status === 'success') { TK.qs(`.msg[data-id="${id}"]`, el.msgs)?.remove(); msgData.delete(id); TK.toast('پیام برای هر دو طرف حذف شد', 'success', 2500); } else TK.toast(r.message, 'error');
-  };
   const msgMenu = (m, x, y) => {
     const mine = m.sender_id === ME, hasText = String(m.message || '').replace(/\[\[.*?\]\]/g, '').trim() !== '';
     const items = [];
@@ -236,10 +232,6 @@ document.addEventListener('tk:ready', () => {
     if (m.attachment) items.push({ icon: 'fa-download', label: 'دانلود فایل', run: () => download(m) });
     items.push({ icon: 'fa-share', label: 'بازارسال', run: () => openForward(m) });
     if (mine && !m.attachment && !m.forwarded_from && inWindow(m) && !cur?.is_bot) items.push({ icon: 'fa-pen', label: 'ویرایش', run: () => TK.qs(`.msg[data-id="${m.id}"] .txt`, el.msgs) && editStart(m.id) });
-    if (mine) {
-      const ok = inWindow(m);
-      items.push('-', { icon: 'fa-trash', label: 'حذف پیام', danger: true, disabled: !ok, hint: ok ? '' : 'بیش از ۱ ساعت گذشته', run: () => deleteMsg(m.id) });
-    }
     showCtx(x, y, items);
   };
   el.msgs.addEventListener('contextmenu', (e) => {

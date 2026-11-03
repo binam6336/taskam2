@@ -9,7 +9,7 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && strt
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                     <?php else: ?><button type="button" class="btn btn-ghost btn-icon btn-xs kb-lock" data-lock-reason="<?= e((string) ($t['lock_reason'] ?? 'دسترسی جابه‌جایی این تسک در بورد را ندارید.')) ?>" title="چرا نمی‌توانم وضعیت را تغییر دهم؟" aria-label="دلیل قفل بودن تغییر وضعیت"><i class="fa-solid fa-lock"></i></button><?php endif; ?>
                 </div>
-                <?php if (($key === 'blocked' || $key === 'rework') && $t['blocked_reason']): ?><div class="kb-reason<?= $key === 'rework' ? ' rework' : '' ?>"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
+                <?php if ($key === 'rework' && $t['blocked_reason']): ?><div class="kb-reason rework"><i class="fa-solid fa-circle-exclamation"></i> <?= e($t['blocked_reason']) ?></div><?php endif; ?>
                 <div class="kb-meta">
                     <?= priority_badge($t) ?>
                     <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i> <?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $overdue ? ' (گذشته)' : '' ?></span><?php endif; ?>

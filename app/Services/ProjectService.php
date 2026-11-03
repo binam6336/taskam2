@@ -13,9 +13,12 @@ final class ProjectService
     /** افزودن مستقیم یا ارسال درخواست تأیید، بسته به تنظیم کاربر هدف. */
     public static function invite(int $projectId, int $actorId, int $targetId): array
     {
-        $p = DB::one('SELECT id, user_id, max_members FROM projects WHERE id = ?', [$projectId]);
+        $p = DB::one('SELECT id, user_id, max_members, blocked_at FROM projects WHERE id = ?', [$projectId]);
         if ($p === null) {
             return [false, 'پروژه یافت نشد.', 'PROJECT_NOT_FOUND'];
+        }
+        if ($p['blocked_at'] !== null) {
+            return [false, 'این پروژه مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'PROJECT_BLOCKED'];
         }
         $u = DB::one('SELECT id, status, project_join_requires_approval FROM users WHERE id = ? AND is_bot = 0', [$targetId]);
         if ($u === null) {
@@ -104,6 +107,9 @@ final class ProjectService
         $p = DB::one('SELECT * FROM projects WHERE id = ?', [$projectId]);
         if ($p === null) {
             return [false, 'پروژه یافت نشد.'];
+        }
+        if ($p['blocked_at'] !== null) {
+            return [false, 'این پروژه مسدود شده است؛ ابتدا مسدودی آن را بردارید.'];
         }
         $perms = Access::projectPerms($projectId, $uid);
         $data = [];
@@ -204,7 +210,7 @@ final class ProjectService
             return [false, 'پروژه یافت نشد.'];
         }
         if (!Access::projectCan($projectId, $actorId, 'remove_member')) {
-            return [false, 'دسترسی حذف کاربر را ندارید.'];
+            return [false, 'دسترسی خارج کردن کاربر را ندارید.'];
         }
         if ($memberId === $creator) {
             return [false, 'سازنده‌ی پروژه قابل حذف نیست.'];
@@ -398,20 +404,6 @@ final class ProjectService
         return [true, $okMsg];
     }
 
-    public static function delete(int $projectId, int $uid): array
-    {
-        $p = DB::one('SELECT id, user_id, profile_image FROM projects WHERE id = ?', [$projectId]);
-        if ($p === null) {
-            return [false, 'پروژه یافت نشد.'];
-        }
-        if ((int) $p['user_id'] !== $uid) {
-            return [false, 'فقط سازنده می‌تواند پروژه را حذف کند.'];
-        }
-        DB::run('DELETE FROM projects WHERE id = ?', [$projectId]);
-        Uploader::delete('projects', $p['profile_image']);
-        return [true, 'پروژه حذف شد.'];
-    }
-
     public static function leave(int $projectId, int $uid): array
     {
         $p = DB::one('SELECT id, user_id, title, profile_image FROM projects WHERE id = ?', [$projectId]);
@@ -419,7 +411,7 @@ final class ProjectService
             return [false, 'پروژه یافت نشد.'];
         }
         if ((int) $p['user_id'] === $uid) {
-            return [false, 'سازنده نمی‌تواند از پروژه خارج شود؛ پروژه را حذف کنید.'];
+            return [false, 'سازنده نمی‌تواند از پروژه خارج شود؛ اگر پروژه را نمی‌خواهید، مسدودش کنید.'];
         }
         if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid])) {
             return [false, 'شما عضو این پروژه نیستید.'];

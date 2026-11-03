@@ -84,11 +84,4 @@ final class SupportController extends Controller
         DB::run("UPDATE support_tickets SET status = 'open', closed_at = NULL WHERE id = ?", [(int) $t['id']]);
         $this->respond(true, 'تیکت دوباره باز شد.', '/support/' . $id);
     }
-
-    public function destroy(string $id)
-    {
-        $t = $this->owned($id);
-        SupportModel::delete((int) $t['id']);
-        $this->respond(true, 'تیکت حذف شد.', '/support');
-    }
 }

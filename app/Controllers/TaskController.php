@@ -65,15 +65,15 @@ final class TaskController extends Controller
         unset($t);
 
         if ($projScope !== null) {
-            $pc = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done FROM tasks WHERE project_id = ?' . ($assignee ? ' AND assignee_id = ?' : ''), $assignee ? [$proj, $assignee] : [$proj]);
+            $pc = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done FROM tasks WHERE project_id = ? AND blocked_at IS NULL' . ($assignee ? ' AND assignee_id = ?' : ''), $assignee ? [$proj, $assignee] : [$proj]);
             $projScope['counts'] = ['all' => (int) $pc['total'], 'done' => (int) $pc['done'], 'open' => (int) $pc['total'] - (int) $pc['done']];
             $projScope['status'] = $completed === null ? 'all' : ($done ? 'done' : 'open');
         }
         $counts = [
-            'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0', [$uid]),
-            'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1', [$uid]),
-            'others_open' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0', [$uid, $uid]),
-            'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1', [$uid, $uid]),
+            'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
+            'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1 AND blocked_at IS NULL', [$uid]),
+            'others_open' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL', [$uid, $uid]),
+            'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
         ];
 
         // نمای اشتراکی: /tasks?task=<token>
@@ -99,6 +99,7 @@ final class TaskController extends Controller
             'projects' => ProjectModel::forUser($uid),
             'assignees' => self::assigneeOptions($uid),
             'shared' => $shared,
+            'blockedCount' => \App\Services\BlockService::list('task', $uid, 1)['total'],
         ], ['title' => 'تسک‌ها', 'page' => 'tasks']);
     }
 
@@ -124,8 +125,7 @@ final class TaskController extends Controller
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
             $n['mine'] = (int) $n['user_id'] === $uid;
-            $n['can_delete'] = $n['mine'] || $can['edit_meta'];
-            $n['can_edit'] = $n['mine'] || (int) $t['user_id'] === $uid;
+            $n['can_edit'] = empty($t['blocked_at']) && ($n['mine'] || (int) $t['user_id'] === $uid);
             $n['created_fa'] = jdate($n['created_at']);
             $n['attachments'] = array_map(static fn($a) => [
                 'id' => (int) $a['id'], 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
@@ -137,7 +137,7 @@ final class TaskController extends Controller
         $files = array_map(static fn($f) => [
             'id' => (int) $f['id'], 'file_name' => $f['file_name'], 'file_size' => (int) $f['file_size'], 'file_ext' => $f['file_ext'],
             'url' => url('files/task_attachments/' . rawurlencode($f['file_path'])), 'size_fa' => human_size((int) $f['file_size']),
-            'icon' => file_icon($f['file_ext']), 'uploader' => full_name($f), 'can_delete' => (int) $f['user_id'] === $uid || $can['edit_info'],
+            'icon' => file_icon($f['file_ext']), 'uploader' => full_name($f),
         ], NoteModel::taskAttachments((int) $t['id']));
         return [
             'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
@@ -153,6 +153,9 @@ final class TaskController extends Controller
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
             'board' => BoardService::taskState($t, $uid),
+            // مسدود کردن به‌جای حذف: تسک مسدود فقط‌خواندنی است و از پنجره‌ی «مسدودشده‌ها»ی صفحه‌ی تسک‌ها برمی‌گردد
+            'is_blocked' => !empty($t['blocked_at']), 'blocked_fa' => !empty($t['blocked_at']) ? jdate((string) $t['blocked_at']) : null,
+            'blocked_by_name' => !empty($t['blocked_by']) ? full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [(int) $t['blocked_by']]) ?? []) : null,
         ];
     }
 
@@ -253,12 +256,6 @@ final class TaskController extends Controller
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
     }
 
-    public function destroy(string $id)
-    {
-        $res = TaskService::delete($this->uid(), (int) $id);
-        $this->respond($res['ok'], $res['message'], '/tasks');
-    }
-
     public function share(string $id)
     {
         $uid = $this->uid();
@@ -282,25 +279,10 @@ final class TaskController extends Controller
         $this->respond($res['ok'], $res['message'], '/tasks');
     }
 
-    public function deleteNote(string $id)
-    {
-        $res = TaskService::deleteNote($this->uid(), (int) $id);
-        $this->respond($res['ok'], $res['message'], '/tasks');
-    }
-
     public function addFiles(string $id)
     {
         $res = TaskService::addTaskFiles($this->uid(), (int) $id, Uploader::normalize($this->request->files['attachments'] ?? null));
         $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
-    }
-
-    public function deleteFile(string $kind, string $id)
-    {
-        if (!in_array($kind, ['task', 'note'], true)) {
-            $this->abort(404);
-        }
-        $res = TaskService::deleteFile($this->uid(), $kind, (int) $id);
-        $this->respond($res['ok'], $res['message'], '/tasks');
     }
 
     /** اعلان سررسید برای مرورگر (polling). */

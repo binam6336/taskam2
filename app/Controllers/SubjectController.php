@@ -11,7 +11,7 @@ final class SubjectController extends Controller
 {
     public function index()
     {
-        $this->view('tasks/subjects', ['subjects' => SubjectModel::forUser($this->uid())], ['title' => 'لیبل‌ها', 'page' => 'subjects']);
+        $this->view('tasks/subjects', ['subjects' => SubjectModel::forUser($this->uid()), 'blockedCount' => \App\Services\BlockService::list('label', $this->uid(), 1)['total']], ['title' => 'لیبل‌ها', 'page' => 'subjects']);
     }
 
     /** آدرس قدیمی /subjects (بوک‌مارک‌ها) */
@@ -29,12 +29,6 @@ final class SubjectController extends Controller
     public function update(string $id)
     {
         $res = LabelService::update($this->uid(), (int) $id, ['title' => $this->request->input('title', ''), 'color' => $this->request->input('color', '')]);
-        $this->respond($res['ok'], $res['message'], '/labels');
-    }
-
-    public function destroy(string $id)
-    {
-        $res = LabelService::delete($this->uid(), (int) $id);
         $this->respond($res['ok'], $res['message'], '/labels');
     }
 }

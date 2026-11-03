@@ -72,6 +72,9 @@ final class CallService
         if ($row === null || !Access::can($row, $actor, 'view') && !Access::can($row, $actor, 'edit')) {
             return self::res(false, 'درخواست یافت نشد.', 'CALL_NOT_FOUND', 404);
         }
+        if (!empty($row['blocked_at'])) {
+            return self::res(false, 'این درخواست مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'CALL_BLOCKED', 409);
+        }
         // برای به‌روزرسانی جزئی (API)، فیلدهای ارسال‌نشده از مقدار فعلی پر می‌شوند
         $merged = $in + array_intersect_key($row, array_flip(['first_name', 'last_name', 'mobile', 'email', 'store', 'website', 'description']));
         [$d, $err] = self::clean($merged);
@@ -112,6 +115,9 @@ final class CallService
         if ($row === null || !Access::can($row, $actor, 'view') && !Access::can($row, $actor, 'complete')) {
             return self::res(false, 'درخواست یافت نشد.', 'CALL_NOT_FOUND', 404);
         }
+        if (!empty($row['blocked_at'])) {
+            return self::res(false, 'این درخواست مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'CALL_BLOCKED', 409);
+        }
         if (!Access::can($row, $actor, 'complete')) {
             return self::res(false, 'اجازه‌ی تکمیل این درخواست را ندارید.', 'FORBIDDEN', 403);
         }
@@ -120,18 +126,5 @@ final class CallService
         }
         DB::run('UPDATE call_requests SET status = 1, completed_at = NOW() WHERE id = ? AND status = 0', [$id]);
         return self::res(true, 'درخواست به‌عنوان انجام‌شده ثبت شد.', '', 200, CallModel::find($id));
-    }
-
-    public static function delete(int $actor, int $id): array
-    {
-        $row = CallModel::find($id);
-        if ($row === null || !Access::can($row, $actor, 'view') && !Access::can($row, $actor, 'delete')) {
-            return self::res(false, 'درخواست یافت نشد.', 'CALL_NOT_FOUND', 404);
-        }
-        if (!Access::can($row, $actor, 'delete')) {
-            return self::res(false, 'اجازه‌ی حذف این درخواست را ندارید.', 'FORBIDDEN', 403);
-        }
-        DB::run('DELETE FROM call_requests WHERE id = ?', [$id]);
-        return self::res(true, 'درخواست حذف شد.', '', 200, ['id' => $id]);
     }
 }

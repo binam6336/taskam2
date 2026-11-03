@@ -25,6 +25,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
 </div>
 
 <div class="flex between items-center wrap gap-2 mb-2 t-bar">
+    <div class="flex items-center gap-2 t-bar-start">
     <div class="tabs" data-live="t-status">
         <?php if ($projScope): $pc = $projScope['counts']; ?>
         <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($pc['all'])) ?></span></a>
@@ -35,6 +36,8 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'])) ?></span></a>
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
         <?php endif; ?>
+    </div>
+    <?php $this->partial('blocked_button', ['kind' => 'tasks', 'count' => $blockedCount ?? 0, 'label' => 'تسک‌های مسدودشده']); ?>
     </div>
     <form method="get" class="t-toolbar" id="t-toolbar">
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
@@ -105,7 +108,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
             <div class="item-acts">
             <button class="btn btn-sm btn-icon" data-open-task="<?= (int) $t['id'] ?>" title="جزئیات" aria-label="جزئیات"><i class="fa-regular fa-eye"></i><span class="m-lbl">جزئیات</span></button>
             <?php if ($can['edit']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش" aria-label="ویرایش"><i class="fa-solid fa-pen"></i><span class="m-lbl">ویرایش</span></button><?php endif; ?>
-            <?php if ($can['delete']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/tasks/' . $t['id'] . '/delete')) ?>" data-confirm="این تسک و تمام یادداشت‌ها و فایل‌های آن حذف شود؟" title="حذف" aria-label="حذف"><i class="fa-solid fa-trash"></i><span class="m-lbl">حذف</span></button><?php endif; ?>
+            <?php if ($can['block']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/block/tasks/' . $t['id'])) ?>" data-confirm="این تسک مسدود شود؟ از همه‌ی فهرست‌ها کنار می‌رود و از «تسک‌های مسدودشده» برمی‌گردد." title="مسدود کردن" aria-label="مسدود کردن"><i class="fa-solid fa-ban"></i><span class="m-lbl">مسدود کردن</span></button><?php endif; ?>
             </div>
         </div>
     </div>

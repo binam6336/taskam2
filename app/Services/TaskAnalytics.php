@@ -85,7 +85,7 @@ final class TaskAnalytics
     {
         return DB::all('SELECT t.id, t.assignee_id, t.subject_id, t.priority, t.is_completed, t.created_at, t.completed_at, t.due_date, t.due_time,
                 s.title AS subject_title, s.color AS subject_color
-            FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id WHERE t.project_id = ?', [$projectId]);
+            FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id WHERE t.project_id = ? AND t.blocked_at IS NULL', [$projectId]);
     }
 
     /** سازنده + اعضای پروژه. */
@@ -220,7 +220,7 @@ final class TaskAnalytics
         $now = time();
         $span = self::RANGES[$range][1];
         if ($span === null) {
-            $first = DB::value('SELECT MIN(completed_at) FROM tasks WHERE project_id = ? AND is_completed = 1', [$projectId]);
+            $first = DB::value('SELECT MIN(completed_at) FROM tasks WHERE project_id = ? AND is_completed = 1 AND blocked_at IS NULL', [$projectId]);
             $span = max(86400, $now - ($first ? (int) strtotime((string) $first) : $now));
         }
         $from = $now - $span;
@@ -246,7 +246,7 @@ final class TaskAnalytics
         if ($userIds) {
             $in = implode(',', array_fill(0, count($userIds), '?'));
             $rows = DB::all("SELECT assignee_id, is_completed, created_at, completed_at, due_date, due_time FROM tasks
-                WHERE project_id = ? AND is_completed = 1 AND completed_at >= ? AND assignee_id IN ($in)", array_merge([$projectId, date('Y-m-d H:i:s', $from)], $userIds));
+                WHERE project_id = ? AND is_completed = 1 AND blocked_at IS NULL AND completed_at >= ? AND assignee_id IN ($in)", array_merge([$projectId, date('Y-m-d H:i:s', $from)], $userIds));
             $buckets = [];
             foreach ($rows as $t) {
                 $i = min($n - 1, max(0, (int) floor((strtotime($t['completed_at']) - $from) / $step)));

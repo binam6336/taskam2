@@ -80,14 +80,6 @@ $total = array_sum(array_map('count', $columns));
 
 <script type="application/json" id="kb-data"><?= json_html(['statuses' => array_map(static fn($s) => ['label' => $s['label'], 'icon' => $s['icon']], $statuses) + ['archived' => ['label' => 'آرشیو', 'icon' => 'fa-box-archive']]]) ?></script>
 
-<!-- علت توقف -->
-<div class="modal" id="m-kb-block"><div class="modal-box sm"><form id="f-kb-block">
-    <div class="modal-head"><h3><i class="fa-solid fa-ban" data-css="color:var(--danger)"></i> علت توقف</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body"><div class="field"><label>چرا این تسک متوقف شده؟ (اختیاری)</label>
-        <textarea class="input" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_block')) ?>"></textarea></div></div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-danger">انتقال به مسدودشده</button></div>
-</form></div></div>
-
 <!-- علت برگشت به بازبینی مسئول -->
 <div class="modal" id="m-kb-rework"><div class="modal-box sm"><form id="f-kb-rework">
     <div class="modal-head"><h3><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشت به بازبینی مسئول</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>

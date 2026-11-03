@@ -41,7 +41,7 @@ final class LiveController extends Controller
             'support'    => SupportModel::unreadForUser($uid),
             'colleagues' => (int) DB::value("SELECT COUNT(*) FROM colleague_requests WHERE target_id = ? AND status = 'pending'", [$uid]),
             'projects'   => (int) DB::value("SELECT COUNT(*) FROM project_join_requests WHERE user_id = ? AND status = 'pending'", [$uid]),
-            'tasks'      => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0', [$uid]),
+            'tasks'      => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
         ];
 
         // ── پیام‌های جدید برای اعلان ──
@@ -123,19 +123,19 @@ final class LiveController extends Controller
         switch ($scope) {
             case 'tasks':
             case 'subjects':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id))), 0) h FROM tasks WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(MAX(id), 0) m, COALESCE(SUM(CRC32(note)), 0) h FROM task_notes WHERE task_id IN ($mine)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c FROM task_attachments WHERE task_id IN ($mine)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, color))), 0) h FROM subjects WHERE user_id = ?", [$uid]);
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image, p.blocked_at))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 break;
             case 'board':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, blocked_at, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
                     WHERE user_id = ? OR assignee_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.user_id, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
                 break;
             case 'calls':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, status, assignee_id, first_name, last_name, mobile, email, store, website, description))), 0) h FROM call_requests WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, status, assignee_id, first_name, last_name, mobile, email, store, website, description, blocked_at))), 0) h FROM call_requests WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
                 break;
             case 'colleagues':
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', c.id, c.permissions, u.first_name, u.last_name, u.status))), 0) h FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ?", [$uid]);
@@ -144,9 +144,9 @@ final class LiveController extends Controller
                 $p[] = $agg('SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM colleague_block_ghosts WHERE blocker_user_id = ?', [$uid]);
                 break;
             case 'projects':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.description, p.max_members, p.profile_image, p.status))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.description, p.max_members, p.profile_image, p.status, p.blocked_at))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.id, pm.user_id, pm.permissions))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
-                $p[] = $agg('SELECT COUNT(*) c, COALESCE(SUM(is_completed), 0) d FROM tasks WHERE project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)', [$uid]);
+                $p[] = $agg('SELECT COUNT(*) c, COALESCE(SUM(is_completed), 0) d FROM tasks WHERE blocked_at IS NULL AND project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)', [$uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM project_join_requests WHERE status = 'pending' AND (user_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ?))", [$uid, $uid]);
                 $p[] = $agg('SELECT COUNT(*) c FROM project_leave_history WHERE user_id = ?', [$uid]);
                 break;

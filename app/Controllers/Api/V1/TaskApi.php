@@ -24,6 +24,7 @@ final class TaskApi extends ApiController
             'assignee_first_name' => $t['assignee_first_name'] ?? null, 'assignee_last_name' => $t['assignee_last_name'] ?? null, 'assignee_mobile' => mask_mobile($t['assignee_mobile'] ?? null),
             'creator_first_name' => $t['creator_first_name'] ?? null, 'creator_last_name' => $t['creator_last_name'] ?? null, 'creator_mobile' => mask_mobile($t['creator_mobile'] ?? null),
             'notes_count' => (int) ($t['notes_count'] ?? 0), 'attachments_count' => (int) ($t['attachments_count'] ?? 0),
+            'is_blocked' => !empty($t['blocked_at']), 'blocked_at' => $t['blocked_at'] ?? null,
         ];
     }
 
@@ -64,11 +65,6 @@ final class TaskApi extends ApiController
         unset($in['id']);
         $id = $this->id();
         $this->fromService(TaskService::update($this->uid, $id, $in), fn($t) => self::format(TaskModel::find((int) $t['id'], $this->uid) ?? $t));
-    }
-
-    public function delete()
-    {
-        $this->fromService(TaskService::delete($this->uid, $this->id()));
     }
 
     public function toggle()

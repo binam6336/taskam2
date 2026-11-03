@@ -19,6 +19,7 @@ if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
     $this->scripts[] = 'tour';
 }
 $this->scripts[] = 'quicktask';                       // «ثبت سریع تسک» (دکمه‌ی صاعقه، همه‌ی صفحه‌ها)
+$this->scripts[] = 'blocked';                         // پنجره‌ی «مسدودشده‌ها» (مسدود کردن به‌جای حذف)
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
@@ -58,6 +59,7 @@ $this->scripts[] = 'quicktask';                       // «ثبت سریع تس�
     <button type="button" class="btn btn-primary qa-fab" aria-label="ثبت سریع تسک" title="ثبت سریع تسک" data-quick-task><i class="fa-solid fa-bolt"></i></button>
 </div>
 <?php require __DIR__ . '/../partials/quick_task.php'; ?>
+<?php require __DIR__ . '/../partials/blocked_modal.php'; ?>
 <?php require __DIR__ . '/../partials/confirm.php'; ?>
 <?php require __DIR__ . '/scripts.php'; ?>
 </body>

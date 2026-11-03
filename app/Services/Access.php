@@ -23,14 +23,14 @@ final class Access
         'reassign'  => ['label' => 'تغییر مسئول', 'icon' => 'fa-user-group', 'desc' => 'تغییر مسئول انجام تسک'],
         'notes'     => ['label' => 'نوشتن یادداشت', 'icon' => 'fa-comment-dots', 'desc' => 'ثبت یادداشت و گزارش پیشرفت'],
         'complete'  => ['label' => 'تکمیل تسک', 'icon' => 'fa-circle-check', 'desc' => 'تغییر وضعیت تسک به تکمیل‌شده'],
-        'delete'    => ['label' => 'حذف تسک', 'icon' => 'fa-trash', 'desc' => 'حذف کامل تسک'],
+        'block'     => ['label' => 'مسدود کردن تسک', 'icon' => 'fa-ban', 'desc' => 'مسدود کردن تسک (به‌جای حذف؛ تسک از فهرست‌ها کنار می‌رود) و رفع مسدودی آن'],
     ];
     /** کارهایی که فقط سازنده‌ی تسک/پروژه انجام می‌دهد (مجوز جدا ندارند) */
     public const TASK_OWNER_ONLY = ['edit_meta', 'change_project'];
 
     /**
      * دسترسی‌های بورد پروژه (کانبان) به ازای هر پروژه؛ جدا از دسترسی تسک‌ها و پیش‌فرض بسته.
-     * مسیر اصلی مراحل: (rework →) backlog → todo → in_progress → review → done؛ «مسدودشده» و «بازبینی مسئول» مراحل کناری‌اند.
+     * مسیر اصلی مراحل: (rework →) backlog → todo → in_progress → review → done؛ «بازبینی مسئول» مرحله‌ی کناری است (ستون «مسدودشده» از v4.0 برداشته شد).
      * بازبینی مسئول (rework): سرپرست در «بررسی سرپرست» ایرادی دیده و تسک را برای اصلاح برگردانده؛
      * برگرداندن با همان مجوز تأیید (to_done) و ارسال دوباره برای بررسی با to_review است (مجوز جدید لازم نیست).
      * دیدن کارت‌ها جداست: هر کس تسک‌های خودش را می‌بیند + تسک‌های اعضایی که در «مشاهده‌ی تسک‌های» برایش انتخاب شده
@@ -41,19 +41,16 @@ final class Access
         'to_progress' => ['label' => 'آماده انجام ← در حال انجام', 'icon' => 'fa-person-running', 'desc' => 'شروع کار روی تسک'],
         'to_review'   => ['label' => 'در حال انجام ← بررسی سرپرست', 'icon' => 'fa-magnifying-glass', 'desc' => 'ارسال کار انجام‌شده برای بررسی سرپرست (و ارسال دوباره از «بازبینی مسئول»)'],
         'to_done'     => ['label' => 'بررسی سرپرست ← انجام‌شده', 'icon' => 'fa-circle-check', 'desc' => 'تأیید بررسی و تکمیل تسک، برگرداندن آن به «بازبینی مسئول» برای اصلاح، یا بازکردن دوباره‌ی تسک انجام‌شده'],
-        'block'       => ['label' => 'مسدود کردن', 'icon' => 'fa-ban', 'desc' => 'انتقال از آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول به مسدودشده (با علت توقف)'],
-        'unblock'     => ['label' => 'رفع مسدودی', 'icon' => 'fa-lock-open', 'desc' => 'برگرداندن از مسدودشده به آماده انجام / در حال انجام / بررسی سرپرست / بازبینی مسئول'],
         'move_back'   => ['label' => 'بازگرداندن به مرحله‌ی قبل', 'icon' => 'fa-rotate-left', 'desc' => 'مثلاً بررسی سرپرست ← در حال انجام یا بازبینی مسئول ← در حال انجام (بازکردن تسک انجام‌شده مجوز «بررسی سرپرست ← انجام‌شده» می‌خواهد)'],
         'move_any'    => ['label' => 'جابه‌جایی آزاد', 'icon' => 'fa-shuffle', 'desc' => 'انتقال بین هر دو مرحله، از جمله پرش از چند مرحله'],
     ];
     private const BOARD_CHAIN = ['backlog', 'todo', 'in_progress', 'review', 'done'];
     private const BOARD_FORWARD = ['todo' => 'to_todo', 'in_progress' => 'to_progress', 'review' => 'to_review', 'done' => 'to_done'];
-    private const BOARD_ACTIVE = ['todo', 'in_progress', 'review', 'rework'];
 
     public const PROJECT_PERMS = [
         'edit_project'       => ['label' => 'ویرایش پروژه', 'icon' => 'fa-pen', 'desc' => 'ویرایش نام، توضیحات، تصویر و تنظیمات'],
         'add_member'         => ['label' => 'افزودن کاربر', 'icon' => 'fa-user-plus', 'desc' => 'افزودن همکاران جدید به پروژه'],
-        'remove_member'      => ['label' => 'حذف کاربر', 'icon' => 'fa-user-minus', 'desc' => 'حذف اعضای فعلی از پروژه'],
+        'remove_member'      => ['label' => 'خارج کردن کاربر', 'icon' => 'fa-user-minus', 'desc' => 'خارج کردن اعضای فعلی از پروژه (عضو حذف نمی‌شود؛ تسک‌ها و سابقه‌اش می‌ماند)'],
         'manage_permissions' => ['label' => 'اعطای دسترسی', 'icon' => 'fa-key', 'desc' => 'تغییر دسترسی سایر اعضا (فقط مجوزهایی که خودتان دارید)'],
         'view_analytics'     => ['label' => 'مشاهده تحلیل‌ها', 'icon' => 'fa-chart-line', 'desc' => 'دسترسی به صفحه‌ی تحلیل و آمار پروژه'],
     ];
@@ -65,9 +62,9 @@ final class Access
     public const ROLES = [
         'admin'        => ['label' => 'مدیر کل', 'icon' => 'fa-crown', 'tone' => 'green', 'desc' => 'همه‌ی دسترسی‌ها در همه‌ی بخش‌های پروژه؛ در برد تسک‌های همه را می‌بیند.',
             'task' => '*', 'project' => '*', 'board' => '*', 'view' => 'all'],
-        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز حذف تسک؛ در برد تسک‌های همه را می‌بیند.',
+        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز مسدود کردن تسک؛ در برد تسک‌های همه را می‌بیند.',
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => '*', 'board' => '*', 'view' => 'all'],
-        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز حذف. پروژه: همه‌چیز جز افزودن و حذف کاربر. برد: همه‌چیز؛ پیش‌فرض فقط تسک‌های خودش را می‌بیند.',
+        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز مسدود کردن. پروژه: همه‌چیز جز افزودن و خارج کردن کاربر. برد: همه‌چیز؛ پیش‌فرض فقط تسک‌های خودش را می‌بیند.',
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => ['edit_project', 'manage_permissions', 'view_analytics'], 'board' => '*', 'view' => 'own'],
         // عضو در برد همه‌ی جابه‌جایی‌ها را دارد جز تکمیل (to_done) و جابه‌جایی آزاد (move_any که بررسی سرپرست را دور می‌زند)
         'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. برد: همه‌ی جابه‌جایی‌ها جز تکمیل (انجام‌شده) و جابه‌جایی آزاد؛ بدون دسترسی پروژه؛ فقط تسک‌های خودش را می‌بیند.',
@@ -76,7 +73,7 @@ final class Access
             'task' => [], 'project' => [], 'board' => [], 'view' => 'own'],
     ];
     /** دسترسی برد نقش «عضو» (v3.39): همه جز to_done و move_any */
-    public const MEMBER_BOARD = ['to_todo', 'to_progress', 'to_review', 'block', 'unblock', 'move_back'];
+    public const MEMBER_BOARD = ['to_todo', 'to_progress', 'to_review', 'move_back'];
     public const ROLE_CUSTOM = ['label' => 'سفارشی', 'icon' => 'fa-sliders', 'tone' => 'purple', 'desc' => 'دسترسی‌ها دستی تنظیم شده و با هیچ نقش آماده‌ای یکی نیست.'];
 
     /** نقش پیش‌فرض هر عضو تازه‌ی پروژه (افزودن مستقیم یا پذیرفتن دعوت) */
@@ -136,6 +133,10 @@ final class Access
     /** آیا $uid می‌تواند عملِ $action را روی درخواست تماس انجام دهد؟ */
     public static function can(array $row, int $uid, string $action): bool
     {
+        // درخواست مسدودشده فقط دیده می‌شود (ثبت‌کننده می‌تواند مسدودی‌اش را بردارد)
+        if (!empty($row['blocked_at']) && !in_array($action, ['view', 'block'], true)) {
+            return false;
+        }
         if ((int) $row['user_id'] === $uid) {
             return true;
         }
@@ -206,6 +207,10 @@ final class Access
 
     public static function canTask(array $task, int $uid, string $action): bool
     {
+        // تسک مسدودشده فقط دیده می‌شود (و دارنده‌ی مجوز «مسدود کردن» می‌تواند مسدودی‌اش را بردارد)
+        if (!empty($task['blocked_at']) && !in_array($action, ['view', 'block'], true)) {
+            return false;
+        }
         return in_array($action, self::taskPerms($task, $uid), true);
     }
 
@@ -274,10 +279,7 @@ final class Access
             }
             return $j === $i - 1 ? 'move_back' : 'move_any';
         }
-        if ($to === 'blocked') {
-            return in_array($from, self::BOARD_ACTIVE, true) ? 'block' : 'move_any';
-        }
-        return $from === 'blocked' && in_array($to, self::BOARD_ACTIVE, true) ? 'unblock' : 'move_any';
+        return 'move_any';
     }
 
     /** مراحلی که کاربر می‌تواند کارت را از وضعیت فعلی‌اش به آن‌ها ببرد. */

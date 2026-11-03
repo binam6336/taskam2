@@ -27,7 +27,7 @@ final class SubjectModel
 
     public static function forUser(int $uid): array
     {
-        return DB::all('SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = s.id) AS tasks_count FROM subjects s WHERE s.user_id = ? ORDER BY s.title', [$uid]);
+        return DB::all('SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = s.id AND t.blocked_at IS NULL) AS tasks_count FROM subjects s WHERE s.user_id = ? AND s.blocked_at IS NULL ORDER BY s.title', [$uid]);   // مسدودشده‌ها فقط در «لیبل‌های مسدودشده»
     }
 
     public static function owned(int $id, int $uid): ?array

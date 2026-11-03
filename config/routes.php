@@ -4,7 +4,9 @@ declare(strict_types=1);
 /** @var App\Core\Router $router */
 
 use App\Controllers\AdminController;
+use App\Controllers\BlockController;
 use App\Controllers\BoardController;
+use App\Controllers\Api\V1\BlockApi;
 use App\Controllers\Api\V1\BoardApi;
 use App\Controllers\Api\V1\CallApi;
 use App\Controllers\Api\V1\ColleagueApi;
@@ -66,10 +68,13 @@ $router->group(['panel'], function ($r) {
     $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
     $r->get('/tasks/quick-options', [TaskController::class, 'quickOptions']);
+    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل، درخواست تماس) + پنجره‌ی «مسدودشده‌ها»
+    $r->get('/blocked/{kind}', [BlockController::class, 'index']);
+    $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
+    $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
     $r->get('/tasks/{id}', [TaskController::class, 'show']);
     $r->post('/tasks/{id}/update', [TaskController::class, 'update']);
     $r->post('/tasks/{id}/toggle', [TaskController::class, 'toggle']);
-    $r->post('/tasks/{id}/delete', [TaskController::class, 'destroy']);
     $r->get('/tasks/{id}/share', [TaskController::class, 'share']);
     $r->get('/tasks/{id}/history', [TaskController::class, 'history']);
     $r->post('/tasks/{id}/advance', [TaskController::class, 'advance']);
@@ -77,8 +82,6 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{id}/notes', [TaskController::class, 'addNote']);
     $r->post('/tasks/{id}/attachments', [TaskController::class, 'addFiles']);
     $r->post('/notes/{id}/update', [TaskController::class, 'updateNote']);
-    $r->post('/notes/{id}/delete', [TaskController::class, 'deleteNote']);
-    $r->post('/files/{kind}/{id}/delete', [TaskController::class, 'deleteFile']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
     $r->post('/tasks/quick', [TaskController::class, 'quick']);
@@ -94,7 +97,6 @@ $router->group(['panel'], function ($r) {
     $r->get('/labels', [SubjectController::class, 'index']);
     $r->post('/labels', [SubjectController::class, 'store']);
     $r->post('/labels/{id}/update', [SubjectController::class, 'update']);
-    $r->post('/labels/{id}/delete', [SubjectController::class, 'destroy']);
     $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
@@ -111,7 +113,6 @@ $router->group(['panel'], function ($r) {
     $r->post('/calls', [CallController::class, 'store']);
     $r->post('/calls/{id}/update', [CallController::class, 'update']);
     $r->post('/calls/{id}/complete', [CallController::class, 'complete']);
-    $r->post('/calls/{id}/delete', [CallController::class, 'destroy']);
     $r->get('/calls/{id}/share', [CallController::class, 'share']);
 
     // همکاران
@@ -134,7 +135,6 @@ $router->group(['panel'], function ($r) {
     $r->get('/projects/{id}/analytics', [ProjectController::class, 'analytics']);
     $r->get('/projects/{id}/analytics/speed', [ProjectController::class, 'speed']);
     $r->post('/projects/{id}/update', [ProjectController::class, 'update']);
-    $r->post('/projects/{id}/delete', [ProjectController::class, 'destroy']);
     $r->post('/projects/{id}/leave', [ProjectController::class, 'leave']);
     $r->post('/projects/{id}/block', [ProjectController::class, 'block']);
     $r->post('/projects/{id}/unblock', [ProjectController::class, 'unblock']);
@@ -163,7 +163,6 @@ $router->group(['panel'], function ($r) {
     $r->post('/chat/api/send_file', [ChatController::class, 'sendFile']);
     $r->post('/chat/api/mark_read', [ChatController::class, 'markRead']);
     $r->post('/chat/api/edit', [ChatController::class, 'edit']);
-    $r->post('/chat/api/delete', [ChatController::class, 'delete']);
     $r->post('/chat/api/forward', [ChatController::class, 'forward']);
     $r->post('/chat/api/clear_history', [ChatController::class, 'clearHistory']);
 
@@ -180,7 +179,6 @@ $router->group(['panel'], function ($r) {
     $r->post('/support/{id}/reply', [SupportController::class, 'reply']);
     $r->post('/support/{id}/close', [SupportController::class, 'close']);
     $r->post('/support/{id}/reopen', [SupportController::class, 'reopen']);
-    $r->post('/support/{id}/delete', [SupportController::class, 'destroy']);
 });
 
 // پروفایل و فایل‌ها: ادمین هم دسترسی دارد
@@ -245,8 +243,10 @@ $router->group(['api'], function ($r) {
     $r->get('/tasks/stats', [TaskApi::class, 'stats']);
     $r->post('/tasks/create', [TaskApi::class, 'create']);
     $r->post('/tasks/update', [TaskApi::class, 'update']);
-    $r->post('/tasks/delete', [TaskApi::class, 'delete']);
     $r->post('/tasks/toggle', [TaskApi::class, 'toggle']);
+    $r->get('/tasks/blocked', [BlockApi::class, 'taskList']);
+    $r->post('/tasks/block', [BlockApi::class, 'taskBlock']);
+    $r->post('/tasks/unblock', [BlockApi::class, 'taskUnblock']);
 
     $r->get('/calls/list', [CallApi::class, 'list']);
     $r->get('/calls/show', [CallApi::class, 'show']);
@@ -254,7 +254,9 @@ $router->group(['api'], function ($r) {
     $r->post('/calls/create', [CallApi::class, 'create']);
     $r->post('/calls/update', [CallApi::class, 'update']);
     $r->post('/calls/status', [CallApi::class, 'status']);
-    $r->post('/calls/delete', [CallApi::class, 'delete']);
+    $r->get('/calls/blocked', [BlockApi::class, 'callList']);
+    $r->post('/calls/block', [BlockApi::class, 'callBlock']);
+    $r->post('/calls/unblock', [BlockApi::class, 'callUnblock']);
 
 
     $r->get('/texts/list', [TextApi::class, 'list']);
@@ -280,7 +282,9 @@ $router->group(['api'], function ($r) {
     $r->get('/labels/list', [LabelApi::class, 'list']);
     $r->post('/labels/create', [LabelApi::class, 'create']);
     $r->post('/labels/update', [LabelApi::class, 'update']);
-    $r->post('/labels/delete', [LabelApi::class, 'delete']);
+    $r->get('/labels/blocked', [BlockApi::class, 'labelList']);
+    $r->post('/labels/block', [BlockApi::class, 'labelBlock']);
+    $r->post('/labels/unblock', [BlockApi::class, 'labelUnblock']);
 
     $r->get('/board/list', [BoardApi::class, 'list']);
     $r->get('/board/archive', [BoardApi::class, 'archive']);
@@ -294,9 +298,11 @@ $router->group(['api'], function ($r) {
     $r->get('/projects/stats', [ProjectApi::class, 'stats']);
     $r->post('/projects/create', [ProjectApi::class, 'create']);
     $r->post('/projects/update', [ProjectApi::class, 'update']);
-    $r->post('/projects/delete', [ProjectApi::class, 'delete']);
     $r->post('/projects/leave', [ProjectApi::class, 'leave']);
     $r->post('/projects/block', [ProjectApi::class, 'block']);
+    $r->get('/projects/blocked-projects', [BlockApi::class, 'projectList']);
+    $r->post('/projects/block-project', [BlockApi::class, 'projectBlock']);
+    $r->post('/projects/unblock-project', [BlockApi::class, 'projectUnblock']);
     $r->post('/projects/member-add', [ProjectApi::class, 'memberAdd']);
     $r->post('/projects/member-remove', [ProjectApi::class, 'memberRemove']);
     $r->post('/projects/member-permissions', [ProjectApi::class, 'memberPermissions']);

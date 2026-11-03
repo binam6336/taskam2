@@ -25,7 +25,7 @@ final class ProfileController extends Controller
             'u' => $u,
             'sessions' => Session::usesDb() && !\App\Core\Auth::isImpersonating() ? DbSessionHandler::listFor((int) $u['id']) : null,
             'stats' => [
-                'tasks' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [(int) $u['id']]),
+                'tasks' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL', [(int) $u['id']]),
                 'colleagues' => (int) DB::value('SELECT COUNT(*) FROM colleagues WHERE user_id = ?', [(int) $u['id']]),
                 'projects' => (int) DB::value('SELECT COUNT(*) FROM project_members WHERE user_id = ?', [(int) $u['id']]),
             ],
