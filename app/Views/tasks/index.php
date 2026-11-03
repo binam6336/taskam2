@@ -92,12 +92,12 @@ $chips = [
     <div class="card empty"><i class="fa-regular fa-clipboard"></i><p><?= $q !== '' || $fCount ? 'تسکی با این جستجو/فیلتر پیدا نشد.' : 'هنوز تسکی در این بخش وجود ندارد.' ?></p></div>
 <?php else: ?>
 <div class="list" id="task-list">
-    <?php $grpPrev = null; $grpNames = ['عقب‌افتاده', 'امروز', 'پیش رو', 'پیش رو', 'بدون تاریخ', 'انجام‌شده'];
+    <?php $grpPrev = null; $grpNames = ['بدون زمان', 'امروز', 'پیش رو', 'پیش رو', 'عقب‌افتاده', 'انجام‌شده'];
     foreach ($tasks as $t):
         $isDone = (int) $t['is_completed'] === 1;
         if ($filters['sort'] === 'smart') {   // سرتیتر گروه‌های مرتب‌سازی هوشمند (همان TaskModel::GROUP_SQL)
             $today = date('Y-m-d');
-            $g = $isDone ? 5 : (!$t['due_date'] ? 4 : ($t['due_date'] < $today ? 0 : ($t['due_date'] === $today ? 1 : 2)));
+            $g = $isDone ? 5 : (!$t['due_date'] ? 0 : ($t['due_date'] < $today ? 4 : ($t['due_date'] === $today ? 1 : 2)));
             if ($grpNames[$g] !== $grpPrev) { $grpPrev = $grpNames[$g]; echo '<div class="t-group t-group-' . $g . '">' . e($grpPrev) . '</div>'; }
         }
         $can = $t['can'];

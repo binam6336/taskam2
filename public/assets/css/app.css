@@ -1783,7 +1783,7 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .t-chip.on { background: color-mix(in srgb, var(--g-500) 22%, transparent); border-color: var(--g-400); color: var(--g-300); }
 .t-chip .badge-count { margin-inline-start: .2rem; }
 .t-group { font-size: .78rem; font-weight: 700; color: var(--muted); padding: .55rem .3rem .2rem; letter-spacing: .02em; }
-.t-group-0 { color: var(--danger); } .t-group-1 { color: var(--warn); }
+.t-group-4 { color: var(--danger); } .t-group-1 { color: var(--warn); }
 .dash-review-item { display: flex; align-items: center; gap: .5rem; } .dash-review-acts { flex: none; }
 .dash-flow-row { color: inherit; text-decoration: none; padding: .15rem 0; border-radius: 6px; }
 .dash-flow-row:hover b { color: var(--g-300); }

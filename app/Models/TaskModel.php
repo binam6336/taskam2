@@ -43,7 +43,7 @@ final class TaskModel
     }
 
     public const SORTS = [
-        'smart'    => 'هوشمند (عقب‌افتاده، امروز، پیش رو)',
+        'smart'    => 'هوشمند (بدون زمان، امروز، پیش رو)',
         'created'  => 'تاریخ ایجاد',
         'due'      => 'تاریخ انجام (سررسید)',
         'priority' => 'اولویت',
@@ -158,7 +158,7 @@ final class TaskModel
                 $order = $completed ? 't.completed_at DESC, t.id DESC' : 't.created_at DESC, t.id DESC';
                 break;
             default:
-                // هوشمند (پیش‌فرض): عقب‌افتاده، امروز، فردا، بعدها، بدون تاریخ، انجام‌شده؛ در هر گروه اولویت بیشتر بالاتر
+                // هوشمند (پیش‌فرض): بدون زمان، امروز، فردا، بعدها، عقب‌افتاده، انجام‌شده؛ در هر گروه اولویت بیشتر بالاتر
                 $order = self::GROUP_SQL . ', ' . "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id DESC";
         }
         $rows = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge([$uid], $params, [$limit, $offset]));
@@ -276,8 +276,8 @@ final class TaskModel
      * در «امروز» می‌ماند و اگر ساعتش گذشته باشد فقط برچسب «ساعت گذشته» می‌گیرد.
      */
     public const OVERDUE = 't.due_date IS NOT NULL AND t.due_date < CURDATE()';
-    /** گروه مرتب‌سازی هوشمند: ۰ عقب‌افتاده، ۱ امروز، ۲ فردا، ۳ بعدها، ۴ بدون تاریخ، ۵ انجام‌شده */
-    public const GROUP_SQL = 'CASE WHEN t.is_completed = 1 THEN 5 WHEN t.due_date IS NULL THEN 4 WHEN t.due_date < CURDATE() THEN 0 WHEN t.due_date = CURDATE() THEN 1 WHEN t.due_date = CURDATE() + INTERVAL 1 DAY THEN 2 ELSE 3 END';
+    /** گروه مرتب‌سازی هوشمند (v4.1.1): ۰ بدون زمان، ۱ امروز، ۲ فردا، ۳ بعدها (پیش رو)، ۴ عقب‌افتاده، ۵ انجام‌شده */
+    public const GROUP_SQL = 'CASE WHEN t.is_completed = 1 THEN 5 WHEN t.due_date IS NULL THEN 0 WHEN t.due_date = CURDATE() THEN 1 WHEN t.due_date = CURDATE() + INTERVAL 1 DAY THEN 2 WHEN t.due_date > CURDATE() THEN 3 ELSE 4 END';
 
     /**
      * پیشخوان: تسک‌های امروز (سررسید امروز که هنوز دیر نشده) و عقب‌افتاده‌ی کاربر (مسئول = خودش، انجام‌نشده).
