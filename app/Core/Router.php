@@ -80,6 +80,16 @@ final class Router
                     $params[$k] = $v;
                 }
             }
+            // پارامترهای شناسه‌دار ({task}، {project}، …): pid → id عددی داخلی؛ عدد یا pid ناموجود = ۴۰۴
+            foreach ($params as $k => $v) {
+                if (isset(Pid::ROUTE[$k])) {
+                    $id = Pid::id(Pid::ROUTE[$k], $v);
+                    if ($id === null) {
+                        throw new HttpException(404, 'صفحه‌ی مورد نظر یافت نشد.', 'NOT_FOUND');
+                    }
+                    $params[$k] = (string) $id;
+                }
+            }
             $req->params = $params;
             foreach ($r['mw'] as $name) {
                 $cls = self::MW[$name] ?? null;

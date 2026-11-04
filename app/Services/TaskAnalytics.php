@@ -308,7 +308,7 @@ final class TaskAnalytics
                     $b = $buckets[$uid][$i] ?? [];
                     $data[] = $metric === 'count' ? count($b) : ($b ? (int) round(array_sum($b) / count($b)) : null);
                 }
-                $series[] = ['id' => $uid, 'name' => $names[$uid] ?? ('#' . $uid), 'data' => $data];
+                $series[] = ['id' => $uid, 'name' => $names[$uid] ?? 'کاربر', 'data' => $data];
             }
         }
         return ['labels' => $labels, 'series' => $series, 'range' => $range, 'metric' => $metric, 'range_label' => self::RANGES[$range][0]];

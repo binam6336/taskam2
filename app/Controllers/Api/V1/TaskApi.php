@@ -11,10 +11,12 @@ use App\Services\TaskService;
 
 final class TaskApi extends ApiController
 {
+    protected const TABLE = 'tasks';
+
     public static function format(array $t): array
     {
         return [
-            'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => isset($t['priority_percent']) ? (int) $t['priority_percent'] : null,
+            'id' => pid('tasks', $t), 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => isset($t['priority_percent']) ? (int) $t['priority_percent'] : null,
             'is_completed' => (bool) $t['is_completed'], 'is_quick' => (bool) ($t['is_quick'] ?? false), 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'created_at' => $t['created_at'], 'completed_at' => $t['completed_at'],
             'user_id' => (int) $t['user_id'], 'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null,
@@ -45,7 +47,7 @@ final class TaskApi extends ApiController
             $this->err('تسک یافت نشد.', 404, 'TASK_NOT_FOUND');
         }
         $out = self::format($t);
-        $out['notes'] = array_map(static fn($n) => ['mobile' => mask_mobile($n['mobile'])] + $n,     // موبایل نویسنده‌ی یادداشت ماسک‌شده
+        $out['notes'] = array_map(static fn($n) => ['id' => pid('task_notes', $n), 'mobile' => mask_mobile($n['mobile'])] + $n,     // موبایل نویسنده‌ی یادداشت ماسک‌شده
             DB::all('SELECT tn.id, tn.user_id, tn.note, tn.created_at, u.first_name, u.last_name, u.mobile FROM task_notes tn LEFT JOIN users u ON u.id = tn.user_id WHERE tn.task_id = ? ORDER BY tn.created_at DESC, tn.id DESC', [$id]));
         $this->ok($out);
     }
@@ -70,6 +72,6 @@ final class TaskApi extends ApiController
 
     public function toggle()
     {
-        $this->fromService(TaskService::toggle($this->uid, $this->id()), static fn($d) => ['id' => $d['id'], 'is_completed' => $d['is_completed']]);
+        $this->fromService(TaskService::toggle($this->uid, $this->id()), static fn($d) => ['id' => pid('tasks', $d['id']), 'is_completed' => $d['is_completed']]);
     }
 }

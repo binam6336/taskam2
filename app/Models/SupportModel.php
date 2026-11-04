@@ -54,7 +54,7 @@ final class SupportModel
         }
         $q = trim($q);
         if ($q !== '') {
-            $id = (int) ltrim(strtr($q, ['۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9']), '#');
+            $id = (int) \App\Core\Pid::id('support_tickets', ltrim($q, '#'));   // جستجو با شماره‌ی تیکت = شناسه‌ی عمومی
             $l = DB::like($q);
             $or = ['st.subject LIKE ?'];
             $p[] = $l;

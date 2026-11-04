@@ -83,8 +83,8 @@ final class Access
     public static function addMemberWithDefaultRole(int $projectId, int $uid): void
     {
         [$task, $project, $board, $all] = self::rolePackage(self::DEFAULT_ROLE);
-        DB::run('INSERT IGNORE INTO project_members (project_id, user_id, permissions, task_permissions, board_permissions, board_view_users) VALUES (?, ?, ?, ?, ?, ?)',
-            [$projectId, $uid, json_encode(array_values($project)), json_encode(array_values($task)), json_encode(array_values($board)), $all ? 'all' : null]);
+        DB::run('INSERT IGNORE INTO project_members (pid, project_id, user_id, permissions, task_permissions, board_permissions, board_view_users) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [\App\Core\Pid::new(), $projectId, $uid, json_encode(array_values($project)), json_encode(array_values($task)), json_encode(array_values($board)), $all ? 'all' : null]);
     }
 
     /** پکیج کامل یک نقش: [task[], project[], board[], viewAll] */

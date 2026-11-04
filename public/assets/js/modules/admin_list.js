@@ -56,8 +56,8 @@ document.addEventListener('tk:ready', () => {
       </div>`;
   };
 
-  TK.on('click', 'tr[data-aproj]', (e, tr) => open(+tr.dataset.aproj));
-  TK.on('keydown', 'tr[data-aproj]', (e, tr) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(+tr.dataset.aproj); } });
+  TK.on('click', 'tr[data-aproj]', (e, tr) => open(tr.dataset.aproj));
+  TK.on('keydown', 'tr[data-aproj]', (e, tr) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(tr.dataset.aproj); } });
   m.addEventListener('click', async (e) => {
     if (e.target.closest('[data-ap-enter]')) {
       if (!proj.can_enter) { TK.info(proj.enter_why || 'ورود ممکن نیست.', { title: 'ورود به پروژه', icon: 'fa-lock' }); return; }
@@ -143,7 +143,7 @@ function usersPart(E, F, PER) {
       <div class="table-wrap"><table class="table"><thead><tr><th>تسک</th><th>پروژه</th><th>وضعیت</th><th>اولویت</th><th>سررسید</th><th>ایجاد</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="center muted">تسکی ندارد.</td></tr>'}</tbody></table></div>` + apPager(r, PER, F);
   };
-  TK.on('click', '[data-user-details]', (e, b) => { closeMenus(); open(+b.dataset.userDetails); });
+  TK.on('click', '[data-user-details]', (e, b) => { closeMenus(); open(b.dataset.userDetails); });
   dm.addEventListener('click', (e) => {
     const p = e.target.closest('[data-ud-proj]'); if (p) { enter(p.dataset.udProj); return; }
     if (e.target.closest('[data-ud-tasks]')) { tq = { page: 1, per: tq.per }; TK.qs('#ut-title').textContent = 'تسک‌های ' + user.name; TK.modal.open(tm); loadTasks(); }

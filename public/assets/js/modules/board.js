@@ -314,6 +314,6 @@ document.addEventListener('tk:ready', () => {
     TK.busy(b, true);
     const r = await TK.post('/board/tasks/' + b.dataset.kbRestore + '/move', { status: 'done' });
     TK.toast(r?.message || 'خطا', TK.ok(r) ? 'success' : 'error');
-    if (TK.ok(r)) { archItems = archItems.filter((t) => t.id !== Number(b.dataset.kbRestore)); archRender(); TK.reload(); } else TK.busy(b, false);
+    if (TK.ok(r)) { archItems = archItems.filter((t) => String(t.id) !== b.dataset.kbRestore); archRender(); TK.reload(); } else TK.busy(b, false);
   });
 });

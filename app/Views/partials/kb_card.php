@@ -2,10 +2,10 @@
 /** کارت بورد پروژه. @var array $t @var string $key @var array $filters */
 $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && $t['due_date'] < date('Y-m-d');   // عقب‌افتاده = روزهای قبل
 ?>
-            <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= (int) $t['id'] ?>" data-id="<?= (int) $t['id'] ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
+            <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?>" id="kb-task-<?= e(pid('tasks', $t)) ?>" data-id="<?= e(pid('tasks', $t)) ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>" <?= $t['can_move'] ? 'draggable="true"' : 'data-locked' ?>>
                 <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>
                 <div class="kb-card-top">
-                    <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>" data-open-task="<?= (int) $t['id'] ?>"><?= e($t['title']) ?></a>
+                    <a class="kb-title" href="<?= e(url('/tasks?task=' . $t['token'])) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>"><?= e($t['title']) ?></a>
                     <?php if ($t['can_move']): ?><button type="button" class="btn btn-ghost btn-icon btn-xs" data-kb-menu title="انتقال به…"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                     <?php else: ?><button type="button" class="btn btn-ghost btn-icon btn-xs kb-lock" data-lock-reason="<?= e((string) ($t['lock_reason'] ?? 'دسترسی جابه‌جایی این تسک در بورد را ندارید.')) ?>" title="چرا نمی‌توانم وضعیت را تغییر دهم؟" aria-label="دلیل قفل بودن تغییر وضعیت"><i class="fa-solid fa-lock"></i></button><?php endif; ?>
                 </div>

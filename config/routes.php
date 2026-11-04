@@ -72,24 +72,24 @@ $router->group(['panel'], function ($r) {
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
-    $r->get('/tasks/{id}', [TaskController::class, 'show']);
-    $r->post('/tasks/{id}/update', [TaskController::class, 'update']);
-    $r->post('/tasks/{id}/toggle', [TaskController::class, 'toggle']);
-    $r->post('/tasks/{id}/withdraw', [TaskController::class, 'withdraw']);
-    $r->get('/tasks/{id}/share', [TaskController::class, 'share']);
-    $r->get('/tasks/{id}/history', [TaskController::class, 'history']);
-    $r->post('/tasks/{id}/advance', [TaskController::class, 'advance']);
-    $r->post('/tasks/{id}/status', [TaskController::class, 'status']);
-    $r->post('/tasks/{id}/notes', [TaskController::class, 'addNote']);
-    $r->post('/tasks/{id}/attachments', [TaskController::class, 'addFiles']);
-    $r->post('/notes/{id}/update', [TaskController::class, 'updateNote']);
+    $r->get('/tasks/{task}', [TaskController::class, 'show']);
+    $r->post('/tasks/{task}/update', [TaskController::class, 'update']);
+    $r->post('/tasks/{task}/toggle', [TaskController::class, 'toggle']);
+    $r->post('/tasks/{task}/withdraw', [TaskController::class, 'withdraw']);
+    $r->get('/tasks/{task}/share', [TaskController::class, 'share']);
+    $r->get('/tasks/{task}/history', [TaskController::class, 'history']);
+    $r->post('/tasks/{task}/advance', [TaskController::class, 'advance']);
+    $r->post('/tasks/{task}/status', [TaskController::class, 'status']);
+    $r->post('/tasks/{task}/notes', [TaskController::class, 'addNote']);
+    $r->post('/tasks/{task}/attachments', [TaskController::class, 'addFiles']);
+    $r->post('/notes/{note}/update', [TaskController::class, 'updateNote']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
     $r->post('/tasks/quick', [TaskController::class, 'quick']);
 
     // بورد پروژه (کانبان، دمو)
     $r->get('/board', [BoardController::class, 'index']);
-    $r->post('/board/tasks/{id}/move', [BoardController::class, 'move']);
+    $r->post('/board/tasks/{task}/move', [BoardController::class, 'move']);
     $r->get('/board/archive', [BoardController::class, 'archive']);
     $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
     $r->post('/board/order', [BoardController::class, 'order']);
@@ -97,7 +97,7 @@ $router->group(['panel'], function ($r) {
     // موضوعات
     $r->get('/labels', [SubjectController::class, 'index']);
     $r->post('/labels', [SubjectController::class, 'store']);
-    $r->post('/labels/{id}/update', [SubjectController::class, 'update']);
+    $r->post('/labels/{label}/update', [SubjectController::class, 'update']);
     $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
@@ -112,38 +112,38 @@ $router->group(['panel'], function ($r) {
     // درخواست‌های تماس
     $r->get('/calls', [CallController::class, 'index']);
     $r->post('/calls', [CallController::class, 'store']);
-    $r->post('/calls/{id}/update', [CallController::class, 'update']);
-    $r->post('/calls/{id}/complete', [CallController::class, 'complete']);
-    $r->get('/calls/{id}/share', [CallController::class, 'share']);
+    $r->post('/calls/{call}/update', [CallController::class, 'update']);
+    $r->post('/calls/{call}/complete', [CallController::class, 'complete']);
+    $r->get('/calls/{call}/share', [CallController::class, 'share']);
 
     // همکاران
     $r->get('/colleagues', [ColleagueController::class, 'index']);
     $r->get('/colleagues/search', [ColleagueController::class, 'search']);
     $r->post('/colleagues', [ColleagueController::class, 'add']);
-    $r->post('/colleagues/requests/{id}/accept', [ColleagueController::class, 'accept']);
-    $r->post('/colleagues/requests/{id}/reject', [ColleagueController::class, 'reject']);
-    $r->post('/colleagues/{userId}/remove', [ColleagueController::class, 'remove']);
-    $r->post('/colleagues/followers/{userId}/remove', [ColleagueController::class, 'removeFollower']);
-    $r->post('/colleagues/{userId}/block', [ColleagueController::class, 'block']);
+    $r->post('/colleagues/requests/{colreq}/accept', [ColleagueController::class, 'accept']);
+    $r->post('/colleagues/requests/{colreq}/reject', [ColleagueController::class, 'reject']);
+    $r->post('/colleagues/{user}/remove', [ColleagueController::class, 'remove']);
+    $r->post('/colleagues/followers/{user}/remove', [ColleagueController::class, 'removeFollower']);
+    $r->post('/colleagues/{user}/block', [ColleagueController::class, 'block']);
     $r->post('/colleagues/unblock-key', [ColleagueController::class, 'unblockKey']);
-    $r->post('/colleagues/{userId}/unblock', [ColleagueController::class, 'unblock']);
+    $r->post('/colleagues/{user}/unblock', [ColleagueController::class, 'unblock']);
 
     // پروژه‌ها
     $r->get('/projects', [ProjectController::class, 'index']);
     $r->post('/projects', [ProjectController::class, 'store']);
     $r->post('/projects/history/clear', [ProjectController::class, 'clearHistory']);
-    $r->post('/projects/requests/{id}/respond', [ProjectController::class, 'respondRequest']);
-    $r->get('/projects/{id}/analytics', [ProjectController::class, 'analytics']);
-    $r->get('/projects/{id}/analytics/speed', [ProjectController::class, 'speed']);
-    $r->post('/projects/{id}/update', [ProjectController::class, 'update']);
-    $r->post('/projects/{id}/leave', [ProjectController::class, 'leave']);
-    $r->post('/projects/{id}/block', [ProjectController::class, 'block']);
-    $r->post('/projects/{id}/unblock', [ProjectController::class, 'unblock']);
-    $r->post('/projects/{id}/members/{userId}/permissions', [ProjectController::class, 'memberPermissions']);
-    $r->post('/projects/{id}/members/{userId}/task-permissions', [ProjectController::class, 'memberTaskPermissions']);
-    $r->post('/projects/{id}/members/{userId}/board-permissions', [ProjectController::class, 'memberBoardPermissions']);
-    $r->post('/projects/{id}/members/add', [ProjectController::class, 'addMember']);
-    $r->post('/projects/{id}/members/{userId}/remove', [ProjectController::class, 'removeMember']);
+    $r->post('/projects/requests/{projreq}/respond', [ProjectController::class, 'respondRequest']);
+    $r->get('/projects/{project}/analytics', [ProjectController::class, 'analytics']);
+    $r->get('/projects/{project}/analytics/speed', [ProjectController::class, 'speed']);
+    $r->post('/projects/{project}/update', [ProjectController::class, 'update']);
+    $r->post('/projects/{project}/leave', [ProjectController::class, 'leave']);
+    $r->post('/projects/{project}/block', [ProjectController::class, 'block']);
+    $r->post('/projects/{project}/unblock', [ProjectController::class, 'unblock']);
+    $r->post('/projects/{project}/members/{user}/permissions', [ProjectController::class, 'memberPermissions']);
+    $r->post('/projects/{project}/members/{user}/task-permissions', [ProjectController::class, 'memberTaskPermissions']);
+    $r->post('/projects/{project}/members/{user}/board-permissions', [ProjectController::class, 'memberBoardPermissions']);
+    $r->post('/projects/{project}/members/add', [ProjectController::class, 'addMember']);
+    $r->post('/projects/{project}/members/{user}/remove', [ProjectController::class, 'removeMember']);
 
     // گفتگو (JSON)
     $r->get('/chat', [ChatController::class, 'index']);
@@ -170,16 +170,16 @@ $router->group(['panel'], function ($r) {
     // توکن‌های API
     $r->get('/tokens', [TokenController::class, 'index']);
     $r->post('/tokens', [TokenController::class, 'store']);
-    $r->post('/tokens/{id}/toggle', [TokenController::class, 'toggle']);
-    $r->post('/tokens/{id}/delete', [TokenController::class, 'destroy']);
+    $r->post('/tokens/{token}/toggle', [TokenController::class, 'toggle']);
+    $r->post('/tokens/{token}/delete', [TokenController::class, 'destroy']);
 
     // پشتیبانی
     $r->get('/support', [SupportController::class, 'index']);
     $r->post('/support', [SupportController::class, 'store']);
-    $r->get('/support/{id}', [SupportController::class, 'show']);
-    $r->post('/support/{id}/reply', [SupportController::class, 'reply']);
-    $r->post('/support/{id}/close', [SupportController::class, 'close']);
-    $r->post('/support/{id}/reopen', [SupportController::class, 'reopen']);
+    $r->get('/support/{ticket}', [SupportController::class, 'show']);
+    $r->post('/support/{ticket}/reply', [SupportController::class, 'reply']);
+    $r->post('/support/{ticket}/close', [SupportController::class, 'close']);
+    $r->post('/support/{ticket}/reopen', [SupportController::class, 'reopen']);
 });
 
 // پروفایل و فایل‌ها: ادمین هم دسترسی دارد
@@ -210,21 +210,21 @@ $router->post('/admin/impersonate/exit', [AdminController::class, 'stopImpersona
 $router->group(['admin'], function ($r) {
     $r->get('/admin', [AdminController::class, 'users']);
     $r->post('/admin/users', [AdminController::class, 'createUser']);
-    $r->post('/admin/users/{id}/update', [AdminController::class, 'updateUser']);
-    $r->post('/admin/users/{id}/status', [AdminController::class, 'setStatus']);
-    $r->post('/admin/users/{id}/delete', [AdminController::class, 'deleteUser']);
-    $r->post('/admin/users/{id}/impersonate', [AdminController::class, 'impersonate']);
-    $r->get('/admin/users/{id}/details', [AdminController::class, 'userDetails']);
-    $r->get('/admin/users/{id}/tasks', [AdminController::class, 'userTasks']);
+    $r->post('/admin/users/{user}/update', [AdminController::class, 'updateUser']);
+    $r->post('/admin/users/{user}/status', [AdminController::class, 'setStatus']);
+    $r->post('/admin/users/{user}/delete', [AdminController::class, 'deleteUser']);
+    $r->post('/admin/users/{user}/impersonate', [AdminController::class, 'impersonate']);
+    $r->get('/admin/users/{user}/details', [AdminController::class, 'userDetails']);
+    $r->get('/admin/users/{user}/tasks', [AdminController::class, 'userTasks']);
     $r->get('/admin/support', [AdminController::class, 'support']);
-    $r->get('/admin/support/{id}', [AdminController::class, 'supportShow']);
-    $r->post('/admin/support/{id}/reply', [AdminController::class, 'supportReply']);
-    $r->post('/admin/support/{id}/status', [AdminController::class, 'supportStatus']);
-    $r->post('/admin/support/{id}/delete', [AdminController::class, 'supportDelete']);
+    $r->get('/admin/support/{ticket}', [AdminController::class, 'supportShow']);
+    $r->post('/admin/support/{ticket}/reply', [AdminController::class, 'supportReply']);
+    $r->post('/admin/support/{ticket}/status', [AdminController::class, 'supportStatus']);
+    $r->post('/admin/support/{ticket}/delete', [AdminController::class, 'supportDelete']);
     $r->get('/admin/analysis', [AdminController::class, 'analysis']);
     $r->get('/admin/list/{kind}', [AdminController::class, 'listing']);
-    $r->get('/admin/list/projects/{id}', [AdminController::class, 'projectInfo']);
-    $r->get('/admin/list/projects/{id}/{part}', [AdminController::class, 'projectPart']);
+    $r->get('/admin/list/projects/{project}', [AdminController::class, 'projectInfo']);
+    $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);

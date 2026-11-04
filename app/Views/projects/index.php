@@ -2,17 +2,17 @@
 /** @var array $projects @var array $colleagues @var array $requests @var array $history @var array $permDefs @var array $taskPermDefs @var array $boardPermDefs @var array $roles */
 $boot = [];
 foreach ($projects as $p) {
-    $boot[(int) $p['id']] = [
-        'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
-        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'board_perms' => $p['board_perms'], 'board_view' => $p['board_view'], 'pending' => $p['pending_ids'],
+    $boot[pid('projects', $p)] = [
+        'id' => pid('projects', $p), 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
+        'is_creator' => $p['is_creator'], 'perms' => $p['perms'], 'task_perms' => $p['task_perms'], 'board_perms' => $p['board_perms'], 'board_view' => is_array($p['board_view']) ? \App\Core\Pid::many('users', $p['board_view']) : $p['board_view'], 'pending' => \App\Core\Pid::many('users', (array) $p['pending_ids']),
         // موبایل کامل اعضا فقط برای سازنده و دارندگان «اعطای دسترسی»؛ بقیه نسخه‌ی ماسک‌شده (و شماره‌ی خودشان)
         'members' => array_map(static fn($m) => [
-            'id' => (int) $m['user_id'], 'name' => full_name($m), 'mobile' => $p['is_creator'] || in_array('manage_permissions', (array) $p['perms'], true) || (int) $m['user_id'] === (int) ($currentUser['id'] ?? 0) ? $m['mobile'] : mask_mobile($m['mobile']), 'avatar' => avatar_url($m['avatar']),
+            'id' => pid('users', $m['user_id']), 'name' => full_name($m), 'mobile' => $p['is_creator'] || in_array('manage_permissions', (array) $p['perms'], true) || (int) $m['user_id'] === (int) ($currentUser['id'] ?? 0) ? $m['mobile'] : mask_mobile($m['mobile']), 'avatar' => avatar_url($m['avatar']),
             'is_creator' => (int) $m['user_id'] === (int) $p['user_id'],
             'perms' => \App\Services\Access::decode($m['permissions'], array_keys($permDefs)),
             'task_perms' => \App\Services\Access::decode($m['task_permissions'] ?? null, array_keys($taskPermDefs)),
             'board_perms' => \App\Services\Access::decode($m['board_permissions'] ?? null, array_keys($boardPermDefs)),
-            'board_view' => \App\Services\Access::ids($m['board_view_users'] ?? null),
+            'board_view' => \App\Core\Pid::many('users', \App\Services\Access::ids($m['board_view_users'] ?? null)),
             'board_view_all' => \App\Services\Access::viewAll($m['board_view_users'] ?? null),
             'board_limits' => (object) \App\Services\BoardService::decodeLimits($m['board_limits'] ?? null),
             'role' => (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m),
@@ -44,7 +44,7 @@ $this->scripts[] = 'projects';
         <div class="item"><span class="avatar sq"><?php if ($r['profile_image']): ?><img src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($r['title']) ?></div><div class="xs muted">دعوت از <?= e(full_name($r)) ?> • <?= e(time_ago($r['created_at'])) ?></div></div>
             <div class="item-actions">
-                <form method="post" action="<?= e(url('/projects/requests/' . $r['id'] . '/respond')) ?>" data-ajax class="flex gap-1"><?= csrf_field() ?>
+                <form method="post" action="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-ajax class="flex gap-1"><?= csrf_field() ?>
                     <button name="action" value="accept" class="btn btn-sm btn-primary">پذیرفتن</button><button name="action" value="reject" class="btn btn-sm btn-danger">رد</button></form>
             </div></div><?php endforeach; ?></div></div>
 <?php endif; ?>
@@ -54,17 +54,17 @@ $this->scripts[] = 'projects';
 <div class="grid grid-auto">
 <?php foreach ($projects as $p):
     $pct = (int) $p['tasks_count'] > 0 ? (int) round($p['tasks_done'] / $p['tasks_count'] * 100) : 0; ?>
-    <div class="card hover" id="proj-<?= (int) $p['id'] ?>">
+    <div class="card hover" id="proj-<?= e(pid('projects', $p)) ?>">
         <div class="flex items-center gap-2 mb-1 proj-head">
             <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج) در منوی ⋮ گوشه‌ی کارت ?>
             <div class="dropdown proj-menu"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-toggle title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر پروژه"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 <div class="dropdown-menu">
                 <?php if (!$p['is_creator']): ?>
-                    <?php if ((int) $p['is_blocked_by_me'] > 0): ?><button type="button" data-post="<?= e(url('/projects/' . $p['id'] . '/unblock')) ?>"><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>
-                    <?php else: ?><button type="button" data-post="<?= e(url('/projects/' . $p['id'] . '/block')) ?>" data-confirm="دیگر دعوتی از این پروژه نمی‌خواهید؟"><i class="fa-solid fa-ban"></i> مسدود کردن دعوت‌ها</button><?php endif; ?>
-                    <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . $p['id'] . '/leave')) ?>" data-confirm="از پروژه «<?= e($p['title']) ?>» خارج می‌شوید؟"><i class="fa-solid fa-right-from-bracket"></i> خروج از پروژه</button>
+                    <?php if ((int) $p['is_blocked_by_me'] > 0): ?><button type="button" data-post="<?= e(url('/projects/' . pid('projects', $p) . '/unblock')) ?>"><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>
+                    <?php else: ?><button type="button" data-post="<?= e(url('/projects/' . pid('projects', $p) . '/block')) ?>" data-confirm="دیگر دعوتی از این پروژه نمی‌خواهید؟"><i class="fa-solid fa-ban"></i> مسدود کردن دعوت‌ها</button><?php endif; ?>
+                    <button type="button" class="text-danger" data-post="<?= e(url('/projects/' . pid('projects', $p) . '/leave')) ?>" data-confirm="از پروژه «<?= e($p['title']) ?>» خارج می‌شوید؟"><i class="fa-solid fa-right-from-bracket"></i> خروج از پروژه</button>
                 <?php else: ?>
-                    <button type="button" class="text-danger" data-post="<?= e(url('/block/projects/' . $p['id'])) ?>" data-confirm="پروژه‌ی «<?= e($p['title']) ?>» مسدود شود؟ از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد (تسک‌های فعلی‌اش می‌مانند). از «پروژه‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i> مسدود کردن پروژه</button>
+                    <button type="button" class="text-danger" data-post="<?= e(url('/block/projects/' . pid('projects', $p))) ?>" data-confirm="پروژه‌ی «<?= e($p['title']) ?>» مسدود شود؟ از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد (تسک‌های فعلی‌اش می‌مانند). از «پروژه‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i> مسدود کردن پروژه</button>
                 <?php endif; ?>
                 </div></div>
             <span class="avatar sq lg" data-css="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
@@ -76,9 +76,9 @@ $this->scripts[] = 'projects';
         <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span><?= e(fa_num($p['tasks_done'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تسک</span></div>
         <div class="progress mb-2"><div data-css="width:<?= $pct ?>%"></div></div>
         <div class="flex gap-1 wrap">
-            <button class="btn btn-sm" data-project="<?= (int) $p['id'] ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
-            <a class="btn btn-sm" href="<?= e(url('/board?project=' . $p['id'])) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
-            <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . $p['id'] . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a><?php endif; ?>
+            <button class="btn btn-sm" data-project="<?= e(pid('projects', $p)) ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
+            <a class="btn btn-sm" href="<?= e(url('/board?project=' . pid('projects', $p))) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
+            <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a><?php endif; ?>
         </div>
     </div>
 <?php endforeach; ?>

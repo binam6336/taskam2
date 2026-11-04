@@ -10,7 +10,7 @@ $total = array_sum(array_map('count', $columns));
 <form class="kb-filters card" id="kb-filters" method="get" action="<?= e(url('/board')) ?>">
     <select class="input" name="project" data-autosubmit data-logo-select>
         <option value="0">همه‌ی پروژه‌ها</option>
-        <?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
+        <?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= (int) $p['id'] === $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
     </select>
     <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>"></div>
     <button type="button" class="btn btn-icon kb-arrange-btn" id="kb-arrange" aria-pressed="false" title="چیدمان ستون‌ها (جابه‌جایی ستون‌ها با کشیدن)" aria-label="چیدمان ستون‌ها"><i class="fa-solid fa-table-columns"></i><i class="fa-solid fa-arrows-left-right kb-arrange-sub"></i></button>

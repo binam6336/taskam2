@@ -38,17 +38,17 @@ $me = (int) $currentUser['id'];
             <?php if ($can('toggle_status') && !$protected): ?>
                 <div class="st-btns" role="group" aria-label="تغییر وضعیت">
                     <?php foreach ([['active', 'fa-check', 'ok', 'تأیید / فعال کردن'], ['deactivated', 'fa-xmark', 'off', 'غیرفعال کردن (رد)'], ['blocked', 'fa-ban', 'block', 'مسدود کردن']] as [$k, $ic, $tone, $tt]): $cur = $u['status'] === $k; ?>
-                    <button type="button" class="btn btn-xs btn-icon st-btn st-<?= e($tone) ?><?= $cur ? ' on' : '' ?>" <?= $cur ? 'disabled aria-pressed="true"' : 'aria-pressed="false" data-post="' . e(url('/admin/users/' . $u['id'] . '/status')) . '" data-data=\'' . e(json_encode(['status' => $k])) . '\' data-after="reload"' ?> title="<?= e($cur ? 'وضعیت فعلی: ' . $stLbl[$k][0] : $tt) ?>" aria-label="<?= e($tt) ?>"><i class="fa-solid <?= e($ic) ?>"></i></button>
+                    <button type="button" class="btn btn-xs btn-icon st-btn st-<?= e($tone) ?><?= $cur ? ' on' : '' ?>" <?= $cur ? 'disabled aria-pressed="true"' : 'aria-pressed="false" data-post="' . e(url('/admin/users/' . pid('users', $u) . '/status')) . '" data-data=\'' . e(json_encode(['status' => $k])) . '\' data-after="reload"' ?> title="<?= e($cur ? 'وضعیت فعلی: ' . $stLbl[$k][0] : $tt) ?>" aria-label="<?= e($tt) ?>"><i class="fa-solid <?= e($ic) ?>"></i></button>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
+            <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . pid('users', $u) . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
             <?php // منوی ⋮: جزئیات، ویرایش، حذف ?>
             <div class="u-menu"><button type="button" class="btn btn-xs btn-icon" data-umenu aria-haspopup="menu" aria-expanded="false" title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر «<?= e(full_name($u)) ?>»"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 <div class="dropdown-menu u-menu-list" role="menu">
-                    <button type="button" role="menuitem" data-user-details="<?= (int) $u['id'] ?>"><i class="fa-solid fa-circle-info"></i> جزئیات</button>
-                    <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button type="button" role="menuitem" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= (int) $u['id'] ?>"><i class="fa-solid fa-pen"></i> ویرایش</button><?php endif; ?>
-                    <?php if ($can('delete_user') && !$protected): ?><button type="button" role="menuitem" class="text-danger" data-post="<?= e(url('/admin/users/' . $u['id'] . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟"><i class="fa-solid fa-trash"></i> حذف</button><?php endif; ?>
+                    <button type="button" role="menuitem" data-user-details="<?= e(pid('users', $u)) ?>"><i class="fa-solid fa-circle-info"></i> جزئیات</button>
+                    <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button type="button" role="menuitem" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= e(pid('users', $u)) ?>"><i class="fa-solid fa-pen"></i> ویرایش</button><?php endif; ?>
+                    <?php if ($can('delete_user') && !$protected): ?><button type="button" role="menuitem" class="text-danger" data-post="<?= e(url('/admin/users/' . pid('users', $u) . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟"><i class="fa-solid fa-trash"></i> حذف</button><?php endif; ?>
                 </div></div>
         </div></td></tr>
 <?php endforeach; ?><?php if (!$users): ?><tr><td colspan="6" class="center muted"><?= $q !== '' ? 'کاربری با این جستجو پیدا نشد.' : 'کاربری وجود ندارد.' ?></td></tr><?php endif; ?></tbody></table>

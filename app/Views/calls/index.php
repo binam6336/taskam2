@@ -1,11 +1,11 @@
 <?php
 /** @var array $calls @var int $total @var string $tab @var int $pg @var int $pages @var string $q @var array $counts @var ?array $shared @var array $assignees */
-$this->boot['calls'] = ['shared' => $shared ? ['id' => (int) $shared['id'], 'html' => true] : null];
+$this->boot['calls'] = ['shared' => $shared ? ['id' => pid('call_requests', $shared), 'html' => true] : null];
 $this->scripts[] = 'calls';
 $url = static fn(string $t) => url('/calls') . '?' . http_build_query(['tab' => $t]);
 $edit = static fn(array $c) => json_html(['first_name' => $c['first_name'], 'last_name' => $c['last_name'], 'mobile' => $c['mobile'], 'email' => $c['email'], 'store' => $c['store'], 'website' => $c['website'], 'description' => $c['description'], 'assignee_id' => $c['assignee_id']]);
 $card = static function (array $c) use ($edit): void { ?>
-    <div class="card hover" id="call-<?= (int) $c['id'] ?>">
+    <div class="card hover" id="call-<?= e(pid('call_requests', $c)) ?>">
         <div class="flex between items-center gap-1 mb-1">
             <div class="flex items-center gap-2"><span class="avatar"><?= e(initial($c['first_name'])) ?></span>
                 <div><div class="bold"><?= e($c['first_name'] . ' ' . $c['last_name']) ?></div><a class="small ltr" href="tel:<?= e($c['mobile']) ?>"><?= e($c['mobile']) ?></a></div></div>
@@ -21,10 +21,10 @@ $card = static function (array $c) use ($edit): void { ?>
         <div class="flex between items-center wrap gap-1 mt-1">
             <span class="xs muted"><i class="fa-solid fa-user-check"></i> مسئول: <?= e($c['assignee_id'] ? full_name($c, 'assignee_') : '—') ?> • ثبت: <?= e(full_name($c, 'creator_')) ?></span>
             <div class="flex gap-1">
-                <?php if ((int) $c['status'] === 0 && ($c['can']['complete'] ?? false)): ?><button class="btn btn-sm btn-primary" data-post="<?= e(url('/calls/' . $c['id'] . '/complete')) ?>" data-confirm="این درخواست انجام‌شده ثبت شود؟" data-danger="0"><i class="fa-solid fa-check"></i> انجام شد</button><?php endif; ?>
-                <button class="btn btn-sm btn-icon" data-share-call="<?= (int) $c['id'] ?>" title="کپی لینک"><i class="fa-solid fa-link"></i></button>
-                <?php if ($c['can']['edit'] ?? false): ?><button class="btn btn-sm btn-icon" title="ویرایش درخواست" aria-label="ویرایش درخواست تماس" data-edit='<?= e($edit($c)) ?>' data-target="m-call" data-action="/calls/<?= (int) $c['id'] ?>/update"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
-                <?php if ($c['can']['block'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن درخواست" aria-label="مسدود کردن درخواست تماس" data-post="<?= e(url('/block/calls/' . $c['id'])) ?>" data-confirm="این درخواست تماس مسدود شود؟ از فهرست کنار می‌رود و از «درخواست‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button><?php endif; ?>
+                <?php if ((int) $c['status'] === 0 && ($c['can']['complete'] ?? false)): ?><button class="btn btn-sm btn-primary" data-post="<?= e(url('/calls/' . pid('call_requests', $c) . '/complete')) ?>" data-confirm="این درخواست انجام‌شده ثبت شود؟" data-danger="0"><i class="fa-solid fa-check"></i> انجام شد</button><?php endif; ?>
+                <button class="btn btn-sm btn-icon" data-share-call="<?= e(pid('call_requests', $c)) ?>" title="کپی لینک"><i class="fa-solid fa-link"></i></button>
+                <?php if ($c['can']['edit'] ?? false): ?><button class="btn btn-sm btn-icon" title="ویرایش درخواست" aria-label="ویرایش درخواست تماس" data-edit='<?= e($edit($c)) ?>' data-target="m-call" data-action="/calls/<?= e(pid('call_requests', $c)) ?>/update"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
+                <?php if ($c['can']['block'] ?? false): ?><button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن درخواست" aria-label="مسدود کردن درخواست تماس" data-post="<?= e(url('/block/calls/' . pid('call_requests', $c))) ?>" data-confirm="این درخواست تماس مسدود شود؟ از فهرست کنار می‌رود و از «درخواست‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button><?php endif; ?>
             </div>
         </div>
     </div>
@@ -56,7 +56,7 @@ $card = static function (array $c) use ($edit): void { ?>
             <div class="row"><div class="field"><label>نام *</label><input class="input" name="first_name" maxlength="150" required></div><div class="field"><label>نام خانوادگی *</label><input class="input" name="last_name" maxlength="150" required></div></div>
             <div class="row"><div class="field"><label>موبایل *</label><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('calls_mobile')) ?>" required></div><div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email"></div></div>
             <div class="row"><div class="field"><label>فروشگاه</label><input class="input" name="store" maxlength="255"></div><div class="field"><label>وب‌سایت</label><input class="input ltr" name="website" maxlength="255"></div></div>
-            <div class="field"><label>مسئول پیگیری</label><select class="input" name="assignee_id"><option value="">خودم</option><?php foreach ($assignees as $a): ?><option value="<?= (int) $a['id'] ?>"><?= e($a['name']) ?></option><?php endforeach; ?></select></div>
+            <div class="field"><label>مسئول پیگیری</label><select class="input" name="assignee_id"><option value="">خودم</option><?php foreach ($assignees as $a): ?><option value="<?= e((string) $a['id']) ?>"><?= e($a['name']) ?></option><?php endforeach; ?></select></div>
             <div class="field"><label>توضیحات</label><textarea class="input" name="description" rows="3"></textarea></div>
         </div>
         <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div>

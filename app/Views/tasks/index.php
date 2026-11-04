@@ -2,11 +2,11 @@
 /** @var array $tasks @var int $total @var int $page @var int $pages @var string $scope @var bool $done @var string $q @var array $counts @var array $subjects @var array $projects @var array $assignees @var ?array $shared @var array $filters @var array $dueDates @var ?array $projScope تسک‌های یک پروژه (از تحلیل پروژه) */
 use App\Models\TaskModel;
 $status = $projScope['status'] ?? (!empty($statusAll) ? 'all' : ($done ? 'done' : 'open'));
-$pq = $projScope ? array_filter(['project' => $projScope['id'], 'assignee' => $projScope['assignee'] ?: null]) : [];
-$lq = $filters['label'] ? ['label' => $filters['label']] : [];   // فیلتر لیبل بین تب‌ها می‌ماند
+$pq = $projScope ? array_filter(['project' => $projScope['id'], 'assignee' => $projScope['assignee'] ? pid('users', $projScope['assignee']) : null]) : [];
+$lq = $filters['label'] ? ['label' => pid('subjects', $filters['label'])] : [];   // فیلتر لیبل بین تب‌ها می‌ماند
 $tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_query(['scope' => $sc, 'status' => $st] + ($sc === 'project' ? $pq : []) + $lq);
 $fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0) + ($filters['label'] > 0 ? 1 : 0);
-$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'smart' ? $filters['sort'] : '', 'flow' => $filters['flow'], 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ?: '', 'assignee' => $filters['assignee'] ?: '', 'label' => $filters['label'] ?: '']);
+$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'smart' ? $filters['sort'] : '', 'flow' => $filters['flow'], 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ? pid('projects', $filters['project']) : '', 'assignee' => $filters['assignee'] ? pid('users', $filters['assignee']) : '', 'label' => $filters['label'] ? pid('subjects', $filters['label']) : '']);
 ?>
 <div class="page-head">
     <?php if ($projScope): ?>
@@ -63,9 +63,9 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
                     <div class="field"><label><i class="fa-solid fa-flag"></i> بر اساس اولویت</label><select class="input" data-f="prio">
                         <option value="">همه</option><option value="high" <?= $filters['prio'] === 'high' ? 'selected' : '' ?>>اولویت بیشتر</option><option value="low" <?= $filters['prio'] === 'low' ? 'selected' : '' ?>>اولویت کمتر</option></select></div>
                     <div class="field"><label><i class="fa-solid fa-tag"></i> بر اساس لیبل</label><select class="input" data-f="label">
-                        <option value="">همه‌ی لیبل‌ها</option><?php foreach ($subjects as $sb): ?><option value="<?= (int) $sb['id'] ?>" <?= $filters['label'] === (int) $sb['id'] ? 'selected' : '' ?>><?= e($sb['title']) ?></option><?php endforeach; ?></select></div>
+                        <option value="">همه‌ی لیبل‌ها</option><?php foreach ($subjects as $sb): ?><option value="<?= e(pid('subjects', $sb)) ?>" <?= $filters['label'] === (int) $sb['id'] ? 'selected' : '' ?>><?= e($sb['title']) ?></option><?php endforeach; ?></select></div>
                     <div class="field"><label><i class="fa-solid fa-diagram-project"></i> بر اساس پروژه</label><select class="input" data-f="project" data-logo-select>
-                        <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= (int) $p['id'] ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
+                        <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
                 </div>
             </div>
             <div class="t-drawer-foot"><button type="button" class="btn btn-primary grow" data-f-apply><i class="fa-solid fa-check"></i> اعمال</button><?php if ($sCount): ?><button type="button" class="btn" data-f-clear><i class="fa-solid fa-rotate-left"></i> حذف همه</button><?php endif; ?></div>
@@ -106,17 +106,17 @@ $chips = [
         $hourPast = !$isDone && !$overdue && $t['due_date'] === date('Y-m-d') && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
         $edit = [
             'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'due_date' => $t['due_date'],
-            'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '', 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'], '_id' => (int) $t['id'], '_can' => $can,
+            'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '', 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'], '_id' => pid('tasks', $t), '_can' => $can,
         ];
         ?>
-    <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?>" id="task-<?= (int) $t['id'] ?>">
+    <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?>" id="task-<?= e(pid('tasks', $t)) ?>">
         <?php // تیک (v4.1): برای همه = تحویل برای «بررسی سرپرست»؛ تسک منتظر تأیید = ساعت شنی (تحویل‌دهنده با کلیک پس می‌گیرد)
         $inReview = $can['status'] === 'review';
         $tickTitle = $isDone ? 'بازگشت به بررسی سرپرست' : ($inReview ? ($can['withdraw'] ? 'منتظر تأیید سرپرست — کلیک: پس گرفتن تحویل' : 'منتظر تأیید سرپرست') : 'انجام شد (ارسال برای بررسی سرپرست)');
         $tickLock = $isDone ? 'بازکردن تسک انجام‌شده فقط با دسترسی تأیید (تکمیل تسک) در این پروژه ممکن است.' : ($inReview ? 'این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن برای اصلاح از جزئیات تسک انجام می‌شود.' : 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.'); ?>
-        <button class="tick <?= $isDone ? 'on' : '' ?><?= $inReview ? ' review' : '' ?><?= $can['tick'] ? '' : ' locked' ?>" <?= $can['tick'] ? 'data-post="' . e(url('/tasks/' . $t['id'] . '/toggle')) . '"' . ($isDone ? ' data-confirm="تسک انجام‌شده دوباره به «بررسی سرپرست» برگردد؟" data-danger="0"' : '') : 'data-lock-reason="' . e($tickLock) . '" data-lock-title="انجام شد" aria-disabled="true"' ?> title="<?= e($tickTitle) ?>" aria-label="<?= e($tickTitle) ?>"><i class="fa-solid <?= $inReview ? 'fa-hourglass-half' : 'fa-check' ?>"></i></button>
+        <button class="tick <?= $isDone ? 'on' : '' ?><?= $inReview ? ' review' : '' ?><?= $can['tick'] ? '' : ' locked' ?>" <?= $can['tick'] ? 'data-post="' . e(url('/tasks/' . pid('tasks', $t) . '/toggle')) . '"' . ($isDone ? ' data-confirm="تسک انجام‌شده دوباره به «بررسی سرپرست» برگردد؟" data-danger="0"' : '') : 'data-lock-reason="' . e($tickLock) . '" data-lock-title="انجام شد" aria-disabled="true"' ?> title="<?= e($tickTitle) ?>" aria-label="<?= e($tickTitle) ?>"><i class="fa-solid <?= $inReview ? 'fa-hourglass-half' : 'fa-check' ?>"></i></button>
         <div class="grow">
-            <div class="item-title" data-open-task="<?= (int) $t['id'] ?>"><?= e($t['title']) ?></div>
+            <div class="item-title" data-open-task="<?= e(pid('tasks', $t)) ?>"><?= e($t['title']) ?></div>
             <div class="item-meta">
                 <?= priority_badge($t) ?>
                 <?php if ($can['status'] !== null && !$isDone): $bs = \App\Services\BoardService::STATUSES[$can['status']] ?? null; if ($bs): ?><span class="badge board-st tone-<?= e($bs['tone']) ?>" title="وضعیت در بورد پروژه"><i class="fa-solid <?= e($bs['icon']) ?>"></i> <?= e($bs['label']) ?></span><?php endif; endif; ?>
@@ -133,9 +133,9 @@ $chips = [
             <!-- موبایل: دکمه‌ها در منوی ⋮ (دسکتاپ: ردیف آیکون‌ها) -->
             <button type="button" class="btn btn-sm btn-icon item-more-btn" data-item-more aria-expanded="false" aria-label="گزینه‌های تسک" title="گزینه‌ها"><i class="fa-solid fa-ellipsis-vertical"></i></button>
             <div class="item-acts">
-            <button class="btn btn-sm btn-icon" data-open-task="<?= (int) $t['id'] ?>" title="جزئیات" aria-label="جزئیات"><i class="fa-regular fa-eye"></i><span class="m-lbl">جزئیات</span></button>
+            <button class="btn btn-sm btn-icon" data-open-task="<?= e(pid('tasks', $t)) ?>" title="جزئیات" aria-label="جزئیات"><i class="fa-regular fa-eye"></i><span class="m-lbl">جزئیات</span></button>
             <?php if ($can['edit']): ?><button class="btn btn-sm btn-icon" data-edit-task="<?= e(json_html($edit)) ?>" title="ویرایش" aria-label="ویرایش"><i class="fa-solid fa-pen"></i><span class="m-lbl">ویرایش</span></button><?php endif; ?>
-            <?php if ($can['block']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/block/tasks/' . $t['id'])) ?>" data-confirm="این تسک مسدود شود؟ از همه‌ی فهرست‌ها کنار می‌رود و از «تسک‌های مسدودشده» برمی‌گردد." title="مسدود کردن" aria-label="مسدود کردن"><i class="fa-solid fa-ban"></i><span class="m-lbl">مسدود کردن</span></button><?php endif; ?>
+            <?php if ($can['block']): ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/block/tasks/' . pid('tasks', $t))) ?>" data-confirm="این تسک مسدود شود؟ از همه‌ی فهرست‌ها کنار می‌رود و از «تسک‌های مسدودشده» برمی‌گردد." title="مسدود کردن" aria-label="مسدود کردن"><i class="fa-solid fa-ban"></i><span class="m-lbl">مسدود کردن</span></button><?php endif; ?>
             </div>
         </div>
     </div>

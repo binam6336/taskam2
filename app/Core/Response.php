@@ -19,6 +19,12 @@ final class Response
                 }
             }
         }
+        // شناسه‌ی عددی دیتابیس بیرون نرود (کلیدهای *_id → pid؛ Pid::OUTPUTS)
+        try {
+            $data = Pid::out($data);
+        } catch (\Throwable $e) {
+            // اگر ستون pid هنوز ساخته نشده (مهاجرت ناقص)، خروجی خراب نشود
+        }
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');

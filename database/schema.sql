@@ -22,6 +22,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 CREATE TABLE `users` (
   `id`                              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`                             CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `mobile`                          VARCHAR(11)  NOT NULL                COMMENT 'شماره موبایل (۰۹xxxxxxxxx)؛ ربات: 00000000000',
   `first_name`                      VARCHAR(100) NOT NULL,
   `last_name`                       VARCHAR(100) NOT NULL DEFAULT '',
@@ -47,6 +48,7 @@ CREATE TABLE `users` (
   `created_at`                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_users_pid` (`pid`),
   UNIQUE KEY `uq_users_mobile` (`mobile`),
   UNIQUE KEY `uq_users_email` (`email`),
   KEY `idx_users_status_role` (`status`, `role`)
@@ -62,6 +64,7 @@ CREATE TABLE `content_texts` (
 
 CREATE TABLE `api_tokens` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`      INT UNSIGNED NOT NULL,
   `name`         VARCHAR(100) NOT NULL DEFAULT 'بدون نام',
   `token_hash`   CHAR(64) NOT NULL                 COMMENT 'SHA-256 توکن (خود توکن ذخیره نمی‌شود)',
@@ -73,6 +76,7 @@ CREATE TABLE `api_tokens` (
   `expires_at`   DATETIME NULL DEFAULT NULL,
   `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_api_tokens_pid` (`pid`),
   UNIQUE KEY `uq_api_tokens_hash` (`token_hash`),
   KEY `idx_api_tokens_user` (`user_id`, `is_active`),
   CONSTRAINT `fk_api_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
@@ -123,6 +127,7 @@ CREATE TABLE `audit_log` (
 
 CREATE TABLE `projects` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`           CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`       INT UNSIGNED NOT NULL              COMMENT 'سازنده',
   `title`         VARCHAR(255) NOT NULL,
   `description`   TEXT NULL DEFAULT NULL,
@@ -135,12 +140,14 @@ CREATE TABLE `projects` (
   `blocked_by`    INT UNSIGNED NULL DEFAULT NULL,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_projects_pid` (`pid`),
   KEY `idx_projects_user` (`user_id`),
   CONSTRAINT `fk_projects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `project_members` (
   `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`         CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `project_id`  INT UNSIGNED NOT NULL,
   `user_id`     INT UNSIGNED NOT NULL,
   `permissions` TEXT NULL DEFAULT NULL               COMMENT 'JSON: edit_project, add_member, remove_member, manage_permissions, view_analytics',
@@ -150,6 +157,7 @@ CREATE TABLE `project_members` (
   `board_limits`      TEXT NULL DEFAULT NULL         COMMENT 'JSON: سقف تسک‌های این عضو در هر ستون برد ({"todo":5,...})؛ نبودن = بدون محدودیت',
   `added_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_project_members_pid` (`pid`),
   UNIQUE KEY `uq_project_member` (`project_id`, `user_id`),
   KEY `idx_pm_user` (`user_id`),
   CONSTRAINT `fk_pm_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
@@ -169,6 +177,7 @@ CREATE TABLE `project_blocks` (
 
 CREATE TABLE `project_join_requests` (
   `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`         CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `project_id`  INT UNSIGNED NOT NULL,
   `user_id`     INT UNSIGNED NOT NULL                COMMENT 'کاربری که باید تأیید کند',
   `invited_by`  INT UNSIGNED NOT NULL,
@@ -176,6 +185,7 @@ CREATE TABLE `project_join_requests` (
   `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `resolved_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_project_join_requests_pid` (`pid`),
   UNIQUE KEY `uq_pjr_pending` (`project_id`, `user_id`, `status`),
   KEY `idx_pjr_user_status` (`user_id`, `status`),
   CONSTRAINT `fk_pjr_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
@@ -199,6 +209,7 @@ CREATE TABLE `project_leave_history` (
 
 CREATE TABLE `subjects` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`    INT UNSIGNED NOT NULL,
   `title`      VARCHAR(150) NOT NULL,
   `color`      VARCHAR(20) NOT NULL DEFAULT '#22c55e',
@@ -206,12 +217,14 @@ CREATE TABLE `subjects` (
   `blocked_by` INT UNSIGNED NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_subjects_pid` (`pid`),
   KEY `idx_subjects_user` (`user_id`),
   CONSTRAINT `fk_subjects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `tasks` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`      INT UNSIGNED NOT NULL               COMMENT 'سازنده',
   `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول انجام',
   `subject_id`   INT UNSIGNED NULL DEFAULT NULL,
@@ -239,6 +252,7 @@ CREATE TABLE `tasks` (
   `approved_by`  INT UNSIGNED NULL DEFAULT NULL        COMMENT 'تأییدکننده در بررسی سرپرست',
   `updated_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_tasks_pid` (`pid`),
   UNIQUE KEY `uq_tasks_share_token` (`share_token`),
   KEY `idx_tasks_assignee` (`assignee_id`, `is_completed`),
   KEY `idx_tasks_creator` (`user_id`, `is_completed`),
@@ -255,12 +269,14 @@ CREATE TABLE `tasks` (
 
 CREATE TABLE `task_notes` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `task_id`    INT UNSIGNED NOT NULL,
   `user_id`    INT UNSIGNED NOT NULL,
   `note`       TEXT NOT NULL,
   `updated_at` TIMESTAMP NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_task_notes_pid` (`pid`),
   KEY `idx_notes_task` (`task_id`, `created_at`),
   KEY `idx_notes_user` (`user_id`),
   CONSTRAINT `fk_notes_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
@@ -297,6 +313,7 @@ CREATE TABLE `task_mentions` (
 
 CREATE TABLE `task_attachments` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `task_id`    INT UNSIGNED NOT NULL,
   `user_id`    INT UNSIGNED NOT NULL,
   `file_name`  VARCHAR(255) NOT NULL                 COMMENT 'نام اصلی',
@@ -306,6 +323,7 @@ CREATE TABLE `task_attachments` (
   `file_mime`  VARCHAR(120) NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_task_attachments_pid` (`pid`),
   KEY `idx_ta_task` (`task_id`),
   KEY `idx_ta_user` (`user_id`),
   CONSTRAINT `fk_ta_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
@@ -314,6 +332,7 @@ CREATE TABLE `task_attachments` (
 
 CREATE TABLE `note_attachments` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `note_id`    INT UNSIGNED NOT NULL,
   `user_id`    INT UNSIGNED NOT NULL,
   `file_name`  VARCHAR(255) NOT NULL,
@@ -323,6 +342,7 @@ CREATE TABLE `note_attachments` (
   `file_mime`  VARCHAR(120) NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_note_attachments_pid` (`pid`),
   KEY `idx_na_note` (`note_id`),
   KEY `idx_na_user` (`user_id`),
   CONSTRAINT `fk_na_note` FOREIGN KEY (`note_id`) REFERENCES `task_notes` (`id`) ON DELETE CASCADE,
@@ -333,11 +353,13 @@ CREATE TABLE `note_attachments` (
 
 CREATE TABLE `colleagues` (
   `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`           INT UNSIGNED NOT NULL          COMMENT 'کاربری که همکار را اضافه کرده (صاحب لیست)',
   `colleague_user_id` INT UNSIGNED NOT NULL          COMMENT 'همکار',
   `permissions`       TEXT NULL DEFAULT NULL         COMMENT 'منسوخ از v3.0 (دسترسی تسک‌ها در project_members.task_permissions است)',
   `created_at`        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_colleagues_pid` (`pid`),
   UNIQUE KEY `uq_colleague_pair` (`user_id`, `colleague_user_id`),
   KEY `idx_colleagues_reverse` (`colleague_user_id`),
   CONSTRAINT `fk_col_user` FOREIGN KEY (`user_id`)           REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -368,12 +390,14 @@ CREATE TABLE `colleague_block_ghosts` (
 
 CREATE TABLE `colleague_requests` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `requester_id` INT UNSIGNED NOT NULL,
   `target_id`    INT UNSIGNED NOT NULL               COMMENT 'کسی که باید تأیید کند',
   `status`       ENUM('pending','accepted','rejected') NOT NULL DEFAULT 'pending',
   `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `resolved_at`  TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_colleague_requests_pid` (`pid`),
   UNIQUE KEY `uq_colleague_request` (`requester_id`, `target_id`),
   KEY `idx_cr_target` (`target_id`, `status`),
   CONSTRAINT `fk_cr_requester` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -382,6 +406,7 @@ CREATE TABLE `colleague_requests` (
 
 CREATE TABLE `chat_messages` (
   `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`             CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `sender_id`       INT UNSIGNED NOT NULL,
   `receiver_id`     INT UNSIGNED NOT NULL            COMMENT 'sender = receiver ⇒ «پیام‌های ذخیره‌شده»',
   `message`         TEXT NOT NULL                  COMMENT 'متن پیام؛ با ENCODE_PASSWORD به‌صورت enc:v1:… رمزشده ذخیره می‌شود',
@@ -396,6 +421,7 @@ CREATE TABLE `chat_messages` (
   `edited_at`       TIMESTAMP NULL DEFAULT NULL,
   `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_chat_messages_pid` (`pid`),
   KEY `idx_chat_conversation` (`sender_id`, `receiver_id`, `id`),
   KEY `idx_chat_inbox` (`receiver_id`, `is_read`, `sender_id`),
   KEY `idx_chat_created` (`created_at`),
@@ -405,12 +431,14 @@ CREATE TABLE `chat_messages` (
 
 CREATE TABLE `chat_requests` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `requester_id` INT UNSIGNED NOT NULL                 COMMENT 'فرستنده‌ی پیام اول',
   `target_id`    INT UNSIGNED NOT NULL                 COMMENT 'گیرنده که باید بپذیرد',
   `status`       ENUM('pending','accepted') NOT NULL DEFAULT 'pending',
   `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `responded_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_chat_requests_pid` (`pid`),
   UNIQUE KEY `uq_chat_request` (`requester_id`, `target_id`),
   KEY `idx_chat_request_target` (`target_id`, `status`),
   CONSTRAINT `fk_chr_requester` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -431,6 +459,7 @@ CREATE TABLE `chat_history_clears` (
 
 CREATE TABLE `call_requests` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`      INT UNSIGNED NOT NULL               COMMENT 'ثبت‌کننده',
   `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول پیگیری',
   `first_name`   VARCHAR(150) NOT NULL,
@@ -447,6 +476,7 @@ CREATE TABLE `call_requests` (
   `blocked_at`   TIMESTAMP NULL DEFAULT NULL         COMMENT 'درخواست مسدودشده (به‌جای حذف)',
   `blocked_by`   INT UNSIGNED NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_call_requests_pid` (`pid`),
   UNIQUE KEY `uq_calls_share_token` (`share_token`),
   KEY `idx_calls_user` (`user_id`, `status`),
   KEY `idx_calls_assignee` (`assignee_id`, `status`),
@@ -471,6 +501,7 @@ CREATE TABLE `texts` (
 
 CREATE TABLE `support_tickets` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`           CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`       INT UNSIGNED NOT NULL,
   `subject`       VARCHAR(255) NOT NULL,
   `priority`      ENUM('low','medium','high','very_high') NOT NULL DEFAULT 'medium',
@@ -480,6 +511,7 @@ CREATE TABLE `support_tickets` (
   `last_reply_at` TIMESTAMP NULL DEFAULT NULL,
   `closed_at`     TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_support_tickets_pid` (`pid`),
   KEY `idx_st_user` (`user_id`, `status`),
   KEY `idx_st_status` (`status`),
   CONSTRAINT `fk_st_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
@@ -487,6 +519,7 @@ CREATE TABLE `support_tickets` (
 
 CREATE TABLE `support_messages` (
   `id`               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `pid`              CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `ticket_id`        INT UNSIGNED NOT NULL,
   `sender_id`        INT UNSIGNED NOT NULL,
   `sender_role`      ENUM('user','admin') NOT NULL DEFAULT 'user',
@@ -498,6 +531,7 @@ CREATE TABLE `support_messages` (
   `is_read_by_admin` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at`       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_support_messages_pid` (`pid`),
   KEY `idx_sm_ticket` (`ticket_id`, `created_at`),
   KEY `idx_sm_unread` (`sender_role`, `is_read_by_admin`),
   KEY `idx_sm_attachment` (`attachment`),

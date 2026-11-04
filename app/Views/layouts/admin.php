@@ -5,7 +5,7 @@ $u = $currentUser;
 $name = full_name($u);
 $active = $this->page;
 $this->boot['flash'] = Session::pullFlash();
-$this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
+$this->boot['live'] = ['scope' => $active, 'uid' => pid('users', $u)];
 $menu = [
     ['admin-analysis', '/admin/analysis', 'fa-gauge-high', 'پیشخوان'],
     ['group' => 'users', 'icon' => 'fa-user-shield', 'label' => 'مدیریت کاربران', 'items' => [

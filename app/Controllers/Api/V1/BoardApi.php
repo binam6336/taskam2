@@ -10,6 +10,8 @@ use App\Services\BoardService;
 /** بورد پروژه (کانبان): ستون‌ها، جابه‌جایی و آرشیو — با همان دسترسی‌ها و قواعد پنل */
 final class BoardApi extends ApiController
 {
+    protected const TABLE = 'tasks';
+
     /** تسک + فیلدهای برد؛ allowed_moves = ستون‌هایی که کاربر اجازه‌ی انتقال کارت به آن‌ها را دارد */
     public static function card(array $t): array
     {
@@ -24,7 +26,7 @@ final class BoardApi extends ApiController
     {
         $r = $this->request;
         $pid = (int) ($r->query['project_id'] ?? $r->input('project_id', 0));
-        if ($pid > 0 && !in_array($pid, array_map(static fn($p) => (int) $p['id'], BoardService::projects($this->uid)), true)) {
+        if ($pid !== 0 && !in_array($pid, array_map(static fn($p) => (int) $p['id'], BoardService::projects($this->uid)), true)) {
             $this->err('پروژه یافت نشد یا عضو آن نیستید.', 404, 'PROJECT_NOT_FOUND');
         }
         $mine = $r->query['mine'] ?? $r->input('mine', 0);
@@ -70,7 +72,7 @@ final class BoardApi extends ApiController
         $res = BoardService::move($this->uid, $id, trim((string) $this->request->input('status', '')), (string) $this->request->input('reason', ''));
         $this->fromService($res, function () use ($id) {
             $t = TaskModel::find($id, $this->uid);
-            return $t ? self::card($t) : ['id' => $id];
+            return $t ? self::card($t) : ['id' => pid('tasks', $id)];
         });
     }
 

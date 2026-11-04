@@ -6,7 +6,7 @@ declare(strict_types=1);
  *   php bin/export-demo-sql.php > demo-data.sql
  * فایل خروجی مستقل از شناسه‌هاست: کاربران با شماره موبایل پیدا می‌شوند (INSERT IGNORE: کاربر موجود دست نمی‌خورد و رمزش همان می‌ماند؛
  * کاربر ناموجود با رمز Demo12345 ساخته می‌شود)، و پروژه/لیبل/تسک با LAST_INSERT_ID به هم وصل می‌شوند.
- * اول داده‌ی نمونه‌ی قبلی (پروژه‌های [داده‌ی نمونه] و کاربران 0999100xxxx) پاک می‌شود. دیتابیس مقصد باید ساختار نسخه‌ی 4.1 به بعد را داشته باشد.
+ * اول داده‌ی نمونه‌ی قبلی (پروژه‌های [داده‌ی نمونه] و کاربران 0999100xxxx) پاک می‌شود. دیتابیس مقصد باید ساختار نسخه‌ی 5.0 به بعد (ستون pid) را داشته باشد؛ شناسه‌ی عمومی تازه برای هر ردیف ساخته می‌شود.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -17,6 +17,7 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 
 use App\Core\Auth;
 use App\Core\DB;
+use App\Core\Pid;
 
 const MARK = '[داده‌ی نمونه]';
 $pdo = DB::pdo();
@@ -83,7 +84,7 @@ $o = fopen('php://stdout', 'w');
 $w = static fn(string $s) => fwrite($o, $s . "\n");
 $w('-- ============================================================================');
 $w('--  داده‌ی نمونه‌ی تسکام: شرکت ' . count($users) . ' نفره، ' . count($tasks) . ' تسک در ' . count($projects) . ' پروژه (ساخته‌شده ' . date('Y-m-d H:i') . ')');
-$w('--  ایمپورت: phpMyAdmin ← دیتابیس برنامه ← Import (charset: utf8mb4). ساختار دیتابیس باید نسخه‌ی 4.1 به بعد باشد.');
+$w('--  ایمپورت: phpMyAdmin ← دیتابیس برنامه ← Import (charset: utf8mb4). ساختار دیتابیس باید نسخه‌ی 5.0 به بعد باشد (ستون pid).');
 $w('--  کاربران با موبایل پیدا می‌شوند؛ کاربر موجود تغییر نمی‌کند، کاربر ناموجود با رمز Demo12345 ساخته می‌شود.');
 $w('--  حذف: پروژه‌هایی که توضیحشان «' . MARK . '» دارد (با تسک‌ها) و کاربران 0999100xxxx — یا php bin/seed-demo.php --clean --yes');
 $w('-- ============================================================================');
@@ -98,31 +99,31 @@ $w("DELETE FROM users WHERE mobile LIKE '0999100%';");
 $w('');
 $w('-- کاربران');
 foreach ($users as $u) {
-    $w('INSERT IGNORE INTO users (mobile, first_name, last_name, password_hash, role, status, tour, created_at) VALUES ('
-        . $q($u['mobile']) . ', ' . $q($u['first_name']) . ', ' . $q($u['last_name']) . ', ' . $q($pass) . ", 'user', 'active', 'done', " . $q($u['created_at']) . ');');
+    $w('INSERT IGNORE INTO users (pid, mobile, first_name, last_name, password_hash, role, status, tour, created_at) VALUES ('
+        . $q(Pid::new()) . ', ' . $q($u['mobile']) . ', ' . $q($u['first_name']) . ', ' . $q($u['last_name']) . ', ' . $q($pass) . ", 'user', 'active', 'done', " . $q($u['created_at']) . ');');
     $w('SET @u' . (int) $u['id'] . ' = (SELECT id FROM users WHERE mobile = ' . $q($u['mobile']) . ');');
 }
 $w('');
 $w('-- همکاری‌ها (دوطرفه = تأییدشده)');
 $pairs = DB::all('SELECT user_id, colleague_user_id FROM colleagues WHERE user_id IN (' . DB::in($uids) . ') AND colleague_user_id IN (' . DB::in($uids) . ')', array_merge($uids, $uids));
 foreach (array_chunk($pairs, 200) as $chunk) {
-    $w('INSERT IGNORE INTO colleagues (user_id, colleague_user_id) VALUES ' . implode(', ', array_map(static fn($c) => '(' . $uv($c['user_id']) . ', ' . $uv($c['colleague_user_id']) . ')', $chunk)) . ';');
+    $w('INSERT IGNORE INTO colleagues (pid, user_id, colleague_user_id) VALUES ' . implode(', ', array_map(static fn($c) => '(' . $q(Pid::new()) . ', ' . $uv($c['user_id']) . ', ' . $uv($c['colleague_user_id']) . ')', $chunk)) . ';');
 }
 $w('');
 $w('-- پروژه‌ها و اعضا');
 foreach ($projects as $p) {
-    $w('INSERT INTO projects (user_id, title, description, max_members, priority_type, status, created_at) VALUES (' . $uv($p['user_id']) . ', ' . $q($p['title']) . ', ' . $q($p['description'])
+    $w('INSERT INTO projects (pid, user_id, title, description, max_members, priority_type, status, created_at) VALUES (' . $q(Pid::new()) . ', ' . $uv($p['user_id']) . ', ' . $q($p['title']) . ', ' . $q($p['description'])
         . ', ' . (int) $p['max_members'] . ', ' . $q($p['priority_type']) . ', 1, ' . $q($p['created_at']) . ');');
     $w('SET @p' . (int) $p['id'] . ' = LAST_INSERT_ID();');
 }
 foreach ($members as $m) {
-    $w('INSERT IGNORE INTO project_members (project_id, user_id, permissions, task_permissions, board_permissions, board_view_users, added_at) VALUES (@p' . (int) $m['project_id'] . ', ' . $uv($m['user_id'])
+    $w('INSERT IGNORE INTO project_members (pid, project_id, user_id, permissions, task_permissions, board_permissions, board_view_users, added_at) VALUES (' . $q(Pid::new()) . ', @p' . (int) $m['project_id'] . ', ' . $uv($m['user_id'])
         . ', ' . $q($m['permissions']) . ', ' . $q($m['task_permissions']) . ', ' . $q($m['board_permissions']) . ', ' . $q($m['board_view_users']) . ', ' . $q($m['added_at']) . ');');
 }
 $w('');
 $w('-- لیبل‌ها (اگر صاحب لیبل از قبل همین عنوان را دارد، همان استفاده می‌شود)');
 foreach ($subjects as $s) {
-    $w('INSERT INTO subjects (user_id, title, color) SELECT ' . $uv($s['user_id']) . ', ' . $q($s['title']) . ', ' . $q($s['color'])
+    $w('INSERT INTO subjects (pid, user_id, title, color) SELECT ' . $q(Pid::new()) . ', ' . $uv($s['user_id']) . ', ' . $q($s['title']) . ', ' . $q($s['color'])
         . ' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ');');
     $w('SET @s' . (int) $s['id'] . ' = (SELECT id FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ' ORDER BY id LIMIT 1);');
 }
@@ -148,7 +149,7 @@ foreach ($tasks as $t) {
             $vals[] = $q($v);
         }
     }
-    $w('INSERT INTO tasks (' . implode(', ', $cols) . ') VALUES (' . implode(', ', $vals) . ');');
+    $w('INSERT INTO tasks (pid, ' . implode(', ', $cols) . ') VALUES (' . $q(Pid::new()) . ', ' . implode(', ', $vals) . ');');
     $w('SET @t = LAST_INSERT_ID();');
     $ev = $events[(int) $t['id']] ?? [];
     if ($ev) {
@@ -156,7 +157,7 @@ foreach ($tasks as $t) {
     }
     $nt = $notes[(int) $t['id']] ?? [];
     if ($nt) {
-        $w('INSERT INTO task_notes (task_id, user_id, note, created_at) VALUES ' . implode(', ', array_map(static fn($n) => '(@t, ' . $uv($n['user_id']) . ', ' . $q($n['note']) . ', ' . $q($n['created_at']) . ')', $nt)) . ';');
+        $w('INSERT INTO task_notes (pid, task_id, user_id, note, created_at) VALUES ' . implode(', ', array_map(static fn($n) => '(' . $q(Pid::new()) . ', @t, ' . $uv($n['user_id']) . ', ' . $q($n['note']) . ', ' . $q($n['created_at']) . ')', $nt)) . ';');
     }
 }
 $w('');

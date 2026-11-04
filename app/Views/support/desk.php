@@ -10,7 +10,7 @@ use App\Services\SupportDesk;
 $this->scripts[] = 'support';
 $this->boot['support'] = ['texts' => $texts];
 $qs = static fn(array $o = []) => SupportDesk::query($params, $o);
-$tid = $ticket ? (int) $ticket['id'] : 0;
+$tid = $ticket ? pid('support_tickets', $ticket) : '';
 $closed = $ticket && $ticket['status'] === 'closed';
 $canWrite = $ticket && ($admin || !$closed);
 $imgExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
@@ -56,10 +56,10 @@ $badgeHtml = static function (array $t) use ($admin): string {
         <?php if (!$list['rows']): ?>
             <div class="desk-none"><i class="fa-solid fa-inbox"></i><p><?= $params['q'] !== '' || $params['status'] !== 'all' ? ($params['q'] === '' && $params['status'] === 'new' ? 'تیکت جدیدی وجود ندارد؛ همه‌ی تیکت‌ها پاسخ گرفته‌اند.' : 'تیکتی با این فیلتر پیدا نشد.') : ($admin ? 'هنوز تیکتی ثبت نشده است.' : 'تیکتی ندارید. هر سؤال، مشکل یا پیشنهادی دارید برای پشتیبانی بفرستید.') ?></p></div>
         <?php endif; ?>
-        <?php foreach ($list['rows'] as $t): $on = (int) $t['id'] === $tid; ?>
-            <a class="tcard <?= $on ? 'active' : '' ?> <?= $t['status'] === 'closed' ? 'closed' : '' ?>" href="<?= e(url($base . '/' . $t['id']) . $qs()) ?>" <?= $on ? 'aria-current="true"' : '' ?>>
+        <?php foreach ($list['rows'] as $t): $on = pid('support_tickets', $t) === $tid; ?>
+            <a class="tcard <?= $on ? 'active' : '' ?> <?= $t['status'] === 'closed' ? 'closed' : '' ?>" href="<?= e(url($base . '/' . pid('support_tickets', $t)) . $qs()) ?>" <?= $on ? 'aria-current="true"' : '' ?>>
                 <div class="tcard-top">
-                    <span class="tcard-no"><i class="fa-solid fa-ticket"></i> شماره تیکت <b>#<?= e(fa_num($t['id'])) ?></b></span>
+                    <span class="tcard-no"><i class="fa-solid fa-ticket"></i> شماره تیکت <b class="ltr">#<?= e(pid('support_tickets', $t)) ?></b></span>
                     <span class="tcard-badges"><?= $badgeHtml($t) ?></span>
                 </div>
                 <div class="tcard-title"><span class="truncate"><?= e($t['subject']) ?></span><?php if ((int) $t['unread_count'] > 0): ?><span class="badge-count" title="پیام خوانده‌نشده"><?= e(fa_num($t['unread_count'])) ?></span><?php endif; ?></div>
@@ -110,7 +110,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
             <div class="grow desk-head-txt">
                 <div class="desk-title"><?php if ($admin): ?><b><?= e(full_name($ticket)) ?></b> <span class="muted">(<?= e($ticket['subject']) ?>)</span><?php else: ?><b><?= e($ticket['subject']) ?></b><?php endif; ?></div>
                 <div class="desk-sub">
-                    <span>#<?= e(fa_num($tid)) ?></span>
+                    <span class="ltr">#<?= e($tid) ?></span>
                     <?php if ($admin): ?><span class="ltr"><?= e($ticket['mobile']) ?></span><?php endif; ?>
                     <span>اولویت <?= e($priorities[$ticket['priority']] ?? '—') ?></span>
                     <span class="hide-sm">ثبت: <?= e(jdate($ticket['created_at'])) ?></span>

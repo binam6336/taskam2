@@ -33,12 +33,12 @@ document.addEventListener('tk:ready', () => {
     }).join('') || '<div class="empty small"><i class="fa-solid fa-diagram-project"></i><p>پروژه‌ای ندارید که در آن اجازه‌ی افزودن عضو داشته باشید.</p></div>';
   };
   TK.on('click', '[data-add-to-project]', (e, b) => {
-    apUser = Number(b.dataset.addToProject);
+    apUser = b.dataset.addToProject;
     TK.qs('#ap-name').textContent = '«' + (b.dataset.name || '') + '»';
     apDraw(); TK.modal.open('m-add-proj');
   });
   TK.on('click', '[data-ap-add]', async (e, b) => {
-    const pid = Number(b.dataset.apAdd);
+    const pid = b.dataset.apAdd;
     TK.busy(b, true);
     const r = await TK.post('/projects/' + pid + '/members/add', { user_id: apUser });
     TK.busy(b, false);

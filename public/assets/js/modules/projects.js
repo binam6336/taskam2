@@ -2,7 +2,7 @@ document.addEventListener('tk:ready', () => {
   if (!TK.qs('#f-project')) return;
   // ?focus=<id> (از پنل مدیر ← «ورود به پروژه»): کارت همان پروژه برجسته و دیده شود
   const fid = new URLSearchParams(location.search).get('focus');
-  const fc = fid && /^\d+$/.test(fid) ? TK.qs('#proj-' + fid) : null;
+  const fc = fid && /^[a-z0-9]{12}$/.test(fid) ? TK.qs('#proj-' + fid) : null;
   if (fc) {
     fc.classList.add('proj-focus');
     setTimeout(() => fc.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
@@ -70,7 +70,7 @@ document.addEventListener('tk:ready', () => {
       : `<div class="muted small">${data().colleagues.length ? 'همکاری با این جستجو پیدا نشد یا همه عضو پروژه‌اند.' : 'همکاری ندارید؛ از بخش «همکاران» همکار اضافه کنید.'}</div>`;
     TK.qs('#add-mem-go').disabled = true;
   };
-  TK.on('click', '[data-add-mem]', (e, t) => { addPid = +t.dataset.addMem; const b = TK.qs('#add-mem-box'); b.hidden = false; TK.qs('#add-mem-q').value = ''; addDraw(); TK.qs('#add-mem-q').focus(); });
+  TK.on('click', '[data-add-mem]', (e, t) => { addPid = t.dataset.addMem; const b = TK.qs('#add-mem-box'); b.hidden = false; TK.qs('#add-mem-q').value = ''; addDraw(); TK.qs('#add-mem-q').focus(); });
   TK.on('click', '[data-add-mem-close]', () => { TK.qs('#add-mem-box').hidden = true; });
   TK.on('input', '#add-mem-q', addDraw);
   TK.on('change', '#add-mem-list input', () => { TK.qs('#add-mem-go').disabled = !TK.qs('#add-mem-list input:checked'); });
@@ -85,7 +85,7 @@ document.addEventListener('tk:ready', () => {
 
   /* جزئیات دسترسی‌های یک عضو (در فهرست اعضا فقط نشان نقش دیده می‌شود) */
   TK.on('click', '[data-mdetail]', (e, t) => {
-    const [pid, uid] = t.dataset.mdetail.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
+    const [pid, uid] = t.dataset.mdetail.split(':'), p = data().list[pid], m = p.members.find((x) => x.id === uid);
     TK.qs('#md-name').textContent = m.name;
     TK.qs('#md-body').innerHTML = `<div class="flex items-center gap-1 mb-2"><span class="avatar">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>
         <div><b>${E(m.name)}</b><div class="xs muted ltr">${E(m.mobile)}</div></div><span class="grow"></span>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</div>
@@ -156,7 +156,7 @@ document.addEventListener('tk:ready', () => {
   TK.on('click', '#bv-toggle', (e, b) => { const l = TK.qs('#bv-list'); l.hidden = !l.hidden; b.setAttribute('aria-expanded', l.hidden ? 'false' : 'true'); });
   const box = (name, k, d, checked, enabled) => `<label class="check"><input type="checkbox" name="${name}[]" value="${k}" ${checked ? 'checked' : ''} ${enabled ? '' : 'disabled'}><div><b><i class="fa-solid ${d.icon}"></i> ${E(d.label)}</b><span>${E(d.desc)}</span></div></label>`;
   TK.on('click', '[data-mperm]', (e, t) => {
-    const [pid, uid] = t.dataset.mperm.split(':').map(Number), p = data().list[pid], m = p.members.find((x) => x.id === uid);
+    const [pid, uid] = t.dataset.mperm.split(':'), p = data().list[pid], m = p.members.find((x) => x.id === uid);
     target = { pid, uid }; TK.qs('#mp-name').textContent = m.name; TK.qs('#mp-project').textContent = '«' + p.title + '»';
     TK.qs('#mp-task-list').innerHTML = Object.entries(data().taskPermDefs).map(([k, d]) => box('task_permissions', k, d, m.task_perms.includes(k), p.task_perms.includes(k))).join('');
     // «مشاهده‌ی تسک‌های»: خودِ عضو در صدر (همیشه)، بعد بقیه‌ی اعضا؛ غیرسازنده فقط اعضایی را که خودش می‌بیند تغییر می‌دهد

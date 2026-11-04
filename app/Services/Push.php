@@ -234,7 +234,7 @@ final class Push
             $lines = array_values(array_filter(array_map('trim', explode("\n", $clean)), static fn($l) => $l !== ''));
             $title = $lines[0] ?? 'تسکام';
             $body = implode(' • ', array_slice($lines, 1, 4));
-            self::toUser($receiver, ['title' => $title, 'body' => $body, 'url' => $link ?? 'chat?user=' . $sender, 'tag' => 'n' . $msgId, 'kind' => 'system']);
+            self::toUser($receiver, ['title' => $title, 'body' => $body, 'url' => $link ?? 'chat?user=' . pid('users', $sender), 'tag' => 'n' . pid('chat_messages', $msgId), 'kind' => 'system']);
             return;
         }
         $u = DB::one('SELECT first_name, last_name, mobile FROM users WHERE id = ?', [$sender]);
@@ -244,7 +244,7 @@ final class Push
         if (!self::preview()) {
             $clean = 'برای خواندن، گفتگو را باز کنید.';            // PUSH_PREVIEW=false: متن پیام از سرور خارج نمی‌شود
         }
-        self::toUser($receiver, ['title' => 'پیام جدید – ' . ($u ? full_name($u) : 'کاربر'), 'body' => $clean, 'url' => 'chat?user=' . $sender, 'tag' => 'msg' . $sender, 'kind' => 'chat']);
+        self::toUser($receiver, ['title' => 'پیام جدید – ' . ($u ? full_name($u) : 'کاربر'), 'body' => $clean, 'url' => 'chat?user=' . pid('users', $sender), 'tag' => 'msg' . pid('users', $sender), 'kind' => 'chat']);
     }
 
     /**
@@ -271,7 +271,7 @@ final class Push
             DB::run('UPDATE tasks SET notified_at = NOW() WHERE id = ? AND notified_at IS NULL', [(int) $t['id']]);
             $tok = $t['share_token'] ?: \App\Models\TaskModel::ensureShareToken((int) $t['id']);
             $body = trim(($t['project_title'] ? 'پروژه: ' . $t['project_title'] . ' • ' : '') . 'مهلت: ' . fa_num(substr((string) $t['due_time'], 0, 5)) . ($t['description'] ? ' • ' . mb_substr(trim((string) $t['description']), 0, 120) : ''));
-            self::toUser((int) $t['assignee_id'], ['title' => '⏰ یادآوری وظیفه – ' . $t['title'], 'body' => $body, 'url' => 'tasks?task=' . $tok, 'tag' => 'task' . $t['id'], 'kind' => 'due']);
+            self::toUser((int) $t['assignee_id'], ['title' => '⏰ یادآوری وظیفه – ' . $t['title'], 'body' => $body, 'url' => 'tasks?task=' . $tok, 'tag' => 'task' . pid('tasks', $t['id']), 'kind' => 'due']);
         }
         return count($rows);
     }

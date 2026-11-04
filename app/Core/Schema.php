@@ -10,10 +10,28 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '031';
+    public const VERSION = '032';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 032 شناسه‌ی عمومی
+        ['users', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_users_pid` (`pid`)", null],
+        ['projects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_projects_pid` (`pid`)", null],
+        ['tasks', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_tasks_pid` (`pid`)", null],
+        ['task_notes', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_task_notes_pid` (`pid`)", null],
+        ['task_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_task_attachments_pid` (`pid`)", null],
+        ['note_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_note_attachments_pid` (`pid`)", null],
+        ['subjects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_subjects_pid` (`pid`)", null],
+        ['call_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_call_requests_pid` (`pid`)", null],
+        ['support_tickets', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_tickets_pid` (`pid`)", null],
+        ['support_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_messages_pid` (`pid`)", null],
+        ['chat_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_messages_pid` (`pid`)", null],
+        ['api_tokens', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_api_tokens_pid` (`pid`)", null],
+        ['project_join_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_project_join_requests_pid` (`pid`)", null],
+        ['colleague_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_colleague_requests_pid` (`pid`)", null],
+        ['project_members', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_project_members_pid` (`pid`)", null],
+        ['colleagues', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_colleagues_pid` (`pid`)", null],
+        ['chat_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_requests_pid` (`pid`)", null],
         // 031
         ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
         // 030
@@ -202,6 +220,13 @@ final class Schema
                         $fail('جدول ' . $table, $e);
                     }
                 }
+            }
+            // ساخت pid ردیف‌های بدون شناسه‌ی عمومی (v5.0)
+            try {
+                Pid::backfill($say);
+            } catch (\Throwable $e) {
+                $ok = false;
+                $fail('شناسه‌ی عمومی', $e);
             }
             foreach (self::DATA as [$id, $file]) {
                 $dflag = STORAGE_PATH . '/cache/data-' . $id;

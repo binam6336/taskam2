@@ -5,14 +5,14 @@ use App\Services\TaskAnalytics;
 $t = $a['totals'];
 $sum = $k['summary'];
 $this->boot['analytics'] = [
-    'id' => (int) $project['id'], 'trend' => $a['trend'], 'totals' => $t, 'subjects' => $k['subjects'], 'label_count' => $k['label_count'],
-    'people' => $people, 'speed' => $speed, 'ranges' => array_map(static fn($r) => $r[0], TaskAnalytics::RANGES),
+    'id' => pid('projects', $project), 'trend' => $a['trend'], 'totals' => $t, 'subjects' => $k['subjects'], 'label_count' => $k['label_count'],
+    'people' => array_map(static fn($u) => ['id' => pid('users', $u['id'])] + $u, $people), 'speed' => \App\Controllers\ProjectController::speedOut($speed), 'ranges' => array_map(static fn($r) => $r[0], TaskAnalytics::RANGES),
 ];
 $this->scripts[] = 'analytics';
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red', '' => ''];
 // کارت‌ها و اعضا لینک به صفحه‌ی تسک‌ها با فیلتر همین پروژه
-$tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => (int) $project['id']] + $q);
+$tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => pid('projects', $project)] + $q);
 ?>
 <div class="page-head"><div><a class="small muted an-back" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div></div>
 <div class="grid grid-4 mb-2">
@@ -48,7 +48,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
         <div class="an-controls">
             <div class="an-people" id="sp-people">
                 <?php foreach ($people as $i => $u): $on = in_array($u['id'], array_column($speed['series'], 'id'), true); ?>
-                    <label class="an-chip"><input type="checkbox" value="<?= (int) $u['id'] ?>" <?= $on ? 'checked' : '' ?>><span><?= e($u['name']) ?></span></label>
+                    <label class="an-chip"><input type="checkbox" value="<?= e(pid('users', $u['id'])) ?>" <?= $on ? 'checked' : '' ?>><span><?= e($u['name']) ?></span></label>
                 <?php endforeach; ?>
             </div>
             <div class="flex gap-1 wrap items-center">
@@ -67,7 +67,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
-        <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => (int) $m['id']])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
+        <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => pid('users', $m['id'])])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
             <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= (int) $m['waiting'] > 0 ? '<span class="badge purple">' . e(fa_num($m['waiting'])) . '</span>' : '—' ?></td><td><?= e(fa_num($m['open'])) ?></td>
             <td><?= (int) $m['overdue'] > 0 ? '<span class="badge red">' . e(fa_num($m['overdue'])) . '</span>' : '—' ?></td>
             <td><?php if ($r['score'] === null): ?><span class="faint small">هنوز تسکی انجام نداده</span><?php else: ?>

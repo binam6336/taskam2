@@ -41,7 +41,7 @@ final class CalendarController extends Controller
             $time = $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '';
             $done = (int) $t['is_completed'] === 1;
             $items[] = [
-                'id' => (int) $t['id'], 'title' => $t['title'], 'date' => $t['due_date'], 'time' => $time, 'done' => $done,
+                'id' => pid('tasks', $t), 'title' => $t['title'], 'date' => $t['due_date'], 'time' => $time, 'done' => $done,
                 'overdue' => !$done && $t['due_date'] < date('Y-m-d'),            // عقب‌افتاده = روزهای قبل (تعریف واحد)
                 'hour_past' => !$done && $t['due_date'] === date('Y-m-d') && $time && strtotime($t['due_date'] . ' ' . $time . ':59') < time(),
                 'priority' => $t['priority'], 'percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'priority_type' => $t['project_priority_type'] ?? 'category',
@@ -51,7 +51,7 @@ final class CalendarController extends Controller
                 'can_move' => $can['edit_due'], 'can_edit' => $can['edit'],
                 'edit' => $can['edit'] ? [
                     'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null,
-                    'due_date' => $t['due_date'], 'due_time' => $time, 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'], '_id' => (int) $t['id'], '_can' => $can,
+                    'due_date' => $t['due_date'], 'due_time' => $time, 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'], '_id' => pid('tasks', $t), '_can' => $can,
                 ] : null,
             ];
         }

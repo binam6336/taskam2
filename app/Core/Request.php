@@ -17,8 +17,9 @@ final class Request
 
     private function __construct()
     {
-        $this->query = $_GET;
-        $this->post = $_POST;
+        // فیلدهای شناسه‌دار (Pid::INPUTS) از pid به id داخلی؛ id عددی از بیرون پذیرفته نمی‌شود
+        $this->query = Pid::translateInput($_GET);
+        $this->post = Pid::translateInput($_POST);
         $this->files = $_FILES;
         $this->server = $_SERVER;
     }
@@ -105,11 +106,11 @@ final class Request
             if ($raw !== '') {
                 $d = json_decode($raw, true);
                 if (is_array($d)) {
-                    $this->json = $d;
+                    $this->json = Pid::translateInput($d);
                 } elseif (!$this->isJsonBody()) {
                     parse_str($raw, $parsed);
                     if (is_array($parsed)) {
-                        $this->json = $parsed;
+                        $this->json = Pid::translateInput($parsed);
                     }
                 }
             }

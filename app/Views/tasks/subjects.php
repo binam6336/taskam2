@@ -9,9 +9,9 @@
     <?php foreach ($subjects as $s): ?>
     <div class="card hover flex items-center gap-2">
         <i class="fa-solid fa-tag label-icon" data-css="color:<?= e($s['color']) ?>"></i>
-        <div class="grow"><div class="bold"><?= e($s['title']) ?></div><a class="xs lbl-tasks" href="<?= e(url('/tasks?scope=mine&status=all&label=' . (int) $s['id'])) ?>" title="نمایش تسک‌های این لیبل"><?= e(fa_num($s['tasks_count'])) ?> تسک <i class="fa-solid fa-arrow-left"></i></a></div>
-        <button class="btn btn-sm btn-icon" title="ویرایش لیبل" aria-label="ویرایش لیبل «<?= e($s['title']) ?>»" data-edit='<?= e(json_html(['title' => $s['title'], 'color' => $s['color']])) ?>' data-target="m-subject" data-action="/labels/<?= (int) $s['id'] ?>/update"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن لیبل" aria-label="مسدود کردن لیبل «<?= e($s['title']) ?>»" data-post="<?= e(url('/block/labels/' . $s['id'])) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» مسدود شود؟ برای تسک جدید انتخاب نمی‌شود ولی روی تسک‌های فعلی می‌ماند. از «لیبل‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button>
+        <div class="grow"><div class="bold"><?= e($s['title']) ?></div><a class="xs lbl-tasks" href="<?= e(url('/tasks?scope=mine&status=all&label=' . pid('subjects', $s))) ?>" title="نمایش تسک‌های این لیبل"><?= e(fa_num($s['tasks_count'])) ?> تسک <i class="fa-solid fa-arrow-left"></i></a></div>
+        <button class="btn btn-sm btn-icon" title="ویرایش لیبل" aria-label="ویرایش لیبل «<?= e($s['title']) ?>»" data-edit='<?= e(json_html(['title' => $s['title'], 'color' => $s['color']])) ?>' data-target="m-subject" data-action="/labels/<?= e(pid('subjects', $s)) ?>/update"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن لیبل" aria-label="مسدود کردن لیبل «<?= e($s['title']) ?>»" data-post="<?= e(url('/block/labels/' . pid('subjects', $s))) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» مسدود شود؟ برای تسک جدید انتخاب نمی‌شود ولی روی تسک‌های فعلی می‌ماند. از «لیبل‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button>
     </div>
     <?php endforeach; ?>
 </div>

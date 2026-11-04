@@ -39,7 +39,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
         <td><?php if ($x['priority_percent'] !== null): ?><span class="badge"><?= e(fa_num((int) $x['priority_percent'])) ?>٪</span><?php else: ?><span class="badge <?= e($pc[$x['priority']][1]) ?>"><?= e($pc[$x['priority']][0]) ?></span><?php endif; ?></td>
         <td class="small <?= $late ? 'prio-high' : '' ?>"><?= $x['due_date'] ? e(jdate($x['due_date'] . ' 00:00:00', false)) . ($late ? ' (عقب‌افتاده)' : '') : '—' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php elseif ($kind === 'projects'): ?>
-    <tr class="al-row" data-aproj="<?= (int) $x['id'] ?>" tabindex="0" role="button" title="نمایش جزئیات پروژه"><td class="bold"><i class="fa-solid fa-circle-info faint xs"></i> <?= e($x['title']) ?></td><td class="small"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small"><?= e(fa_num((int) $x['members'])) ?> نفر</td>
+    <tr class="al-row" data-aproj="<?= e(pid('projects', $x)) ?>" tabindex="0" role="button" title="نمایش جزئیات پروژه"><td class="bold"><i class="fa-solid fa-circle-info faint xs"></i> <?= e($x['title']) ?></td><td class="small"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small"><?= e(fa_num((int) $x['members'])) ?> نفر</td>
         <td class="small"><?= e(fa_num((int) $x['done'])) ?> انجام‌شده از <?= e(fa_num((int) $x['tasks'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : '<span class="badge green">فعال</span>' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php else: ?>

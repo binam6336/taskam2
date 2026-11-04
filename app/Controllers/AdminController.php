@@ -236,13 +236,13 @@ final class AdminController extends Controller
             $roles = \App\Services\Access::ROLES + ['custom' => \App\Services\Access::ROLE_CUSTOM];
             // تسک‌های کل پروژه (با دسترسی تحلیل) یا فقط تسک‌های خودش در همان پروژه
             $all = $creator || \App\Services\Access::projectCan((int) $p['id'], $uid, 'view_analytics');
-            $projects[] = ['id' => (int) $p['id'], 'title' => $p['title'], 'members' => (int) $p['members'], 'my_tasks' => (int) $p['my_tasks'], 'blocked' => $p['blocked_at'] !== null,
+            $projects[] = ['id' => pid('projects', $p['id']), 'title' => $p['title'], 'members' => (int) $p['members'], 'my_tasks' => (int) $p['my_tasks'], 'blocked' => $p['blocked_at'] !== null,
                 'role' => $creator ? 'سازنده' : ($roles[\App\Services\Access::memberRole($pm ?? [])]['label'] ?? 'سفارشی'),
-                'to' => $all ? '/tasks?scope=project&project=' . (int) $p['id'] . '&status=all' : '/tasks?scope=mine&status=all&project=' . (int) $p['id']];
+                'to' => $all ? '/tasks?scope=project&project=' . pid('projects', $p['id']) . '&status=all' : '/tasks?scope=mine&status=all&project=' . pid('projects', $p['id'])];
         }
         $last = $u['last_active_at'] ?? $u['last_login_at'] ?? null;
         $this->ok('', ['user' => [
-            'id' => $uid, 'name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar' => avatar_url($u['avatar']),
+            'id' => pid('users', $uid), 'name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar' => avatar_url($u['avatar']),
             'role' => Auth::adminRole($u) ? Auth::ADMIN_ROLES[Auth::adminRole($u)]['label'] : 'کاربر', 'status' => $u['status'],
             'created_fa' => jdate((string) $u['created_at']), 'last_active_fa' => $last ? jdate((string) $last) : null, 'last_active_ago' => $last ? time_ago((string) $last) : null,
             'last_login_fa' => $u['last_login_at'] ? jdate((string) $u['last_login_at']) : null,
@@ -282,7 +282,7 @@ final class AdminController extends Controller
     private function desk(?array $ticket): void
     {
         $this->view('support/desk', SupportDesk::data(true, $this->uid(), $this->request, $ticket) + ['supportUnread' => SupportModel::unreadForAdmin()],
-            ['title' => $ticket ? 'تیکت #' . fa_num($ticket['id']) : 'پشتیبانی', 'page' => 'admin-support', 'bodyClass' => 'page-desk'], 'admin');
+            ['title' => $ticket ? 'تیکت #' . pid('support_tickets', $ticket) : 'پشتیبانی', 'page' => 'admin-support', 'bodyClass' => 'page-desk'], 'admin');
     }
 
     private function ticket(string $id): array
@@ -308,7 +308,7 @@ final class AdminController extends Controller
     {
         $t = $this->ticket($id);
         [$ok, $msg] = SupportModel::addMessage($t, $this->uid(), 'admin', $this->request->str('message', SupportModel::MSG_MAX), $this->request->file('attachment'));
-        $this->respond($ok, $msg, '/admin/support/' . $id);
+        $this->respond($ok, $msg, '/admin/support/' . pid('support_tickets', $id));
     }
 
     public function supportStatus(string $id)
@@ -316,11 +316,11 @@ final class AdminController extends Controller
         $t = $this->ticket($id);
         $s = Validate::enum($this->request->input('status'), ['open', 'in_progress', 'answered', 'closed'], '');
         if ($s === '') {
-            $this->respond(false, 'وضعیت نامعتبر است.', '/admin/support/' . $id);
+            $this->respond(false, 'وضعیت نامعتبر است.', '/admin/support/' . pid('support_tickets', $id));
         }
         DB::run('UPDATE support_tickets SET status = ?, closed_at = ' . ($s === 'closed' ? 'NOW()' : 'NULL') . ' WHERE id = ?', [$s, (int) $t['id']]);
         $labels = ['open' => 'تیکت دوباره باز شد.', 'in_progress' => 'تیکت «در حال انجام» شد.', 'answered' => 'وضعیت تیکت تغییر کرد.', 'closed' => 'تیکت بسته شد.'];
-        $this->respond(true, $labels[$s], '/admin/support/' . $id);
+        $this->respond(true, $labels[$s], '/admin/support/' . pid('support_tickets', $id));
     }
 
     public function supportDelete(string $id)
@@ -529,7 +529,7 @@ final class AdminController extends Controller
         }
         $cnt = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1 AND blocked_at IS NULL),0) done, COALESCE(SUM(blocked_at IS NOT NULL),0) blocked FROM tasks WHERE project_id = ?', [(int) $id]) ?? [];
         $this->ok('', ['project' => [
-            'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'created_fa' => jdate((string) $p['created_at']),
+            'id' => pid('projects', $p['id']), 'title' => $p['title'], 'description' => $p['description'], 'created_fa' => jdate((string) $p['created_at']),
             'creator' => full_name($p), 'creator_mobile' => $p['mobile'], 'creator_avatar' => avatar_url($p['avatar']), 'creator_id' => (int) $p['user_id'],
             // «ورود به پروژه»: با نقش مدیر وارد پنل سازنده و صفحه‌ی پروژه‌ها (همین پروژه برجسته)
             'can_enter' => Auth::adminCan('impersonate') && $p['role'] !== 'admin' && $p['status'] === 'active',

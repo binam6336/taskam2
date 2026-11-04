@@ -114,26 +114,26 @@ final class BlockService
                     if (!Access::canTask($r, $uid, 'view') && !Access::canTask($r, $uid, 'block')) {
                         continue;
                     }
-                    $out[] = ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'sub' => $r['project_title'] ? 'پروژه: ' . $r['project_title'] : '',
+                    $out[] = ['id' => pid('tasks', $r), 'title' => (string) $r['title'], 'sub' => $r['project_title'] ? 'پروژه: ' . $r['project_title'] : '',
                         'token' => $r['share_token'] ?: TaskModel::ensureShareToken((int) $r['id']), 'can_unblock' => Access::canTask($r, $uid, 'block')] + self::meta($r);
                 }
                 break;
             case 'project':
                 foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = x.id) AS members
                         FROM projects x $who WHERE x.blocked_at IS NOT NULL AND x.user_id = ? ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid]) as $r) {
-                    $out[] = ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['members']) . ' عضو', 'can_unblock' => true] + self::meta($r);
+                    $out[] = ['id' => pid('projects', $r), 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['members']) . ' عضو', 'can_unblock' => true] + self::meta($r);
                 }
                 break;
             case 'label':
                 foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = x.id AND t.blocked_at IS NULL) AS n
                         FROM subjects x $who WHERE x.blocked_at IS NOT NULL AND x.user_id = ? ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid]) as $r) {
-                    $out[] = ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['n']) . ' تسک', 'color' => (string) $r['color'], 'can_unblock' => true] + self::meta($r);
+                    $out[] = ['id' => pid('subjects', $r), 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['n']) . ' تسک', 'color' => (string) $r['color'], 'can_unblock' => true] + self::meta($r);
                 }
                 break;
             case 'call':
                 foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl FROM call_requests x $who
                         WHERE x.blocked_at IS NOT NULL AND (x.user_id = ? OR x.assignee_id = ?) ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid, $uid]) as $r) {
-                    $out[] = ['id' => (int) $r['id'], 'title' => trim($r['first_name'] . ' ' . $r['last_name']), 'sub' => (string) ($r['store'] ?: $r['mobile']),
+                    $out[] = ['id' => pid('call_requests', $r), 'title' => trim($r['first_name'] . ' ' . $r['last_name']), 'sub' => (string) ($r['store'] ?: $r['mobile']),
                         'can_unblock' => Access::can($r, $uid, 'block')] + self::meta($r);
                 }
                 break;

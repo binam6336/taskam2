@@ -25,7 +25,7 @@ final class MetaApi extends ApiController
     public function me()
     {
         $u = UserModel::find($this->uid);
-        $this->ok(['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar_url' => avatar_url($u['avatar']), 'auth_method' => $this->request->params['_api_method'] ?? null]);
+        $this->ok(['id' => pid('users', $u), 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar_url' => avatar_url($u['avatar']), 'auth_method' => $this->request->params['_api_method'] ?? null]);
     }
 
     public function time()

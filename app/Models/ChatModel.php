@@ -51,7 +51,7 @@ final class ChatModel
 
     public static function createRequest(int $from, int $to): void
     {
-        DB::run("INSERT IGNORE INTO chat_requests (requester_id, target_id, status) VALUES (?, ?, 'pending')", [$from, $to]);
+        DB::run("INSERT IGNORE INTO chat_requests (pid, requester_id, target_id, status) VALUES (?, ?, ?, 'pending')", [\App\Core\Pid::new(), $from, $to]);
     }
 
     /** پذیرفتن درخواست گفتگوی $from توسط $me */

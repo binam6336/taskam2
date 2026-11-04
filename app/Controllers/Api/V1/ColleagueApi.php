@@ -119,7 +119,7 @@ final class ColleagueApi extends ApiController
             $this->err('کاربری با این شماره موبایل یافت نشد.', 404, 'USER_NOT_FOUND');
         }
         $u = $r['user'];
-        $this->ok(['user' => ['id' => (int) $u['id'], 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $r['already_added'] && isset(ColleagueService::approvedIds($this->uid)[(int) $u['id']]) ? $u['email'] : null, 'avatar_url' => avatar_url($u['avatar'])],
+        $this->ok(['user' => ['id' => pid('users', $u), 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'full_name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $r['already_added'] && isset(ColleagueService::approvedIds($this->uid)[(int) $u['id']]) ? $u['email'] : null, 'avatar_url' => avatar_url($u['avatar'])],
             'already_added' => $r['already_added'], 'is_blocked' => !$r['accepts_requests'], 'is_blocked_by_me' => $r['is_blocked_by_me'], 'has_blocked_me' => $r['has_blocked_me']]);
     }
 

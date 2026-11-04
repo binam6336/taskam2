@@ -37,6 +37,6 @@ $base = rtrim(full_url('api/v1'), '/');
         <td class="small muted"><?= $t['last_used_at'] ? e(time_ago($t['last_used_at'])) . ' <span class="ltr xs">(' . e($t['last_ip']) . ')</span>' : 'هرگز' ?></td>
         <td class="small"><?= $t['expires_at'] ? e(jdate($t['expires_at'], false)) : '—' ?></td>
         <td><?php if ($expired): ?><span class="badge red">منقضی</span><?php elseif ((int) $t['is_active'] === 1): ?><span class="badge green">فعال</span><?php else: ?><span class="badge">غیرفعال</span><?php endif; ?></td>
-        <td class="nowrap"><button class="btn btn-xs" data-post="<?= e(url('/tokens/' . $t['id'] . '/toggle')) ?>"><?= (int) $t['is_active'] === 1 ? 'غیرفعال‌سازی' : 'فعال‌سازی' ?></button>
-            <button class="btn btn-xs btn-danger" data-post="<?= e(url('/tokens/' . $t['id'] . '/delete')) ?>" title="حذف توکن" aria-label="حذف توکن «<?= e($t['name']) ?>»" data-confirm="این توکن حذف شود؟ برنامه‌هایی که از آن استفاده می‌کنند از کار می‌افتند."><i class="fa-solid fa-trash"></i></button></td></tr>
+        <td class="nowrap"><button class="btn btn-xs" data-post="<?= e(url('/tokens/' . pid('api_tokens', $t) . '/toggle')) ?>"><?= (int) $t['is_active'] === 1 ? 'غیرفعال‌سازی' : 'فعال‌سازی' ?></button>
+            <button class="btn btn-xs btn-danger" data-post="<?= e(url('/tokens/' . pid('api_tokens', $t) . '/delete')) ?>" title="حذف توکن" aria-label="حذف توکن «<?= e($t['name']) ?>»" data-confirm="این توکن حذف شود؟ برنامه‌هایی که از آن استفاده می‌کنند از کار می‌افتند."><i class="fa-solid fa-trash"></i></button></td></tr>
 <?php endforeach; ?></tbody></table></div><?php endif; ?></div>

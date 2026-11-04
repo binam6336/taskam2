@@ -23,7 +23,7 @@ final class ProjectController extends Controller
             $p['pending_ids'] = $p['is_creator'] || in_array('add_member', $p['perms'], true) ? ProjectModel::pendingUserIds((int) $p['id']) : [];
         }
         unset($p);
-        $colleagues = array_map(static fn($c) => ['id' => (int) $c['user_id'], 'name' => full_name($c), 'mobile' => $c['mobile'], 'avatar' => avatar_url($c['avatar'])], ColleagueService::listFor($uid));
+        $colleagues = array_map(static fn($c) => ['id' => pid('users', $c['user_id']), 'name' => full_name($c), 'mobile' => $c['mobile'], 'avatar' => avatar_url($c['avatar'])], ColleagueService::listFor($uid));
         $this->view('projects/index', [
             'projects' => $projects, 'colleagues' => $colleagues, 'requests' => ProjectModel::pendingRequestsFor($uid),
             'history' => ProjectModel::leaveHistory($uid), 'blockedCount' => \App\Services\BlockService::list('project', $uid, 1)['total'], 'permDefs' => Access::PROJECT_PERMS, 'taskPermDefs' => Access::TASK_PERMS, 'boardPermDefs' => Access::BOARD_PERMS, 'roles' => Access::ROLES + ['custom' => Access::ROLE_CUSTOM],
@@ -165,7 +165,16 @@ final class ProjectController extends Controller
             $this->fail('دسترسی مشاهده‌ی تحلیل‌های این پروژه را ندارید.', 403);
         }
         $q = $this->request->query;
-        $users = array_filter(array_map('intval', explode(',', (string) ($q['users'] ?? ''))));
-        $this->ok('', TaskAnalytics::speedSeries((int) $id, $users, (string) ($q['range'] ?? '1m'), (string) ($q['metric'] ?? 'score')));
+        $users = \App\Core\Pid::ids('users', array_slice(explode(',', (string) ($q['users'] ?? '')), 0, 50));
+        $this->ok('', self::speedOut(TaskAnalytics::speedSeries((int) $id, $users, (string) ($q['range'] ?? '1m'), (string) ($q['metric'] ?? 'score'))));
+    }
+
+    /** سری‌های نمودار سرعت با شناسه‌ی عمومی کاربر */
+    public static function speedOut(array $s): array
+    {
+        foreach ($s['series'] ?? [] as $i => $row) {
+            $s['series'][$i]['id'] = pid('users', $row['id']);
+        }
+        return $s;
     }
 }

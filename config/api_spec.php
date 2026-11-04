@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 $q = static fn(string $n, string $t, string $d, bool $r = false, $def = null): array => ['name' => $n, 'in' => 'query', 'type' => $t, 'required' => $r, 'desc' => $d, 'default' => $def];
 $b = static fn(string $n, string $t, string $d, bool $r = false, $def = null): array => ['name' => $n, 'in' => 'body', 'type' => $t, 'required' => $r, 'desc' => $d, 'default' => $def];
-$id = $q('id', 'integer', 'شناسه‌ی رکورد', true);
+$id = $q('id', 'string', 'شناسه‌ی عمومی رکورد (رشته‌ی ۱۲ نویسه‌ای؛ از v5.0 عدد پذیرفته نمی‌شود)', true);
 $blockedItem = ['id' => 42, 'title' => 'ارسال گزارش هفتگی', 'subtitle' => 'پروژه: بازطراحی وب‌سایت', 'blocked_at' => '2026-11-03 10:00:00', 'blocked_by_name' => 'علی رضایی', 'can_unblock' => true];
 $paging = [$q('limit', 'integer', 'حداکثر تعداد نتیجه (۱ تا ۲۰۰)', false, 100), $q('offset', 'integer', 'تعداد رکورد رد‌شده', false, 0)];
 
@@ -20,7 +20,7 @@ $text = ['id' => 'a1b2c3d4e5f6_9f8e7d6c', 'title' => 'سلام و احوالپر
 $person = ['user_id' => 9, 'first_name' => 'مریم', 'last_name' => 'احمدی', 'full_name' => 'مریم احمدی', 'mobile' => '09129998877', 'email' => null, 'avatar_url' => null];
 $project = ['id' => 2, 'title' => 'بازطراحی وب‌سایت', 'description' => null, 'max_members' => 10, 'priority_type' => 'category', 'profile_image' => null, 'status' => 1, 'is_creator' => true, 'my_permissions' => ['edit_project', 'add_member', 'remove_member', 'manage_permissions', 'view_analytics'], 'my_task_permissions' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete', 'block'], 'my_role' => 'creator', 'my_board_permissions' => ['to_todo', 'to_progress', 'to_review', 'to_done', 'move_back', 'move_any'], 'created_at' => '2026-09-01 12:00:00', 'members_count' => 4];
 
-return [
+$spec = [
     'meta' => ['title' => 'Taskam API', 'version' => 'v1', 'updated' => '2026-10'],
     'errors' => [
         ['code' => 'UNAUTHORIZED / TOKEN_INVALID', 'http' => 401, 'desc' => 'توکن ارسال نشده، نامعتبر، غیرفعال یا منقضی است.'],
@@ -28,7 +28,8 @@ return [
         ['code' => 'TOKEN_READ_ONLY', 'http' => 403, 'desc' => 'توکن «فقط خواندن» است و فقط درخواست‌های GET را می‌پذیرد (سطح دسترسی هنگام ساخت توکن در پنل انتخاب می‌شود).'],
         ['code' => 'FORBIDDEN', 'http' => 403, 'desc' => 'دسترسی لازم برای این عملیات را ندارید (مثلاً دسترسی تسک در آن پروژه برایتان فعال نشده).'],
         ['code' => 'ENDPOINT_REMOVED', 'http' => 410, 'desc' => 'این endpoint حذف شده است؛ پیام خطا جایگزین آن را می‌گوید (مثلاً /colleagues/permissions از v3.0).'],
-        ['code' => 'INVALID_ID', 'http' => 400, 'desc' => 'شناسه ارسال نشده یا نامعتبر است.'],
+        ['code' => 'INVALID_ID', 'http' => 400, 'desc' => 'شناسه ارسال نشده یا نامعتبر است. از v5.0 همه‌ی شناسه‌ها (id، user_id، project_id، …) رشته‌ی تصادفی ۱۲ نویسه‌ای‌اند (حروف کوچک و ارقام، مثل k7m2x9qa4rtd)؛ شناسه‌ی عددی قدیمی پذیرفته نمی‌شود.'],
+        ['code' => 'NOT_FOUND', 'http' => 404, 'desc' => 'شناسه‌ی عمومی معتبر است ولی رکوردی با آن وجود ندارد.'],
         ['code' => '*_NOT_FOUND', 'http' => 404, 'desc' => 'رکورد پیدا نشد یا به شما تعلق ندارد (مثلاً TASK_NOT_FOUND).'],
         ['code' => 'BOARD_LIMIT', 'http' => 409, 'desc' => 'در /board/move: سقف تعداد تسک مسئولِ کارت در ستون مقصد پر است (board_limits عضو در آن پروژه).'],
         ['code' => 'METHOD_NOT_ALLOWED', 'http' => 405, 'desc' => 'متد HTTP برای این آدرس مجاز نیست.'],
@@ -122,3 +123,48 @@ return [
         ]],
     ],
 ];
+
+/*
+ * شناسه‌ی عمومی (v5.0): در نمونه‌ها هر شناسه‌ی عددی (id، *_id، *_ids، row_id، approved_by، …) به یک شناسه‌ی نمونه‌ی ۱۲ نویسه‌ای
+ * تبدیل می‌شود (ثابت برای هر مقدار، تا یک کاربر در همه‌ی نمونه‌ها یک شناسه داشته باشد) و نوع پارامترهای شناسه string است.
+ */
+$fake = static function (string $kind, int $v): string {
+    $a = '23456789abcdefghjkmnpqrstuvwxyz';
+    $h = hash('sha256', $kind . ':' . $v);
+    $o = '';
+    for ($i = 0; $i < 12; $i++) {
+        $o .= $a[hexdec(substr($h, $i * 2, 2)) % 31];
+    }
+    return ctype_digit($o) ? 'k' . substr($o, 1) : $o;
+};
+$isId = static fn(string $k): bool => $k === 'id' || $k === 'row_id' || (bool) preg_match('/_id$|_ids$|^(approved_by|delivered_by|blocked_by|forwarded_from)$/', $k);
+$kindOf = static fn(string $k): string => preg_match('/^(user_id|assignee_id|creator_id|sender_id|receiver_id|approved_by|delivered_by|blocked_by|forwarded_from|.*_user_id|.*_user_ids|user_ids|view_user_ids|board_view_user_ids|my_board_view_user_ids)$/', $k) ? 'users' : $k;
+$walk = static function ($v, string $ctx = '') use (&$walk, $fake, $isId, $kindOf) {
+    if (!is_array($v)) {
+        return $v;
+    }
+    foreach ($v as $k => $x) {
+        if (is_string($k) && $isId($k) && is_int($x)) {
+            $v[$k] = $fake($k === 'id' ? 'id' . $ctx : $kindOf($k), $x);
+        } elseif (is_string($k) && $isId($k) && is_array($x) && $x && array_keys($x) === range(0, count($x) - 1) && is_int($x[0])) {
+            $v[$k] = array_map(static fn($i) => is_int($i) ? $fake($kindOf($k), $i) : $i, $x);
+        } else {
+            $v[$k] = $walk($x, is_string($k) ? $k : $ctx);
+        }
+    }
+    return $v;
+};
+foreach ($spec['groups'] as $gi => $g) {
+    foreach ($g['endpoints'] as $ei => $e) {
+        if (isset($e['example'])) {
+            $spec['groups'][$gi]['endpoints'][$ei]['example'] = $walk($e['example'], $g['id']);
+        }
+        foreach ($e['params'] ?? [] as $pi => $prm) {
+            if ($isId($prm['name']) && in_array($prm['type'], ['integer', 'array'], true)) {
+                $spec['groups'][$gi]['endpoints'][$ei]['params'][$pi]['type'] = $prm['type'] === 'integer' ? 'string' : 'array';
+                $spec['groups'][$gi]['endpoints'][$ei]['params'][$pi]['desc'] .= ' (شناسه‌ی عمومی ۱۲ نویسه‌ای)';
+            }
+        }
+    }
+}
+return $spec;

@@ -18,6 +18,37 @@ final class ChatController extends Controller
         $this->view('chat/index', ['me' => $this->uid()], ['title' => 'گفتگو', 'page' => 'chat', 'bodyClass' => 'page-chat']);
     }
 
+    /**
+     * شناسه‌ی عمومی در همه‌ی خروجی‌های گفتگو (v5.0): «id» هر پیام (آرایه‌ای که sender_id دارد یا زیر کلید message) → pid پیام؛
+     * کلیدهای users (فهرست حضور و تعداد خوانده‌نشده) → pid کاربر؛ بقیه‌ی *_id ها را Pid::out خودش عوض می‌کند.
+     */
+    protected function json(array $data, int $status = 200)
+    {
+        foreach (['users', 'counts'] as $k) {
+            if (isset($data[$k]) && (is_array($data[$k]) || is_object($data[$k]))) {
+                $m = [];
+                foreach ((array) $data[$k] as $uidKey => $v) {
+                    $m[is_int($uidKey) ? pid('users', $uidKey) : $uidKey] = $v;
+                }
+                $data[$k] = (object) $m;
+            }
+        }
+        parent::json(self::pubMsg($data), $status);
+    }
+
+    private static function pubMsg(array $a, bool $isMsg = false): array
+    {
+        if (($isMsg || array_key_exists('sender_id', $a)) && isset($a['id']) && (is_int($a['id']) || ctype_digit((string) $a['id']))) {
+            $a['id'] = pid('chat_messages', $a['id']);
+        }
+        foreach ($a as $k => $v) {
+            if (is_array($v)) {
+                $a[$k] = self::pubMsg($v, in_array($k, ['message', 'last_message'], true));
+            }
+        }
+        return $a;
+    }
+
     private function touch(int $uid): void
     {
         UserModel::touchSeen($uid);
@@ -212,7 +243,8 @@ final class ChatController extends Controller
         }
         $limit = max(5, min(100, (int) ($r->query['limit'] ?? 30)));
         $mode = (string) ($r->query['mode'] ?? 'initial');
-        $res = ChatModel::fetch($uid, $other, $mode, (int) ($r->query['before_id'] ?? 0), (int) ($r->query['after_id'] ?? 0), (int) ($r->query['target_id'] ?? 0), $limit);
+        $mid = static fn(string $k) => (int) \App\Core\Pid::id('chat_messages', (string) ($r->query[$k] ?? ''));
+        $res = ChatModel::fetch($uid, $other, $mode, $mid('before_id'), $mid('after_id'), $mid('target_id'), $limit);
         $this->json(['status' => 'success'] + $res + ['mode' => $mode]);
     }
 
@@ -383,7 +415,7 @@ final class ChatController extends Controller
     public function usersStatus()
     {
         $uid = $this->uid();
-        $ids = array_values(array_filter(array_map('intval', explode(',', (string) ($this->request->query['user_ids'] ?? ''))), static fn($i) => $i > 0 && $i !== $uid));
+        $ids = array_values(array_filter(\App\Core\Pid::ids('users', array_slice(explode(',', (string) ($this->request->query['user_ids'] ?? '')), 0, 200)), static fn($i) => $i > 0 && $i !== $uid));
         $ids = array_slice($ids, 0, 200);
         $out = [];
         if ($ids) {

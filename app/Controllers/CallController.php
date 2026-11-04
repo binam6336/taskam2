@@ -46,7 +46,7 @@ final class CallController extends Controller
         $this->view('calls/index', [
             'calls' => $res['rows'], 'total' => $res['total'], 'tab' => $tab, 'pg' => $page, 'pages' => max(1, (int) ceil($res['total'] / self::PER_PAGE)),
             'q' => $q, 'counts' => $counts, 'shared' => $shared, 'blockedCount' => \App\Services\BlockService::list('call', $uid, 1)['total'],
-            'assignees' => array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u)], $assignees),
+            'assignees' => array_map(static fn($u) => ['id' => pid('users', $u['id']), 'name' => full_name($u)], $assignees),
         ], ['title' => 'درخواست‌های تماس', 'page' => 'calls']);
     }
 

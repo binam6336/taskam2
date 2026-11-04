@@ -649,7 +649,7 @@
     async poll() {
       const live = TK.boot().live;                       // بعد از جابه‌جایی نرم، scope صفحه‌ی جدید
       if (!live) return;
-      const KEY = 'tk_last_msg_' + (live.uid || 0);
+      const KEY = 'tk_lastmsg_' + (live.uid || '');
       const last = ls.get(KEY);
       const params = { scope: live.scope || '' };
       if (last === null) params.baseline = 1; else params.last_msg = last;
@@ -665,8 +665,9 @@
       if (navigator.setAppBadge && r.counts && 'chat' in r.counts) { try { r.counts.chat ? navigator.setAppBadge(r.counts.chat) : navigator.clearAppBadge(); } catch { /* */ } }
       if (r.msg_base !== null && r.msg_base !== undefined) ls.set(KEY, String(r.msg_base));
       (r.messages || []).forEach((m) => {
-        if (m.id <= Number(ls.get(KEY) || 0)) return;                    // تب دیگری قبلاً اعلان داده
-        ls.set(KEY, String(m.id));
+        ls.set(KEY, String(m.id));                                          // نشانگر = شناسه‌ی عمومی آخرین پیام
+        if (ls.get('tk_msg_n_' + m.id)) return;                             // تب دیگری قبلاً اعلان داده
+        ls.set('tk_msg_n_' + m.id, '1');
         if (TK.state.chatUser === m.sender && document.hasFocus() && !document.hidden) return;   // همین گفتگو باز است
         TK.notify({ title: m.title, body: m.body, url: m.url, tag: 'msg-' + m.sender });
       });

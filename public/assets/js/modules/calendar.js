@@ -142,7 +142,7 @@ document.addEventListener('tk:ready', () => {
     if (TK.ok(r)) load();
   };
   TK.on('click', '[data-cal-move]', (e, b) => move(b.dataset.calMove, b.dataset.to));
-  TK.on('click', '[data-cal-edit]', (e, b) => { const t = items.find((x) => x.id === +b.dataset.calEdit); if (t?.edit) TK.tasks?.openEdit(t.edit); });
+  TK.on('click', '[data-cal-edit]', (e, b) => { const t = items.find((x) => String(x.id) === b.dataset.calEdit); if (t?.edit) TK.tasks?.openEdit(t.edit); });
 
   let dragId = null;
   grid.addEventListener('dragstart', (e) => {

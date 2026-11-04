@@ -51,11 +51,22 @@ abstract class ApiController
         $this->ok($data, $res['message'], $res['http'] === 201 ? 200 : $res['http']);
     }
 
-    protected function id(): int
+    /** جدول شناسه‌ی پارامتر id این کنترلر (شناسه‌ی عمومی؛ v5.0) */
+    protected const TABLE = '';
+
+    /** پارامتر id (شناسه‌ی عمومی ۱۲ نویسه‌ای) → id داخلی؛ عدد یا شناسه‌ی ناموجود = INVALID_ID / NOT_FOUND */
+    protected function id(?string $table = null): int
     {
-        $id = (int) ($this->request->query['id'] ?? $this->request->input('id', 0));
-        if ($id <= 0) {
+        $raw = (string) ($this->request->query['id'] ?? $this->request->input('id', ''));
+        if (trim($raw) === '') {
             $this->err('پارامتر id الزامی است.', 400, 'INVALID_ID');
+        }
+        if (!Pid::valid(strtolower(trim($raw)))) {
+            $this->err('پارامتر id نامعتبر است؛ شناسه‌ها رشته‌ی ۱۲ نویسه‌ای‌اند (نه عدد).', 400, 'INVALID_ID');
+        }
+        $id = Pid::id($table ?? static::TABLE, $raw);
+        if ($id === null) {
+            $this->err('موردی با این شناسه یافت نشد.', 404, 'NOT_FOUND');
         }
         return $id;
     }

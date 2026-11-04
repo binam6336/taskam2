@@ -11,10 +11,12 @@ use App\Services\CallService;
 
 final class CallApi extends ApiController
 {
+    protected const TABLE = 'call_requests';
+
     public static function format(array $c): array
     {
         return [
-            'id' => (int) $c['id'], 'user_id' => (int) $c['user_id'], 'assignee_id' => $c['assignee_id'] !== null ? (int) $c['assignee_id'] : null,
+            'id' => pid('call_requests', $c), 'user_id' => (int) $c['user_id'], 'assignee_id' => $c['assignee_id'] !== null ? (int) $c['assignee_id'] : null,
             'first_name' => $c['first_name'], 'last_name' => $c['last_name'], 'mobile' => $c['mobile'], 'email' => $c['email'],
             'store' => $c['store'], 'website' => $c['website'], 'description' => $c['description'] ?? null,
             'status' => (int) $c['status'], 'is_done' => (int) $c['status'] === 1, 'created_at' => $c['created_at'], 'completed_at' => $c['completed_at'],
@@ -77,6 +79,6 @@ final class CallApi extends ApiController
         $in = $this->body();
         $new = array_key_exists('status', $in) ? ((int) $in['status'] === 1 ? 1 : 0) : ((int) $c['status'] === 1 ? 0 : 1);
         DB::run('UPDATE call_requests SET status = ?, completed_at = ' . ($new === 1 ? 'NOW()' : 'NULL') . ' WHERE id = ?', [$new, $id]);
-        $this->ok(['id' => $id, 'status' => $new, 'is_done' => $new === 1, 'completed_at' => $new === 1 ? date('Y-m-d H:i:s') : null], 'وضعیت درخواست تغییر کرد.');
+        $this->ok(['id' => pid('call_requests', $id), 'status' => $new, 'is_done' => $new === 1, 'completed_at' => $new === 1 ? date('Y-m-d H:i:s') : null], 'وضعیت درخواست تغییر کرد.');
     }
 }

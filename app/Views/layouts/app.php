@@ -8,7 +8,7 @@ $active = $this->page;
 $menu = \App\Models\SidebarModel::nav(); // چیدمان از «محتوا ← سایدبار» در پنل ادمین (پیش‌فرض: config/sidebar.php)
 $badges = array_fill_keys(['tasks', 'colleagues', 'projects', 'chat', 'support'], 0);
 $this->boot['flash'] = Session::pullFlash();
-$this->boot['live'] = ['scope' => $active, 'uid' => (int) $u['id']];
+$this->boot['live'] = ['scope' => $active, 'uid' => pid('users', $u)];
 // تور آموزشی: تا وقتی کاربر رد یا تمامش نکرده (NULL = هنوز پرسیده نشده)
 $tour = array_key_exists('tour', $u) ? $u['tour'] : 'done';
 if (($_GET['tour'] ?? '') === 'start') {

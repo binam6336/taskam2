@@ -21,7 +21,7 @@ $taskRow = static function (array $t, bool $late): string {
     $time = $t['due_time'] ? fa_num(substr((string) $t['due_time'], 0, 5)) : '';
     // امروز با ساعت گذشته: در «امروز» می‌ماند (عقب‌افتاده فقط روزهای قبل) و برچسب قرمز «ساعت گذشته» می‌گیرد
     $hourPast = !$late && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
-    return '<a class="dash-task p-' . e($t['priority']) . '" href="' . e(url('/tasks?task=' . $t['share_token'])) . '" data-open-task="' . (int) $t['id'] . '">'
+    return '<a class="dash-task p-' . e($t['priority']) . '" href="' . e(url('/tasks?task=' . $t['share_token'])) . '" data-open-task="' . e(pid('tasks', $t)) . '">'
         . '<span class="dash-task-dot"></span><span class="grow truncate">' . e($t['title']) . '</span>'
         . ($t['project_title'] ? '<span class="dash-task-proj truncate"><i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . '</span>' : '')
         . '<span class="dash-task-due' . ($late || $hourPast ? ' late' : '') . '">' . e(trim($due . ' ' . $time)) . ($hourPast ? ' <span class="hour-past">ساعت گذشته</span>' : '') . '</span></a>';
@@ -60,14 +60,14 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" data-css="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
             <div class="list"><?php foreach ($w['review'] as $t): ?>
                 <div class="item dash-wait-item dash-review-item">
-                    <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
+                    <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
                         <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div></div></a>
                     <?php // تأیید یا برگرداندن بدون باز کردن تسک ?>
                     <div class="flex gap-1 dash-review-acts">
-                        <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . (int) $t['id'] . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
-                        <button type="button" class="btn btn-xs" data-dash-rework="<?= (int) $t['id'] ?>" title="برگرداندن برای اصلاح"><i class="fa-solid fa-rotate-left"></i> اصلاح</button>
+                        <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . pid('tasks', $t) . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
+                        <button type="button" class="btn btn-xs" data-dash-rework="<?= e(pid('tasks', $t)) ?>" title="برگرداندن برای اصلاح"><i class="fa-solid fa-rotate-left"></i> اصلاح</button>
                     </div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>
@@ -75,7 +75,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if ($w['rework']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
             <div class="list"><?php foreach ($w['rework'] as $t): ?>
-                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $t['id'] ?>">
+                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <span class="avatar sm sq dash-rework-ico"><i class="fa-solid fa-rotate-left"></i></span>
                     <div class="grow min0"><div class="small truncate">«<?= e($t['title']) ?>»<?= $t['blocked_reason'] ? ' — ' . e($t['blocked_reason']) : '' ?></div>
                         <div class="xs faint truncate"><?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['board_moved_at'] ?? '')) ?></div></div></a>
@@ -85,7 +85,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if ($w['mentions']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-at"></i> منشن‌ها</b></div>
             <div class="list"><?php foreach ($w['mentions'] as $m): $an = full_name($m); ?>
-                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($m['share_token'] ?: ''))) ?>" data-open-task="<?= (int) $m['task_id'] ?>">
+                <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($m['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $m['task_id'])) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b><?= e($an) ?></b> شما را در «<?= e($m['title']) ?>» منشن کرد</div><div class="xs faint"><?= e(time_ago($m['created_at'])) ?></div></div></a>
             <?php endforeach; ?></div></div>
@@ -94,7 +94,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if ($w['chats']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-regular fa-comments"></i> پیام‌های خوانده‌نشده</b></div>
             <div class="list"><?php foreach ($w['chats'] as $c): $cn = full_name($c); ?>
-                <a class="item dash-wait-item" href="<?= e(url('/chat?user=' . (int) $c['sender_id'])) ?>">
+                <a class="item dash-wait-item" href="<?= e(url('/chat?user=' . pid('users', $c['sender_id']))) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($c), 'src' => avatar_url($c['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b><?= e($cn) ?></b></div><div class="xs faint"><?= e(time_ago($c['last_at'])) ?></div></div>
                     <span class="badge-count"><?= e(fa_num($c['cnt'])) ?></span></a>
@@ -104,10 +104,10 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if ($w['colleagues']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-user-plus"></i> درخواست همکاری</b></div>
             <div class="list"><?php foreach ($w['colleagues'] as $r): ?>
-                <div class="item" id="dash-cr-<?= (int) $r['id'] ?>">
+                <div class="item" id="dash-cr-<?= e(pid('colleague_requests', $r)) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($r), 'src' => avatar_url($r['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b><?= e(full_name($r)) ?></b> می‌خواهد همکار شما شود</div><div class="xs faint"><?= e(time_ago($r['created_at'])) ?></div></div>
-                    <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/colleagues/requests/' . $r['id'] . '/accept')) ?>" data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/colleagues/requests/' . $r['id'] . '/reject')) ?>" data-after="reload">رد</button></div></div>
+                    <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/colleagues/requests/' . pid('colleague_requests', $r) . '/accept')) ?>" data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/colleagues/requests/' . pid('colleague_requests', $r) . '/reject')) ?>" data-after="reload">رد</button></div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>
 
@@ -117,7 +117,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                 <div class="item">
                     <span class="avatar sm sq"><?php if ($r['profile_image']): ?><img src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
                     <div class="grow min0"><div class="small truncate">عضویت در <b>«<?= e($r['title']) ?>»</b></div><div class="xs faint">دعوت از <?= e(full_name($r)) ?> • <?= e(time_ago($r['created_at'])) ?></div></div>
-                    <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/projects/requests/' . $r['id'] . '/respond')) ?>" data-data='{"action":"accept"}' data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/projects/requests/' . $r['id'] . '/respond')) ?>" data-data='{"action":"reject"}' data-after="reload">رد</button></div></div>
+                    <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"accept"}' data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"reject"}' data-after="reload">رد</button></div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>
     </div>

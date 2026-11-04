@@ -23,7 +23,7 @@ final class SubjectController extends Controller
     public function store()
     {
         $res = LabelService::create($this->uid(), ['title' => $this->request->input('title', ''), 'color' => $this->request->input('color', '')]);
-        $this->respond($res['ok'], $res['message'], '/labels', $res['ok'] ? ['id' => (int) $res['data']['id']] : []);
+        $this->respond($res['ok'], $res['message'], '/labels', $res['ok'] ? ['id' => pid('subjects', $res['data'])] : []);
     }
 
     public function update(string $id)

@@ -34,8 +34,8 @@ final class ColleagueController extends Controller
                 continue;
             }
             $members = array_map('intval', \App\Core\DB::column('SELECT user_id FROM project_members WHERE project_id = ?', [$pid]));
-            $out[] = ['id' => $pid, 'title' => $p['title'], 'image' => project_image_url($p['profile_image'] ?? null),
-                'members' => $members, 'pending' => \App\Models\ProjectModel::pendingUserIds($pid), 'full' => count($members) >= (int) $p['max_members']];
+            $out[] = ['id' => pid('projects', $pid), 'title' => $p['title'], 'image' => project_image_url($p['profile_image'] ?? null),
+                'members' => $members, 'pending' => \App\Core\Pid::many('users', \App\Models\ProjectModel::pendingUserIds($pid)), 'full' => count($members) >= (int) $p['max_members']];
         }
         return $out;
     }
@@ -56,7 +56,7 @@ final class ColleagueController extends Controller
         }
         $u = $r['user'];
         $this->ok('', ['found' => [
-            'id' => (int) $u['id'], 'name' => full_name($u), 'mobile' => $u['mobile'], 'avatar_url' => avatar_url($u['avatar']),
+            'id' => pid('users', $u), 'name' => full_name($u), 'mobile' => $u['mobile'], 'avatar_url' => avatar_url($u['avatar']),
             'already_added' => $r['already_added'], 'is_blocked_by_me' => $r['is_blocked_by_me'], 'has_blocked_me' => $r['has_blocked_me'],
             'has_pending_request' => $r['has_pending_request'], 'accepts_requests' => $r['accepts_requests'],
         ]]);

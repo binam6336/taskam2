@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\DB;
+use App\Core\Pid;
 use App\Core\Uploader;
 use App\Core\Validate;
 use App\Models\NoteModel;
@@ -52,7 +53,7 @@ final class TaskController extends Controller
             if ($an === null) {
                 $assignee = 0;
             }
-            $projScope = ['id' => $proj, 'title' => $pr['title'], 'assignee' => $assignee, 'assignee_name' => $an ? full_name($an) : null];
+            $projScope = ['id' => Pid::of('projects', $proj), 'title' => $pr['title'], 'assignee' => $assignee, 'assignee_name' => $an ? full_name($an) : null];
         }
         // «همه» (باز و انجام‌شده با هم): تب همه، و کارت‌های «کل تسک‌ها»/«اولویت زیاد» پیشخوان
         $completed = $statusQ === 'all' ? null : $done;
@@ -122,7 +123,8 @@ final class TaskController extends Controller
             ) ORDER BY u.first_name, u.last_name", [$uid, $uid, $uid]);
         $me = DB::one('SELECT id, first_name, last_name, mobile, avatar FROM users WHERE id = ?', [$uid]);
         array_unshift($rows, $me + ['is_me' => true]);
-        return array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u) . (!empty($u['is_me']) ? ' (خودم)' : ''), 'avatar' => avatar_url($u['avatar'])], $rows);
+        Pid::prime('users', array_column($rows, 'id'));
+        return array_map(static fn($u) => ['id' => Pid::of('users', $u['id']), 'name' => full_name($u) . (!empty($u['is_me']) ? ' (خودم)' : ''), 'avatar' => avatar_url($u['avatar'])], $rows);
     }
 
     /** ساختار کامل برای مودال جزئیات. */
@@ -131,28 +133,30 @@ final class TaskController extends Controller
         $can = TaskService::effective($t, $uid);
         $notes = array_reverse(NoteModel::forTask((int) $t['id']));   // جدیدترین بالا
         foreach ($notes as &$n) {
+            $n['id'] = Pid::row('task_notes', $n);
+            unset($n['pid']);
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
             $n['mine'] = (int) $n['user_id'] === $uid;
             $n['can_edit'] = empty($t['blocked_at']) && ($n['mine'] || (int) $t['user_id'] === $uid);
             $n['created_fa'] = jdate($n['created_at']);
             $n['attachments'] = array_map(static fn($a) => [
-                'id' => (int) $a['id'], 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
+                'id' => Pid::row('note_attachments', $a), 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
                 'url' => url('files/note_attachments/' . rawurlencode($a['file_path'])), 'size_fa' => human_size((int) $a['file_size']), 'icon' => file_icon($a['file_ext']),
             ], $n['attachments']);
         }
         unset($n, $a);
         // خروجی صریح (whitelist): ردیف خام دیتابیس (موبایل آپلودکننده، مسیر/MIME داخلی) به JSON نرود
         $files = array_map(static fn($f) => [
-            'id' => (int) $f['id'], 'file_name' => $f['file_name'], 'file_size' => (int) $f['file_size'], 'file_ext' => $f['file_ext'],
+            'id' => Pid::row('task_attachments', $f), 'file_name' => $f['file_name'], 'file_size' => (int) $f['file_size'], 'file_ext' => $f['file_ext'],
             'url' => url('files/task_attachments/' . rawurlencode($f['file_path'])), 'size_fa' => human_size((int) $f['file_size']),
             'icon' => file_icon($f['file_ext']), 'uploader' => full_name($f),
         ], NoteModel::taskAttachments((int) $t['id']));
         return [
-            'id' => (int) $t['id'], 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
+            'id' => Pid::row('tasks', $t), 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
             'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,
             'priority_type' => $t['project_priority_type'] ?? 'category',
-            'mentionable' => $t['project_id'] ? TaskService::mentionable((int) $t['project_id'], $uid) : [],
+            'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid) : [],
             'is_completed' => (int) $t['is_completed'] === 1, 'is_quick' => (int) ($t['is_quick'] ?? 0) === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,
@@ -183,14 +187,14 @@ final class TaskController extends Controller
     public function status(string $id)
     {
         $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
     /** «انتقال به مرحله‌ی بعد» در جزئیات تسک (همان قواعد بورد: دسترسی مرحله‌ها، تکمیل و سقف ستون) */
     public function advance(string $id)
     {
         $res = BoardService::advance($this->uid(), (int) $id, $this->request->str('from', 20));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
     /** تاریخچه‌ی تغییرات تسک (همان دسترسی مشاهده‌ی جزئیات) */
@@ -221,7 +225,7 @@ final class TaskController extends Controller
             $this->respond(false, $res['message'], $this->tasksUrl());
         }
         $t = $res['data'];
-        $this->respond(true, 'تسک با ثبت سریع ایجاد شد.', $this->tasksUrl(), ['id' => (int) $t['id'], 'share_token' => $t['share_token'] ?? null]);
+        $this->respond(true, 'تسک با ثبت سریع ایجاد شد.', $this->tasksUrl(), ['id' => Pid::row('tasks', $t), 'share_token' => $t['share_token'] ?? null]);
     }
 
     public function quickOptions()
@@ -241,7 +245,7 @@ final class TaskController extends Controller
                 [, $errors] = NoteModel::storeAttachments('task', (int) $res['data']['id'], $uid, $files);
             }
             $msg = $res['message'] . ($errors ? ' (برخی فایل‌ها ذخیره نشد: ' . implode('، ', $errors) . ')' : '');
-            $this->respond(true, $msg, $this->tasksUrl(), ['id' => (int) $res['data']['id']]);
+            $this->respond(true, $msg, $this->tasksUrl(), ['id' => Pid::row('tasks', $res['data'])]);
         }
         $this->respond(false, $res['message'], $this->tasksUrl());
     }
@@ -262,9 +266,9 @@ final class TaskController extends Controller
         $res = TaskService::toggle($this->uid(), (int) $id);
         // بعد از «انجام شد»، دکمه‌ی «بازگردانی» در پیام (همان مسیر تیک، چند ثانیه)
         // تحویل برای بررسی ← «بازگردانی» = پس گرفتن تحویل؛ تکمیل مستقیم (تسک قدیمی بی‌پروژه) ← همان تیک
-        $d = $res['ok'] ? (array) $res['data'] : [];
-        $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . (int) $id . '/withdraw') : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . (int) $id . '/toggle') : null);
-        $extra = $res['ok'] ? $d + ($undo ? ['undo' => $undo] : []) : [];
+        $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
+        $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/withdraw') : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . Pid::of('tasks', $id) . '/toggle') : null);
+        $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
     }
 
@@ -272,7 +276,7 @@ final class TaskController extends Controller
     public function withdraw(string $id)
     {
         $res = BoardService::withdraw($this->uid(), (int) $id);
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
     public function share(string $id)
@@ -289,7 +293,7 @@ final class TaskController extends Controller
     public function addNote(string $id)
     {
         $res = TaskService::addNote($this->uid(), (int) $id, $this->request->str('note', 5000), Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'task_notes') : []);
     }
 
     public function updateNote(string $id)
@@ -301,14 +305,14 @@ final class TaskController extends Controller
     public function addFiles(string $id)
     {
         $res = TaskService::addTaskFiles($this->uid(), (int) $id, Uploader::normalize($this->request->files['attachments'] ?? null));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
     /** اعلان سررسید برای مرورگر (polling). */
     /** یادآوری‌هایی که مرورگر نمایش داد: ثبت notified_at (POST + CSRF) */
     public function dueAck()
     {
-        $n = TaskModel::markNotified($this->uid(), $this->request->arr('ids'));
+        $n = TaskModel::markNotified($this->uid(), Pid::ids('tasks', $this->request->arr('ids')));
         $this->json(['status' => 'success', 'marked' => $n]);
     }
 
@@ -318,7 +322,7 @@ final class TaskController extends Controller
         $out = [];
         foreach ($rows as $r) {
             $tok = $r['share_token'] ?: TaskModel::ensureShareToken((int) $r['id']);
-            $out[] = ['id' => (int) $r['id'], 'title' => $r['title'], 'project_title' => $r['project_title'], 'url' => url('tasks?task=' . $tok), 'due_time' => substr((string) $r['due_time'], 0, 5)];
+            $out[] = ['id' => Pid::row('tasks', $r), 'title' => $r['title'], 'project_title' => $r['project_title'], 'url' => url('tasks?task=' . $tok), 'due_time' => substr((string) $r['due_time'], 0, 5)];
         }
         $this->json(['status' => 'success', 'tasks' => $out]);
     }

@@ -47,10 +47,12 @@ final class LiveController extends Controller
         // ── پیام‌های جدید برای اعلان ──
         $messages = [];
         $base = null;
-        if (!empty($this->request->query['baseline'])) {
-            $base = (int) DB::value('SELECT COALESCE(MAX(id), 0) FROM chat_messages WHERE receiver_id = ? AND sender_id <> receiver_id', [$uid]);
+        // نشانگر پیام‌ها (last_msg / msg_base) شناسه‌ی عمومی آخرین پیام است؛ نامعتبر یا قدیمی (عددی) = شروع دوباره از الان
+        $after = \App\Core\Pid::id('chat_messages', (string) ($this->request->query['last_msg'] ?? ''));
+        if (!empty($this->request->query['baseline']) || $after === null) {
+            $bid = (int) DB::value('SELECT COALESCE(MAX(id), 0) FROM chat_messages WHERE receiver_id = ? AND sender_id <> receiver_id', [$uid]);
+            $base = $bid > 0 ? pid('chat_messages', $bid) : '';
         } else {
-            $after = (int) ($this->request->query['last_msg'] ?? 0);
             $rows = DB::all('SELECT cm.id, cm.sender_id, cm.receiver_id, cm.message, cm.attachment_name, u.first_name, u.last_name, u.mobile
                                FROM chat_messages cm INNER JOIN users u ON u.id = cm.sender_id
                               WHERE cm.receiver_id = ? AND cm.sender_id <> cm.receiver_id AND cm.is_read = 0 AND cm.id > ?
@@ -62,11 +64,11 @@ final class LiveController extends Controller
                     $text = '📎 ' . ChatModel::open($r['attachment_name'], (int) $r['sender_id'], (int) $r['receiver_id']);
                 }
                 $messages[] = [
-                    'id'     => (int) $r['id'],
-                    'sender' => (int) $r['sender_id'],
+                    'id'     => pid('chat_messages', $r['id']),
+                    'sender' => pid('users', $r['sender_id']),
                     'title'  => 'پیام جدید – ' . full_name($r),
                     'body'   => self::clip($text, 160),
-                    'url'    => url('/chat?user=' . (int) $r['sender_id']),
+                    'url'    => url('/chat?user=' . pid('users', $r['sender_id'])),
                 ];
             }
         }
@@ -77,7 +79,7 @@ final class LiveController extends Controller
             $tok = $t['share_token'] ?: TaskModel::ensureShareToken((int) $t['id']);
             $desc = self::clip(trim((string) $t['description']), 160);
             $due[] = [
-                'id'    => (int) $t['id'],
+                'id'    => pid('tasks', $t),
                 'title' => 'یادآوری وظیفه – ' . $t['title'],
                 'body'  => $desc !== '' ? $desc : 'زمان انجام این وظیفه فرا رسیده است.',
                 'url'   => url('/tasks?task=' . $tok),

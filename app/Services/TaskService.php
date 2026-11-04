@@ -144,7 +144,7 @@ final class TaskService
         foreach ($projects as $p) {
             $pid = (int) $p['id'];
             $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
-            $out[] = ['id' => $pid, 'title' => $p['title'], 'members' => $mem, 'can_assign' => in_array('reassign', Access::projectTaskPerms($pid, $uid), true)];
+            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => in_array('reassign', Access::projectTaskPerms($pid, $uid), true)];
             foreach ($mem as $m) {
                 $people[$m] = true;
             }
@@ -157,10 +157,10 @@ final class TaskService
             if ((int) $r['id'] !== $uid && Access::isBlockedBetween($uid, (int) $r['id'])) {
                 continue;
             }
-            $list[] = ['id' => (int) $r['id'], 'name' => full_name($r) . ((int) $r['id'] === $uid ? ' (خودم)' : ''), 'avatar' => avatar_url($r['avatar']), 'me' => (int) $r['id'] === $uid];
+            $list[] = ['id' => \App\Core\Pid::of('users', $r['id']), 'name' => full_name($r) . ((int) $r['id'] === $uid ? ' (خودم)' : ''), 'avatar' => avatar_url($r['avatar']), 'me' => (int) $r['id'] === $uid];
         }
         usort($list, static fn($a, $b) => ($b['me'] <=> $a['me']) ?: strcmp($a['name'], $b['name']));
-        return ['projects' => $out, 'people' => $list, 'default_project' => self::defaultProject($uid, $ids)];
+        return ['projects' => $out, 'people' => $list, 'default_project' => \App\Core\Pid::of('projects', (int) self::defaultProject($uid, $ids))];
     }
 
     /** پروژه‌ی پیش‌فرض ثبت سریع: آخرین پروژه‌ای که کاربر در آن تسک ساخته (اگر هنوز عضو است)، وگرنه اولین پروژه */
@@ -503,6 +503,14 @@ final class TaskService
     }
 
     /** مجوزهای مؤثر کاربر روی تسک (برای UI). */
+    /** همان mentionable برای خروجی (شناسه‌ی عمومی) */
+    public static function mentionablePublic(int $projectId, int $exceptUid): array
+    {
+        $rows = self::mentionable($projectId, $exceptUid);
+        \App\Core\Pid::prime('users', array_column($rows, 'id'));
+        return array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', $u['id'])] + $u, $rows);
+    }
+
     public static function effective(array $task, int $uid): array
     {
         $have = Access::taskPerms($task, $uid);

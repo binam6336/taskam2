@@ -14,10 +14,12 @@ use App\Services\BlockService;
  */
 final class BlockApi extends ApiController
 {
+    private const TABLES = ['task' => 'tasks', 'project' => 'projects', 'label' => 'subjects', 'call' => 'call_requests'];
+
     private function doSet(string $kind, bool $on)
     {
-        $id = $this->id();
-        $this->fromService($on ? BlockService::block($kind, $this->uid, $id) : BlockService::unblock($kind, $this->uid, $id));
+        $id = $this->id(self::TABLES[$kind]);
+        $this->fromService($on ? BlockService::block($kind, $this->uid, $id) : BlockService::unblock($kind, $this->uid, $id), static fn($d) => \App\Core\Pid::tag((array) $d, self::TABLES[$kind]));
     }
 
     private function doList(string $kind)

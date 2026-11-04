@@ -21,7 +21,7 @@ final class BoardController extends Controller
         $ids = array_map(static fn($p) => (int) $p['id'], $projects);
         $pid = (int) ($q['project'] ?? 0);
         // ?task=<id>: آمدن از جزئیات تسک؛ برد کامل (بدون تغییر فیلترها) و فقط کارت همان تسک برجسته می‌شود
-        $focus = (int) ($q['task'] ?? 0);
+        $focus = (int) \App\Core\Pid::id('tasks', (string) ($q['task'] ?? ''));
         $ft = $focus > 0 ? TaskModel::raw($focus) : null;
         if ($ft === null || !BoardService::canSee($ft, $uid)) {
             if ($focus > 0) {
@@ -65,7 +65,7 @@ final class BoardController extends Controller
         $uid = $this->uid();
         $res = BoardService::archive($uid, $this->filters($uid), 0);
         $items = array_map(static fn($t) => [
-            'id' => (int) $t['id'], 'title' => $t['title'], 'url' => url('/tasks?task=' . $t['token']),
+            'id' => pid('tasks', $t), 'title' => $t['title'], 'url' => url('/tasks?task=' . $t['token']),
             'project' => $t['project_title'], 'assignee' => $t['assignee_id'] ? full_name($t, 'assignee_') : null,
             'assignee_avatar' => $t['assignee_id'] ? avatar_url($t['assignee_avatar']) : null,
             'archived_fa' => jdate((string) $t['archived_at']), 'completed_fa' => $t['completed_at'] ? jdate((string) $t['completed_at']) : null,
@@ -94,6 +94,6 @@ final class BoardController extends Controller
     public function move(string $id)
     {
         $res = BoardService::move($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
-        $this->respond($res['ok'], $res['message'], '/board', $res['ok'] ? (array) $res['data'] : []);
+        $this->respond($res['ok'], $res['message'], '/board', $res['ok'] ? \App\Core\Pid::tag((array) $res['data'], 'tasks') : []);
     }
 }

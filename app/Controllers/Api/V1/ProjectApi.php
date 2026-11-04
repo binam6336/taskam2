@@ -12,9 +12,14 @@ use App\Services\ProjectService;
 
 final class ProjectApi extends ApiController
 {
+    protected const TABLE = 'projects';
+
     private function pid(): int
     {
-        $id = (int) ($this->request->query['id'] ?? $this->request->input('project_id', $this->request->input('id', 0)));
+        if (($this->request->query['id'] ?? $this->request->input('id')) !== null) {
+            return $this->id('projects');
+        }
+        $id = (int) $this->request->input('project_id', 0);          // project_id در Request از شناسه‌ی عمومی ترجمه شده (-1 = نامعتبر)
         if ($id <= 0) {
             $this->err('پارامتر id پروژه الزامی است.', 400, 'INVALID_ID');
         }
@@ -33,7 +38,7 @@ final class ProjectApi extends ApiController
     private function format(array $p, array $perms): array
     {
         return [
-            'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
+            'id' => pid('projects', $p), 'title' => $p['title'], 'description' => $p['description'], 'max_members' => (int) $p['max_members'], 'priority_type' => $p['priority_type'] ?? 'category',
             'profile_image' => project_image_url($p['profile_image']), 'status' => (int) $p['status'],
             'is_creator' => (int) $p['user_id'] === $this->uid, 'my_permissions' => $perms, 'my_task_permissions' => Access::projectTaskPerms((int) $p['id'], $this->uid), 'my_board_permissions' => Access::projectBoardPerms((int) $p['id'], $this->uid), 'my_role' => $this->myRole($p), 'my_board_view_user_ids' => Access::boardViewScope((int) $p['id'], $this->uid), 'created_at' => $p['created_at'],
         ];

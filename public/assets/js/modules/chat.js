@@ -102,7 +102,7 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* باز کردن گفتگو */
-  const open = async (uid, target = 0) => {
+  const open = async (uid, target = '') => {
     const c = uid === ME ? { user_id: ME, first_name: 'پیام‌های ذخیره‌شده', last_name: '', saved: true } : contacts.find((x) => x.user_id === uid);
     if (!c) return;
     cur = c; TK.state.chatUser = c.user_id; root.classList.add('in-conv'); el.empty.style.display = 'none'; el.conv.style.display = 'flex';
@@ -179,7 +179,7 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* انتخاب مخاطب / بازگشت */
-  el.contacts.addEventListener('click', (e) => { const c = e.target.closest('.contact'); if (c) open(Number(c.dataset.uid)); });
+  el.contacts.addEventListener('click', (e) => { const c = e.target.closest('.contact'); if (c) open(c.dataset.uid); });
   TK.qs('#chat-back').addEventListener('click', () => { root.classList.remove('in-conv'); cur = null; TK.state.chatUser = null; drawContacts(); });
 
   /* جستجو */
@@ -200,7 +200,7 @@ document.addEventListener('tk:ready', () => {
   // موبایل: آیکون ذره‌بین → پاپ‌آپ جستجو
   TK.qs('#conv-search-btn').addEventListener('click', () => { TK.modal.open('m-conv-search'); setTimeout(() => TK.qs('#conv-search-m').focus(), 60); });
   TK.qs('#f-conv-search').addEventListener('submit', (e) => { e.preventDefault(); searchConv(TK.qs('#conv-search-m').value); });
-  TK.on('click', '[data-jump]', (e, t) => { const [u, id] = t.dataset.jump.split(':').map(Number); TK.modal.close('m-results'); open(u, id); });
+  TK.on('click', '[data-jump]', (e, t) => { const [u, id] = t.dataset.jump.split(':'); TK.modal.close('m-results'); open(u, id); });
 
   /* ───── منوی راست‌کلیک ───── */
   const ctx = document.createElement('div');
@@ -236,12 +236,12 @@ document.addEventListener('tk:ready', () => {
   };
   el.msgs.addEventListener('contextmenu', (e) => {
     const box = e.target.closest('.msg'); if (!box) return;
-    const m = msgData.get(Number(box.dataset.id)); if (!m) return;
+    const m = msgData.get(box.dataset.id); if (!m) return;
     e.preventDefault(); msgMenu(m, e.clientX, e.clientY);
   });
   el.msgs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-msg-menu]'); if (!b) return;
-    e.stopPropagation(); const r = b.getBoundingClientRect(); const m = msgData.get(Number(b.dataset.msgMenu)); if (m) msgMenu(m, r.left + r.width, r.bottom + 4);
+    e.stopPropagation(); const r = b.getBoundingClientRect(); const m = msgData.get(b.dataset.msgMenu); if (m) msgMenu(m, r.left + r.width, r.bottom + 4);
   });
   // ویرایش از منو
   const editStart = (id) => {
@@ -254,7 +254,7 @@ document.addEventListener('tk:ready', () => {
   el.contacts.addEventListener('contextmenu', (e) => {
     const c = e.target.closest('.contact'); if (!c) return;
     e.preventDefault();
-    const uid = Number(c.dataset.uid), name = c.querySelector('b')?.textContent || '';
+    const uid = c.dataset.uid, name = c.querySelector('b')?.textContent || '';
     showCtx(e.clientX, e.clientY, [
       { icon: 'fa-comment-dots', label: 'باز کردن گفتگو', run: () => open(uid) },
       '-',
@@ -281,7 +281,7 @@ document.addEventListener('tk:ready', () => {
   fwdList?.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-fwd-to]'); if (!b || !fwdMsg) return;
     TK.busy(b, true);
-    const to = Number(b.dataset.fwdTo), r = await TK.post(API + 'forward', { message_id: fwdMsg.id, receiver_id: to });
+    const to = b.dataset.fwdTo, r = await TK.post(API + 'forward', { message_id: fwdMsg.id, receiver_id: to });
     TK.busy(b, false);
     if (r.status !== 'success') return TK.toast(r.message || 'خطا', 'error');
     TK.modal.close('m-forward'); TK.toast(r.info || 'پیام بازارسال شد', 'success', 2500);

@@ -234,7 +234,7 @@ final class ColleagueService
         }
         // طرف مقابل خودش قبلاً من را همکار کرده (همکاری تأییدشده): رضایتش معلوم است، مستقیم اضافه می‌شود
         if (DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . Access::approvedSql('c'), [$targetId, $uid])) {
-            DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [$uid, $targetId]);
+            DB::run("INSERT IGNORE INTO colleagues (pid, user_id, colleague_user_id, permissions) VALUES (?, ?, ?, '[]')", [\App\Core\Pid::new(), $uid, $targetId]);
             DB::run("DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending'", [$uid, $targetId]);
             return [true, 'همکار به لیست شما اضافه شد.', 'added'];
         }
@@ -248,7 +248,7 @@ final class ColleagueService
         $theirs = (int) DB::value("SELECT id FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1", [$targetId, $uid]);
         if ($theirs > 0) {
             self::respond($theirs, $uid, true);
-            DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [$uid, $targetId]);
+            DB::run("INSERT IGNORE INTO colleagues (pid, user_id, colleague_user_id, permissions) VALUES (?, ?, ?, '[]')", [\App\Core\Pid::new(), $uid, $targetId]);
             DB::run("DELETE FROM colleague_requests WHERE requester_id = ? AND target_id = ? AND status = 'pending'", [$uid, $targetId]);
             return [true, 'همکار به لیست شما اضافه شد.', 'added'];
         }
@@ -272,7 +272,7 @@ final class ColleagueService
             return [false, 'یکی از کاربران معتبر نیست.'];
         }
         DB::transaction(static function () use ($r, $requestId): void {
-            DB::run("INSERT IGNORE INTO colleagues (user_id, colleague_user_id, permissions) VALUES (?, ?, '[]')", [(int) $r['requester_id'], (int) $r['target_id']]);
+            DB::run("INSERT IGNORE INTO colleagues (pid, user_id, colleague_user_id, permissions) VALUES (?, ?, ?, '[]')", [\App\Core\Pid::new(), (int) $r['requester_id'], (int) $r['target_id']]);
             DB::run("UPDATE colleague_requests SET status = 'accepted', resolved_at = NOW() WHERE id = ?", [$requestId]);
         });
         return [true, 'درخواست همکاری تأیید شد.'];

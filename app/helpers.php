@@ -141,6 +141,12 @@ function fa_num($v): string
 /** JSON امن برای قرار دادن در HTML (data-attribute یا script type=application/json). */
 function json_html($data): string
 {
+    if (is_array($data)) {
+        try {
+            $data = \App\Core\Pid::out($data);     // کلیدهای *_id → شناسه‌ی عمومی (v5.0)
+        } catch (\Throwable $e) {
+        }
+    }
     $j = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_PARTIAL_OUTPUT_ON_ERROR);
     return str_replace(["\xe2\x80\xa8", "\xe2\x80\xa9"], ['\u2028', '\u2029'], (string) $j);
 }
@@ -335,4 +341,13 @@ function device_name(?string $ua): string
     $o = preg_match('/Android/', $ua) ? 'Android' : (preg_match('/iPhone|iPad|iOS/', $ua) ? 'iOS' : (preg_match('/Windows/', $ua) ? 'Windows'
         : (preg_match('/Mac OS X|Macintosh/', $ua) ? 'macOS' : (preg_match('/Linux/', $ua) ? 'Linux' : ''))));
     return $o !== '' ? $b . ' روی ' . $o : $b;
+}
+
+/**
+ * شناسه‌ی عمومی برای خروجی HTML (v5.0): pid('tasks', $row) یا pid('tasks', $id) — هرگز id عددی دیتابیس در صفحه چاپ نشود.
+ * ردیف با ستون pid مستقیم همان را می‌دهد؛ وگرنه از روی id (با کش). ناموجود = رشته‌ی خالی.
+ */
+function pid(string $table, $rowOrId): string
+{
+    return (string) (is_array($rowOrId) ? \App\Core\Pid::row($table, $rowOrId) : \App\Core\Pid::of($table, $rowOrId));
 }

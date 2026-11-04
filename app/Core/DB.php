@@ -82,6 +82,10 @@ final class DB
 
     public static function insert(string $table, array $data): int
     {
+        // شناسه‌ی عمومی تصادفی برای جدول‌هایی که شناسه‌شان بیرون دیده می‌شود (Pid::TABLES)
+        if (!isset($data['pid']) && in_array($table, Pid::TABLES, true)) {
+            $data['pid'] = Pid::new();
+        }
         $cols = array_keys($data);
         self::assertIdent($table);
         foreach ($cols as $c) {

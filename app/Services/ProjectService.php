@@ -45,7 +45,7 @@ final class ProjectService
         }
         if ((int) $u['project_join_requires_approval'] === 1) {
             DB::run("DELETE FROM project_join_requests WHERE project_id = ? AND user_id = ? AND status <> 'pending'", [$projectId, $targetId]);
-            DB::run("INSERT IGNORE INTO project_join_requests (project_id, user_id, invited_by, status) VALUES (?, ?, ?, 'pending')", [$projectId, $targetId, $actorId]);
+            DB::run("INSERT IGNORE INTO project_join_requests (pid, project_id, user_id, invited_by, status) VALUES (?, ?, ?, ?, 'pending')", [\App\Core\Pid::new(), $projectId, $targetId, $actorId]);
             return [true, 'درخواست عضویت ارسال شد و در انتظار تأیید کاربر است.', 'requested'];
         }
         Access::addMemberWithDefaultRole($projectId, $targetId);      // نقش پیش‌فرض: «عضو»

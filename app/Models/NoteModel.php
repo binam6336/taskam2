@@ -61,7 +61,7 @@ final class NoteModel
                 continue;
             }
             $id = DB::insert($table, [$col => $parentId, 'user_id' => $uid, 'file_name' => $r['original'], 'file_path' => $r['name'], 'file_size' => $r['size'], 'file_ext' => $r['ext'], 'file_mime' => $r['mime']]);
-            $saved[] = ['id' => $id, 'file_name' => $r['original'], 'file_size' => $r['size'], 'file_ext' => $r['ext']];
+            $saved[] = ['id' => \App\Core\Pid::of($table, $id), 'file_name' => $r['original'], 'file_size' => $r['size'], 'file_ext' => $r['ext']];
         }
         return [$saved, $errors];
     }

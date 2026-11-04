@@ -17,7 +17,7 @@ if ($pIds) {
 $this->boot['tasks'] = [
     'subjects' => $subjects,
     'label_colors' => \App\Models\SubjectModel::COLORS,
-    'projects' => array_map(static fn($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category',
+    'projects' => array_map(static fn($p) => ['id' => pid('projects', $p), 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category',
         'members' => $pMembers[(int) $p['id']] ?? [], 'can_add' => !empty($p['is_creator']) || in_array('add_member', $p['perms'] ?? [], true),
         'can_assign' => !empty($p['is_creator']) || in_array('reassign', $p['task_perms'] ?? [], true)], $projects),
     'me_name' => full_name($me),
@@ -52,7 +52,7 @@ $this->scripts[] = 'tasks';
                         <input type="range" class="prio-range" name="priority_percent" min="0" max="100" step="5" value="50" disabled aria-label="اولویت درصدی">
                         <div class="prio-scale"><span>کم</span><span>متوسط</span><span>زیاد</span></div></div>
                     <div class="field" data-tour="label"><label><i class="fa-solid fa-tag"></i> لیبل <span class="faint">(اختیاری)</span></label>
-                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id"><option value="">— بدون لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
+                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id"><option value="">— بدون لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= e(pid('subjects', $s)) ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
                             <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="<?= e(ph('task_label_new')) ?>" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
                 <div class="field" data-tour="due"><label><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</label><div data-jdue></div></div>

@@ -1,4 +1,4 @@
-<?php /** @var int $me */ $this->boot['chat'] = ['me' => $me, 'open' => (int) ($_GET['user'] ?? 0), 'now' => time()]; $this->scripts[] = 'chat'; ?>
+<?php /** @var int $me */ $this->boot['chat'] = ['me' => $me, 'open' => \App\Core\Pid::id('users', (string) ($_GET['user'] ?? '')) ? strtolower((string) $_GET['user']) : '', 'now' => time()]; $this->scripts[] = 'chat'; ?>
 <div class="chat" id="chat">
     <aside class="chat-side">
         <div class="chat-side-head">
