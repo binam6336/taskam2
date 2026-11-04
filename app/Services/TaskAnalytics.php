@@ -228,6 +228,13 @@ final class TaskAnalytics
 
         $subjects = array_values($subjects);
         usort($subjects, static fn($a, $b) => $b['value'] <=> $a['value']);
+        // نمودار خوانا بماند: ۸ لیبل پرتکرار + «سایر لیبل‌ها»
+        $labelCount = count($subjects);
+        if (count($subjects) > 9) {
+            $rest = array_slice($subjects, 8);
+            $subjects = array_slice($subjects, 0, 8);
+            $subjects[] = ['label' => 'سایر لیبل‌ها (' . fa_num(count($rest)) . ')', 'color' => '#5f776a', 'value' => array_sum(array_column($rest, 'value'))];
+        }
         foreach ($subjects as &$s) {
             $s['pct'] = $labeled > 0 ? (int) round($s['value'] / $labeled * 100) : 0;   // سهم از تسک‌های لیبل‌دار
         }
@@ -245,7 +252,7 @@ final class TaskAnalytics
         }
         usort($rev, static fn($a, $b) => $a['avg_hours'] <=> $b['avg_hours']);
 
-        return ['members' => $out, 'summary' => $summary + ['counts' => $parts, 'total' => $sum['total']], 'subjects' => $subjects, 'reviewers' => $rev];
+        return ['members' => $out, 'summary' => $summary + ['counts' => $parts, 'total' => $sum['total']], 'subjects' => $subjects, 'label_count' => $labelCount, 'reviewers' => $rev];
     }
 
     /**

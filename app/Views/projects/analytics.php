@@ -5,7 +5,7 @@ use App\Services\TaskAnalytics;
 $t = $a['totals'];
 $sum = $k['summary'];
 $this->boot['analytics'] = [
-    'id' => (int) $project['id'], 'trend' => $a['trend'], 'totals' => $t, 'subjects' => $k['subjects'],
+    'id' => (int) $project['id'], 'trend' => $a['trend'], 'totals' => $t, 'subjects' => $k['subjects'], 'label_count' => $k['label_count'],
     'people' => $people, 'speed' => $speed, 'ranges' => array_map(static fn($r) => $r[0], TaskAnalytics::RANGES),
 ];
 $this->scripts[] = 'analytics';

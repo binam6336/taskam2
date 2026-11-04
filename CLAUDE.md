@@ -26,6 +26,7 @@ Taskam v2 (تسکام) is a Persian (RTL) task/team management panel: plain PHP 
 ## Running locally
 - Requirements: PHP 7.4+ (8.2 recommended) with `pdo_mysql`, `mbstring`, `fileinfo`, `gd` (+ `openssl` for Web Push); MySQL 5.7+/MariaDB 10.3+.
 - Setup: `cp .env.example .env` (fill `DB_*`, `APP_KEY`), create DB `utf8mb4_unicode_ci`, `mysql taskam < database/schema.sql`, `php bin/create-admin.php 09120000000 "مدیر" "سیستم"`.
+- Demo load data (test DB only): `php bin/seed-demo.php --yes` builds a 30-person company over ~6 months (manager 09991867331, 5 team projects marked `[داده‌ی نمونه]` in the description, demo users `0999100xxxx` / `Demo12345`, 700 tasks with full delivery/review lifecycle, events, notes); `--tasks=N --days=N --seed=N`; `--clean --yes` removes it. Inserts directly (no notifications); keep it in sync when task lifecycle columns change.
 - Source zip for sharing: `sh bin/package.sh` (git archive; never zip the working dir). Migrations without web ALTER rights: `SCHEMA_AUTO=false` + `php bin/migrate.php`.
 - Dev server: `php -S 127.0.0.1:8080 -t public router.php`, where `router.php` serves existing files under `public/` and otherwise sets `$_SERVER['SCRIPT_NAME'] = '/index.php'` and requires `public/index.php` (there is no router file in the repo; Apache uses `.htaccess`).
 - Syntax check: `php -l <file>` for PHP, `node --check <file>` for JS. Verification is done by driving the app in a browser (Playwright), not unit tests.
