@@ -46,7 +46,7 @@ $badgeAs = ['admin-support' => 'support'];
         <div class="sidebar-foot">
             <div class="flex items-center gap-2 mb-1">
                 <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
-                <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted">مدیر</div></div>
+                <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted"><?= e(\App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label']) ?></div></div>
             </div>
             <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> خروج</button></form>
         </div>

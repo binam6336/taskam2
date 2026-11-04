@@ -222,16 +222,32 @@ final class Auth
         return $id ??= (int) DB::value("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
     }
 
-    public static function adminPermissions(array $u): array
+    /** نقش‌های مدیر (users.admin_role) — v4.4 */
+    public const ADMIN_ROLES = [
+        'super' => ['label' => 'مدیر کل', 'tone' => 'green'],
+        'internal' => ['label' => 'مدیر داخلی', 'tone' => 'blue'],
+        'support' => ['label' => 'پشتیبان', 'tone' => 'purple'],
+    ];
+
+    /** نقش مدیر (اولین مدیر همیشه مدیر کل؛ مقدار نامعتبر/خالی = مدیر داخلی) */
+    public static function adminRole(array $u): ?string
     {
-        if ($u['role'] !== 'admin') {
-            return [];
+        if (($u['role'] ?? '') !== 'admin') {
+            return null;
         }
         if ((int) $u['id'] === self::superAdminId()) {
-            return self::ADMIN_PERMS;
+            return 'super';
         }
-        $p = json_decode((string) ($u['admin_permissions'] ?? '[]'), true);
-        return is_array($p) ? array_values(array_intersect($p, self::ADMIN_PERMS)) : [];
+        $r = (string) ($u['admin_role'] ?? '');
+        return isset(self::ADMIN_ROLES[$r]) ? $r : 'internal';
+    }
+
+    /**
+     * دسترسی‌های مدیر. فعلاً (v4.4) همه‌ی نقش‌ها همه‌ی دسترسی‌ها را دارند تا محدودسازی بر اساس نقش بعداً اضافه شود.
+     */
+    public static function adminPermissions(array $u): array
+    {
+        return self::adminRole($u) === null ? [] : self::ADMIN_PERMS;
     }
 
     public static function adminCan(string $perm): bool

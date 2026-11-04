@@ -4,6 +4,8 @@
  * @var string $kind @var array $rows @var int $total @var int $pg @var int $pages @var int $per @var array $perOptions @var string $q @var string $status @var array $filters @var string $heading @var string $icon
  */
 $this->scripts[] = 'admin';   // جستجوی خودکار (#users-tools)
+$this->scripts[] = 'admin_list';   // پنجره‌ی جزئیات پروژه (اعضا و تسک‌ها با صفحه‌بندی)
+$this->boot['adminList'] = ['per' => $perOptions];
 $st = \App\Services\BoardService::STATUSES;
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $base = '/admin/list/' . $kind;
@@ -37,7 +39,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
         <td><?php if ($x['priority_percent'] !== null): ?><span class="badge"><?= e(fa_num((int) $x['priority_percent'])) ?>٪</span><?php else: ?><span class="badge <?= e($pc[$x['priority']][1]) ?>"><?= e($pc[$x['priority']][0]) ?></span><?php endif; ?></td>
         <td class="small <?= $late ? 'prio-high' : '' ?>"><?= $x['due_date'] ? e(jdate($x['due_date'] . ' 00:00:00', false)) . ($late ? ' (عقب‌افتاده)' : '') : '—' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php elseif ($kind === 'projects'): ?>
-    <tr><td class="bold"><?= e($x['title']) ?></td><td class="small"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small"><?= e(fa_num((int) $x['members'] + 1)) ?> نفر</td>
+    <tr class="al-row" data-aproj="<?= (int) $x['id'] ?>" tabindex="0" role="button" title="نمایش جزئیات پروژه"><td class="bold"><i class="fa-solid fa-circle-info faint xs"></i> <?= e($x['title']) ?></td><td class="small"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small"><?= e(fa_num((int) $x['members'] + 1)) ?> نفر</td>
         <td class="small"><?= e(fa_num((int) $x['done'])) ?> انجام‌شده از <?= e(fa_num((int) $x['tasks'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : '<span class="badge green">فعال</span>' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php else: ?>
@@ -49,3 +51,10 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
 <?php if (!$rows): ?><tr><td colspan="8" class="center muted"><?= $q !== '' ? 'موردی با این جستجو پیدا نشد.' : 'موردی وجود ندارد.' ?></td></tr><?php endif; ?>
 </tbody></table>
 <?php $this->partial('pagination', ['pg' => $pg, 'pages' => $pages, 'query' => array_filter(['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null, 'status' => $status !== 'all' ? $status : null])]); ?></div>
+
+<?php if ($kind === 'projects'): ?>
+<div class="modal" id="m-aproj"><div class="modal-box lg">
+    <div class="modal-head"><h3><i class="fa-solid fa-diagram-project"></i> <span id="ap-title">پروژه</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><div id="ap-info"></div><div id="ap-part" class="mt-2"></div></div>
+</div></div>
+<?php endif; ?>

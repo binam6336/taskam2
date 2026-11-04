@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '028';
+    public const VERSION = '029';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 029
+        ['users', 'admin_role', "ADD COLUMN `admin_role` VARCHAR(20) NULL DEFAULT NULL AFTER `admin_permissions`", null],
         // 028
         ['tasks', 'delivered_at', "ADD COLUMN `delivered_at` TIMESTAMP NULL DEFAULT NULL AFTER `completed_at`, ADD COLUMN `delivered_by` INT UNSIGNED NULL DEFAULT NULL AFTER `delivered_at`, ADD COLUMN `approved_by` INT UNSIGNED NULL DEFAULT NULL AFTER `delivered_by`", null],
         // 027
@@ -73,6 +75,7 @@ final class Schema
         ['025', '025_chat_requests_block_ghosts.sql'],
         ['027', '027_block_instead_of_delete.sql'],
         ['028', '028_task_delivery_review.sql'],
+        ['029', '029_admin_roles.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */

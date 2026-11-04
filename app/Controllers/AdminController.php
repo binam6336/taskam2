@@ -25,9 +25,17 @@ final class AdminController extends Controller
     private const PERMS = ['add_user' => 'افزودن کاربر', 'edit_user' => 'ویرایش کاربر', 'toggle_status' => 'تغییر وضعیت', 'delete_user' => 'حذف کاربر',
         'impersonate' => 'ورود به پنل کاربر', 'edit_content' => 'ویرایش محتوا (سایدبار، تور، Placeholder، خطاها)'];
 
+    /** فعلاً (v4.4) همه‌ی نقش‌های مدیر همه‌ی دسترسی‌ها را دارند، از جمله مدیریت مدیران دیگر (جز حساب مدیر کل اصلی) */
     private function isSuper(): bool
     {
-        return $this->uid() === Auth::superAdminId();
+        return Auth::adminRole($this->user() ?? []) !== null;
+    }
+
+    /** نقش انتخاب‌شده در فرم کاربر: [role, admin_role] */
+    private function roleInput(): array
+    {
+        $v = $this->request->str('role', 20);
+        return isset(Auth::ADMIN_ROLES[$v]) ? ['admin', $v] : ['user', null];
     }
 
     private function need(string $perm): void
@@ -57,7 +65,7 @@ final class AdminController extends Controller
         $res = UserModel::pageForAdmin($q, $per, ($page - 1) * $per);
         $this->view('admin/users', [
             'users' => $res['rows'], 'total' => $res['total'], 'pg' => $page, 'pages' => $pages, 'per' => $per, 'q' => $q, 'perOptions' => self::USERS_PER_PAGE, 'counts' => UserModel::counts(), 'myPerms' => Auth::adminPermissions($me),
-            'isSuper' => $this->isSuper(), 'permDefs' => self::PERMS, 'superId' => Auth::superAdminId(),
+            'isSuper' => $this->isSuper(), 'permDefs' => self::PERMS, 'superId' => Auth::superAdminId(), 'adminRoles' => Auth::ADMIN_ROLES,
             'supportUnread' => SupportModel::unreadForAdmin(),
         ], ['title' => 'مدیریت کاربران', 'page' => 'admin-users'], 'admin');
     }
@@ -85,11 +93,6 @@ final class AdminController extends Controller
         return [['first_name' => $first, 'last_name' => $last, 'mobile' => $mobile, 'email' => $email !== '' ? $email : null], null];
     }
 
-    private function adminPerms(): ?string
-    {
-        $p = array_values(array_intersect(array_keys(self::PERMS), array_map('strval', $this->request->arr('admin_permissions'))));
-        return json_encode($p);
-    }
 
     public function createUser()
     {
@@ -102,9 +105,9 @@ final class AdminController extends Controller
         if ($e = Validate::passwordError($pass)) {
             $this->respond(false, $e, '/admin');
         }
-        $role = $this->request->str('role') === 'admin' && $this->isSuper() ? 'admin' : 'user';
+        [$role, $adminRole] = $this->isSuper() ? $this->roleInput() : ['user', null];
         $status = Validate::enum($this->request->input('status'), Auth::STATUSES, 'active');
-        $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_permissions' => $role === 'admin' ? $this->adminPerms() : null]);
+        $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_role' => $adminRole]);
         \App\Models\SubjectModel::seedDefaults($id);
         Audit::log($this->uid(), 'admin_user_created', ['id' => $id, 'role' => $role]);
         if ($role === 'user') {
@@ -146,9 +149,9 @@ final class AdminController extends Controller
             }
         }
         if ($this->isSuper() && (int) $target['id'] !== Auth::superAdminId()) {
-            $role = $this->request->str('role') === 'admin' ? 'admin' : 'user';
+            [$role, $adminRole] = $this->roleInput();
             $d['role'] = $role;
-            $d['admin_permissions'] = $role === 'admin' ? $this->adminPerms() : null;
+            $d['admin_role'] = $adminRole;
         }
         DB::update('users', $d, 'id = ?', [(int) $id]);
         if ($pass !== '') {
@@ -446,6 +449,69 @@ final class AdminController extends Controller
         $this->view('admin/list', ['kind' => $kind, 'rows' => $rows, 'total' => $total, 'pg' => $page, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
             'q' => $q, 'status' => $st, 'filters' => $filters, 'heading' => $title, 'icon' => $icon, 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => $title, 'page' => 'admin-analysis'], 'admin');
+    }
+
+    /** پنجره‌ی جزئیات پروژه در فهرست پروژه‌های مدیر: GET /admin/list/projects/{id} */
+    public function projectInfo(string $id)
+    {
+        $this->rateLimit('admin_list', 120);
+        $p = DB::one('SELECT p.id, p.title, p.description, p.priority_type, p.max_members, p.blocked_at, p.created_at, u.first_name, u.last_name, u.mobile, u.avatar
+            FROM projects p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [(int) $id]);
+        if ($p === null) {
+            $this->fail('پروژه یافت نشد.', 404);
+        }
+        $cnt = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1 AND blocked_at IS NULL),0) done, COALESCE(SUM(blocked_at IS NOT NULL),0) blocked FROM tasks WHERE project_id = ?', [(int) $id]) ?? [];
+        $this->ok('', ['project' => [
+            'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'created_fa' => jdate((string) $p['created_at']),
+            'creator' => full_name($p), 'creator_mobile' => $p['mobile'], 'creator_avatar' => avatar_url($p['avatar']),
+            'priority_type' => $p['priority_type'] === 'percent' ? 'درصدی' : 'دسته‌ای (کم/متوسط/زیاد)', 'is_blocked' => $p['blocked_at'] !== null,
+            'members' => (int) DB::value('SELECT COUNT(*) FROM project_members WHERE project_id = ?', [(int) $id]) + 1, 'max_members' => (int) $p['max_members'],
+            'tasks' => (int) ($cnt['total'] ?? 0), 'tasks_done' => (int) ($cnt['done'] ?? 0), 'tasks_blocked' => (int) ($cnt['blocked'] ?? 0),
+        ]]);
+    }
+
+    /** اعضا یا تسک‌های یک پروژه (صفحه‌بندی‌شده) برای همان پنجره: GET /admin/list/projects/{id}/{part} */
+    public function projectPart(string $id, string $part)
+    {
+        $this->rateLimit('admin_list', 120);
+        $pid = (int) $id;
+        if (!in_array($part, ['members', 'tasks'], true) || !DB::value('SELECT 1 FROM projects WHERE id = ?', [$pid])) {
+            $this->fail('یافت نشد.', 404);
+        }
+        $per = (int) ($this->request->query['per'] ?? self::USERS_PER_PAGE[0]);
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
+        if ($part === 'members') {
+            $total = (int) DB::value('SELECT COUNT(*) FROM project_members WHERE project_id = ?', [$pid]) + 1;
+            $pages = max(1, (int) ceil($total / $per));
+            $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
+            // سازنده اول، بعد اعضا به ترتیب عضویت
+            $rows = DB::all("SELECT * FROM (
+                    SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, p.created_at AS added_at, 1 AS is_creator, NULL AS permissions, NULL AS task_permissions, NULL AS board_permissions, NULL AS board_view_users,
+                        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.assignee_id = u.id AND t.blocked_at IS NULL) AS tasks
+                    FROM projects p JOIN users u ON u.id = p.user_id WHERE p.id = ?
+                    UNION ALL
+                    SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, pm.added_at, 0, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users,
+                        (SELECT COUNT(*) FROM tasks t WHERE t.project_id = pm.project_id AND t.assignee_id = u.id AND t.blocked_at IS NULL)
+                    FROM project_members pm JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ?) x
+                ORDER BY is_creator DESC, added_at, id LIMIT ? OFFSET ?", [$pid, $pid, $per, ($page - 1) * $per]);
+            $roles = \App\Services\Access::ROLES + ['custom' => \App\Services\Access::ROLE_CUSTOM];
+            $items = array_map(static fn($m) => ['name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']), 'added_fa' => jdate((string) $m['added_at']),
+                'role' => $m['is_creator'] ? 'سازنده' : ($roles[\App\Services\Access::memberRole($m)]['label'] ?? 'سفارشی'), 'tasks' => (int) $m['tasks'], 'is_creator' => (bool) $m['is_creator']], $rows);
+        } else {
+            $total = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ?', [$pid]);
+            $pages = max(1, (int) ceil($total / $per));
+            $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
+            $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, ua.first_name, ua.last_name
+                FROM tasks t LEFT JOIN users ua ON ua.id = t.assignee_id WHERE t.project_id = ? ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$pid, $per, ($page - 1) * $per]);
+            $stl = \App\Services\BoardService::STATUSES;
+            $items = array_map(static fn($t) => ['title' => $t['title'], 'assignee' => $t['first_name'] !== null ? full_name($t) : '—',
+                'status' => $t['blocked_at'] ? 'مسدود' : ($t['archived_at'] ? 'آرشیو' : ($stl[$t['board_status']]['label'] ?? '')),
+                'tone' => $t['blocked_at'] ? 'danger' : ($t['archived_at'] ? 'muted' : ($stl[$t['board_status']]['tone'] ?? 'muted')),
+                'priority' => $t['priority_percent'] !== null ? fa_num((int) $t['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$t['priority']],
+                'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) : '—', 'late' => !$t['is_completed'] && $t['due_date'] && $t['due_date'] < date('Y-m-d'),
+                'created_fa' => jdate((string) $t['created_at'])], $rows);
+        }
+        $this->ok('', ['items' => $items, 'total' => $total, 'page' => $page, 'pages' => $pages, 'per' => $per]);
     }
 
     public function analysis()

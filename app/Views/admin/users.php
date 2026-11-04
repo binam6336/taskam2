@@ -1,5 +1,5 @@
 <?php
-/** @var array $users @var int $total @var int $pg @var int $pages @var int $per @var string $q @var array $perOptions @var array $counts @var array $myPerms @var bool $isSuper @var array $permDefs @var int $superId */
+/** @var array $adminRoles @var array $users @var int $total @var int $pg @var int $pages @var int $per @var string $q @var array $perOptions @var array $counts @var array $myPerms @var bool $isSuper @var array $permDefs @var int $superId */
 $can = static fn(string $p) => in_array($p, $myPerms, true);
 $stLbl = ['pending' => ['در انتظار', 'yellow'], 'active' => ['فعال', 'green'], 'deactivated' => ['غیرفعال', ''], 'blocked' => ['مسدود', 'red']];
 $this->scripts[] = 'admin';
@@ -24,12 +24,12 @@ $me = (int) $currentUser['id'];
 <?php foreach ($users as $u):
     $isAdmin = $u['role'] === 'admin'; $self = (int) $u['id'] === $me; $isSuperRow = (int) $u['id'] === $superId;
     $protected = $self || $isSuperRow || ($isAdmin && !$isSuper);
-    $perms = \App\Services\Access::decode($u['admin_permissions'], array_keys($permDefs));
-    $editData = ['first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $u['mobile'], 'email' => $u['email'], 'role' => $u['role'], 'admin_permissions' => $perms]; ?>
+    $ar = \App\Core\Auth::adminRole($u);       // super | internal | support | null
+    $editData = ['first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $u['mobile'], 'email' => $u['email'], 'role' => $ar ?? 'user']; ?>
     <tr data-search="<?= e(mb_strtolower(full_name($u) . ' ' . $u['mobile'])) ?>">
         <td><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($u), 'src' => avatar_url($u['avatar']), 'size' => 'sm']); ?><div><div class="bold"><?= e(full_name($u)) ?></div><div class="xs muted"><?= e($u['email'] ?? '') ?></div></div></div></td>
         <td class="ltr"><?= e($u['mobile']) ?></td>
-        <td><?php if ($isSuperRow): ?><span class="badge green">مدیر کل</span><?php elseif ($isAdmin): ?><span class="badge blue">مدیر</span><?php else: ?><span class="badge">کاربر</span><?php endif; ?></td>
+        <td><?php if ($ar !== null): ?><span class="badge <?= e($adminRoles[$ar]['tone']) ?>"><?= e($adminRoles[$ar]['label']) ?></span><?php else: ?><span class="badge">کاربر</span><?php endif; ?></td>
         <td><span class="badge <?= e($stLbl[$u['status']][1]) ?>"><?= e($stLbl[$u['status']][0]) ?></span></td>
         <td class="small muted"><?= $u['last_login_at'] ? e(time_ago($u['last_login_at'])) : '—' ?></td>
         <td class="nowrap"><div class="flex gap-1">
@@ -55,7 +55,7 @@ $me = (int) $currentUser['id'];
         <div class="field"><label>رمز عبور <span class="faint" id="pw-hint">(الزامی)</span></label><input class="input ltr" type="password" name="password" autocomplete="new-password" minlength="8"></div>
         <div class="field hidden" id="reauth-field"><label><i class="fa-solid fa-lock"></i> رمز عبور فعلی خودتان <span class="faint">(فقط برای تغییر رمز یا موبایل کاربر)</span></label><input class="input ltr" type="password" name="admin_password" autocomplete="current-password"></div>
         <div class="row"><div class="field" id="status-field"><label>وضعیت</label><select class="input" name="status"><option value="active">فعال</option><option value="pending">در انتظار</option><option value="deactivated">غیرفعال</option><option value="blocked">مسدود</option></select></div>
-            <?php if ($isSuper): ?><div class="field"><label>نقش</label><select class="input" name="role" id="role-select"><option value="user">کاربر</option><option value="admin">مدیر</option></select></div><?php endif; ?></div>
-        <?php if ($isSuper): ?><div class="field hidden" id="perm-field"><label>دسترسی‌های مدیر</label><div class="perm-grid"><?php foreach ($permDefs as $k => $l): ?><label class="check"><input type="checkbox" name="admin_permissions[]" value="<?= e($k) ?>"><div><b><?= e($l) ?></b></div></label><?php endforeach; ?></div></div><?php endif; ?>
+            <?php if ($isSuper): ?><div class="field"><label>نقش</label><select class="input" name="role" id="role-select"><option value="user">کاربر</option><?php foreach ($adminRoles as $k => $r): ?><option value="<?= e($k) ?>"><?= e($r['label']) ?></option><?php endforeach; ?></select></div><?php endif; ?></div>
+        <?php if ($isSuper): ?><p class="hint hidden" id="perm-field"><i class="fa-solid fa-circle-info"></i> فعلاً همه‌ی نقش‌های مدیر (مدیر کل، مدیر داخلی، پشتیبان) به همه‌ی بخش‌های پنل مدیر دسترسی دارند؛ محدودسازی دسترسی هر نقش بعداً اضافه می‌شود.</p><?php endif; ?>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>

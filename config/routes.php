@@ -221,6 +221,8 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/support/{id}/delete', [AdminController::class, 'supportDelete']);
     $r->get('/admin/analysis', [AdminController::class, 'analysis']);
     $r->get('/admin/list/{kind}', [AdminController::class, 'listing']);
+    $r->get('/admin/list/projects/{id}', [AdminController::class, 'projectInfo']);
+    $r->get('/admin/list/projects/{id}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);

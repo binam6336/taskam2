@@ -71,7 +71,7 @@ final class UserModel
             array_push($p, $l, $l, $l);
         }
         $total = (int) DB::value("SELECT COUNT(*) FROM users WHERE $w", $p);
-        $rows = DB::all("SELECT id, mobile, first_name, last_name, email, avatar, role, status, admin_permissions, last_seen, last_login_at, created_at
+        $rows = DB::all("SELECT id, mobile, first_name, last_name, email, avatar, role, status, admin_permissions, admin_role, last_seen, last_login_at, created_at
                           FROM users WHERE $w ORDER BY (role = 'admin') DESC, created_at DESC, id DESC LIMIT ? OFFSET ?", array_merge($p, [$limit, $offset]));
         return ['rows' => $rows, 'total' => $total];
     }

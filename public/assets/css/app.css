@@ -1811,3 +1811,15 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .users-per { white-space: nowrap; }
 .users-per select.input { width: auto; min-width: 74px; }
 #users-table + .pagination { margin: 1rem 0; }
+/* پنل مدیر ← فهرست پروژه‌ها: ردیف قابل کلیک و پنجره‌ی جزئیات */
+tr.al-row { cursor: pointer; }
+tr.al-row:hover td, tr.al-row:focus-visible td { background: var(--surface-3); }
+.ap-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; }
+@media (max-width: 760px) { .ap-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ap-card { padding: .8rem; text-align: right; }
+.ap-num { font-size: 1.4rem; font-weight: 800; margin-top: .2rem; }
+button.ap-link { font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--border); transition: border-color .15s, transform .15s; }
+button.ap-link:hover, button.ap-link.on { border-color: rgba(var(--accent-rgb), .55); }
+button.ap-link.on { background: var(--ok-bg); }
+.ap-more { color: var(--g-300); margin-top: .3rem; }
+.ap-pager .btn-xs { min-width: 30px; }
