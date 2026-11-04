@@ -15,5 +15,16 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
-\App\Core\Schema::ensure();
-echo "Schema " . \App\Core\Schema::VERSION . ": " . (is_file(STORAGE_PATH . '/cache/schema-' . \App\Core\Schema::VERSION) ? "OK" : "ناقص — لاگ storage/logs را ببینید") . "\n";
+// --force: بدون توجه به فایل نشانه‌ی storage/cache/schema-NNN (مثلاً وقتی نشانه هست ولی ستون‌ها در دیتابیس نیستند)
+$force = in_array('--force', $argv, true) || \App\Core\Schema::missing() !== [];
+echo 'دیتابیس: ' . \App\Core\DB::value('SELECT DATABASE()') . ' — نسخه‌ی تغییرات: ' . \App\Core\Schema::VERSION . "\n";
+\App\Core\Schema::ensure($force, static function (string $m): void {
+    echo $m . "\n";
+});
+$miss = \App\Core\Schema::missing();
+if ($miss) {
+    echo "ناقص — هنوز در دیتابیس نیست: " . implode('، ', $miss) . "\n";
+    echo "معمولاً یعنی کاربر دیتابیس مجوز ALTER/CREATE/INDEX ندارد؛ با کاربر دارای این مجوزها اجرا کنید یا فایل‌های database/migrations را در phpMyAdmin اجرا کنید.\n";
+    exit(1);
+}
+echo "OK — همه‌ی تغییرات دیتابیس اعمال شده است.\n";

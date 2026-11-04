@@ -42,6 +42,14 @@ final class ErrorHandler
 
     public static function log(Throwable $e): void
     {
+        // ستون/جدول ناموجود (مثلاً فایل نشانه‌ی مهاجرت هست ولی تغییرات در این دیتابیس اعمال نشده): نشانه پاک شود
+        // تا درخواست بعدی Schema::ensure دوباره اجرا شود (SCHEMA_AUTO)
+        for ($x = $e; $x; $x = $x->getPrevious()) {
+            if ($x instanceof \PDOException && in_array((string) $x->getCode(), ['42S22', '42S02'], true)) {
+                @unlink(STORAGE_PATH . '/cache/schema-' . Schema::VERSION);
+                break;
+            }
+        }
         $dir = STORAGE_PATH . '/logs';
         if (!is_dir($dir)) {
             @mkdir($dir, 0750, true);
@@ -70,6 +78,11 @@ final class ErrorHandler
         }
         if (!headers_sent()) {
             http_response_code($status);
+        }
+        // خط فرمان (bin/*.php): متن ساده به جای صفحه‌ی HTML
+        if (PHP_SAPI === 'cli') {
+            fwrite(STDERR, 'خطا: ' . ($debug ? $debug->getMessage() . ' (' . basename($debug->getFile()) . ':' . $debug->getLine() . ')' : $message) . "\n");
+            exit(1);
         }
         $req = Request::capture();
         if ($req->wantsJson()) {

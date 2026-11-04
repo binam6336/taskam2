@@ -93,12 +93,58 @@ final class Schema
         return !is_file(STORAGE_PATH . '/cache/schema-' . self::VERSION);
     }
 
-    public static function ensure(): void
+    /** خطاهای آخرین اجرای ناموفق (برای مستندات پنل و php bin/migrate.php) */
+    public static function lastErrors(): array
+    {
+        $f = STORAGE_PATH . '/cache/schema-errors.json';
+        $d = is_file($f) ? json_decode((string) @file_get_contents($f), true) : null;
+        return is_array($d) ? $d : [];
+    }
+
+    /** ستون‌ها/جدول‌های این نسخه که در دیتابیس نیستند (بررسی واقعی، مستقل از فایل نشانه) */
+    public static function missing(): array
+    {
+        $out = [];
+        try {
+            $cols = [];
+            foreach (DB::all('SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE()') as $r) {
+                $cols[strtolower((string) $r['t']) . '.' . strtolower((string) $r['c'])] = true;
+            }
+            foreach (self::COLUMNS as [$table, $col]) {
+                if (!isset($cols[$table . '.' . $col])) {
+                    $out[] = $table . '.' . $col;
+                }
+            }
+            foreach (self::TABLES as [$table]) {
+                if (!isset($cols[$table . '.id']) && (int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) === 0) {
+                    $out[] = $table;
+                }
+            }
+        } catch (\Throwable $e) {
+            $out[] = 'information_schema: ' . $e->getMessage();
+        }
+        return $out;
+    }
+
+    /**
+     * اعمال تغییرات افزایشی. $force: بدون توجه به فایل نشانه (php bin/migrate.php --force)؛ $report: گزارش هر مرحله (CLI).
+     * خطاها هم در storage/logs و هم در storage/cache/schema-errors.json ثبت می‌شوند تا در «مستندات پنل» دیده شوند.
+     */
+    public static function ensure(bool $force = false, ?callable $report = null): void
     {
         $flag = STORAGE_PATH . '/cache/schema-' . self::VERSION;
-        if (is_file($flag)) {
+        if (!$force && is_file($flag)) {
             return;
         }
+        $say = $report ?? static function (string $m): void {
+        };
+        $errors = [];
+        $fail = static function (string $what, \Throwable $e) use (&$errors, $say): void {
+            $errors[] = $what . ' — ' . $e->getMessage();
+            $say('✗ ' . $what . ' — ' . $e->getMessage());
+            error_log('schema: ' . $what . ' — ' . $e->getMessage());
+            ErrorHandler::log(new \RuntimeException('schema: ' . $what . ' — ' . $e->getMessage(), 0, $e));
+        };
         $ok = true;
         try {
             $cols = [];
@@ -114,9 +160,10 @@ final class Schema
                     if ($after !== null) {
                         DB::run($after);
                     }
+                    $say('✓ ستون ' . $table . '.' . $col . ' اضافه شد');
                 } catch (\Throwable $e) {
                     $ok = false;
-                    error_log('schema: ' . $table . '.' . $col . ' — ' . $e->getMessage());
+                    $fail('ستون ' . $table . '.' . $col, $e);
                 }
             }
             foreach (self::ENUMS as [$table, $col, $value, $ddl]) {
@@ -126,9 +173,10 @@ final class Schema
                 }
                 try {
                     DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ مقدار ' . $value . ' به ' . $table . '.' . $col . ' اضافه شد');
                 } catch (\Throwable $e) {
                     $ok = false;
-                    error_log('schema: ' . $table . '.' . $col . ' enum — ' . $e->getMessage());
+                    $fail('مقدار ENUM ' . $table . '.' . $col, $e);
                 }
             }
             foreach (self::TABLES as [$table, $file]) {
@@ -139,9 +187,10 @@ final class Schema
                 if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
                     try {
                         DB::run($m[0]);
+                        $say('✓ جدول ' . $table . ' ساخته شد');
                     } catch (\Throwable $e) {
                         $ok = false;
-                        error_log('schema: ' . $table . ' — ' . $e->getMessage());
+                        $fail('جدول ' . $table, $e);
                     }
                 }
             }
@@ -156,17 +205,24 @@ final class Schema
                         DB::run(rtrim($q, ';'));
                     }
                     @file_put_contents($dflag, date('c'));
+                    $say('✓ اصلاح داده ' . $id . ' اجرا شد');
                 } catch (\Throwable $e) {
                     $ok = false;
-                    error_log('schema: data ' . $id . ' — ' . $e->getMessage());
+                    $fail('اصلاح داده ' . $id, $e);
                 }
             }
         } catch (\Throwable $e) {
             $ok = false;
-            error_log('schema: ' . $e->getMessage());
+            $fail('بررسی دیتابیس', $e);
         }
+        $ef = STORAGE_PATH . '/cache/schema-errors.json';
         if ($ok) {
-            @file_put_contents($flag, date('c'));
+            if (@file_put_contents($flag, date('c')) === false) {
+                $say('! فایل نشانه ' . $flag . ' نوشته نشد (پوشه‌ی storage/cache قابل نوشتن نیست؛ بررسی در هر درخواست تکرار می‌شود)');
+            }
+            @unlink($ef);
+        } else {
+            @file_put_contents($ef, json_encode(['at' => date('c'), 'version' => self::VERSION, 'errors' => $errors], JSON_UNESCAPED_UNICODE));
         }
     }
 }
