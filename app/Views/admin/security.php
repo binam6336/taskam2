@@ -29,7 +29,7 @@ $icons = ['enter' => ['fa-right-to-bracket', 'green'], 'exit' => ['fa-right-from
         <label class="flex items-center gap-1 small muted">مدیر
             <select class="input" name="admin" data-autosubmit aria-label="فیلتر مدیر"><option value="">همه‌ی مدیران</option><?php foreach ($admins as $a): ?><option value="<?= e($a['id']) ?>" <?= $a['id'] === $adminSel ? 'selected' : '' ?>><?= e($a['name'] . ' — ' . $a['mobile']) ?></option><?php endforeach; ?></select></label>
         <label class="flex items-center gap-1 small muted">کاربر
-            <select class="input" name="u" data-autosubmit aria-label="فیلتر کاربر"><option value="">همه‌ی کاربران</option><?php foreach ($targets as $a): ?><option value="<?= e($a['id']) ?>" <?= $a['id'] === $userSel ? 'selected' : '' ?>><?= e($a['name'] . ' — ' . $a['mobile']) ?></option><?php endforeach; ?></select></label>
+            <select class="input" name="u" data-autosubmit data-sl-search aria-label="فیلتر کاربر"><option value="">همه‌ی کاربران</option><?php foreach ($targets as $a): ?><option value="<?= e($a['id']) ?>" <?= $a['id'] === $userSel ? 'selected' : '' ?>><?= e($a['name'] . ' — ' . $a['mobile']) ?></option><?php endforeach; ?></select></label>
         <label class="flex items-center gap-1 small muted">نمایش در هر صفحه
             <select class="input" name="per" data-autosubmit aria-label="تعداد در هر صفحه"><?php foreach ($perOptions as $n): ?><option value="<?= (int) $n ?>" <?= $n === $per ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select></label>
         <?php if ($adminSel !== '' || $userSel !== ''): ?><a class="btn btn-sm btn-ghost" href="<?= e(url('/admin/security')) ?>"><i class="fa-solid fa-xmark"></i> حذف فیلتر</a><?php endif; ?>

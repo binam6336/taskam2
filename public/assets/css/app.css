@@ -1865,3 +1865,26 @@ button.ap-link.on { background: var(--ok-bg); }
 .sl-meta .sl-who { align-self: flex-start; }
 .sl-detail-title { margin: 0 0 1rem; line-height: 1.9; }
 .sl-changes .table td:first-child, .sl-changes .table th:first-child { white-space: nowrap; width: 1%; }
+/* فیلتر کاربر با جستجو (امنیت) */
+.sl-combo { position: relative; min-width: 240px; }
+.sl-combo .search { min-width: 0; }
+.sl-combo-list { position: absolute; top: calc(100% + 4px); right: 0; left: 0; max-height: 280px; overflow-y: auto; z-index: 60; display: flex; flex-direction: column; padding: .3rem; }
+.sl-combo-list[hidden] { display: none; }
+.sl-combo-opt { text-align: right; background: none; border: 0; border-radius: 8px; padding: .45rem .6rem; color: inherit; font: inherit; font-size: .85rem; cursor: pointer; }
+.sl-combo-opt.on, .sl-combo-opt:hover { background: var(--g-soft, rgba(52, 211, 153, .12)); }
+.sl-combo-opt.cur { font-weight: 700; }
+.sl-combo-empty { padding: .5rem .6rem; }
+/* رکوردهای لاگ فشرده‌تر (حدود ۳۰٪ کوچک‌تر) */
+.sl-list { gap: .45rem; }
+.sl-item { padding: .5rem .7rem; font-size: .84rem; }
+.sl-head { gap: .5rem; }
+.sl-ico { width: 1.5rem; height: 1.5rem; border-radius: 8px; font-size: .75rem; }
+.sl-text { line-height: 1.8; }
+.sl-text .badge { font-size: .68rem; padding: .05rem .4rem; }
+.sl-who { padding: 0 .45rem 0 .2rem; gap: .25rem; font-size: .82rem; }
+.sl-who .avatar { width: 1.1rem; height: 1.1rem; font-size: .6rem; }
+.sl-time { font-size: .72rem; }
+.sl-foot { margin-top: .3rem; padding-right: 2rem; }
+.sl-foot .btn { padding: .2rem .55rem; font-size: .76rem; min-height: 0; }
+.sl-foot .badge { font-size: .66rem; padding: 0 .35rem; }
+#m-sl-detail .sl-who { font-size: .88rem; }
