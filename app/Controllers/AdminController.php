@@ -374,6 +374,80 @@ final class AdminController extends Controller
             ['title' => 'مستندات پنل', 'page' => 'admin-panel-docs'], 'admin');
     }
 
+    /** فهرست‌های فقط‌خواندنی کارت‌های «تحلیل سیستم»: [عنوان، آیکون، صفحه‌ی منو] */
+    private const LISTS = [
+        'tasks' => ['همه‌ی تسک‌ها', 'fa-list-check'],
+        'projects' => ['همه‌ی پروژه‌ها', 'fa-diagram-project'],
+        'calls' => ['همه‌ی درخواست‌های تماس', 'fa-phone-volume'],
+    ];
+
+    /** GET /admin/list/{kind}: فهرست صفحه‌بندی‌شده با جستجو و فیلتر وضعیت (کلیک روی کارت‌های پیشخوان مدیر) */
+    public function listing(string $kind)
+    {
+        if (!isset(self::LISTS[$kind])) {
+            $this->abort(404);
+        }
+        $this->rateLimit('admin_list', 60);
+        $r = $this->request->query;
+        $per = (int) ($r['per'] ?? Session::get('admin_users_per', self::USERS_PER_PAGE[0]));
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
+        if (isset($r['per'])) {
+            Session::put('admin_users_per', $per);
+        }
+        $q = trim(mb_substr((string) ($r['q'] ?? ''), 0, 100));
+        $filters = [
+            'tasks' => ['all' => 'همه', 'open' => 'باز', 'review' => 'منتظر تأیید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
+            'projects' => ['all' => 'همه', 'active' => 'فعال', 'blocked' => 'مسدود'],
+            'calls' => ['all' => 'همه', 'new' => 'جدید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
+        ][$kind];
+        $st = isset($filters[$r['status'] ?? '']) ? (string) $r['status'] : 'all';
+        $w = [];
+        $p = [];
+        $like = DB::like($q);
+        if ($kind === 'tasks') {
+            $base = 'FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users ua ON ua.id = t.assignee_id LEFT JOIN users uc ON uc.id = t.user_id';
+            $w[] = ['all' => '1', 'open' => 't.is_completed = 0 AND t.blocked_at IS NULL', 'review' => "t.board_status = 'review' AND t.is_completed = 0 AND t.blocked_at IS NULL", 'done' => 't.is_completed = 1 AND t.blocked_at IS NULL', 'blocked' => 't.blocked_at IS NOT NULL'][$st];
+            if ($q !== '') {
+                $w[] = "(t.title LIKE ? OR p.title LIKE ? OR CONCAT(ua.first_name, ' ', ua.last_name) LIKE ?)";
+                array_push($p, $like, $like, $like);
+            }
+            $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
+                    p.title AS project_title, ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
+            $order = 't.created_at DESC, t.id DESC';
+        } elseif ($kind === 'projects') {
+            $base = 'FROM projects p LEFT JOIN users u ON u.id = p.user_id';
+            $w[] = ['all' => '1', 'active' => 'p.blocked_at IS NULL', 'blocked' => 'p.blocked_at IS NOT NULL'][$st];
+            if ($q !== '') {
+                $w[] = "(p.title LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
+                array_push($p, $like, $like);
+            }
+            $sel = "SELECT p.id, p.title, p.priority_type, p.blocked_at, p.created_at, p.max_members, u.first_name, u.last_name,
+                    (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS members,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL AND t.is_completed = 1) AS done $base";
+            $order = 'p.created_at DESC, p.id DESC';
+        } else {
+            $base = 'FROM call_requests c LEFT JOIN users ua ON ua.id = c.assignee_id LEFT JOIN users uc ON uc.id = c.user_id';
+            $w[] = ['all' => '1', 'new' => 'c.status = 0 AND c.blocked_at IS NULL', 'done' => 'c.status = 1 AND c.blocked_at IS NULL', 'blocked' => 'c.blocked_at IS NOT NULL'][$st];
+            if ($q !== '') {
+                $w[] = "(CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR c.store LIKE ? OR c.mobile LIKE ?)";
+                array_push($p, $like, $like, $like);
+            }
+            $sel = "SELECT c.id, c.first_name, c.last_name, c.mobile, c.store, c.status, c.blocked_at, c.created_at, c.completed_at,
+                    ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
+            $order = 'c.created_at DESC, c.id DESC';
+        }
+        $where = ' WHERE ' . implode(' AND ', $w);
+        $total = (int) DB::value('SELECT COUNT(*) ' . $base . $where, $p);
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min($pages, max(1, (int) ($r['page'] ?? 1)));
+        $rows = DB::all($sel . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge($p, [$per, ($page - 1) * $per]));
+        [$title, $icon] = self::LISTS[$kind];
+        $this->view('admin/list', ['kind' => $kind, 'rows' => $rows, 'total' => $total, 'pg' => $page, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
+            'q' => $q, 'status' => $st, 'filters' => $filters, 'heading' => $title, 'icon' => $icon, 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => $title, 'page' => 'admin-analysis'], 'admin');
+    }
+
     public function analysis()
     {
         $c = static fn(string $sql): int => (int) DB::value($sql);
