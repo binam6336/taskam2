@@ -77,6 +77,10 @@ final class DB
     /** اجرای دستور و بازگرداندن تعداد ردیف‌های متأثر. */
     public static function run(string $sql, array $params = []): int
     {
+        // داخل پنجره‌ی ورود مدیر به پنل کاربر: هر تغییر با مقدار قبل/بعد در لاگ امنیتی مدیران (AdminLog)
+        if (AdminLog::watching() && preg_match('/^\s*(UPDATE|DELETE|INSERT)\b/i', $sql)) {
+            return AdminLog::capture($sql, $params, static fn() => self::stmt($sql, $params)->rowCount());
+        }
         return self::stmt($sql, $params)->rowCount();
     }
 
@@ -93,7 +97,11 @@ final class DB
         }
         $sql = 'INSERT INTO `' . $table . '` (`' . implode('`,`', $cols) . '`) VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')';
         self::stmt($sql, array_values($data));
-        return (int) self::pdo()->lastInsertId();
+        $id = (int) self::pdo()->lastInsertId();
+        if (AdminLog::watching()) {
+            AdminLog::inserted($table, $id);
+        }
+        return $id;
     }
 
     public static function update(string $table, array $data, string $where, array $whereParams = []): int

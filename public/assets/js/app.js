@@ -158,17 +158,11 @@
   });
 
   /**
-   * ورود مدیر به پنل کاربر در تب جدید (v5.1): نشست و تب پنل مدیر دست نمی‌خورد. اگر تأیید رمز چند دقیقه‌ی اخیر نباشد، رمز پرسیده می‌شود.
+   * ورود مدیر به پنل کاربر در تب جدید (v5.1): نشست و تب پنل مدیر دست نمی‌خورد.
    * اگر مرورگر باز کردن تب را مسدود کند، پیام با دکمه‌ی «باز کردن پنل» نمایش داده می‌شود.
    */
   TK.impersonate = async (uid, to = '') => {
-    let r = await TK.post('/admin/users/' + encodeURIComponent(uid) + '/impersonate', { to });
-    for (let i = 0; i < 3 && r && r.code === 'STEPUP_REQUIRED'; i++) {
-      if (i > 0) TK.toast(r.message || 'رمز عبور نادرست است.', 'error');
-      const pw = await TK.prompt('برای امنیت، ورود به پنل کاربر به تأیید رمز عبور خودتان نیاز دارد (تا ' + TK.fa(r.minutes || 15) + ' دقیقه دوباره پرسیده نمی‌شود).', { title: 'تأیید رمز مدیر', okText: 'تأیید و ورود', password: true });
-      if (!pw) return null;
-      r = await TK.post('/admin/users/' + encodeURIComponent(uid) + '/impersonate', { to, password: pw });
-    }
+    const r = await TK.post('/admin/users/' + encodeURIComponent(uid) + '/impersonate', { to });
     if (!TK.ok(r) || !r.open) { TK.toast((r && r.message) || 'خطا', 'error'); return null; }
     const w = window.open(r.open, '_blank');
     if (w) { try { w.opener = null; } catch { /* */ } TK.toast(r.message, 'success'); }

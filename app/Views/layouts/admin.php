@@ -24,6 +24,7 @@ $menu = [
         ['profile', '/profile', 'fa-user-gear', 'پروفایل من'],
         ['admin-install', '/install', 'fa-download', 'نصب'],
         ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'مستندات پنل'],
+        ['admin-security', '/admin/security', 'fa-shield-halved', 'امنیت'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
         ['admin-support', '/admin/support', 'fa-headset', 'تیکت‌ها'],

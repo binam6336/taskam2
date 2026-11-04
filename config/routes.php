@@ -229,6 +229,7 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/list/projects/{project}', [AdminController::class, 'projectInfo']);
     $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
+    $r->get('/admin/security', [AdminController::class, 'security']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);

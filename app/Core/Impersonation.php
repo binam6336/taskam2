@@ -18,7 +18,6 @@ namespace App\Core;
  *  4. مدیر باید هنوز مدیرِ فعال با دسترسی «ورود به پنل کاربر» باشد و رمزش از شروع عوض نشده باشد.
  *  5. کاربر هدف باید هنوز کاربر عادیِ فعال باشد (مدیر و ربات هرگز).
  *  6. سقف بی‌فعالیتی و سقف عمر قطعی (IMPERSONATE_IDLE_MINUTES / IMPERSONATE_MAX_HOURS) و سقف پنجره‌ی باز هم‌زمان.
- *  7. شروع ورود نیازمند تأیید رمز مدیر در چند دقیقه‌ی اخیر (IMPERSONATE_STEPUP_MINUTES).
  *  8. داده‌ی نشست هر پنجره جداست (Session::scope): پیام‌ها/فرم‌ها بین تب‌ها و پنل مدیر قاطی نمی‌شوند.
  *  9. کارهای حساس حساب (رمز، موبایل، نشست‌ها، توکن API، اشتراک اعلان) و API با نشست در این حالت ممنوع است.
  * 10. هر درخواست تغییر‌دهنده در audit_log با نام مدیر و کاربر ثبت می‌شود؛ صفحه‌ها no-store و بدون Referer.
@@ -40,11 +39,6 @@ final class Impersonation
     public static function maxSeconds(): int
     {
         return max(1, min(12, (int) env('IMPERSONATE_MAX_HOURS', 4))) * 3600;
-    }
-
-    public static function stepupSeconds(): int
-    {
-        return max(1, min(60, (int) env('IMPERSONATE_STEPUP_MINUTES', 15))) * 60;
     }
 
     /** Request::path() توکن پیشوند آدرس را این‌جا می‌گذارد */
@@ -86,18 +80,6 @@ final class Impersonation
         return is_string($k) && strlen($k) === 64 ? $k : null;
     }
 
-    /** تأیید رمز مدیر برای شروع ورود به پنل کاربر هنوز تازه است؟ */
-    public static function stepupFresh(): bool
-    {
-        $t = (int) Session::get('imp_stepup', 0);
-        return $t > 0 && time() - $t <= self::stepupSeconds();
-    }
-
-    public static function markStepup(): void
-    {
-        Session::put('imp_stepup', time());
-    }
-
     /** شروع پنجره‌ی جدید؛ خروجی: توکن (فقط همین یک‌بار به‌صورت خام) */
     public static function start(array $admin, array $target, Request $r): string
     {
@@ -109,12 +91,13 @@ final class Impersonation
             self::end((int) $old, 'limit');
         }
         $token = bin2hex(random_bytes(16));
-        DB::insert('impersonations', [
+        $impId = DB::insert('impersonations', [
             'token_hash' => hash('sha256', $token), 'admin_id' => (int) $admin['id'], 'target_id' => (int) $target['id'],
             'session_hash' => $sh, 'admin_pv' => Auth::passwordVersion($admin), 'ua_hash' => Auth::uaHashOf($r),
             'ip' => $r->ip(), 'last_ip' => $r->ip(), 'last_seen_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::maxSeconds()),
         ]);
         Audit::log((int) $admin['id'], 'impersonate_start', ['target' => (int) $target['id'], 'ip' => $r->ip()]);
+        AdminLog::enter($admin, $target, $impId, $r->ip());
         return $token;
     }
 
@@ -192,7 +175,8 @@ final class Impersonation
             DB::run('UPDATE impersonations SET last_seen_at = NOW(), last_ip = ? WHERE id = ?', [$r->ip(), (int) $row['id']]);
         }
         self::$ctx = $row + ['target' => $target, 'admin' => $admin];
-        Session::scope('imp' . (int) $row['id']);      // پیام‌ها و داده‌ی موقت این پنجره جدا از پنل مدیر و تب‌های دیگر
+        Session::scope('imp' . (int) $row['id']);
+        AdminLog::watch(true);                          // هر تغییر این درخواست در لاگ امنیتی مدیران      // پیام‌ها و داده‌ی موقت این پنجره جدا از پنل مدیر و تب‌های دیگر
         // هر درخواست تغییر‌دهنده‌ی پنجره در لاگ ممیزی (به نام مدیر)
         if ($r->method() === 'POST') {
             DB::run('UPDATE impersonations SET actions = actions + 1 WHERE id = ?', [(int) $row['id']]);
@@ -220,6 +204,7 @@ final class Impersonation
             return;
         }
         DB::run('UPDATE impersonations SET ended_at = NOW(), end_reason = ? WHERE id = ? AND ended_at IS NULL', [$reason, $id]);
+        AdminLog::exit((int) $row['admin_id'], (int) $row['target_id'], $id, $reason);
         Audit::log((int) $row['admin_id'], 'impersonate_stop', ['target' => (int) $row['target_id'], 'reason' => $reason]);
     }
 

@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '033';
+    public const VERSION = '034';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -113,6 +113,7 @@ final class Schema
         ['user_sessions', '019_user_sessions.sql'],
         ['task_mentions', '020_task_mentions.sql'],
         ['impersonations', '033_impersonations.sql'],
+        ['admin_logs', '034_admin_logs.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */

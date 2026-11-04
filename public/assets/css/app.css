@@ -1836,3 +1836,26 @@ button.ap-link.on { background: var(--ok-bg); }
 .card.proj-focus::before { content: "پروژه‌ی انتخاب‌شده از پنل مدیر"; position: absolute; top: .5rem; inset-inline-start: 1rem; padding: .05rem .6rem; border-radius: 999px; font-size: .7rem; font-weight: 700; background: var(--g-500); color: var(--g-ink); z-index: 2; }
 @keyframes projFocus { 0%, 100% { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .35); } 50% { box-shadow: 0 0 0 9px rgba(var(--accent-rgb), .12); } }
 .ap-enter { width: 100%; justify-content: center; }
+
+/* ── تنظیمات ← امنیت: لاگ ورود مدیران به پنل کاربر (v5.2) ── */
+.sl-list { display: flex; flex-direction: column; gap: .7rem; }
+.sl-item { padding: .85rem 1rem; }
+.sl-head { display: flex; gap: .75rem; align-items: flex-start; }
+.sl-ico { flex: none; width: 2rem; height: 2rem; border-radius: 10px; display: grid; place-items: center; background: var(--bg-3, rgba(255, 255, 255, .05)); }
+.sl-ico.tone-green { color: var(--g-400); }
+.sl-ico.tone-blue { color: #60a5fa; }
+.sl-ico.tone-yellow { color: var(--warn); }
+.sl-ico.tone-red { color: var(--danger, #f87171); }
+.sl-ico.tone-muted { color: var(--muted); }
+.sl-text { flex: 1; min-width: 0; line-height: 2.1; }
+.sl-time { flex: none; padding-top: .2rem; }
+.sl-who { display: inline-flex; align-items: center; gap: .35rem; background: none; border: 1px solid var(--border); border-radius: 999px; padding: .05rem .55rem .05rem .3rem; color: inherit; font: inherit; cursor: pointer; vertical-align: middle; }
+.sl-who:hover { border-color: var(--g-400); }
+.sl-who .avatar { width: 1.4rem; height: 1.4rem; font-size: .7rem; }
+.sl-entity { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--g-400); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 4px; }
+.sl-changes { margin-top: .6rem; }
+.sl-changes .table td { vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+.sl-before { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(248, 113, 113, .5); }
+.sl-after { color: var(--text); }
+@media (max-width: 720px) { .sl-head { flex-wrap: wrap; } .sl-time { width: 100%; order: 3; padding-right: 2.75rem; } }
+.sl-changes .table { min-width: 0; table-layout: auto; } .sl-changes .table td:first-child { width: 1%; }

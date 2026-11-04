@@ -63,12 +63,7 @@ $me = (int) $currentUser['id'];
 <?php $this->partial('pagination', ['pg' => $pg, 'pages' => $pages, 'query' => array_filter(['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null])]); ?></div>
 
 <?php // جزئیات کاربر: پروژه‌ها (ورود به پنل ← تسک‌های پروژه)، تسک‌ها (پنجره‌ی فهرست ← ورود به پنل ← لینک تسک)، تاریخ ایجاد، آخرین بازدید ?>
-<div class="modal" id="m-udetail"><div class="modal-box lg">
-    <div class="modal-head"><h3><i class="fa-solid fa-id-card"></i> <span id="ud-title">جزئیات کاربر</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body" id="ud-body"></div></div></div>
-<div class="modal" id="m-utasks"><div class="modal-box lg">
-    <div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> <span id="ut-title">تسک‌ها</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="modal-body" id="ut-body"></div></div></div>
+<?php $this->partial('admin_user_modals'); ?>
 <div class="modal" id="m-user"><div class="modal-box"><form method="post" action="<?= e(url('/admin/users')) ?>" data-ajax id="f-user"><?= csrf_field() ?>
     <div class="modal-head"><h3><i class="fa-solid fa-user-gear"></i> <span id="user-modal-title">کاربر جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">

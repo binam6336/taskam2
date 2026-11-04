@@ -206,23 +206,7 @@ final class AdminController extends Controller
             $this->respond(false, 'فقط کاربران عادیِ فعال قابل ورود هستند.', '/admin');
         }
         $this->rateLimit('impersonate', 30, 3600);
-        // لایه‌ی تأیید دوباره: شروع ورود به پنل کاربر فقط با رمز مدیر در چند دقیقه‌ی اخیر (نشست دزدیده‌شده یا رهاشده کافی نیست)
-        $admin = (array) Auth::realUser();
-        if (!Impersonation::stepupFresh()) {
-            $pass = (string) $this->request->input('password', '');
-            if ($pass === '') {
-                $this->fail('برای ورود به پنل کاربر رمز عبور خود را وارد کنید.', 403, ['code' => 'STEPUP_REQUIRED', 'minutes' => intdiv(Impersonation::stepupSeconds(), 60)]);
-            }
-            if (!\App\Core\Throttle::attempt('imp_stepup', (string) $admin['id'], 5, 900)) {
-                $this->fail('تلاش‌های ناموفق تأیید رمز زیاد است؛ ۱۵ دقیقه بعد دوباره تلاش کنید.', 429, ['code' => 'RATE_LIMITED']);
-            }
-            if (!password_verify($pass, (string) $admin['password_hash'])) {
-                \App\Core\Audit::log((int) $admin['id'], 'impersonate_stepup_failed', ['target' => (int) $t['id']]);
-                $this->fail('رمز عبور نادرست است.', 403, ['code' => 'STEPUP_REQUIRED', 'minutes' => intdiv(Impersonation::stepupSeconds(), 60)]);
-            }
-            \App\Core\Throttle::clear('imp_stepup', (string) $admin['id']);
-            Impersonation::markStepup();
-        }
+        $admin = (array) Auth::realUser();     // تأیید رمز مدیر فعلاً لازم نیست (دسترسی نقش‌های مدیر بعداً مدیریت می‌شود)
         $token = Impersonation::start($admin, $t, $this->request);
         // مقصد بعد از ورود (از «جزئیات کاربر»: فهرست تسک‌های یک پروژه یا لینک یک تسک)؛ فقط مسیرهای مجاز پنل کاربر
         $to = (string) $this->request->input('to', '');
@@ -477,6 +461,47 @@ final class AdminController extends Controller
         ContentModel::setTour($id, $body, $this->uid());
         Audit::log($this->uid(), 'content_updated', ['key' => 'tour.' . $id]);
         $this->respond(true, 'متن «' . $id . '» ذخیره شد.', '/admin/content/tour');
+    }
+
+    /** تنظیمات ← امنیت: لاگ ورود مدیران به پنل کاربر (ورود، خروج، هر تغییر با قبل و بعد) — App\Core\AdminLog */
+    public function security()
+    {
+        $this->rateLimit('admin_list', 60);
+        $r = $this->request->query;
+        $per = (int) ($r['per'] ?? self::USERS_PER_PAGE[0]);
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
+        $adminId = (int) \App\Core\Pid::id('users', (string) ($r['admin'] ?? ''));
+        $userId = (int) \App\Core\Pid::id('users', (string) ($r['u'] ?? ''));
+        $kinds = ['all' => 'همه', 'enter' => 'ورود', 'exit' => 'خروج', 'change' => 'تغییرها'];
+        $kind = isset($kinds[$r['kind'] ?? '']) ? (string) $r['kind'] : 'all';
+        $w = ['1'];
+        $p = [];
+        if ($adminId > 0) {
+            $w[] = 'l.admin_id = ?';
+            $p[] = $adminId;
+        }
+        if ($userId > 0) {
+            $w[] = 'l.target_id = ?';
+            $p[] = $userId;
+        }
+        if ($kind !== 'all') {
+            $w[] = $kind === 'change' ? "l.action IN ('create','update','delete')" : 'l.action = ?';
+            if ($kind !== 'change') {
+                $p[] = $kind;
+            }
+        }
+        $where = ' WHERE ' . implode(' AND ', $w);
+        $total = (int) DB::value('SELECT COUNT(*) FROM admin_logs l' . $where, $p);
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min($pages, max(1, (int) ($r['page'] ?? 1)));
+        $rows = DB::all('SELECT l.* FROM admin_logs l' . $where . ' ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?', array_merge($p, [$per, ($page - 1) * $per]));
+        $opt = static fn(string $col) => array_map(static fn($u) => ['id' => pid('users', $u), 'name' => full_name($u), 'mobile' => $u['mobile']],
+            DB::all("SELECT u.id, u.pid, u.first_name, u.last_name, u.mobile FROM users u WHERE u.id IN (SELECT DISTINCT $col FROM admin_logs) ORDER BY u.first_name, u.last_name"));
+        $this->view('admin/security', [
+            'items' => \App\Core\AdminLog::present($rows), 'total' => $total, 'pg' => $page, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
+            'kinds' => $kinds, 'kind' => $kind, 'admins' => $opt('admin_id'), 'targets' => $opt('target_id'),
+            'adminSel' => $adminId ? pid('users', $adminId) : '', 'userSel' => $userId ? pid('users', $userId) : '', 'supportUnread' => SupportModel::unreadForAdmin(),
+        ], ['title' => 'امنیت', 'page' => 'admin-security'], 'admin');
     }
 
     /** تنظیمات ← مستندات پنل: محدودیت‌ها و قواعد امنیتی مهم (App\Services\PanelDocs) */

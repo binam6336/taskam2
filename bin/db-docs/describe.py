@@ -12,7 +12,7 @@ COMMON = {
 }
 
 GROUPS = [
-    ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'impersonations', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
+    ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'impersonations', 'admin_logs', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
     ('تسک‌ها', ['subjects', 'tasks', 'task_notes', 'task_events', 'task_mentions', 'task_attachments', 'note_attachments']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
@@ -75,6 +75,23 @@ TABLES = {
         'last_seen_at': 'آخرین درخواست غیر پس‌زمینه؛ مبنای بسته شدن با بی‌فعالیتی (IMPERSONATE_IDLE_MINUTES).',
         'expires_at': 'پایان قطعی (IMPERSONATE_MAX_HOURS بعد از شروع).', 'ended_at': 'زمان بسته شدن؛ NULL = باز.',
         'end_reason': 'دلیل بسته شدن: exit، admin_end، end_all، logout، idle، expired، admin_changed، target_inactive، misuse، limit.',
+    },
+},
+'admin_logs': {
+    'title': 'لاگ امنیتی مدیران',
+    'desc': 'پنل مدیر ← تنظیمات ← امنیت (v5.2). فعلاً ورود مدیر به پنل کاربر: ورود، خروج و هر تغییری که مدیر داخل پنل کاربر داده است.',
+    'flow': [
+        'ورود: Impersonation::start ← action = enter (نقش مدیر در همان لحظه در admin_role).',
+        'خروج یا بسته شدن پنجره (هر دلیل): Impersonation::end ← action = exit و دلیل در changes ({"reason": …}).',
+        'تغییرها: داخل پنجره (AdminLog::watch) هر INSERT / UPDATE / DELETE لایه‌ی DB روی جدول‌های AdminLog::TRACK (تسک، پروژه، لیبل، یادداشت، پیوست، عضویت، همکاری، گفتگو، تیکت، متن آماده، پروفایل کاربر، …) با عکس ردیف قبل و بعد ثبت می‌شود: action = create / update / delete، changes = فقط ستون‌هایی که عوض شده‌اند [{f, b, a}]. ستون‌های فنی/محرمانه (رمز، توکن، مسیر فایل، متن پیام گفتگو) ثبت نمی‌شوند؛ پیام‌های خودکار ربات هم نه.',
+        'نمایش: AdminLog::present نام ستون‌ها و مقدارها را خوانا می‌کند (کاربر، پروژه، لیبل، وضعیت بورد، اولویت، تاریخ شمسی) و برای تسک/پروژه لینک «ورود به پنل» سازنده‌ی پروژه با همان تسک می‌سازد. فیلتر بر اساس مدیر، کاربر و نوع؛ صفحه‌بندی ۱۰ / ۲۰ / ۵۰ / ۱۰۰.',
+    ],
+    'cols': {
+        'id': 'شناسه‌ی ردیف (بیرون نمی‌رود).', 'admin_id': 'مدیری که کار را انجام داده.', 'admin_role': 'نقش مدیر در همان لحظه: super (مدیر کل)، internal (مدیر داخلی)، support (پشتیبان).',
+        'target_id': 'کاربری که مدیر وارد پنلش شده (حذف کاربر = NULL).', 'impersonation_id': 'پنجره‌ی ورود به پنل کاربر (impersonations.id).',
+        'action': 'enter = ورود، exit = خروج، create / update / delete = تغییر رکورد.', 'entity': 'جدول رکورد تغییرکرده.', 'entity_id': 'شناسه‌ی داخلی رکورد تغییرکرده.',
+        'entity_title': 'عنوان رکورد در لحظه‌ی ثبت (عنوان تسک، نام پروژه، …).', 'changes': 'JSON تغییرها: [{f: ستون، b: قبل، a: بعد}]؛ برای خروج {reason}.',
+        'request_key': 'کلید تصادفی هر درخواست؛ تغییرهای یک درخواست کلید یکسان دارند.', 'path': 'مسیر درخواست داخل پنل کاربر.', 'ip': 'IP مدیر.', 'created_at': 'زمان دقیق (تا ثانیه).',
     },
 },
 'user_sessions': {
