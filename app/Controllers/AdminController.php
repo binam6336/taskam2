@@ -10,6 +10,7 @@ use App\Core\Crypto;
 use App\Core\DB;
 use App\Core\ErrorText;
 use App\Core\PlaceholderText;
+use App\Core\Session;
 use App\Core\Validate;
 use App\Models\ContentModel;
 use App\Models\SidebarModel;
@@ -36,11 +37,26 @@ final class AdminController extends Controller
         }
     }
 
+    /** تعداد کاربر در هر صفحه‌ی «مدیریت کاربران» (پیش‌فرض اولی) */
+    public const USERS_PER_PAGE = [10, 20, 50, 100];
+
     public function users()
     {
         $me = $this->user();
+        $r = $this->request;
+        // تعداد در صفحه: از آدرس، وگرنه آخرین انتخاب همین مدیر در نشست
+        $per = (int) ($r->query['per'] ?? Session::get('admin_users_per', self::USERS_PER_PAGE[0]));
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
+        if (isset($r->query['per'])) {
+            Session::put('admin_users_per', $per);
+        }
+        $q = trim(mb_substr((string) ($r->query['q'] ?? ''), 0, 100));
+        $total = UserModel::pageForAdmin($q, 1, 0)['total'];
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min($pages, max(1, (int) ($r->query['page'] ?? 1)));
+        $res = UserModel::pageForAdmin($q, $per, ($page - 1) * $per);
         $this->view('admin/users', [
-            'users' => UserModel::allForAdmin(), 'counts' => UserModel::counts(), 'myPerms' => Auth::adminPermissions($me),
+            'users' => $res['rows'], 'total' => $res['total'], 'pg' => $page, 'pages' => $pages, 'per' => $per, 'q' => $q, 'perOptions' => self::USERS_PER_PAGE, 'counts' => UserModel::counts(), 'myPerms' => Auth::adminPermissions($me),
             'isSuper' => $this->isSuper(), 'permDefs' => self::PERMS, 'superId' => Auth::superAdminId(),
             'supportUnread' => SupportModel::unreadForAdmin(),
         ], ['title' => 'مدیریت کاربران', 'page' => 'admin-users'], 'admin');

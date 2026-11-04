@@ -10,6 +10,7 @@ $titles = [
     'chat'     => ['fa-comments', 'گفتگو', 'blue'],
     'support'  => ['fa-headset', 'پشتیبانی', 'yellow'],
     'api'      => ['fa-code', 'وب سرویس', 'purple'],
+    'admin'    => ['fa-user-shield', 'پنل مدیر', 'green'],
 ];
 $total = array_sum(array_map('count', $groups));
 ?>

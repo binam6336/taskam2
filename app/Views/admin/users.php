@@ -1,5 +1,5 @@
 <?php
-/** @var array $users @var array $counts @var array $myPerms @var bool $isSuper @var array $permDefs @var int $superId */
+/** @var array $users @var int $total @var int $pg @var int $pages @var int $per @var string $q @var array $perOptions @var array $counts @var array $myPerms @var bool $isSuper @var array $permDefs @var int $superId */
 $can = static fn(string $p) => in_array($p, $myPerms, true);
 $stLbl = ['pending' => ['در انتظار', 'yellow'], 'active' => ['فعال', 'green'], 'deactivated' => ['غیرفعال', ''], 'blocked' => ['مسدود', 'red']];
 $this->scripts[] = 'admin';
@@ -12,7 +12,13 @@ $me = (int) $currentUser['id'];
     <div class="card stat"><div class="ico warn"><i class="fa-solid fa-user-clock"></i></div><div><div class="num"><?= e(fa_num($counts['pending'])) ?></div><div class="lbl">در انتظار تأیید</div></div></div>
     <div class="card stat"><div class="ico danger"><i class="fa-solid fa-user-slash"></i></div><div><div class="num"><?= e(fa_num($counts['blocked'] + $counts['deactivated'])) ?></div><div class="lbl">مسدود / غیرفعال</div></div></div>
 </div>
-<div class="page-head"><div class="search" data-css="min-width:280px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="user-filter" placeholder="جستجوی نام یا موبایل…"></div>
+<?php // جستجو سمت سرور (همه‌ی صفحه‌ها) + تعداد در هر صفحه؛ با تغییر، صفحه از اول ?>
+<div class="page-head"><form method="get" class="flex gap-2 items-center wrap users-tools" id="users-tools">
+        <div class="search" data-css="min-width:280px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_users_search')) ?>" aria-label="جستجوی کاربران"></div>
+        <label class="flex items-center gap-1 small muted users-per">نمایش در هر صفحه
+            <select class="input" name="per" data-autosubmit aria-label="تعداد کاربر در هر صفحه"><?php foreach ($perOptions as $n): ?><option value="<?= (int) $n ?>" <?= $n === $per ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select></label>
+        <span class="small faint"><?= e(fa_num($total)) ?> کاربر<?= $q !== '' ? ' پیدا شد' : '' ?></span>
+    </form>
     <?php if ($can('add_user')): ?><button class="btn btn-primary" id="btn-new-user"><i class="fa-solid fa-user-plus"></i> کاربر جدید</button><?php endif; ?></div>
 <div class="table-wrap" data-live="a-users"><table class="table" id="users-table"><thead><tr><th>کاربر</th><th>موبایل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead><tbody>
 <?php foreach ($users as $u):
@@ -38,7 +44,8 @@ $me = (int) $currentUser['id'];
             <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
             <?php if ($can('delete_user') && !$protected): ?><button class="btn btn-xs btn-icon btn-danger" data-post="<?= e(url('/admin/users/' . $u['id'] . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟" title="حذف"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
         </div></td></tr>
-<?php endforeach; ?></tbody></table></div>
+<?php endforeach; ?><?php if (!$users): ?><tr><td colspan="6" class="center muted"><?= $q !== '' ? 'کاربری با این جستجو پیدا نشد.' : 'کاربری وجود ندارد.' ?></td></tr><?php endif; ?></tbody></table>
+<?php $this->partial('pagination', ['pg' => $pg, 'pages' => $pages, 'query' => array_filter(['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null])]); ?></div>
 
 <div class="modal" id="m-user"><div class="modal-box"><form method="post" action="<?= e(url('/admin/users')) ?>" data-ajax id="f-user"><?= csrf_field() ?>
     <div class="modal-head"><h3><i class="fa-solid fa-user-gear"></i> <span id="user-modal-title">کاربر جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>

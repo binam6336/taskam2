@@ -57,10 +57,23 @@ final class UserModel
         return array_map('intval', $r + ['total' => 0]);
     }
 
-    public static function allForAdmin(): array
+    /**
+     * فهرست صفحه‌بندی‌شده‌ی کاربران پنل مدیر (جستجو در نام، نام‌خانوادگی، موبایل و ایمیل).
+     * @return array{rows:array,total:int}
+     */
+    public static function pageForAdmin(string $q, int $limit, int $offset): array
     {
-        return DB::all("SELECT id, mobile, first_name, last_name, email, avatar, role, status, admin_permissions, last_seen, last_login_at, created_at
-                          FROM users WHERE is_bot = 0 ORDER BY (role = 'admin') DESC, created_at DESC");
+        $w = 'is_bot = 0';
+        $p = [];
+        if ($q !== '') {
+            $w .= " AND (CONCAT(first_name, ' ', last_name) LIKE ? OR mobile LIKE ? OR email LIKE ?)";
+            $l = DB::like($q);
+            array_push($p, $l, $l, $l);
+        }
+        $total = (int) DB::value("SELECT COUNT(*) FROM users WHERE $w", $p);
+        $rows = DB::all("SELECT id, mobile, first_name, last_name, email, avatar, role, status, admin_permissions, last_seen, last_login_at, created_at
+                          FROM users WHERE $w ORDER BY (role = 'admin') DESC, created_at DESC, id DESC LIMIT ? OFFSET ?", array_merge($p, [$limit, $offset]));
+        return ['rows' => $rows, 'total' => $total];
     }
 
     public static function touchSeen(int $id): void

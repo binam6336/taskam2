@@ -1807,3 +1807,7 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .rselect-opt.disabled { opacity: .5; cursor: not-allowed; }
 .rselect-note { display: block; font-size: .7rem; color: var(--g-300); }
 .rselect-opt.disabled .rselect-note { color: var(--muted); }
+/* پنل مدیر ← مدیریت کاربران: جستجو و تعداد در هر صفحه */
+.users-per { white-space: nowrap; }
+.users-per select.input { width: auto; min-width: 74px; }
+#users-table + .pagination { margin: 1rem 0; }

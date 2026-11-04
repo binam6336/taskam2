@@ -1,9 +1,8 @@
 document.addEventListener('tk:ready', () => {
-  /* فیلتر جدول کاربران */
-  const flt = TK.qs('#user-filter');
-  const applyFilter = () => { const q = flt.value.trim().toLowerCase(); TK.qsa('#users-table tbody tr').forEach((r) => (r.style.display = !q || r.dataset.search.includes(q) ? '' : 'none')); };
-  flt?.addEventListener('input', applyFilter);
-  document.addEventListener('tk:live', () => { if (flt) applyFilter(); });
+  /* جستجوی کاربران (سمت سرور، همه‌ی صفحه‌ها): کمی بعد از توقف تایپ، فرم GET ارسال می‌شود */
+  const tools = TK.qs('#users-tools'), qIn = tools?.querySelector('[name=q]');
+  let qt = null;
+  qIn?.addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => (tools.requestSubmit ? tools.requestSubmit() : tools.submit()), 450); });
 
   /* فرم کاربر */
   const f = TK.qs('#f-user');
