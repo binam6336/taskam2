@@ -485,6 +485,7 @@ final class AdminController extends Controller
             $order = 't.created_at DESC, t.id DESC';
         } elseif ($kind === 'projects') {
             $base = 'FROM projects p LEFT JOIN users u ON u.id = p.user_id';
+            $w[] = 'p.is_sample = 0';                        // پروژه‌های نمونه‌ی خودکار ثبت‌نام شمرده نمی‌شوند
             $w[] = ['all' => '1', 'active' => 'p.blocked_at IS NULL', 'blocked' => 'p.blocked_at IS NOT NULL'][$st];
             if ($q !== '') {
                 $w[] = "(p.title LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
@@ -587,7 +588,7 @@ final class AdminController extends Controller
             'users' => UserModel::counts(),
             'tasks' => ['total' => $c('SELECT COUNT(*) FROM tasks'), 'done' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 1'), 'open' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 0'), 'high' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'high'"), 'medium' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'medium'"), 'low' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'low'")],
             'calls' => ['total' => $c('SELECT COUNT(*) FROM call_requests'), 'new' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 0'), 'done' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 1')],
-            'misc' => ['notes' => $c('SELECT COUNT(*) FROM task_notes'), 'texts' => $c('SELECT COUNT(*) FROM texts'), 'projects' => $c('SELECT COUNT(*) FROM projects'), 'members' => $c('SELECT COUNT(*) FROM project_members'), 'messages' => $c('SELECT COUNT(*) FROM chat_messages'), 'tokens' => $c('SELECT COUNT(*) FROM api_tokens WHERE is_active = 1'), 'support_open' => $c("SELECT COUNT(*) FROM support_tickets WHERE status <> 'closed'")],
+            'misc' => ['notes' => $c('SELECT COUNT(*) FROM task_notes'), 'texts' => $c('SELECT COUNT(*) FROM texts'), 'projects' => $c('SELECT COUNT(*) FROM projects WHERE is_sample = 0'), 'members' => $c('SELECT COUNT(*) FROM project_members'), 'messages' => $c('SELECT COUNT(*) FROM chat_messages'), 'tokens' => $c('SELECT COUNT(*) FROM api_tokens WHERE is_active = 1'), 'support_open' => $c("SELECT COUNT(*) FROM support_tickets WHERE status <> 'closed'")],
         ];
         $days = [];
         $tk = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)'), 'c', 'd');
@@ -599,7 +600,7 @@ final class AdminController extends Controller
             $days['users'][] = (int) ($us[$d] ?? 0);
         }
         $topUsers = DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8');
-        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
+        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.is_sample = 0 GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
         $topSubjects = DB::all('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id GROUP BY s.title ORDER BY cnt DESC LIMIT 8');
         $chatSec = [
             'configured' => Crypto::configured(),

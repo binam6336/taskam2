@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '030';
+    public const VERSION = '031';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 031
+        ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
         // 030
         ['users', 'last_active_at', "ADD COLUMN `last_active_at` DATETIME NULL DEFAULT NULL AFTER `last_login_ip`", null],
         // 029
@@ -79,6 +81,7 @@ final class Schema
         ['028', '028_task_delivery_review.sql'],
         ['029', '029_admin_roles.sql'],
         ['030', '030_user_last_active.sql'],
+        ['031', '031_sample_projects.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */

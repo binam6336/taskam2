@@ -130,6 +130,7 @@ CREATE TABLE `projects` (
   `priority_type` ENUM('category','percent') NOT NULL DEFAULT 'category' COMMENT 'نحوه‌ی ثبت/نمایش اولویت تسک‌ها',
   `profile_image` VARCHAR(255) NULL DEFAULT NULL,
   `status`        TINYINT(1) NOT NULL DEFAULT 1      COMMENT '1=فعال 0=غیرفعال',
+  `is_sample`     TINYINT(1) NOT NULL DEFAULT 0      COMMENT '1 = پروژه‌ی نمونه‌ی خودکار ثبت‌نام (در پنل مدیر شمرده نمی‌شود)',
   `blocked_at`    TIMESTAMP NULL DEFAULT NULL        COMMENT 'مسدودشده توسط سازنده (به‌جای حذف)',
   `blocked_by`    INT UNSIGNED NULL DEFAULT NULL,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

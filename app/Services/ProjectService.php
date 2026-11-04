@@ -92,11 +92,14 @@ final class ProjectService
         return [true, $msg, $id];
     }
 
-    /** پروژه‌ی نمونه برای کاربر تازه‌ثبت‌نام‌شده تا تسک‌های اولیه را با آن ثبت کند (کاربر می‌تواند ویرایش یا حذفش کند). */
+    /** پروژه‌ی نمونه برای کاربر تازه‌ثبت‌نام‌شده تا تسک‌های اولیه را با آن ثبت کند (projects.is_sample = 1 تا کاربر عنوانش را عوض کند). */
     public static function createSample(int $uid): void
     {
         try {
-            self::create($uid, 'پروژه نمونه', 'این یک پروژه‌ی نمونه است تا تسک‌های اولیه‌ات را با آن ثبت کنی؛ هر وقت خواستی می‌توانی ویرایش یا حذفش کنی.', 10, [], null);
+            [$ok, , $id] = self::create($uid, 'پروژه نمونه', 'این یک پروژه‌ی نمونه است تا تسک‌های اولیه‌ات را با آن ثبت کنی؛ هر وقت خواستی می‌توانی ویرایشش کنی.', 10, [], null);
+            if ($ok && $id) {
+                DB::run('UPDATE projects SET is_sample = 1 WHERE id = ?', [(int) $id]);   // در فهرست‌ها و آمار پنل مدیر شمرده نمی‌شود
+            }
         } catch (\Throwable $e) {
             error_log('sample project: ' . $e->getMessage()); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
         }
@@ -125,6 +128,9 @@ final class ProjectService
                 return [false, 'حداکثر اعضا نمی‌تواند کمتر از تعداد فعلی اعضا (' . fa_num($cur) . ') باشد.'];
             }
             $data = ['title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max];
+            if ($title !== (string) $p['title']) {
+                $data['is_sample'] = 0;                    // کاربر پروژه‌ی نمونه را مال خودش کرد: از این به بعد در پنل مدیر شمرده می‌شود
+            }
             if ($priorityType !== null && array_key_exists($priorityType, Priority::TYPES) && $priorityType !== $p['priority_type']) {
                 $data['priority_type'] = $priorityType;
                 Priority::switchProject($projectId, (string) $p['priority_type'], $priorityType);
