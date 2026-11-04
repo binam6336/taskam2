@@ -1792,15 +1792,17 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 /* برد (v4.1): ستون‌های خالی جمع‌شده (باریک با شمارنده)؛ کلیک یا کشیدن کارت روی آن بازش می‌کند */
 .kb-board { display: flex; }
 .kb-board > .kb-col { flex: 1 0 var(--kb-col); min-width: var(--kb-col); }
-@media (min-width: 861px) {
-  .kb-board > .kb-col.kb-collapsed { flex: 0 0 58px; min-width: 58px; cursor: pointer; min-height: 220px; }
+/* در همه‌ی عرض‌ها (v4.1.2: موبایل و تبلت هم)؛ ستون باز در موبایل همان ۸۲vw می‌ماند */
+@media all {
+  .kb-board > .kb-col.kb-collapsed { flex: 0 0 58px; min-width: 58px; width: 58px; cursor: pointer; min-height: 220px; scroll-snap-align: none; }
   .kb-col.kb-collapsed .kb-list, .kb-col.kb-collapsed .kb-col-foot, .kb-col.kb-collapsed .kb-col-head .grow span,
   .kb-col.kb-collapsed .kb-col-head > button, .kb-col.kb-collapsed .kb-limit-pop { display: none; }
   .kb-col.kb-collapsed .kb-col-head { flex-direction: column; align-items: center; gap: .5rem; padding: .7rem .2rem; border-bottom: 0; }
   .kb-col.kb-collapsed .kb-col-head .grow { writing-mode: vertical-rl; white-space: nowrap; flex: none; }
   .kb-col.kb-collapsed:hover { border-color: var(--border-2); background: var(--surface); }
-  .kb-arranging > .kb-col.kb-collapsed { flex: 1 0 var(--kb-col); min-width: var(--kb-col); }
+  .kb-arranging > .kb-col.kb-collapsed { flex: 1 0 var(--kb-col); min-width: var(--kb-col); width: auto; }
 }
+@media (max-width: 860px) { .kb-board > .kb-col.kb-collapsed { min-height: 160px; } .kb-board > .kb-col:not(.kb-collapsed) { flex: 0 0 var(--kb-col); } }
 .rselect-group { padding: .45rem .6rem .2rem; font-size: .72rem; font-weight: 700; color: var(--muted); }
 .rselect-opt.disabled { opacity: .5; cursor: not-allowed; }
 .rselect-note { display: block; font-size: .7rem; color: var(--g-300); }

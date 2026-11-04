@@ -124,6 +124,7 @@ document.addEventListener('tk:ready', () => {
   });
   TK.on('click', '[data-kb-goto]', (e, btn) => {
     const c = TK.qs(`#kb-board > .kb-col[data-col="${btn.dataset.kbGoto}"]`); if (!c) return;
+    c.classList.remove('kb-collapsed');            // زبانه‌ی ستون خالی: ستون باز شود تا خالی بودنش دیده شود
     c.scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });
   });
   // ستون جمع‌شده (خالی): کلیک روی آن بازش می‌کند؛ کشیدن کارت رویش هم کار می‌کند
