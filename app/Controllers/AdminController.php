@@ -206,7 +206,7 @@ final class AdminController extends Controller
         Auth::startImpersonation($this->uid(), (int) $t['id']);
         // مقصد بعد از ورود (از «جزئیات کاربر»: فهرست تسک‌های یک پروژه یا لینک یک تسک)؛ فقط مسیرهای مجاز پنل کاربر
         $to = (string) $this->request->input('to', '');
-        $to = preg_match('#^/(tasks|board)(\?[A-Za-z0-9=&_%.\-]*)?$#', $to) ? $to : '/dashboard';
+        $to = preg_match('#^/(tasks|board|projects)(\?[A-Za-z0-9=&_%.\-]*)?$#', $to) ? $to : '/dashboard';
         // درخواست AJAX باید JSON بگیرد (نه redirect به HTML → «پاسخ نامعتبر از سرور (200)»)
         if ($this->request->wantsJson()) {
             $this->ok('در حال ورود به پنل «' . full_name($t) . '» …', ['redirect' => url($to)]);
@@ -228,7 +228,7 @@ final class AdminController extends Controller
         $created = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND blocked_at IS NULL', [$uid]);
         $canEnter = Auth::adminCan('impersonate') && $u['role'] !== 'admin' && $u['status'] === 'active';
         $projects = [];
-        foreach (DB::all('SELECT p.id, p.title, p.user_id, p.blocked_at, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) + 1 AS members,
+        foreach (DB::all('SELECT p.id, p.title, p.user_id, p.blocked_at, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 AS members,
                 (SELECT COUNT(*) FROM tasks x WHERE x.project_id = p.id AND x.assignee_id = ? AND x.blocked_at IS NULL) AS my_tasks
                 FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.blocked_at IS NOT NULL, p.title', [$uid, $uid, $uid]) as $p) {
             $creator = (int) $p['user_id'] === $uid;
@@ -492,7 +492,7 @@ final class AdminController extends Controller
                 array_push($p, $like, $like);
             }
             $sel = "SELECT p.id, p.title, p.priority_type, p.blocked_at, p.created_at, p.max_members, u.first_name, u.last_name,
-                    (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS members,
+                    (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 AS members,
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks,
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL AND t.is_completed = 1) AS done $base";
             $order = 'p.created_at DESC, p.id DESC';
@@ -522,7 +522,7 @@ final class AdminController extends Controller
     public function projectInfo(string $id)
     {
         $this->rateLimit('admin_list', 120);
-        $p = DB::one('SELECT p.id, p.title, p.description, p.priority_type, p.max_members, p.blocked_at, p.created_at, u.first_name, u.last_name, u.mobile, u.avatar
+        $p = DB::one('SELECT p.id, p.title, p.description, p.priority_type, p.max_members, p.blocked_at, p.created_at, p.user_id, u.first_name, u.last_name, u.mobile, u.avatar, u.role, u.status
             FROM projects p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [(int) $id]);
         if ($p === null) {
             $this->fail('پروژه یافت نشد.', 404);
@@ -530,9 +530,12 @@ final class AdminController extends Controller
         $cnt = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1 AND blocked_at IS NULL),0) done, COALESCE(SUM(blocked_at IS NOT NULL),0) blocked FROM tasks WHERE project_id = ?', [(int) $id]) ?? [];
         $this->ok('', ['project' => [
             'id' => (int) $p['id'], 'title' => $p['title'], 'description' => $p['description'], 'created_fa' => jdate((string) $p['created_at']),
-            'creator' => full_name($p), 'creator_mobile' => $p['mobile'], 'creator_avatar' => avatar_url($p['avatar']),
+            'creator' => full_name($p), 'creator_mobile' => $p['mobile'], 'creator_avatar' => avatar_url($p['avatar']), 'creator_id' => (int) $p['user_id'],
+            // «ورود به پروژه»: با نقش مدیر وارد پنل سازنده و صفحه‌ی پروژه‌ها (همین پروژه برجسته)
+            'can_enter' => Auth::adminCan('impersonate') && $p['role'] !== 'admin' && $p['status'] === 'active',
+            'enter_why' => $p['role'] === 'admin' ? 'سازنده‌ی این پروژه مدیر است؛ ورود به پنل مدیران ممکن نیست.' : ($p['status'] !== 'active' ? 'حساب سازنده‌ی این پروژه فعال نیست.' : null),
             'priority_type' => $p['priority_type'] === 'percent' ? 'درصدی' : 'دسته‌ای (کم/متوسط/زیاد)', 'is_blocked' => $p['blocked_at'] !== null,
-            'members' => (int) DB::value('SELECT COUNT(*) FROM project_members WHERE project_id = ?', [(int) $id]) + 1, 'max_members' => (int) $p['max_members'],
+            'members' => (int) DB::value('SELECT COUNT(*) FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.project_id = ? AND pm.user_id <> p.user_id', [(int) $id]) + 1, 'max_members' => (int) $p['max_members'],
             'tasks' => (int) ($cnt['total'] ?? 0), 'tasks_done' => (int) ($cnt['done'] ?? 0), 'tasks_blocked' => (int) ($cnt['blocked'] ?? 0),
         ]]);
     }
@@ -548,7 +551,7 @@ final class AdminController extends Controller
         $per = (int) ($this->request->query['per'] ?? self::USERS_PER_PAGE[0]);
         $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
         if ($part === 'members') {
-            $total = (int) DB::value('SELECT COUNT(*) FROM project_members WHERE project_id = ?', [$pid]) + 1;
+            $total = (int) DB::value('SELECT COUNT(*) FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.project_id = ? AND pm.user_id <> p.user_id', [$pid]) + 1;
             $pages = max(1, (int) ceil($total / $per));
             $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
             // سازنده اول، بعد اعضا به ترتیب عضویت
@@ -559,7 +562,7 @@ final class AdminController extends Controller
                     UNION ALL
                     SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, pm.added_at, 0, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users,
                         (SELECT COUNT(*) FROM tasks t WHERE t.project_id = pm.project_id AND t.assignee_id = u.id AND t.blocked_at IS NULL)
-                    FROM project_members pm JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ?) x
+                    FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN projects pp ON pp.id = pm.project_id WHERE pm.project_id = ? AND pm.user_id <> pp.user_id) x
                 ORDER BY is_creator DESC, added_at, id LIMIT ? OFFSET ?", [$pid, $pid, $per, ($page - 1) * $per]);
             $roles = \App\Services\Access::ROLES + ['custom' => \App\Services\Access::ROLE_CUSTOM];
             $items = array_map(static fn($m) => ['name' => full_name($m), 'mobile' => $m['mobile'], 'avatar' => avatar_url($m['avatar']), 'added_fa' => jdate((string) $m['added_at']),
@@ -600,7 +603,7 @@ final class AdminController extends Controller
             $days['users'][] = (int) ($us[$d] ?? 0);
         }
         $topUsers = DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8');
-        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.is_sample = 0 GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
+        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.is_sample = 0 GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
         $topSubjects = DB::all('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id GROUP BY s.title ORDER BY cnt DESC LIMIT 8');
         $chatSec = [
             'configured' => Crypto::configured(),

@@ -1831,3 +1831,8 @@ button.ap-link.on { background: var(--ok-bg); }
 .ud-proj { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: right; cursor: pointer; }
 .ud-proj:hover { border-color: rgba(var(--accent-rgb), .55); background: var(--surface-2); }
 .ud-proj .grow { display: flex; flex-direction: column; }
+/* صفحه‌ی پروژه‌ها ← پروژه‌ای که مدیر با «ورود به پروژه» به آن آمده */
+.card.proj-focus { position: relative; padding-top: 2rem; border-color: var(--g-400); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .35), var(--glow); animation: projFocus 1.1s ease-in-out 3; }
+.card.proj-focus::before { content: "پروژه‌ی انتخاب‌شده از پنل مدیر"; position: absolute; top: .5rem; inset-inline-start: 1rem; padding: .05rem .6rem; border-radius: 999px; font-size: .7rem; font-weight: 700; background: var(--g-500); color: var(--g-ink); z-index: 2; }
+@keyframes projFocus { 0%, 100% { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .35); } 50% { box-shadow: 0 0 0 9px rgba(var(--accent-rgb), .12); } }
+.ap-enter { width: 100%; justify-content: center; }

@@ -1,5 +1,13 @@
 document.addEventListener('tk:ready', () => {
   if (!TK.qs('#f-project')) return;
+  // ?focus=<id> (از پنل مدیر ← «ورود به پروژه»): کارت همان پروژه برجسته و دیده شود
+  const fid = new URLSearchParams(location.search).get('focus');
+  const fc = fid && /^\d+$/.test(fid) ? TK.qs('#proj-' + fid) : null;
+  if (fc) {
+    fc.classList.add('proj-focus');
+    setTimeout(() => fc.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    fc.addEventListener('animationend', () => fc.classList.add('proj-focus-done'), { once: true });
+  }
   const data = () => { try { return JSON.parse(TK.qs('#proj-data').textContent); } catch { return { list: {}, colleagues: [], permDefs: {}, me: 0 }; } };
   const E = TK.esc, form = TK.qs('#f-project'), list = TK.qs('#members-list');
 

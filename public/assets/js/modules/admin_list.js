@@ -6,7 +6,7 @@ document.addEventListener('tk:ready', () => {
   usersPart(E, F, PER);
   const m = TK.qs('#m-aproj'); if (!m) return;
   const info = TK.qs('#ap-info'), part = TK.qs('#ap-part');
-  let pid = 0, cur = { kind: '', page: 1, per: PER[0] };
+  let pid = 0, cur = { kind: '', page: 1, per: PER[0] }, proj = null;
 
   const av = (name, src) => `<span class="avatar sm">${src ? `<img src="${E(src)}" alt="">` : E(TK.initial(name))}</span>`;
   const pager = (d) => {
@@ -43,12 +43,13 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open(m);
     const r = await TK.get('/admin/list/projects/' + id);
     if (!TK.ok(r)) { info.innerHTML = `<div class="text-danger small">${E(r.message || 'خطا')}</div>`; return; }
-    const p = r.project;
+    const p = r.project; proj = p;
     TK.qs('#ap-title').textContent = p.title;
     info.innerHTML = `${p.is_blocked ? '<div class="alert error mb-2"><i class="fa-solid fa-ban"></i> این پروژه مسدود شده است.</div>' : ''}
       ${p.description ? `<p class="muted small mb-2">${E(p.description)}</p>` : ''}
       <div class="grid ap-cards">
-        <div class="card flat ap-card"><div class="xs muted">ایجادکننده</div><div class="flex items-center gap-1 mt-1">${av(p.creator, p.creator_avatar)}<div><b>${E(p.creator)}</b><div class="xs muted ltr">${E(p.creator_mobile || '')}</div></div></div></div>
+        <div class="card flat ap-card"><div class="xs muted">ایجادکننده</div><div class="flex items-center gap-1 mt-1">${av(p.creator, p.creator_avatar)}<div><b>${E(p.creator)}</b><div class="xs muted ltr">${E(p.creator_mobile || '')}</div></div></div>
+          <button type="button" class="btn btn-sm btn-primary mt-2 ap-enter${p.can_enter ? '' : ' locked'}" data-ap-enter title="ورود به پنل سازنده با نقش مدیر و نمایش همین پروژه"><i class="fa-solid fa-right-to-bracket"></i> ورود به پروژه</button></div>
         <button type="button" class="card flat ap-card ap-link" data-ap-show="members"><div class="xs muted">تعداد اعضا</div><div class="ap-num">${F(p.members)} <span class="xs faint">از ${F(p.max_members)}</span></div><div class="xs ap-more">نمایش اعضا <i class="fa-solid fa-arrow-left"></i></div></button>
         <button type="button" class="card flat ap-card ap-link" data-ap-show="tasks"><div class="xs muted">تعداد تسک‌ها</div><div class="ap-num">${F(p.tasks)}</div><div class="xs muted">${F(p.tasks_done)} انجام‌شده${p.tasks_blocked ? ' • ' + F(p.tasks_blocked) + ' مسدود' : ''}</div><div class="xs ap-more">نمایش تسک‌ها <i class="fa-solid fa-arrow-left"></i></div></button>
         <div class="card flat ap-card"><div class="xs muted">تاریخ ایجاد</div><div class="bold mt-1">${E(p.created_fa)}</div><div class="xs muted mt-1">اولویت: ${E(p.priority_type)}</div></div>
@@ -57,7 +58,14 @@ document.addEventListener('tk:ready', () => {
 
   TK.on('click', 'tr[data-aproj]', (e, tr) => open(+tr.dataset.aproj));
   TK.on('keydown', 'tr[data-aproj]', (e, tr) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(+tr.dataset.aproj); } });
-  m.addEventListener('click', (e) => {
+  m.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-ap-enter]')) {
+      if (!proj.can_enter) { TK.info(proj.enter_why || 'ورود ممکن نیست.', { title: 'ورود به پروژه', icon: 'fa-lock' }); return; }
+      if (!(await TK.confirm(`با نقش مدیر وارد پنل «${proj.creator}» (سازنده‌ی پروژه) می‌شوید و پروژه‌ی «${proj.title}» در صفحه‌ی پروژه‌ها نمایش داده می‌شود. ادامه می‌دهید؟`, { okText: 'ورود به پروژه', danger: false }))) return;
+      const r = await TK.post(`/admin/users/${proj.creator_id}/impersonate`, { to: '/projects?focus=' + proj.id });
+      if (TK.ok(r) && r.redirect) { location.href = r.redirect; return; }
+      TK.toast(r.message || 'خطا', 'error'); return;
+    }
     const s = e.target.closest('[data-ap-show]'); if (s) { cur = { kind: s.dataset.apShow, page: 1, per: cur.per }; loadPart(); return; }
     const pg = e.target.closest('[data-ap-page]'); if (pg && !pg.disabled) { cur.page = +pg.dataset.apPage; loadPart(); }
   });
