@@ -17,6 +17,27 @@ document.addEventListener('tk:ready', () => {
     });
   }
 
+  /* پنجره‌های باز ورود به پنل کاربر (همین نشست مدیر) */
+  const ib = TK.qs('#imp-open');
+  if (ib) {
+    const E = TK.esc;
+    const load = async () => {
+      const r = await TK.get('/admin/impersonations'); if (!TK.ok(r)) return;
+      ib.hidden = !r.items.length; TK.qs('#imp-open-n').textContent = TK.fa(r.items.length);
+      TK.qs('#imp-open-list').innerHTML = r.items.map((x) => `<div class="item"><span class="avatar sm">${x.avatar ? `<img src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
+        <div class="grow min0"><b>${E(x.name)}</b> <span class="ltr small muted">${E(x.mobile)}</span><div class="xs faint">شروع ${E(x.started_fa)} • آخرین فعالیت ${E(x.seen_fa)} • ${TK.fa(x.actions)} تغییر • پایان قطعی ${E(x.expires_fa)}</div></div>
+        <button type="button" class="btn btn-sm" data-imp-end="${E(x.id)}"><i class="fa-solid fa-xmark"></i> بستن</button></div>`).join('');
+    };
+    load();
+    document.addEventListener('tk:impersonated', load);
+    setInterval(load, 30000);
+    TK.on('click', '[data-imp-end]', async (e, b) => { const r = await TK.post('/admin/impersonations/' + b.dataset.impEnd + '/end'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); load(); });
+    TK.on('click', '[data-imp-end-all]', async () => {
+      if (!(await TK.confirm('همه‌ی پنجره‌های ورود به پنل کاربر شما (روی همه‌ی دستگاه‌ها) بسته شوند؟', { okText: 'بستن همه' }))) return;
+      const r = await TK.post('/admin/impersonations/end-all'); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); load();
+    });
+  }
+
   /* نمودارهای تحلیل */
   const an = TK.boot().an;
   if (an) {

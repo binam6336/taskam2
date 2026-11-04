@@ -61,10 +61,9 @@ document.addEventListener('tk:ready', () => {
   m.addEventListener('click', async (e) => {
     if (e.target.closest('[data-ap-enter]')) {
       if (!proj.can_enter) { TK.info(proj.enter_why || 'ورود ممکن نیست.', { title: 'ورود به پروژه', icon: 'fa-lock' }); return; }
-      if (!(await TK.confirm(`با نقش مدیر وارد پنل «${proj.creator}» (سازنده‌ی پروژه) می‌شوید و پروژه‌ی «${proj.title}» در صفحه‌ی پروژه‌ها نمایش داده می‌شود. ادامه می‌دهید؟`, { okText: 'ورود به پروژه', danger: false }))) return;
-      const r = await TK.post(`/admin/users/${proj.creator_id}/impersonate`, { to: '/projects?focus=' + proj.id });
-      if (TK.ok(r) && r.redirect) { location.href = r.redirect; return; }
-      TK.toast(r.message || 'خطا', 'error'); return;
+      if (!(await TK.confirm(`پنل «${proj.creator}» (سازنده‌ی پروژه) با نقش مدیر در تب جدید باز می‌شود و پروژه‌ی «${proj.title}» در صفحه‌ی پروژه‌ها نمایش داده می‌شود. ادامه می‌دهید؟`, { okText: 'ورود به پروژه', danger: false }))) return;
+      await TK.impersonate(proj.creator_id, '/projects?focus=' + proj.id);         // تب جدید؛ پنل مدیر همین‌جا می‌ماند
+      return;
     }
     const s = e.target.closest('[data-ap-show]'); if (s) { cur = { kind: s.dataset.apShow, page: 1, per: cur.per }; loadPart(); return; }
     const pg = e.target.closest('[data-ap-page]'); if (pg && !pg.disabled) { cur.page = +pg.dataset.apPage; loadPart(); }
@@ -106,10 +105,8 @@ function usersPart(E, F, PER) {
   let user = null, tq = { page: 1, per: PER[0] };
   const enter = async (to, why) => {
     if (!user.can_enter) { TK.info(user.enter_why || why || 'ورود ممکن نیست.', { title: 'ورود به پنل کاربر', icon: 'fa-lock' }); return; }
-    if (!(await TK.confirm(`با نقش مدیر وارد پنل «${user.name}» می‌شوید و همان صفحه باز می‌شود. ادامه می‌دهید؟`, { okText: 'ورود به پنل', danger: false }))) return;
-    const r = await TK.post(`/admin/users/${user.id}/impersonate`, { to });
-    if (TK.ok(r) && r.redirect) { location.href = r.redirect; return; }       // لایه‌ی پنل عوض می‌شود: بارگذاری کامل
-    TK.toast(r.message || 'خطا', 'error');
+    if (!(await TK.confirm(`پنل «${user.name}» با نقش مدیر در تب جدید باز می‌شود و همان صفحه نمایش داده می‌شود؛ پنل مدیر در همین تب می‌ماند. ادامه می‌دهید؟`, { okText: 'ورود به پنل', danger: false }))) return;
+    await TK.impersonate(user.id, to);                                           // تب جدید؛ پنل مدیر همین‌جا می‌ماند
   };
   const open = async (id) => {
     body.innerHTML = '<div class="muted small"><i class="fa-solid fa-spinner fa-spin"></i> در حال بارگذاری…</div>';

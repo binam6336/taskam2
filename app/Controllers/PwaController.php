@@ -106,6 +106,8 @@ final class PwaController extends Controller
 
     public function subscribe()
     {
+        // اشتراک اعلان دستگاه مدیر نباید به حساب کاربری که مدیر واردش شده وصل شود
+        $this->denyImpersonation('/profile');
         if (!Push::enabled()) {
             $this->fail(Push::reason(), 503);
         }
@@ -128,6 +130,8 @@ final class PwaController extends Controller
 
     public function unsubscribe()
     {
+        // اشتراک اعلان دستگاه مدیر نباید به حساب کاربری که مدیر واردش شده وصل شود
+        $this->denyImpersonation('/profile');
         if (Push::enabled()) {
             Push::unsubscribe($this->uid(), trim($this->request->str('endpoint', 2000)));
         }
@@ -136,6 +140,8 @@ final class PwaController extends Controller
 
     public function test()
     {
+        // اشتراک اعلان دستگاه مدیر نباید به حساب کاربری که مدیر واردش شده وصل شود
+        $this->denyImpersonation('/profile');
         if (!\App\Core\Throttle::attempt('push_test', (string) $this->uid(), 5, 600)) {
             $this->fail('اعلان آزمایشی را چند دقیقه بعد دوباره امتحان کنید.', 429);
         }

@@ -53,7 +53,17 @@ function app_url_config(): string
 }
 
 /** مسیر پایه‌ی اپلیکیشن (بدون اسلش انتهایی)؛ مثل /tapin/task یا خالی. */
+/**
+ * آدرس پایه‌ی برنامه با پیشوند پنجره‌ی ورود به پنل کاربر (/as/<توکن>) در همان تب؛ همه‌ی لینک‌ها و درخواست‌های آن تب در همان پنجره می‌مانند.
+ * برای فایل‌های ثابت (asset)، لینک‌های اشتراکی (full_url) و پنل مدیر از app_base() استفاده کنید.
+ */
 function base_url(): string
+{
+    return app_base() . \App\Core\Impersonation::prefix();
+}
+
+/** آدرس پایه‌ی خود برنامه (بدون پیشوند پنجره‌ی ورود به پنل کاربر) */
+function app_base(): string
 {
     static $base = null;
     if ($base !== null) {
@@ -83,7 +93,7 @@ function full_url(string $path = ''): string
     if ($cfg !== '') {
         $p = parse_url($cfg);
         $origin = ($p['scheme'] ?? 'https') . '://' . ($p['host'] ?? 'localhost') . (isset($p['port']) ? ':' . $p['port'] : '');
-        return $origin . url($path);
+        return $origin . app_base() . '/' . ltrim($path, '/');     // لینک اشتراکی هرگز پیشوند پنجره‌ی ورود به پنل کاربر را ندارد
     }
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     // هدر Host از کاربر می‌آید؛ فقط نام میزبان/پورت معتبر پذیرفته می‌شود (جلوگیری از تزریق Host در لینک‌ها). APP_URL را در .env تنظیم کنید.
@@ -91,14 +101,14 @@ function full_url(string $path = ''): string
     if (!preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9-]{1,63}(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i', $host)) {
         $host = (string) ($_SERVER['SERVER_NAME'] ?? 'localhost');
     }
-    return ($https ? 'https' : 'http') . '://' . $host . url($path);
+    return ($https ? 'https' : 'http') . '://' . $host . app_base() . '/' . ltrim($path, '/');
 }
 
 function asset(string $path): string
 {
     $file = BASE_PATH . '/public/assets/' . ltrim($path, '/');
     $v = is_file($file) ? (string) filemtime($file) : '1';
-    return url('assets/' . ltrim($path, '/')) . '?v=' . $v;
+    return app_base() . '/assets/' . ltrim($path, '/') . '?v=' . $v;
 }
 
 function csrf_token(): string

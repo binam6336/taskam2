@@ -61,6 +61,8 @@
     let json = null;
     try { json = await res.json(); } catch { json = { status: 'error', message: 'پاسخ نامعتبر از سرور (' + res.status + ')' }; }
     if (res.status === 419) { TK.toast(json.message || 'نشست منقضی شد؛ صفحه رفرش می‌شود.', 'warning'); setTimeout(() => location.reload(), 1400); }
+    // پنجره‌ی ورود به پنل کاربر بسته شده (پایان زمان، بستن از پنل مدیر، …): صفحه‌ی توضیح سرور نمایش داده می‌شود
+    if (json.code === 'IMPERSONATION_ENDED') { TK.toast(json.message || 'این پنجره بسته شده است.', 'warning', 6000); setTimeout(() => location.reload(), 1500); return json; }
     if (res.status === 401) { location.href = TK.url(json.error_code === 'REAUTH_REQUIRED' || json.code === 'REAUTH_REQUIRED' ? '/reauth' : '/login'); }
     json._http = res.status;
     return json;
@@ -133,7 +135,7 @@
   });
 
   // پنجره‌ی پرسیدن یک متن کوتاه (مثلاً علت برگرداندن تسک برای اصلاح)؛ انصراف = null
-  TK.prompt = (message, { title = 'توضیح', okText = 'تأیید', multiline = false, value = '' } = {}) => new Promise((resolve) => {
+  TK.prompt = (message, { title = 'توضیح', okText = 'تأیید', multiline = false, value = '', password = false } = {}) => new Promise((resolve) => {
     let m = document.getElementById('tk-prompt');
     if (!m) {
       m = document.createElement('div'); m.className = 'modal'; m.id = 'tk-prompt';
@@ -143,15 +145,43 @@
       document.body.appendChild(m);
     }
     m.querySelector('[data-title]').textContent = title; m.querySelector('[data-msg]').textContent = message; m.querySelector('[data-ok]').textContent = okText;
-    m.querySelector('[data-in]').innerHTML = multiline ? '<textarea class="input" rows="3" maxlength="255"></textarea>' : '<input class="input" maxlength="255">';
+    m.querySelector('[data-in]').innerHTML = multiline ? '<textarea class="input" rows="3" maxlength="255"></textarea>'
+      : password ? '<input class="input ltr" type="password" maxlength="255" autocomplete="current-password" required>' : '<input class="input" maxlength="255">';
     const inp = m.querySelector('[data-in] .input'); inp.value = value;
     const form = m.querySelector('form');
     let settled = false;
     const done = (v) => { if (settled) return; settled = true; form.onsubmit = null; TK.modal.close(m); resolve(v); };
-    form.onsubmit = (e) => { e.preventDefault(); done(inp.value.trim()); };
+    form.onsubmit = (e) => { e.preventDefault(); done(password ? inp.value : inp.value.trim()); };
     m.querySelectorAll('[data-cancel]').forEach((b) => { b.onclick = () => done(null); });
     m.addEventListener('tk:close', () => done(null), { once: true });
     TK.modal.open(m); setTimeout(() => inp.focus(), 50);
+  });
+
+  /**
+   * ورود مدیر به پنل کاربر در تب جدید (v5.1): نشست و تب پنل مدیر دست نمی‌خورد. اگر تأیید رمز چند دقیقه‌ی اخیر نباشد، رمز پرسیده می‌شود.
+   * اگر مرورگر باز کردن تب را مسدود کند، پیام با دکمه‌ی «باز کردن پنل» نمایش داده می‌شود.
+   */
+  TK.impersonate = async (uid, to = '') => {
+    let r = await TK.post('/admin/users/' + encodeURIComponent(uid) + '/impersonate', { to });
+    for (let i = 0; i < 3 && r && r.code === 'STEPUP_REQUIRED'; i++) {
+      if (i > 0) TK.toast(r.message || 'رمز عبور نادرست است.', 'error');
+      const pw = await TK.prompt('برای امنیت، ورود به پنل کاربر به تأیید رمز عبور خودتان نیاز دارد (تا ' + TK.fa(r.minutes || 15) + ' دقیقه دوباره پرسیده نمی‌شود).', { title: 'تأیید رمز مدیر', okText: 'تأیید و ورود', password: true });
+      if (!pw) return null;
+      r = await TK.post('/admin/users/' + encodeURIComponent(uid) + '/impersonate', { to, password: pw });
+    }
+    if (!TK.ok(r) || !r.open) { TK.toast((r && r.message) || 'خطا', 'error'); return null; }
+    const w = window.open(r.open, '_blank');
+    if (w) { try { w.opener = null; } catch { /* */ } TK.toast(r.message, 'success'); }
+    else TK.toast('مرورگر باز کردن تب جدید را مسدود کرد.', 'warning', 12000, { action: { label: 'باز کردن پنل', onClick: () => { const x = window.open(r.open, '_blank'); if (x) x.opener = null; } } });
+    document.dispatchEvent(new CustomEvent('tk:impersonated'));
+    return r;
+  };
+  TK.on('click', '[data-impersonate]', (e, b) => { e.preventDefault(); TK.impersonate(b.dataset.impersonate, b.dataset.to || ''); });
+  // «پایان و بستن این پنجره» در نوار بالای پنل کاربر
+  TK.on('submit', 'form[data-imp-exit]', async (e, f) => {
+    e.preventDefault();
+    const r = await TK.post(f.getAttribute('action'));
+    if (r && r.close) { window.close(); setTimeout(() => { location.href = r.redirect; }, 300); }
   });
 
   // پنجره‌ی توضیح ساده (مثلاً دلیل قفل بودن تغییر وضعیت تسک)؛ عنصرش در صورت نبود (بعد از جابه‌جایی صفحه) ساخته می‌شود

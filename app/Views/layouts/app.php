@@ -25,12 +25,6 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
 <html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>" data-layout="app">
-<?php if (Auth::isImpersonating()): ?>
-<div class="impersonate">
-    <span><i class="fa-solid fa-user-secret"></i> شما در حال مشاهده‌ی پنل «<?= e($name) ?>» هستید.</span>
-    <form method="post" action="<?= e(url('/admin/impersonate/exit')) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-primary">بازگشت به پنل مدیریت</button></form>
-</div>
-<?php endif; ?>
 <div class="app">
     <aside class="sidebar" id="sidebar">
         <a href="<?= e(url('/')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>تسکام<small>مدیریت وظایف و تیم</small></span></a>
@@ -40,11 +34,18 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
                 <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
                 <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted ltr"><?= e($u['mobile']) ?></div></div>
             </div>
-            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> خروج</button></form>
+            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> <?= Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج' ?></button></form>
         </div>
     </aside>
     <div class="overlay"></div>
     <div class="main">
+        <?php if ($impCtx = \App\Core\Impersonation::current()): ?>
+        <div class="impersonate" role="status">
+    <span><i class="fa-solid fa-user-secret"></i> پنل «<?= e($name) ?>» با نقش مدیر «<?= e(full_name($impCtx['admin'])) ?>»</span>
+    <span class="xs faint" title="همه‌ی کارهای این پنجره به نام مدیر در لاگ ثبت می‌شود">بسته شدن خودکار: <?= e(fa_num(intdiv(\App\Core\Impersonation::idleSeconds(), 60))) ?> دقیقه بی‌فعالیتی یا <?= e(jdate((string) $impCtx['expires_at'])) ?></span>
+    <form method="post" action="<?= e(url('/admin/impersonate/exit')) ?>" data-no-nav data-imp-exit><?= csrf_field() ?><button class="btn btn-sm btn-primary"><i class="fa-solid fa-right-from-bracket"></i> پایان و بستن این پنجره</button></form>
+</div>
+<?php endif; ?>
         <header class="topbar">
             <button class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>

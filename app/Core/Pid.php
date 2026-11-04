@@ -22,12 +22,12 @@ final class Pid
 
     /** جدول‌هایی که شناسه‌شان بیرون دیده می‌شود (متن‌های آماده از قبل شناسه‌ی رشته‌ای تصادفی دارند) */
     public const TABLES = ['users', 'projects', 'tasks', 'task_notes', 'task_attachments', 'note_attachments', 'subjects', 'call_requests',
-        'support_tickets', 'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests'];
+        'support_tickets', 'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests', 'impersonations'];
 
     /** نام پارامتر مسیر => جدول (config/routes.php) */
     public const ROUTE = [
         'task' => 'tasks', 'note' => 'task_notes', 'label' => 'subjects', 'call' => 'call_requests', 'user' => 'users', 'project' => 'projects',
-        'ticket' => 'support_tickets', 'token' => 'api_tokens', 'projreq' => 'project_join_requests', 'colreq' => 'colleague_requests',
+        'ticket' => 'support_tickets', 'token' => 'api_tokens', 'projreq' => 'project_join_requests', 'colreq' => 'colleague_requests', 'imp' => 'impersonations',
     ];
 
     /** فیلدهای ورودی (query، فرم، JSON) که شناسه‌ی یک جدول‌اند => جدول */

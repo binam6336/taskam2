@@ -20,6 +20,8 @@ final class App
         if (!($req->isApi() && $req->bearerToken() !== null) && Session::hasCookie()) {
             Session::start();
         }
+        // پنجره‌ی ورود مدیر به پنل کاربر (/as/<توکن>/…): اعتبارسنجی کامل پیش از هر کار؛ نامعتبر = صفحه‌ی «پنجره بسته شد»
+        Impersonation::boot($req);
         // یادآوری تسک‌ها برای اعلان PWA: حداکثر دقیقه‌ای یک‌بار، بعد از پاسخ (جایگزین کران‌جاب روی هاست اشتراکی)
         register_shutdown_function(static function (): void {
             try {

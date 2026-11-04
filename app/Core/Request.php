@@ -44,7 +44,7 @@ final class Request
     {
         $uri = (string) (parse_url((string) ($this->server['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
         $uri = rawurldecode($uri);
-        $base = base_url();
+        $base = app_base();
         if ($base !== '' && str_starts_with($uri, $base)) {
             $uri = substr($uri, strlen($base));
         }
@@ -55,6 +55,11 @@ final class Request
             $uri = substr($uri, 0, -10);
         }
         $uri = '/' . trim($uri, '/');
+        // پنجره‌ی ورود مدیر به پنل کاربر: /as/<توکن>/مسیر ← توکن جدا و مسیر داخلی (اعتبارسنجی در Impersonation::boot)
+        if (preg_match('#^/as/([^/]+)(/.*)?$#', $uri, $m)) {
+            Impersonation::setToken(strtolower($m[1]));
+            $uri = '/' . trim($m[2] ?? '', '/');
+        }
         return $uri;
     }
 

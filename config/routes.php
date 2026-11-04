@@ -214,6 +214,9 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/users/{user}/status', [AdminController::class, 'setStatus']);
     $r->post('/admin/users/{user}/delete', [AdminController::class, 'deleteUser']);
     $r->post('/admin/users/{user}/impersonate', [AdminController::class, 'impersonate']);
+    $r->get('/admin/impersonations', [AdminController::class, 'impersonations']);
+    $r->post('/admin/impersonations/end-all', [AdminController::class, 'impersonationEndAll']);
+    $r->post('/admin/impersonations/{imp}/end', [AdminController::class, 'impersonationEnd']);
     $r->get('/admin/users/{user}/details', [AdminController::class, 'userDetails']);
     $r->get('/admin/users/{user}/tasks', [AdminController::class, 'userTasks']);
     $r->get('/admin/support', [AdminController::class, 'support']);

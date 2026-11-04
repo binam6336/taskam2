@@ -22,6 +22,14 @@ $me = (int) $currentUser['id'];
         <span class="small faint"><?= e(fa_num($total)) ?> کاربر<?= $q !== '' ? ' پیدا شد' : '' ?></span>
     </form>
     <?php if ($can('add_user')): ?><button class="btn btn-primary" id="btn-new-user"><i class="fa-solid fa-user-plus"></i> کاربر جدید</button><?php endif; ?></div>
+<?php if ($can('impersonate')): ?>
+<div class="card mb-2 imp-open" id="imp-open" hidden>
+    <div class="card-head"><h3><i class="fa-solid fa-user-secret"></i> پنجره‌های باز ورود به پنل کاربر <span class="badge" id="imp-open-n"></span></h3>
+        <button type="button" class="btn btn-sm btn-danger" data-imp-end-all><i class="fa-solid fa-xmark"></i> بستن همه</button></div>
+    <div class="list" id="imp-open-list"></div>
+    <p class="xs faint mt-1">هر پنجره بعد از <?= e(fa_num(intdiv(\App\Core\Impersonation::idleSeconds(), 60))) ?> دقیقه بی‌فعالیتی یا <?= e(fa_num(intdiv(\App\Core\Impersonation::maxSeconds(), 3600))) ?> ساعت خودکار بسته می‌شود؛ با خروج از پنل مدیر هم همه بسته می‌شوند.</p>
+</div>
+<?php endif; ?>
 <div class="table-wrap" data-live="a-users"><table class="table" id="users-table"><thead><tr><th>کاربر</th><th>موبایل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead><tbody>
 <?php foreach ($users as $u):
     $isAdmin = $u['role'] === 'admin'; $self = (int) $u['id'] === $me; $isSuperRow = (int) $u['id'] === $superId;
@@ -42,7 +50,7 @@ $me = (int) $currentUser['id'];
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . pid('users', $u) . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
+            <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button type="button" class="btn btn-xs btn-icon" data-impersonate="<?= e(pid('users', $u)) ?>" title="ورود به پنل کاربر (در تب جدید)" aria-label="ورود به پنل «<?= e(full_name($u)) ?>» در تب جدید"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
             <?php // منوی ⋮: جزئیات، ویرایش، حذف ?>
             <div class="u-menu"><button type="button" class="btn btn-xs btn-icon" data-umenu aria-haspopup="menu" aria-expanded="false" title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر «<?= e(full_name($u)) ?>»"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 <div class="dropdown-menu u-menu-list" role="menu">

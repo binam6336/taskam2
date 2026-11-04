@@ -8,6 +8,8 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Crypto;
 use App\Core\DB;
+use App\Core\Impersonation;
+use App\Core\Response;
 use App\Core\ErrorText;
 use App\Core\PlaceholderText;
 use App\Core\Session;
@@ -203,15 +205,56 @@ final class AdminController extends Controller
         if ($t === null || $t['role'] === 'admin' || $t['status'] !== 'active' || (int) $t['is_bot'] === 1) {
             $this->respond(false, 'فقط کاربران عادیِ فعال قابل ورود هستند.', '/admin');
         }
-        Auth::startImpersonation($this->uid(), (int) $t['id']);
+        $this->rateLimit('impersonate', 30, 3600);
+        // لایه‌ی تأیید دوباره: شروع ورود به پنل کاربر فقط با رمز مدیر در چند دقیقه‌ی اخیر (نشست دزدیده‌شده یا رهاشده کافی نیست)
+        $admin = (array) Auth::realUser();
+        if (!Impersonation::stepupFresh()) {
+            $pass = (string) $this->request->input('password', '');
+            if ($pass === '') {
+                $this->fail('برای ورود به پنل کاربر رمز عبور خود را وارد کنید.', 403, ['code' => 'STEPUP_REQUIRED', 'minutes' => intdiv(Impersonation::stepupSeconds(), 60)]);
+            }
+            if (!\App\Core\Throttle::attempt('imp_stepup', (string) $admin['id'], 5, 900)) {
+                $this->fail('تلاش‌های ناموفق تأیید رمز زیاد است؛ ۱۵ دقیقه بعد دوباره تلاش کنید.', 429, ['code' => 'RATE_LIMITED']);
+            }
+            if (!password_verify($pass, (string) $admin['password_hash'])) {
+                \App\Core\Audit::log((int) $admin['id'], 'impersonate_stepup_failed', ['target' => (int) $t['id']]);
+                $this->fail('رمز عبور نادرست است.', 403, ['code' => 'STEPUP_REQUIRED', 'minutes' => intdiv(Impersonation::stepupSeconds(), 60)]);
+            }
+            \App\Core\Throttle::clear('imp_stepup', (string) $admin['id']);
+            Impersonation::markStepup();
+        }
+        $token = Impersonation::start($admin, $t, $this->request);
         // مقصد بعد از ورود (از «جزئیات کاربر»: فهرست تسک‌های یک پروژه یا لینک یک تسک)؛ فقط مسیرهای مجاز پنل کاربر
         $to = (string) $this->request->input('to', '');
         $to = preg_match('#^/(tasks|board|projects)(\?[A-Za-z0-9=&_%.\-]*)?$#', $to) ? $to : '/dashboard';
-        // درخواست AJAX باید JSON بگیرد (نه redirect به HTML → «پاسخ نامعتبر از سرور (200)»)
-        if ($this->request->wantsJson()) {
-            $this->ok('در حال ورود به پنل «' . full_name($t) . '» …', ['redirect' => url($to)]);
+        // پنل کاربر در تب جدید (window.open در admin.js)؛ نشست و تب پنل مدیر دست نمی‌خورد
+        $this->ok('پنل «' . full_name($t) . '» در تب جدید باز شد.', ['open' => Impersonation::urlFor($token, $to), 'name' => full_name($t)]);
+    }
+
+    /** پنجره‌های ورود به پنل کاربرِ باز همین نشست مدیر (کارت بالای فهرست کاربران) */
+    public function impersonations()
+    {
+        $rows = Impersonation::openFor($this->uid());
+        $this->ok('', ['items' => array_map(static fn($r) => ['id' => pid('impersonations', $r), 'name' => full_name($r), 'mobile' => $r['mobile'], 'avatar' => avatar_url($r['avatar']),
+            'started_fa' => jdate((string) $r['created_at']), 'seen_fa' => time_ago((string) $r['last_seen_at']), 'expires_fa' => jdate((string) $r['expires_at']), 'actions' => (int) $r['actions']], $rows)]);
+    }
+
+    /** بستن یک پنجره از پنل مدیر (فقط پنجره‌های خود همین مدیر) */
+    public function impersonationEnd(string $id)
+    {
+        $row = DB::one('SELECT id FROM impersonations WHERE id = ? AND admin_id = ? AND ended_at IS NULL', [(int) $id, $this->uid()]);
+        if ($row === null) {
+            $this->fail('پنجره یافت نشد یا قبلاً بسته شده است.', 404);
         }
-        $this->redirect($to);
+        Impersonation::end((int) $row['id'], 'admin_end');
+        $this->ok('پنجره‌ی پنل کاربر بسته شد؛ آن تب دیگر کار نمی‌کند.');
+    }
+
+    /** بستن همه‌ی پنجره‌های باز این مدیر (روی همه‌ی دستگاه‌ها) */
+    public function impersonationEndAll()
+    {
+        $n = Impersonation::endAll($this->uid(), 'end_all');
+        $this->ok($n ? fa_num($n) . ' پنجره‌ی پنل کاربر بسته شد.' : 'پنجره‌ی بازی نبود.');
     }
 
     /** «جزئیات» کاربر در فهرست کاربران: GET /admin/users/{id}/details */
@@ -654,12 +697,16 @@ final class AdminController extends Controller
         $this->respond(true, $left > 0 ? "$done پیام رمزگذاری شد؛ $left پیام باقی مانده است — دوباره بزنید." : "$done پیام رمزگذاری شد؛ همه‌ی پیام‌ها اکنون رمزشده‌اند.", '/admin/analysis');
     }
 
+    /** «پایان و بستن» در نوار بالای پنجره‌ی پنل کاربر: فقط همین پنجره بسته می‌شود؛ نشست مدیر و تب‌های دیگر می‌مانند */
     public function stopImpersonate()
     {
-        Auth::stopImpersonation();
-        if ($this->request->wantsJson()) {
-            $this->ok('بازگشت به پنل مدیریت.', ['redirect' => url('/admin')]);
+        $c = Impersonation::current();
+        if ($c !== null) {
+            Impersonation::end((int) $c['id'], 'exit');
         }
-        $this->redirect('/admin');
+        if ($this->request->wantsJson()) {
+            $this->ok('پنجره‌ی پنل کاربر بسته شد.', ['close' => true, 'redirect' => app_base() . '/admin']);
+        }
+        Response::redirect(app_base() . '/admin');
     }
 }

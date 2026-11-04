@@ -12,7 +12,7 @@ COMMON = {
 }
 
 GROUPS = [
-    ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
+    ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'impersonations', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
     ('تسک‌ها', ['subjects', 'tasks', 'task_notes', 'task_events', 'task_mentions', 'task_attachments', 'note_attachments']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
@@ -54,6 +54,27 @@ TABLES = {
         'last_login_at': 'زمان آخرین ورود موفق.',
         'last_login_ip': 'IP آخرین ورود موفق.',
         'last_active_at': '«آخرین بازدید» در پنل مدیر ← جزئیات کاربر: زمان آخرین درخواست خود کاربر به پنل (حداکثر هر ۵ دقیقه در Authenticate به‌روز می‌شود؛ ورود مدیر به‌جای کاربر آن را عوض نمی‌کند). مقدار اولیه = last_login_at.',
+    },
+},
+'impersonations': {
+    'title': 'پنجره‌های ورود مدیر به پنل کاربر',
+    'desc': 'هر بار که مدیر وارد پنل یک کاربر می‌شود یک «پنجره» (تب جداگانه) ساخته می‌شود؛ نشست خود مدیر عوض نمی‌شود (v5.1).',
+    'flow': [
+        'شروع: پنل مدیر ← «ورود به پنل کاربر» ← تأیید رمز مدیر (اگر در IMPERSONATE_STEPUP_MINUTES اخیر تأیید نشده) ← ردیف جدید + توکن تصادفی ۳۲ نویسه‌ای؛ تب جدید با آدرس /as/<توکن>/dashboard باز می‌شود و همه‌ی لینک‌های آن تب همین پیشوند را دارند.',
+        'هر درخواست آن تب (Impersonation::boot): توکن موجود، ended_at خالی، expires_at نگذشته، last_seen_at در سقف بی‌فعالیتی؛ session_hash برابر هش کلید مخفی imp_sk داخل نشست همان مرورگر؛ ua_hash همان مرورگر؛ مدیر هنوز مدیر فعال با دسترسی ورود و admin_pv برابر نسخه‌ی رمز فعلی؛ کاربر هدف هنوز کاربر عادی فعال. هر کدام نباشد ← ended_at و end_reason پر و صفحه‌ی «پنجره بسته شد».',
+        'داده‌ی موقت نشست (پیام فلش، فرم قبلی، …) هر پنجره در $_SESSION[_scope][imp<id>] جداست؛ هویت نشست (uid مدیر) دست نمی‌خورد.',
+        'پایان: دکمه‌ی «پایان و بستن» یا «خروج» داخل تب (exit)، بستن از پنل مدیر (admin_end / end_all)، خروج مدیر (logout، همه‌ی پنجره‌های همان نشست)، بی‌فعالیتی (idle)، سقف عمر (expired)، تغییر رمز/نقش مدیر (admin_changed)، غیرفعال شدن کاربر (target_inactive)، استفاده با نشست یا مرورگر دیگر (misuse) و سقف ۱۰ پنجره‌ی باز (limit).',
+        'شروع، پایان، هر POST داخل پنجره (impersonate_action) و تلاش‌های مشکوک در audit_log به نام مدیر ثبت می‌شود.',
+    ],
+    'cols': {
+        'token_hash': 'SHA-256 توکن آدرس /as/<توکن>؛ خود توکن ذخیره نمی‌شود.',
+        'admin_id': 'مدیری که وارد پنل کاربر شده.', 'target_id': 'کاربری که پنلش باز شده (فقط کاربر عادی فعال).',
+        'session_hash': 'SHA-256 کلید مخفی imp_sk نشست مدیر؛ توکن فقط با همان نشست معتبر است.',
+        'admin_pv': 'نسخه‌ی رمز مدیر هنگام شروع؛ تغییر رمز مدیر = پایان پنجره.', 'ua_hash': 'هش مرورگر مدیر هنگام شروع؛ مرورگر دیگر = پایان (misuse).',
+        'ip': 'IP مدیر هنگام شروع.', 'last_ip': 'IP آخرین درخواست پنجره.', 'actions': 'تعداد درخواست‌های تغییر‌دهنده (POST) در این پنجره.',
+        'last_seen_at': 'آخرین درخواست غیر پس‌زمینه؛ مبنای بسته شدن با بی‌فعالیتی (IMPERSONATE_IDLE_MINUTES).',
+        'expires_at': 'پایان قطعی (IMPERSONATE_MAX_HOURS بعد از شروع).', 'ended_at': 'زمان بسته شدن؛ NULL = باز.',
+        'end_reason': 'دلیل بسته شدن: exit، admin_end، end_all، logout، idle، expired، admin_changed، target_inactive، misuse، limit.',
     },
 },
 'user_sessions': {
@@ -428,6 +449,6 @@ TABLES = {
 
 # شناسه‌ی عمومی (v5.0): ستون pid در همه‌ی جدول‌هایی که شناسه‌شان بیرون دیده می‌شود (فهرست: App\Core\Pid::TABLES)
 for _t in ['users', 'projects', 'tasks', 'task_notes', 'task_attachments', 'note_attachments', 'subjects', 'call_requests', 'support_tickets',
-           'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests']:
+           'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests', 'impersonations']:
     TABLES[_t]['cols'].setdefault('pid', COMMON['pid'])
 TABLES['users']['flow'].append('شناسه‌ی عمومی (v5.0): هیچ شناسه‌ی عددی (id) کاربر، پروژه، تسک، یادداشت، لیبل، تیکت، پیام، توکن و … بیرون از سرور نمی‌رود؛ همه‌جا ستون pid (رشته‌ی تصادفی ۱۲ نویسه‌ای) به‌کار می‌رود و کلیدهای خارجی داخل دیتابیس همان id عددی می‌مانند.')

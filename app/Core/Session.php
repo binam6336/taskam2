@@ -193,7 +193,7 @@ final class Session
     }
 
     /** درخواست‌های پس‌زمینه (polling) نباید نشست غیرفعال را زنده نگه دارند. */
-    private static function isBackground(): bool
+    public static function isBackground(): bool
     {
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
         foreach (['/live/poll', '/chat/api/heartbeat', '/pending/status'] as $p) {
@@ -292,18 +292,47 @@ final class Session
         return false;
     }
 
+    /**
+     * محدوده‌ی داده‌ی نشست (v5.1): داخل پنجره‌ی ورود مدیر به پنل کاربر، کلیدهای غیرهویتی (پیام فلش، فرم قبلی، گفتگوی جدید، …)
+     * در سطل جداگانه‌ی همان پنجره ($_SESSION['_scope'][نام]) نوشته و خوانده می‌شوند تا بین تب‌ها و پنل مدیر قاطی نشوند.
+     * کلیدهای هویت و امنیت نشست (ROOT) همیشه مشترک‌اند و از داخل پنجره فقط خوانده می‌شوند.
+     */
+    private const ROOT = ['uid', 'pv', 'ua', 'ipf', 'ipp', 'reauth', '_csrf', 'imp_sk', 'imp_stepup', 'imp_admin', 'imp_pv'];
+    private static ?string $scope = null;
+
+    public static function scope(?string $name): void
+    {
+        self::$scope = $name;
+    }
+
+    private static function &bucket(string $key): array
+    {
+        if (self::$scope !== null && !in_array($key, self::ROOT, true)) {
+            if (!isset($_SESSION['_scope'][self::$scope]) || !is_array($_SESSION['_scope'][self::$scope])) {
+                $_SESSION['_scope'][self::$scope] = [];
+            }
+            return $_SESSION['_scope'][self::$scope];
+        }
+        return $_SESSION;
+    }
+
     public static function get(string $key, $default = null)
     {
         if (!self::lazy()) {
             return $default;
         }
-        return $_SESSION[$key] ?? $default;
+        $b = &self::bucket($key);
+        return $b[$key] ?? $default;
     }
 
     public static function put(string $key, $value): void
     {
         self::start();
-        $_SESSION[$key] = $value;
+        if (self::$scope !== null && in_array($key, self::ROOT, true)) {
+            throw new \LogicException('Root session key written inside impersonation scope: ' . $key);
+        }
+        $b = &self::bucket($key);
+        $b[$key] = $value;
     }
 
     public static function forget(string $key): void
@@ -311,7 +340,11 @@ final class Session
         if (!self::lazy()) {
             return;
         }
-        unset($_SESSION[$key]);
+        if (self::$scope !== null && in_array($key, self::ROOT, true)) {
+            return;                                           // داخل پنجره هویت/امنیت نشست مدیر دست نمی‌خورد
+        }
+        $b = &self::bucket($key);
+        unset($b[$key]);
     }
 
     public static function pull(string $key, $default = null)
@@ -328,7 +361,8 @@ final class Session
         if ($type === 'error' || $type === 'warning') {
             $message = ErrorText::apply($message);
         }
-        $_SESSION['_flash'][] = ['message' => $message, 'type' => $type];
+        $b = &self::bucket('_flash');
+        $b['_flash'][] = ['message' => $message, 'type' => $type];
     }
 
     public static function pullFlash(): array

@@ -17,10 +17,12 @@ final class RequireAdmin
         if ($u === null) {
             Response::redirect(Auth::needsReauth() ? '/reauth' : '/login');
         }
-        // اگر مدیر در حال مشاهده‌ی پنل کاربر است و صفحه‌ی مدیریت را باز می‌کند، به‌جای ۴۰۳ به نشست مدیر برمی‌گردد
-        if (Auth::isImpersonating() && $r->method() === 'GET' && !$r->wantsJson()) {
-            Auth::stopImpersonation();
-            $u = Auth::user();
+        // داخل پنجره‌ی ورود به پنل کاربر صفحه‌ی مدیریت باز نمی‌شود؛ GET به آدرس اصلی پنل مدیر (بیرون از پنجره) می‌رود
+        if (Auth::isImpersonating()) {
+            if ($r->method() === 'GET' && !$r->wantsJson()) {
+                Response::redirect(app_base() . '/admin');
+            }
+            throw new HttpException(403, 'داخل پنجره‌ی پنل کاربر به بخش مدیریت دسترسی نیست.', 'FORBIDDEN');
         }
         if ($u['status'] !== 'active' && $u['role'] === 'admin' && !Auth::isImpersonating() && !$r->wantsJson()) {
             Response::redirect('/pending');                   // مدیر مسدود/غیرفعال‌شده

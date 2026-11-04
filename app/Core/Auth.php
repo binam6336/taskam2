@@ -33,13 +33,28 @@ final class Auth
         return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
     }
 
-    /** کاربر مؤثر (در حالت impersonate، کاربر هدف). */
+    /** کاربر مؤثر: داخل پنجره‌ی ورود به پنل کاربر (/as/<توکن>، Impersonation) کاربر هدف، وگرنه صاحب نشست. */
     public static function user(): ?array
+    {
+        if (Impersonation::active()) {
+            return self::realUser() !== null ? Impersonation::current()['target'] : null;
+        }
+        return self::realUser();
+    }
+
+    /** صاحب واقعی نشست (مدیر، حتی داخل پنجره‌ی ورود به پنل کاربر) با همه‌ی بررسی‌های اتصال نشست به دستگاه */
+    public static function realUser(): ?array
     {
         if (self::$loaded) {
             return self::$user;
         }
         self::$loaded = true;
+        // نشست قدیمی (قبل از v5.1) که هنوز در حالت ورود به‌جای کاربر بود: به همان مدیر برمی‌گردد
+        if ((int) Session::get('imp_admin', 0) > 0) {
+            Session::put('uid', (int) Session::get('imp_admin'));
+            Session::forget('imp_admin');
+            Session::forget('imp_pv');
+        }
         $id = (int) Session::get('uid', 0);
         if ($id <= 0) {
             return self::$user = null;
@@ -51,7 +66,7 @@ final class Auth
         $ua = self::uaHash($req);
         $bound = Session::get('ua');
         $uaOk = $bound !== null && hash_equals((string) $bound, $ua);
-        if ($uaOk && !self::isImpersonating() && !self::sameNetwork($req)) {
+        if ($uaOk && !self::sameNetwork($req)) {
             if (Session::get('reauth') === null) {
                 Audit::log($id, 'session_network_changed', ['ip' => $req->ip(), 'login_ip' => DbSessionHandler::binding()['ip'] ?? Session::get('ipf')]);
                 Session::put('reauth', time());
@@ -71,23 +86,12 @@ final class Auth
             self::logout();
             return self::$user = null;
         }
-        // ورود به‌جای کاربر: مدیر باید هنوز مدیرِ فعال باشد و رمزش از شروع این حالت عوض نشده باشد
-        if (self::isImpersonating()) {
-            $adm = DB::one('SELECT id, role, status, password_hash FROM users WHERE id = ? AND is_bot = 0 LIMIT 1', [(int) Session::get('imp_admin', 0)]);
-            $impPv = Session::get('imp_pv');
-            if ($adm === null || $adm['role'] !== 'admin' || $adm['status'] !== 'active' || !is_string($impPv) || !hash_equals($impPv, self::pv($adm))) {
-                self::logout();
-                return self::$user = null;
-            }
-        }
         // با تغییر رمز عبور، سایر نشست‌های همان کاربر نامعتبر می‌شوند
-        if (!self::isImpersonating()) {
-            $pv = self::pv($u);
-            $sess = Session::get('pv');
-            if ($sess !== null && !hash_equals((string) $sess, $pv)) {
-                self::logout();
-                return self::$user = null;
-            }
+        $pv = self::pv($u);
+        $sess = Session::get('pv');
+        if ($sess !== null && !hash_equals((string) $sess, $pv)) {
+            self::logout();
+            return self::$user = null;
         }
         return self::$user = $u;
     }
@@ -201,15 +205,15 @@ final class Auth
         return $u !== null && $u['status'] === 'active';
     }
 
+    /** این درخواست داخل پنجره‌ی ورود مدیر به پنل کاربر است؟ (فقط از روی آدرس /as/<توکن> معتبر؛ نه داده‌ی نشست) */
     public static function isImpersonating(): bool
     {
-        return (int) Session::get('imp_admin', 0) > 0;
+        return Impersonation::active();
     }
 
     public static function impersonator(): ?array
     {
-        $id = (int) Session::get('imp_admin', 0);
-        return $id > 0 ? DB::one('SELECT id, first_name, last_name, mobile FROM users WHERE id = ? AND role = \'admin\'', [$id]) : null;
+        return Impersonation::active() ? Impersonation::current()['admin'] : null;
     }
 
     /** دسترسی‌های مدیران (مدیر کل همه را دارد). impersonate و edit_content از v3.25 جدا شدند. */
@@ -417,6 +421,16 @@ final class Auth
         ]);
     }
 
+    public static function uaHashOf(Request $req): string
+    {
+        return self::uaHash($req);
+    }
+
+    public static function passwordVersion(array $u): string
+    {
+        return self::pv($u);
+    }
+
     private static function uaHash(Request $req): string
     {
         return hash('sha256', (string) preg_replace('/[0-9._]+/', '#', $req->userAgent()));
@@ -452,6 +466,9 @@ final class Auth
         DbSessionHandler::bind($req->ip(), $req->ipPrefix(), $req->userAgent());
         Session::forget('imp_admin');
         Session::forget('imp_pv');
+        Session::forget('imp_sk');                    // پنجره‌های ورود به پنل کاربر نشست قبلی به این ورود منتقل نمی‌شوند
+        Session::forget('imp_stepup');
+        Session::forget('_scope');
         Session::forget('reauth');
         Session::forget('_csrf');
         DB::update('users', ['last_login_at' => date('Y-m-d H:i:s'), 'last_login_ip' => $req->ip()], 'id = ?', [(int) $u['id']]);
@@ -465,6 +482,10 @@ final class Auth
         $id = (int) Session::get('uid', 0);
         if ($id > 0) {
             Audit::log($id, 'logout');
+            try {
+                Impersonation::endSession('logout');     // همه‌ی پنجره‌های ورود به پنل کاربرِ همین نشست مدیر
+            } catch (\Throwable $e) {
+            }
         }
         Session::destroy();
         self::$user = null;
@@ -487,31 +508,5 @@ final class Auth
         ]);
         \App\Models\SubjectModel::seedDefaults($id);
         return $id;
-    }
-
-    public static function startImpersonation(int $adminId, int $targetId): void
-    {
-        $adm = DB::one('SELECT password_hash FROM users WHERE id = ?', [$adminId]);
-        Session::regenerate();
-        Session::put('imp_admin', $adminId);
-        Session::put('imp_pv', $adm ? self::pv($adm) : '');
-        Session::put('uid', $targetId);
-        self::$loaded = false;
-        self::$user = null;
-        Audit::log($adminId, 'impersonate_start', ['target' => $targetId]);
-    }
-
-    public static function stopImpersonation(): void
-    {
-        $adminId = (int) Session::get('imp_admin', 0);
-        if ($adminId > 0) {
-            Audit::log($adminId, 'impersonate_stop', ['target' => (int) Session::get('uid', 0)]);
-            Session::regenerate();
-            Session::put('uid', $adminId);
-            Session::forget('imp_admin');
-            Session::forget('imp_pv');
-            self::$loaded = false;
-            self::$user = null;
-        }
     }
 }

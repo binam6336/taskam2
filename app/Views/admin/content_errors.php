@@ -17,6 +17,7 @@ $titles = [
     'support'    => ['fa-headset', 'پشتیبانی', 'yellow'],
     'profile'    => ['fa-user-gear', 'پروفایل و توکن API', 'purple'],
     'push'       => ['fa-bell', 'اعلان‌ها', 'yellow'],
+    'admin'      => ['fa-user-secret', 'ورود مدیر به پنل کاربر', 'purple'],
 ];
 $total = array_sum(array_map('count', $groups));
 $changed = 0;

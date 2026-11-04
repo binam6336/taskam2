@@ -110,6 +110,11 @@ final class AuthController extends Controller
 
     public function logout()
     {
+        // «خروج» داخل پنجره‌ی ورود به پنل کاربر فقط همان پنجره را می‌بندد؛ نشست مدیر نه
+        if (($c = \App\Core\Impersonation::current()) !== null) {
+            \App\Core\Impersonation::end((int) $c['id'], 'exit');
+            \App\Core\Response::redirect(app_base() . '/admin');
+        }
         $ep = $this->request->str('push_endpoint', 1000);
         if ($ep !== '' && ($uid = Auth::id())) {
             \App\Services\Push::unsubscribe($uid, $ep);          // اشتراک اعلان همین مرورگر از حساب جدا شود

@@ -42,7 +42,12 @@ final class Response
             $to = '/';
         }
         if (!preg_match('#^https?://#i', $to)) {
-            $to = str_starts_with($to, base_url() . '/') || $to === base_url() ? $to : url($to);
+            // داخل پنجره‌ی ورود به پنل کاربر، صفحه‌های مدیر/ورود بیرون از پنجره (نشست اصلی) باز می‌شوند
+            if (Impersonation::active() && preg_match('#^/(admin|login|reauth|register|pending)(/|\?|$)#', $to)) {
+                $to = app_base() . $to;
+            } elseif (!(base_url() !== '' && (str_starts_with($to, base_url() . '/') || $to === base_url()))) {
+                $to = url($to);
+            }
         } else {
             // جلوگیری از open-redirect: فقط همان origin
             $host = parse_url($to, PHP_URL_HOST);
