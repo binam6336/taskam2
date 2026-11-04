@@ -6,6 +6,7 @@
  */
 $this->scripts[] = 'admin';        // ارسال خودکار فیلترها
 $this->scripts[] = 'admin_list';   // پنجره‌ی جزئیات کاربر (پروفایل)
+$this->scripts[] = 'security';     // پنجره‌ی «جزئیات» هر رکورد
 $this->boot['adminList'] = ['per' => $perOptions];
 $query = array_filter(['admin' => $adminSel, 'u' => $userSel, 'kind' => $kind !== 'all' ? $kind : null, 'per' => $per !== $perOptions[0] ? $per : null]);
 $qs = static fn(array $x) => url('/admin/security') . '?' . http_build_query(array_filter($x + $query, static fn($v) => $v !== null && $v !== ''));
@@ -55,18 +56,37 @@ $icons = ['enter' => ['fa-right-to-bracket', 'green'], 'exit' => ['fa-right-from
             </div>
             <time class="sl-time small muted nowrap" title="<?= e($it['at_full']) ?>"><i class="fa-regular fa-clock"></i> <?= e($it['at_full']) ?></time>
         </div>
-        <?php if ($it['changes']): ?>
-        <div class="table-wrap sl-changes"><table class="table table-sm"><thead><tr><th>پارامتر</th><?php if ($it['action'] !== 'create'): ?><th>قبل</th><?php endif; ?><?php if ($it['action'] !== 'delete'): ?><th>بعد</th><?php endif; ?></tr></thead><tbody>
-        <?php foreach ($it['changes'] as $c): ?>
-            <tr><td class="bold nowrap"><?= e($c['label']) ?></td>
-                <?php if ($it['action'] !== 'create'): ?><td class="sl-before"><?= e((string) $c['before']) ?></td><?php endif; ?>
-                <?php if ($it['action'] !== 'delete'): ?><td class="sl-after"><?= e((string) $c['after']) ?></td><?php endif; ?></tr>
-        <?php endforeach; ?>
-        </tbody></table></div>
+        <?php if ($it['changes'] || $it['action'] !== 'create' && $it['action'] !== 'update' && $it['action'] !== 'delete'): ?>
+        <div class="sl-foot"><button type="button" class="btn btn-sm" data-sl-detail><i class="fa-solid fa-circle-info"></i> جزئیات<?php if ($it['changes']): ?> <span class="badge"><?= e(fa_num(count($it['changes']))) ?> پارامتر</span><?php endif; ?></button></div>
+        <template data-sl-body>
+            <div class="sl-meta">
+                <div><span class="muted small">نقش مدیر</span><b><?= e($it['role']) ?></b></div>
+                <div><span class="muted small">مدیر</span><?= $who($it['admin']) ?></div>
+                <div><span class="muted small">کاربر</span><?= $who($it['target']) ?></div>
+                <div><span class="muted small">زمان</span><b><?= e($it['at_full']) ?></b></div>
+                <div><span class="muted small">عملیات</span><b><?= e(['enter' => 'ورود به پنل کاربر', 'exit' => 'خروج از پنل کاربر', 'create' => 'ایجاد', 'update' => 'تغییر', 'delete' => 'حذف'][$it['action']] ?? $it['action']) ?></b></div>
+                <?php if ($it['entity']): ?><div><span class="muted small"><?= e($it['entity']['type']) ?></span><b>«<?= e($it['entity']['title'] ?: '—') ?>»</b></div><?php endif; ?>
+                <?php if ($it['reason']): ?><div><span class="muted small">دلیل خروج</span><b><?= e($it['reason']) ?></b></div><?php endif; ?>
+            </div>
+            <?php if ($it['changes']): ?>
+            <div class="table-wrap sl-changes"><table class="table table-sm"><thead><tr><th>پارامتر</th><?php if ($it['action'] !== 'create'): ?><th>قبل</th><?php endif; ?><?php if ($it['action'] !== 'delete'): ?><th>بعد</th><?php endif; ?></tr></thead><tbody>
+            <?php foreach ($it['changes'] as $c): ?>
+                <tr><td class="bold nowrap"><?= e($c['label']) ?></td>
+                    <?php if ($it['action'] !== 'create'): ?><td class="sl-before"><?= e((string) $c['before']) ?></td><?php endif; ?>
+                    <?php if ($it['action'] !== 'delete'): ?><td class="sl-after"><?= e((string) $c['after']) ?></td><?php endif; ?></tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
+            <?php endif; ?>
+            <?php if ($it['link']): ?><div class="mt-2"><button type="button" class="btn btn-primary btn-sm" data-impersonate="<?= e($it['link']['user']) ?>" data-to="<?= e($it['link']['to']) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i> <?= e($it['link']['title']) ?></button></div><?php endif; ?>
+        </template>
         <?php endif; ?>
     </article>
 <?php endforeach; ?>
 <?php if (!$items): ?><div class="card empty"><i class="fa-solid fa-shield-halved"></i><p><?= $adminSel !== '' || $userSel !== '' || $kind !== 'all' ? 'رکوردی با این فیلتر پیدا نشد.' : 'هنوز هیچ مدیری وارد پنل کاربری نشده است.' ?></p></div><?php endif; ?>
 </div>
 <?php $this->partial('pagination', ['pg' => $pg, 'pages' => $pages, 'query' => $query]); ?>
+<div class="modal" id="m-sl-detail"><div class="modal-box lg">
+    <div class="modal-head"><h3><i class="fa-solid fa-shield-halved"></i> جزئیات رکورد لاگ</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body"><p class="sl-detail-title" id="sl-detail-title"></p><div id="sl-detail-body"></div></div>
+</div></div>
 <?php $this->partial('admin_user_modals'); ?>

@@ -1859,3 +1859,9 @@ button.ap-link.on { background: var(--ok-bg); }
 .sl-after { color: var(--text); }
 @media (max-width: 720px) { .sl-head { flex-wrap: wrap; } .sl-time { width: 100%; order: 3; padding-right: 2.75rem; } }
 .sl-changes .table { min-width: 0; table-layout: auto; } .sl-changes .table td:first-child { width: 1%; }
+.sl-foot { margin-top: .5rem; padding-right: 2.75rem; }
+.sl-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .6rem; margin-bottom: 1rem; }
+.sl-meta > div { display: flex; flex-direction: column; gap: .2rem; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 10px; }
+.sl-meta .sl-who { align-self: flex-start; }
+.sl-detail-title { margin: 0 0 1rem; line-height: 1.9; }
+.sl-changes .table td:first-child, .sl-changes .table th:first-child { white-space: nowrap; width: 1%; }
