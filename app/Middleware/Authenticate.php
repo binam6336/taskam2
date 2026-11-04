@@ -32,6 +32,14 @@ final class Authenticate
             header('Retry-After: 60');
             throw new HttpException(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
         }
+        // «آخرین بازدید» (پنل مدیر ← جزئیات کاربر): فقط فعالیت خود کاربر، حداکثر هر ۵ دقیقه یک بار
+        if (!Auth::isImpersonating() && (empty($u['last_active_at']) || strtotime((string) $u['last_active_at']) < time() - 300)) {
+            try {
+                \App\Core\DB::run('UPDATE users SET last_active_at = NOW() WHERE id = ?', [(int) $u['id']]);
+            } catch (\Throwable $e) {
+                // ستون هنوز ساخته نشده (قبل از مهاجرت)
+            }
+        }
         if ($u['status'] !== 'active') {
             if ($r->wantsJson()) {
                 throw new HttpException(403, 'حساب کاربری شما فعال نیست.', 'ACCOUNT_INACTIVE');

@@ -1823,3 +1823,11 @@ button.ap-link:hover, button.ap-link.on { border-color: rgba(var(--accent-rgb), 
 button.ap-link.on { background: var(--ok-bg); }
 .ap-more { color: var(--g-300); margin-top: .3rem; }
 .ap-pager .btn-xs { min-width: 30px; }
+/* پنل مدیر ← کاربران: منوی ⋮ (fixed تا در جدول بریده نشود) و پنجره‌ی جزئیات */
+.u-menu { position: relative; }
+.u-menu .u-menu-list { position: fixed; display: none; min-width: 170px; z-index: 120; }
+.u-menu.open .u-menu-list { display: block; }
+.ud-projs { display: grid; gap: .4rem; }
+.ud-proj { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: right; cursor: pointer; }
+.ud-proj:hover { border-color: rgba(var(--accent-rgb), .55); background: var(--surface-2); }
+.ud-proj .grow { display: flex; flex-direction: column; }

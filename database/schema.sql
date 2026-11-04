@@ -43,6 +43,7 @@ CREATE TABLE `users` (
   `last_seen`                       INT UNSIGNED NULL DEFAULT NULL       COMMENT 'Unix time آخرین فعالیت چت',
   `last_login_at`                   DATETIME NULL DEFAULT NULL,
   `last_login_ip`                   VARCHAR(45) NULL DEFAULT NULL,
+  `last_active_at`                  DATETIME NULL DEFAULT NULL           COMMENT 'آخرین فعالیت خود کاربر در پنل (بدون ورود مدیر به‌جای او)',
   `created_at`                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

@@ -3,6 +3,8 @@
 $can = static fn(string $p) => in_array($p, $myPerms, true);
 $stLbl = ['pending' => ['در انتظار', 'yellow'], 'active' => ['فعال', 'green'], 'deactivated' => ['غیرفعال', ''], 'blocked' => ['مسدود', 'red']];
 $this->scripts[] = 'admin';
+$this->scripts[] = 'admin_list';   // صفحه‌بندی مشترک پنجره‌ها
+$this->boot['adminList'] = ['per' => $perOptions];
 $me = (int) $currentUser['id'];
 ?>
 <?php if (!\App\Core\Crypto::configured()): ?><div class="alert warning"><i class="fa-solid fa-lock-open"></i><div><b>رمزگذاری پیام‌های چت فعال نیست.</b> پیام‌ها در دیتابیس به‌صورت متن‌ساده ذخیره می‌شوند. در فایل <code>.env</code> مقدار <code>ENCODE_PASSWORD</code> را (حداقل ۱۲ نویسه) تنظیم کنید و سپس <code>php bin/chat-crypto.php encrypt-all</code> را برای پیام‌های قبلی اجرا کنید.</div></div><?php endif; ?>
@@ -40,13 +42,25 @@ $me = (int) $currentUser['id'];
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button class="btn btn-xs btn-icon" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= (int) $u['id'] ?>" title="ویرایش"><i class="fa-solid fa-pen"></i></button><?php endif; ?>
             <?php if ($can('impersonate') && !$isAdmin && $u['status'] === 'active'): ?><button class="btn btn-xs btn-icon" data-post="<?= e(url('/admin/users/' . $u['id'] . '/impersonate')) ?>" data-after="redirect:/dashboard" data-confirm="وارد پنل «<?= e(full_name($u)) ?>» شوید؟" data-danger="0" title="ورود به پنل کاربر"><i class="fa-solid fa-user-secret"></i></button><?php endif; ?>
-            <?php if ($can('delete_user') && !$protected): ?><button class="btn btn-xs btn-icon btn-danger" data-post="<?= e(url('/admin/users/' . $u['id'] . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟" title="حذف"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
+            <?php // منوی ⋮: جزئیات، ویرایش، حذف ?>
+            <div class="u-menu"><button type="button" class="btn btn-xs btn-icon" data-umenu aria-haspopup="menu" aria-expanded="false" title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر «<?= e(full_name($u)) ?>»"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                <div class="dropdown-menu u-menu-list" role="menu">
+                    <button type="button" role="menuitem" data-user-details="<?= (int) $u['id'] ?>"><i class="fa-solid fa-circle-info"></i> جزئیات</button>
+                    <?php if ($can('edit_user') && (!$isAdmin || $isSuper || $self)): ?><button type="button" role="menuitem" data-edit-user='<?= e(json_html($editData)) ?>' data-uid="<?= (int) $u['id'] ?>"><i class="fa-solid fa-pen"></i> ویرایش</button><?php endif; ?>
+                    <?php if ($can('delete_user') && !$protected): ?><button type="button" role="menuitem" class="text-danger" data-post="<?= e(url('/admin/users/' . $u['id'] . '/delete')) ?>" data-confirm="کاربر «<?= e(full_name($u)) ?>» و تمام داده‌هایش برای همیشه حذف شود؟"><i class="fa-solid fa-trash"></i> حذف</button><?php endif; ?>
+                </div></div>
         </div></td></tr>
 <?php endforeach; ?><?php if (!$users): ?><tr><td colspan="6" class="center muted"><?= $q !== '' ? 'کاربری با این جستجو پیدا نشد.' : 'کاربری وجود ندارد.' ?></td></tr><?php endif; ?></tbody></table>
 <?php $this->partial('pagination', ['pg' => $pg, 'pages' => $pages, 'query' => array_filter(['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null])]); ?></div>
 
+<?php // جزئیات کاربر: پروژه‌ها (ورود به پنل ← تسک‌های پروژه)، تسک‌ها (پنجره‌ی فهرست ← ورود به پنل ← لینک تسک)، تاریخ ایجاد، آخرین بازدید ?>
+<div class="modal" id="m-udetail"><div class="modal-box lg">
+    <div class="modal-head"><h3><i class="fa-solid fa-id-card"></i> <span id="ud-title">جزئیات کاربر</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" id="ud-body"></div></div></div>
+<div class="modal" id="m-utasks"><div class="modal-box lg">
+    <div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> <span id="ut-title">تسک‌ها</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" id="ut-body"></div></div></div>
 <div class="modal" id="m-user"><div class="modal-box"><form method="post" action="<?= e(url('/admin/users')) ?>" data-ajax id="f-user"><?= csrf_field() ?>
     <div class="modal-head"><h3><i class="fa-solid fa-user-gear"></i> <span id="user-modal-title">کاربر جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">

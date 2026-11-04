@@ -204,11 +204,77 @@ final class AdminController extends Controller
             $this->respond(false, 'فقط کاربران عادیِ فعال قابل ورود هستند.', '/admin');
         }
         Auth::startImpersonation($this->uid(), (int) $t['id']);
+        // مقصد بعد از ورود (از «جزئیات کاربر»: فهرست تسک‌های یک پروژه یا لینک یک تسک)؛ فقط مسیرهای مجاز پنل کاربر
+        $to = (string) $this->request->input('to', '');
+        $to = preg_match('#^/(tasks|board)(\?[A-Za-z0-9=&_%.\-]*)?$#', $to) ? $to : '/dashboard';
         // درخواست AJAX باید JSON بگیرد (نه redirect به HTML → «پاسخ نامعتبر از سرور (200)»)
         if ($this->request->wantsJson()) {
-            $this->ok('در حال ورود به پنل «' . full_name($t) . '» …', ['redirect' => url('/dashboard')]);
+            $this->ok('در حال ورود به پنل «' . full_name($t) . '» …', ['redirect' => url($to)]);
         }
-        $this->redirect('/dashboard');
+        $this->redirect($to);
+    }
+
+    /** «جزئیات» کاربر در فهرست کاربران: GET /admin/users/{id}/details */
+    public function userDetails(string $id)
+    {
+        $this->rateLimit('admin_list', 120);
+        $u = UserModel::find((int) $id);
+        if ($u === null || (int) $u['is_bot'] === 1) {
+            $this->fail('کاربر یافت نشد.', 404);
+        }
+        $uid = (int) $u['id'];
+        $t = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done, COALESCE(SUM(is_completed = 0 AND board_status = \'review\'),0) review,
+                COALESCE(SUM(is_completed = 0 AND due_date < CURDATE()),0) late FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL', [$uid]) ?? [];
+        $created = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND blocked_at IS NULL', [$uid]);
+        $canEnter = Auth::adminCan('impersonate') && $u['role'] !== 'admin' && $u['status'] === 'active';
+        $projects = [];
+        foreach (DB::all('SELECT p.id, p.title, p.user_id, p.blocked_at, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) + 1 AS members,
+                (SELECT COUNT(*) FROM tasks x WHERE x.project_id = p.id AND x.assignee_id = ? AND x.blocked_at IS NULL) AS my_tasks
+                FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) ORDER BY p.blocked_at IS NOT NULL, p.title', [$uid, $uid, $uid]) as $p) {
+            $creator = (int) $p['user_id'] === $uid;
+            $pm = $creator ? null : DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [(int) $p['id'], $uid]);
+            $roles = \App\Services\Access::ROLES + ['custom' => \App\Services\Access::ROLE_CUSTOM];
+            // تسک‌های کل پروژه (با دسترسی تحلیل) یا فقط تسک‌های خودش در همان پروژه
+            $all = $creator || \App\Services\Access::projectCan((int) $p['id'], $uid, 'view_analytics');
+            $projects[] = ['id' => (int) $p['id'], 'title' => $p['title'], 'members' => (int) $p['members'], 'my_tasks' => (int) $p['my_tasks'], 'blocked' => $p['blocked_at'] !== null,
+                'role' => $creator ? 'سازنده' : ($roles[\App\Services\Access::memberRole($pm ?? [])]['label'] ?? 'سفارشی'),
+                'to' => $all ? '/tasks?scope=project&project=' . (int) $p['id'] . '&status=all' : '/tasks?scope=mine&status=all&project=' . (int) $p['id']];
+        }
+        $last = $u['last_active_at'] ?? $u['last_login_at'] ?? null;
+        $this->ok('', ['user' => [
+            'id' => $uid, 'name' => full_name($u), 'mobile' => $u['mobile'], 'email' => $u['email'], 'avatar' => avatar_url($u['avatar']),
+            'role' => Auth::adminRole($u) ? Auth::ADMIN_ROLES[Auth::adminRole($u)]['label'] : 'کاربر', 'status' => $u['status'],
+            'created_fa' => jdate((string) $u['created_at']), 'last_active_fa' => $last ? jdate((string) $last) : null, 'last_active_ago' => $last ? time_ago((string) $last) : null,
+            'last_login_fa' => $u['last_login_at'] ? jdate((string) $u['last_login_at']) : null,
+            'tasks' => (int) ($t['total'] ?? 0), 'tasks_done' => (int) ($t['done'] ?? 0), 'tasks_review' => (int) ($t['review'] ?? 0), 'tasks_late' => (int) ($t['late'] ?? 0), 'tasks_created' => $created,
+            'can_enter' => $canEnter, 'enter_why' => $canEnter ? null : ($u['role'] === 'admin' ? 'ورود به پنل مدیران ممکن نیست.' : 'فقط به پنل کاربران فعال می‌توان وارد شد.'),
+        ], 'projects' => $projects]);
+    }
+
+    /** تسک‌های یک کاربر (مسئولش) با صفحه‌بندی: GET /admin/users/{id}/tasks */
+    public function userTasks(string $id)
+    {
+        $this->rateLimit('admin_list', 120);
+        $uid = (int) $id;
+        if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$uid])) {
+            $this->fail('کاربر یافت نشد.', 404);
+        }
+        $per = (int) ($this->request->query['per'] ?? self::USERS_PER_PAGE[0]);
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[0];
+        $total = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [$uid]);
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
+        $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, t.share_token, p.title AS project_title
+            FROM tasks t LEFT JOIN projects p ON p.id = t.project_id WHERE t.assignee_id = ? ORDER BY t.is_completed, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$uid, $per, ($page - 1) * $per]);
+        $stl = \App\Services\BoardService::STATUSES;
+        $items = array_map(static fn($x) => ['title' => $x['title'], 'project' => $x['project_title'] ?? '—',
+            'status' => $x['blocked_at'] ? 'مسدود' : ($x['archived_at'] ? 'آرشیو' : ($stl[$x['board_status']]['label'] ?? ($x['is_completed'] ? 'انجام‌شده' : 'باز'))),
+            'tone' => $x['blocked_at'] ? 'danger' : ($x['archived_at'] ? 'muted' : ($stl[$x['board_status']]['tone'] ?? 'muted')),
+            'priority' => $x['priority_percent'] !== null ? fa_num((int) $x['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$x['priority']],
+            'due_fa' => $x['due_date'] ? jdate($x['due_date'] . ' 00:00:00', false) : '—', 'late' => !$x['is_completed'] && $x['due_date'] && $x['due_date'] < date('Y-m-d'),
+            'created_fa' => jdate((string) $x['created_at']),
+            'to' => '/tasks?task=' . ($x['share_token'] ?: \App\Models\TaskModel::ensureShareToken((int) $x['id']))], $rows);
+        $this->ok('', ['items' => $items, 'total' => $total, 'page' => $page, 'pages' => $pages, 'per' => $per]);
     }
 
     // ───── پشتیبانی ─────
