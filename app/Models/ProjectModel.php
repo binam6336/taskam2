@@ -79,6 +79,7 @@ final class ProjectModel
     public static function analytics(int $projectId): array
     {
         $totals = DB::one("SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done, COALESCE(SUM(is_completed = 0),0) open,
+              COALESCE(SUM(is_completed = 0 AND archived_at IS NULL AND board_status = 'review'),0) review,
               COALESCE(SUM(is_completed = 0 AND due_date IS NOT NULL AND due_date < CURDATE()),0) overdue,
               COALESCE(SUM(priority='high'),0) high, COALESCE(SUM(priority='medium'),0) medium, COALESCE(SUM(priority='low'),0) low,
               AVG(CASE WHEN is_completed = 1 AND COALESCE(delivered_at, completed_at) > created_at THEN TIMESTAMPDIFF(MINUTE, created_at, COALESCE(delivered_at, completed_at)) END)/60 avg_hours

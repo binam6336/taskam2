@@ -43,7 +43,7 @@ final class TaskModel
     }
 
     public const SORTS = [
-        'smart'    => 'هوشمند (بدون زمان، امروز، پیش رو)',
+        'smart'    => 'هوشمند (عقب‌افتاده، امروز، بدون زمان، پیش رو)',
         'created'  => 'تاریخ ایجاد',
         'due'      => 'تاریخ انجام (سررسید)',
         'priority' => 'اولویت',
@@ -277,7 +277,31 @@ final class TaskModel
      */
     public const OVERDUE = 't.due_date IS NOT NULL AND t.due_date < CURDATE()';
     /** گروه مرتب‌سازی هوشمند (v4.1.1): ۰ بدون زمان، ۱ امروز، ۲ فردا، ۳ بعدها (پیش رو)، ۴ عقب‌افتاده، ۵ انجام‌شده */
-    public const GROUP_SQL = 'CASE WHEN t.is_completed = 1 THEN 5 WHEN t.due_date IS NULL THEN 0 WHEN t.due_date = CURDATE() THEN 1 WHEN t.due_date = CURDATE() + INTERVAL 1 DAY THEN 2 WHEN t.due_date > CURDATE() THEN 3 ELSE 4 END';
+    /**
+     * مرتب‌سازی هوشمند (v5.4): نیاز به اصلاح (برگشت‌خورده) ← عقب‌افتاده ← امروز ← بدون زمان ← پیش رو ← منتظر تأیید سرپرست (جمع‌شده) ← انجام‌شده.
+     * همان ترتیب در PHP: groupOf() و نام‌ها GROUP_NAMES (سرتیتر گروه‌ها در لیست).
+     */
+    public const GROUP_SQL = "CASE WHEN t.is_completed = 1 THEN 6 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'rework' THEN 0 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review' THEN 5 WHEN t.due_date IS NOT NULL AND t.due_date < CURDATE() THEN 1 WHEN t.due_date = CURDATE() THEN 2 WHEN t.due_date IS NULL THEN 3 ELSE 4 END";
+    public const GROUP_NAMES = ['نیاز به اصلاح', 'عقب‌افتاده', 'امروز', 'بدون زمان', 'پیش رو', 'منتظر تأیید سرپرست', 'انجام‌شده'];
+
+    public static function groupOf(array $t): int
+    {
+        if ((int) $t['is_completed'] === 1) {
+            return 6;
+        }
+        $onBoard = $t['project_id'] !== null && empty($t['archived_at']);
+        if ($onBoard && ($t['board_status'] ?? '') === 'rework') {
+            return 0;
+        }
+        if ($onBoard && ($t['board_status'] ?? '') === 'review') {
+            return 5;
+        }
+        $today = date('Y-m-d');
+        if ($t['due_date'] && $t['due_date'] < $today) {
+            return 1;
+        }
+        return $t['due_date'] === $today ? 2 : ($t['due_date'] ? 4 : 3);
+    }
 
     /**
      * پیشخوان: تسک‌های امروز (سررسید امروز که هنوز دیر نشده) و عقب‌افتاده‌ی کاربر (مسئول = خودش، انجام‌نشده).

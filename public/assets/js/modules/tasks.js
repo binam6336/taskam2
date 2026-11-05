@@ -192,6 +192,11 @@ document.addEventListener('tk:ready', () => {
     subjMode(false); descLinks.reset();
   };
 
+  // گروه «منتظر تأیید سرپرست» لیست: جمع‌شده؛ با کلیک باز/بسته می‌شود (v5.4)
+  TK.on('click', '[data-tgroup]', (e, b) => {
+    const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open));
+    TK.qsa('[data-tgroup-item="' + b.dataset.tgroup + '"]').forEach((x) => { x.hidden = !open; });
+  });
   // بدون دسترسی «تکمیل تسک»: دکمه دیده می‌شود ولی فقط پیام می‌دهد
   TK.on('click', '[data-no-complete]', (e) => { e.preventDefault(); e.stopPropagation(); TK.toast('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'error'); });
 
@@ -303,11 +308,16 @@ document.addEventListener('tk:ready', () => {
     }
     if (t.is_completed) return c.complete ? '<button class="btn btn-sm" data-detail-toggle><i class="fa-solid fa-rotate-left"></i> بازگشت به بررسی سرپرست</button>' : '';
     if (c.status === null || c.status === undefined) return c.complete ? '<button class="btn btn-sm btn-primary" data-detail-toggle><i class="fa-solid fa-check"></i> انجام شد</button>' : lock('انجام شد', 'شما دسترسی لازم برای تکمیل تسک را ندارید.');
-    return c.deliver ? '<button class="btn btn-sm btn-primary" data-detail-toggle title="ارسال برای بررسی سرپرست"><i class="fa-solid fa-check"></i> انجام شد</button>'
+    // برگشت‌خورده برای اصلاح (v5.4): دکمه‌ی اصلی «اصلاح شد، ارسال دوباره»؛ انتقال به «برنامه‌ریزی‌نشده» فقط از منوی چیپ وضعیت
+    if (c.status === 'rework') {
+      return c.deliver ? `<button class="btn btn-sm btn-primary" data-detail-toggle title="${c.approve_direct ? 'تکمیل تسک' : 'ارسال دوباره برای بررسی سرپرست'}"><i class="fa-solid fa-paper-plane"></i> اصلاح شد، ارسال دوباره</button>`
+        : lock('اصلاح شد، ارسال دوباره', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را دوباره برای بررسی بفرستد.');
+    }
+    return c.deliver ? `<button class="btn btn-sm btn-primary" data-detail-toggle title="${c.approve_direct ? 'تکمیل تسک (شما دسترسی تأیید دارید)' : 'ارسال برای بررسی سرپرست'}"><i class="fa-solid fa-check"></i> انجام شد</button>`
       : lock('انجام شد', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.');
   };
   const nextBtn = (b) => {
-    if (!b || !b.next || b.next === 'done') return '';
+    if (!b || !b.next || b.next === 'done' || b.status === 'rework') return '';
     const txt = `انتقال به «${E(b.next_label)}»`;
     return b.can_next
       ? `<button class="btn btn-sm" data-detail-advance="${E(b.status)}"><i class="fa-solid fa-arrow-left"></i> ${txt}</button>`

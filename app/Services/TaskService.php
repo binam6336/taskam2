@@ -354,6 +354,11 @@ final class TaskService
                 return $m['ok'] ? self::res(true, 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => false, 'status' => 'review']) : $m;
             }
             if (BoardService::statusOf($t) === 'review') {
+                // دارنده‌ی دسترسی تأیید: تیک روی تسک منتظر تأیید = تأیید و بستن (v5.4)
+                if (Access::canApprove($t, $actor)) {
+                    $m = BoardService::move($actor, $id, 'done', '', true);
+                    return $m['ok'] ? self::res(true, 'تسک تأیید و انجام شد.', '', 200, ['id' => $id, 'status' => 'done', 'from' => 'review', 'is_completed' => true]) : $m;
+                }
                 if ((int) ($t['delivered_by'] ?? 0) === $actor) {
                     return BoardService::withdraw($actor, $id);
                 }
@@ -531,7 +536,9 @@ final class TaskService
             && in_array('done', Access::boardTargets($task, $uid, 'review', ['done']), true);
         $out['rework'] = $out['approve'] && in_array('rework', Access::boardTargets($task, $uid, 'review', ['rework']), true);
         // تیک ردیف: تسک بی‌پروژه‌ی قدیمی = تکمیل مستقیم؛ تسک پروژه = تحویل / پس گرفتن / بازکردن تسک انجام‌شده
-        $out['tick'] = $st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || (in_array($st, ['done', 'archived'], true) && $out['complete']));
+        // دسترسی تأیید (v5.4): تیک این کاربر مستقیم «انجام‌شده» می‌کند (و روی تسک منتظر تأیید = تأیید)
+        $out['approve_direct'] = $st !== null && Access::canApprove($task, $uid);
+        $out['tick'] = $st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete']));
         $out['status'] = $st;
         return $out;
     }

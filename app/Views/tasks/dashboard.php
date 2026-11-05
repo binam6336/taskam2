@@ -63,7 +63,15 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                     <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
-                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div></div></a>
+                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div>
+                        <?php // پیش‌نمایش کار پیش از تأیید: آخرین یادداشت مسئول، پیوست‌ها و تحویل نسبت به سررسید (v5.4)
+                        $dl = $t['delivered_at'] ? substr((string) $t['delivered_at'], 0, 10) : date('Y-m-d');
+                        $lateDays = $t['due_date'] && $dl > $t['due_date'] ? (int) round((strtotime($dl) - strtotime((string) $t['due_date'])) / 86400) : 0; ?>
+                        <div class="dash-preview xs">
+                            <?php if (trim((string) $t['last_note']) !== ''): ?><span class="dash-pv-note" title="<?= e((string) $t['last_note']) ?>"><i class="fa-regular fa-comment"></i> «<?= e(mb_strimwidth(preg_replace('/\s+/u', ' ', (string) $t['last_note']), 0, 90, '…')) ?>»</span><?php else: ?><span class="faint"><i class="fa-regular fa-comment"></i> یادداشتی از مسئول نیست</span><?php endif; ?>
+                            <span class="<?= (int) $t['files_count'] ? '' : 'faint' ?>"><i class="fa-solid fa-paperclip"></i> <?= (int) $t['files_count'] ? e(fa_num($t['files_count'])) . ' پیوست' : 'بدون پیوست' ?></span>
+                            <?php if ($t['due_date']): ?><span class="<?= $lateDays ? 'prio-high' : 'dash-pv-ok' ?>"><i class="fa-regular fa-calendar"></i> <?= $lateDays ? e(fa_num($lateDays)) . ' روز بعد از سررسید تحویل شد' : 'به‌موقع تحویل شد' ?></span><?php else: ?><span class="faint"><i class="fa-regular fa-calendar"></i> بدون سررسید</span><?php endif; ?>
+                        </div></div></a>
                     <?php // تأیید یا برگرداندن بدون باز کردن تسک ?>
                     <div class="flex gap-1 dash-review-acts">
                         <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . pid('tasks', $t) . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
@@ -123,11 +131,34 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
     </div>
 </div>
 </div>
+<?php if (!empty($team)): // «تیم من» (v5.4): وضعیت تیم برای کسی که در پروژه دسترسی تحلیل دارد ?>
+<div class="card mb-2 dash-team">
+    <div class="card-head"><h3><i class="fa-solid fa-people-group"></i> تیم من</h3><span class="xs faint">پروژه‌هایی که تحلیلشان را می‌بینید؛ روی هر عدد بزنید تا همان فهرست باز شود</span></div>
+    <div class="dash-team-grid">
+    <?php foreach ($team as $tm): $p = $tm['project']; $c = $tm['c']; $pp = pid('projects', $p);
+        $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => $pp] + $q); ?>
+        <div class="dash-team-proj">
+            <div class="flex between items-center gap-1"><a class="bold truncate" href="<?= e(url('/projects/' . $pp . '/analytics')) ?>" title="تحلیل پروژه"><i class="fa-solid fa-diagram-project"></i> <?= e($p['title']) ?></a><span class="xs faint nowrap"><?= e(fa_num($tm['members'])) ?> نفر • <?= e(fa_num($c['open'])) ?> باز</span></div>
+            <div class="dash-team-nums">
+                <a class="<?= $c['overdue'] ? 'is-bad' : '' ?>" href="<?= e($tl(['status' => 'open', 'when' => 'overdue'])) ?>"><b><?= e(fa_num($c['overdue'])) ?></b><span>عقب‌افتاده</span></a>
+                <a class="<?= $c['review'] ? 'is-warn' : '' ?>" href="<?= e(url('/board?project=' . $pp)) ?>" title="ستون «بررسی سرپرست» در بورد همین پروژه"><b><?= e(fa_num($c['review'])) ?></b><span>منتظر تأیید</span></a>
+                <a href="<?= e(url('/board?project=' . $pp)) ?>" title="ستون «بازبینی مسئول» در بورد همین پروژه"><b><?= e(fa_num($c['rework'])) ?></b><span>برگشت برای اصلاح</span></a>
+                <span title="تسک‌های مسدودشده‌ی این پروژه"><b><?= e(fa_num($c['blocked'])) ?></b><span>مسدود</span></span>
+            </div>
+            <?php if ($tm['top']): ?><div class="dash-team-top xs"><span class="faint">بیشترین عقب‌افتاده:</span>
+                <?php foreach ($tm['top'] as $u): ?><a href="<?= e($tl(['status' => 'open', 'when' => 'overdue', 'assignee' => pid('users', $u)])) ?>"><?= e(full_name($u)) ?> <b><?= e(fa_num($u['n'])) ?></b></a><?php endforeach; ?></div>
+            <?php else: ?><div class="dash-team-top xs dash-pv-ok"><i class="fa-solid fa-circle-check"></i> هیچ عضوی کار عقب‌افتاده ندارد.</div><?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
 <div class="grid grid-4 mb-2">
     <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=all')) ?>" title="نمایش همه‌ی تسک‌های من"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num($s['total'])) ?></div><div class="lbl">کل تسک‌های من</div></div></a>
     <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=done')) ?>" title="نمایش تسک‌های انجام‌شده"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num($s['completed'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
     <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="نمایش تسک‌های در جریان"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num($s['pending'])) ?></div><div class="lbl">در جریان</div></div></a>
-    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=all&prio=high')) ?>" title="نمایش تسک‌های با اولویت زیاد"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($s['high'])) ?></div><div class="lbl">اولویت زیاد</div></div></a>
+    <?php // فقط تسک‌های باز با اولویت زیاد (v5.4؛ قبلاً انجام‌شده‌ها هم شمرده می‌شد) و لینک به همان فهرست فیلترشده ?>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open&prio=high')) ?>" title="نمایش تسک‌های باز (در جریان) با اولویت زیاد"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($d['prio_open']['high'])) ?></div><div class="lbl">اولویت زیاد (باز)</div></div></a>
 </div>
 
 <div class="grid grid-wide mb-2">

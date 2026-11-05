@@ -416,8 +416,12 @@ final class BoardService
      */
     public static function waiting(int $uid, int $limit = 10): array
     {
-        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, p.title AS project_title,
-                u.first_name, u.last_name, u.avatar FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
+        // پیش‌نمایش برای سرپرست پیش از تأیید (v5.4): آخرین یادداشت مسئول، تعداد پیوست‌ها، سررسید (تحویل نسبت به سررسید)
+        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, p.title AS project_title,
+                u.first_name, u.last_name, u.avatar,
+                (SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS files_count,
+                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND n.user_id = COALESCE(t.assignee_id, t.user_id) ORDER BY n.id DESC LIMIT 1) AS last_note
+                FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
         $review = [];
         foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
                 AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
@@ -534,11 +538,42 @@ final class BoardService
         if ($from === 'done' || $from === 'archived') {
             return self::res(false, 'این تسک انجام‌شده است.', 'ALREADY_COMPLETED', 409);
         }
+        // دارنده‌ی دسترسی تأیید (سرپرست، سازنده‌ی پروژه، …): تیک مستقیم «انجام‌شده» (v5.4)؛ زمان تحویل و تأیید هر دو همین لحظه
+        if (Access::canApprove($t, $actor)) {
+            self::apply($t, $actor, $from, 'done');
+            return self::res(true, 'تسک انجام شد.', '', 200, ['id' => $id, 'status' => 'done', 'from' => $from, 'is_completed' => true]);
+        }
         if ($err = self::limitError($t, 'review')) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
         self::apply($t, $actor, $from, 'review');
         return self::res(true, 'تسک انجام شد و برای «' . self::STATUSES['review']['label'] . '» ارسال شد.', '', 200, ['id' => $id, 'status' => 'review', 'from' => $from, 'is_completed' => false]);
+    }
+
+    /** چند دقیقه بعد از «انجام شد»/«تأیید» هنوز دکمه‌ی «بازگردانی» کار می‌کند */
+    public const UNDO_DONE_MINUTES = 10;
+
+    /**
+     * «بازگردانی» بعد از تکمیل مستقیم با تیک یا تأیید در «بررسی سرپرست» (v5.4): فقط همان کسی که تأیید کرده، تا UNDO_DONE_MINUTES دقیقه؛
+     * تسک به وضعیت قبل از تکمیل (مثلاً «بررسی سرپرست» یا «در حال انجام») برمی‌گردد.
+     */
+    public static function undoDone(int $actor, int $id): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (self::status($t) !== 'done' || (int) ($t['approved_by'] ?? 0) !== $actor || !empty($t['blocked_at'])
+            || strtotime((string) $t['completed_at']) < time() - self::UNDO_DONE_MINUTES * 60) {
+            return self::res(false, 'این تسک دیگر قابل بازگرداندن نیست.', 'CANNOT_UNDO', 409);
+        }
+        $last = DB::value("SELECT data FROM task_events WHERE task_id = ? AND type = 'board' ORDER BY id DESC LIMIT 1", [$id]);
+        $prev = json_decode((string) $last, true)['from'] ?? 'review';
+        if (!isset(self::STATUSES[$prev]) || in_array($prev, ['done', 'archived'], true)) {
+            $prev = 'review';
+        }
+        self::apply($t, $actor, 'done', $prev);
+        return self::res(true, 'تکمیل تسک برگشت؛ تسک به «' . self::STATUSES[$prev]['label'] . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
     }
 
     /** پس گرفتن تحویل (دکمه‌ی «بازگردانی» بعد از تیک): فقط همان کسی که تحویل داده، تا وقتی هنوز تأیید نشده؛ برمی‌گردد به وضعیت قبل از تحویل */

@@ -1747,6 +1747,7 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .qk-opt.active, .qk-opt:hover { background: var(--surface-3); color: var(--g-300); }
 .qk-opt > i { width: 20px; text-align: center; color: var(--g-400); }
 .qk-empty { padding: .5rem .6rem; color: var(--muted); font-size: .85rem; }
+.qk-empty.warn { color: var(--warn); line-height: 1.8; }
 .avatar.xs { width: 24px; height: 24px; font-size: .7rem; }
 .qk-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .2rem 0 .5rem; }
 .qk-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--border-2); font-size: .8rem; }
@@ -1783,7 +1784,16 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 .t-chip.on { background: color-mix(in srgb, var(--g-500) 22%, transparent); border-color: var(--g-400); color: var(--g-300); }
 .t-chip .badge-count { margin-inline-start: .2rem; }
 .t-group { font-size: .78rem; font-weight: 700; color: var(--muted); padding: .55rem .3rem .2rem; letter-spacing: .02em; }
-.t-group-4 { color: var(--danger); } .t-group-1 { color: var(--warn); }
+.t-group-1 { color: var(--danger); } .t-group-2 { color: var(--warn); } .t-group-0 { color: #fb923c; }
+.t-group .badge { font-size: .68rem; padding: 0 .4rem; vertical-align: middle; }
+.badge.orange { background: rgba(251, 146, 60, .14); color: #fb923c; border-color: rgba(251, 146, 60, .35); }
+.t-group-toggle { display: flex; align-items: center; gap: .4rem; width: 100%; background: none; border: 1px dashed var(--border); border-radius: 10px; margin-top: .4rem; padding: .45rem .6rem; cursor: pointer; font-family: inherit; text-align: right; color: var(--muted); }
+.t-group-toggle:hover { border-color: var(--g-400); color: var(--text); }
+.t-group-chev { margin-inline-start: auto; transition: transform .15s; }
+.t-group-toggle[aria-expanded="true"] .t-group-chev { transform: rotate(180deg); }
+.item.t-in-review { opacity: .78; }
+.item.t-rework { border-inline-start: 3px solid #fb923c; }
+.t-rework-why { font-size: .78rem; color: #fb923c; margin: .1rem 0 .2rem; overflow-wrap: anywhere; }
 .dash-review-item { display: flex; align-items: center; gap: .5rem; } .dash-review-acts { flex: none; }
 .dash-flow-row { color: inherit; text-decoration: none; padding: .15rem 0; border-radius: 6px; }
 .dash-flow-row:hover b { color: var(--g-300); }
@@ -1888,3 +1898,28 @@ button.ap-link.on { background: var(--ok-bg); }
 .sl-foot .btn { padding: .2rem .55rem; font-size: .76rem; min-height: 0; }
 .sl-foot .badge { font-size: .66rem; padding: 0 .35rem; }
 #m-sl-detail .sl-who { font-size: .88rem; }
+/* پیشخوان ← منتظر بررسی سرپرست: پیش‌نمایش کار پیش از تأیید (v5.4) */
+.dash-preview { display: flex; flex-wrap: wrap; gap: .25rem .8rem; margin-top: .25rem; color: var(--muted); }
+.dash-preview .dash-pv-note { color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-preview .dash-pv-ok { color: var(--g-400); }
+.dash-review-item { align-items: flex-start; }
+/* پیشخوان ← «تیم من» (v5.4) */
+.dash-team .card-head { flex-wrap: wrap; gap: .3rem 1rem; }
+.dash-team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .7rem; }
+.dash-team-proj { border: 1px solid var(--border); border-radius: 12px; padding: .65rem .75rem; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.dash-team-proj > div:first-child a { color: inherit; min-width: 0; }
+.dash-team-nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: .35rem; }
+.dash-team-nums > * { display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .35rem .2rem; border-radius: 9px; background: var(--surface-2); color: inherit; text-decoration: none; font-size: .7rem; text-align: center; }
+.dash-team-nums b { font-size: 1.05rem; }
+.dash-team-nums a:hover { outline: 1px solid var(--g-400); }
+.dash-team-nums .is-bad b { color: var(--danger); }
+.dash-team-nums .is-warn b { color: var(--warn); }
+.dash-team-top { display: flex; flex-wrap: wrap; gap: .25rem .7rem; align-items: center; }
+.dash-team-top a { color: inherit; }
+.dash-team-top a b { color: var(--danger); }
+/* تحلیل پروژه: ۵ کارت بالا (v5.4) */
+.an-cards { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) { .an-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .an-cards { grid-template-columns: repeat(2, 1fr); } }
+.stat .ico.purple { background: rgba(167, 139, 250, .14); color: #a78bfa; box-shadow: inset 0 0 0 1px rgba(167, 139, 250, .25); }
+html[data-theme="sage"] .stat .ico.purple { background: rgba(124, 92, 220, .14); color: #6d4fc4; }

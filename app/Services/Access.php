@@ -220,6 +220,16 @@ final class Access
         return self::canTask($task, $uid, 'complete') || in_array('to_review', self::boardPerms($task, $uid), true);
     }
 
+    /**
+     * دسترسی تأیید (v5.4): کسی که تسک «بررسی سرپرست» را می‌تواند به «انجام‌شده» ببرد (مجوز تکمیل + انتقال review → done در بورد).
+     * تیک «انجام شد» چنین کسی مستقیم تسک را انجام‌شده می‌کند (بدون رفتن به بررسی سرپرست).
+     */
+    public static function canApprove(array $task, int $uid): bool
+    {
+        return $task['project_id'] !== null && empty($task['blocked_at']) && self::canTask($task, $uid, 'complete')
+            && in_array('done', self::boardTargets($task, $uid, 'review', ['done']), true);
+    }
+
     public static function canTask(array $task, int $uid, string $action): bool
     {
         // تسک مسدودشده فقط دیده می‌شود (و دارنده‌ی مجوز «مسدود کردن» می‌تواند مسدودی‌اش را بردارد)

@@ -76,6 +76,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{task}/update', [TaskController::class, 'update']);
     $r->post('/tasks/{task}/toggle', [TaskController::class, 'toggle']);
     $r->post('/tasks/{task}/withdraw', [TaskController::class, 'withdraw']);
+    $r->post('/tasks/{task}/undo-done', [TaskController::class, 'undoDone']);
     $r->get('/tasks/{task}/share', [TaskController::class, 'share']);
     $r->get('/tasks/{task}/history', [TaskController::class, 'history']);
     $r->post('/tasks/{task}/advance', [TaskController::class, 'advance']);

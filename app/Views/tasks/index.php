@@ -33,7 +33,8 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($pc['done'])) ?></span></a>
         <?php else: ?>
         <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] + $counts[$scope . '_done'])) ?></span></a>
-        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'])) ?></span></a>
+        <?php $rv = $counts[$scope . '_review'] ?? 0; ?>
+        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>" title="<?= $rv ? e(fa_num($counts[$scope . '_open'] - $rv) . ' تسک در جریان و ' . fa_num($rv) . ' تسک تحویل‌داده‌شده که منتظر تأیید سرپرست است') : '' ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] - $rv)) ?></span><?php if ($rv): ?> <span class="badge-count t-rv-count">+ <?= e(fa_num($rv)) ?> منتظر تأیید</span><?php endif; ?></a>
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
         <?php endif; ?>
     </div>
@@ -92,13 +93,19 @@ $chips = [
     <div class="card empty"><i class="fa-regular fa-clipboard"></i><p><?= $q !== '' || $fCount ? 'تسکی با این جستجو/فیلتر پیدا نشد.' : 'هنوز تسکی در این بخش وجود ندارد.' ?></p></div>
 <?php else: ?>
 <div class="list" id="task-list">
-    <?php $grpPrev = null; $grpNames = ['بدون زمان', 'امروز', 'پیش رو', 'پیش رو', 'عقب‌افتاده', 'انجام‌شده'];
+    <?php $grpPrev = null; $grpNames = \App\Models\TaskModel::GROUP_NAMES;
+    // تعداد هر گروه در همین صفحه (سرتیتر «منتظر تأیید (n)» و «نیاز به اصلاح (n)»)
+    $grpCount = array_count_values(array_map([\App\Models\TaskModel::class, 'groupOf'], $tasks));
     foreach ($tasks as $t):
         $isDone = (int) $t['is_completed'] === 1;
-        if ($filters['sort'] === 'smart') {   // سرتیتر گروه‌های مرتب‌سازی هوشمند (همان TaskModel::GROUP_SQL)
-            $today = date('Y-m-d');
-            $g = $isDone ? 5 : (!$t['due_date'] ? 0 : ($t['due_date'] < $today ? 4 : ($t['due_date'] === $today ? 1 : 2)));
-            if ($grpNames[$g] !== $grpPrev) { $grpPrev = $grpNames[$g]; echo '<div class="t-group t-group-' . $g . '">' . e($grpPrev) . '</div>'; }
+        $g = \App\Models\TaskModel::groupOf($t);
+        if ($filters['sort'] === 'smart' && $g !== $grpPrev) {   // سرتیتر گروه‌های مرتب‌سازی هوشمند (همان TaskModel::GROUP_SQL)
+            $grpPrev = $g;
+            if ($g === 5) {   // منتظر تأیید سرپرست: کار من تمام است؛ گروه جمع‌شده ته لیست، با کلیک باز می‌شود
+                echo '<button type="button" class="t-group t-group-5 t-group-toggle" data-tgroup="5" aria-expanded="false"><i class="fa-solid fa-hourglass-half"></i> ' . e($grpNames[5]) . ' <span class="badge">' . e(fa_num($grpCount[5] ?? 0)) . '</span> <i class="fa-solid fa-chevron-down t-group-chev"></i></button>';
+            } else {
+                echo '<div class="t-group t-group-' . $g . '">' . ($g === 0 ? '<i class="fa-solid fa-rotate-left"></i> ' : '') . e($grpNames[$g]) . ($g === 0 ? ' <span class="badge orange">' . e(fa_num($grpCount[0] ?? 0)) . '</span>' : '') . '</div>';
+            }
         }
         $can = $t['can'];
         // عقب‌افتاده فقط روزهای قبل؛ امروز با ساعت گذشته = «ساعت گذشته» (تعریف واحد v4.1)
@@ -109,14 +116,15 @@ $chips = [
             'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '', 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'], '_id' => pid('tasks', $t), '_can' => $can,
         ];
         ?>
-    <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?>" id="task-<?= e(pid('tasks', $t)) ?>">
+    <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?><?= $filters['sort'] === 'smart' && $g === 5 ? ' t-in-review' : '' ?><?= $g === 0 ? ' t-rework' : '' ?>" id="task-<?= e(pid('tasks', $t)) ?>"<?= $filters['sort'] === 'smart' && $g === 5 ? ' data-tgroup-item="5" hidden' : '' ?>>
         <?php // تیک (v4.1): برای همه = تحویل برای «بررسی سرپرست»؛ تسک منتظر تأیید = ساعت شنی (تحویل‌دهنده با کلیک پس می‌گیرد)
         $inReview = $can['status'] === 'review';
-        $tickTitle = $isDone ? 'بازگشت به بررسی سرپرست' : ($inReview ? ($can['withdraw'] ? 'منتظر تأیید سرپرست — کلیک: پس گرفتن تحویل' : 'منتظر تأیید سرپرست') : 'انجام شد (ارسال برای بررسی سرپرست)');
+        $tickTitle = $isDone ? 'بازگشت به بررسی سرپرست' : ($inReview ? (!empty($can['approve']) ? 'تأیید و بستن (شما دسترسی تأیید دارید)' : ($can['withdraw'] ? 'منتظر تأیید سرپرست — کلیک: پس گرفتن تحویل' : 'منتظر تأیید سرپرست')) : (!empty($can['approve_direct']) ? 'انجام شد (مستقیم؛ شما دسترسی تأیید دارید)' : 'انجام شد (ارسال برای بررسی سرپرست)'));
         $tickLock = $isDone ? 'بازکردن تسک انجام‌شده فقط با دسترسی تأیید (تکمیل تسک) در این پروژه ممکن است.' : ($inReview ? 'این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن برای اصلاح از جزئیات تسک انجام می‌شود.' : 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.'); ?>
         <button class="tick <?= $isDone ? 'on' : '' ?><?= $inReview ? ' review' : '' ?><?= $can['tick'] ? '' : ' locked' ?>" <?= $can['tick'] ? 'data-post="' . e(url('/tasks/' . pid('tasks', $t) . '/toggle')) . '"' . ($isDone ? ' data-confirm="تسک انجام‌شده دوباره به «بررسی سرپرست» برگردد؟" data-danger="0"' : '') : 'data-lock-reason="' . e($tickLock) . '" data-lock-title="انجام شد" aria-disabled="true"' ?> title="<?= e($tickTitle) ?>" aria-label="<?= e($tickTitle) ?>"><i class="fa-solid <?= $inReview ? 'fa-hourglass-half' : 'fa-check' ?>"></i></button>
         <div class="grow">
             <div class="item-title" data-open-task="<?= e(pid('tasks', $t)) ?>"><?= e($t['title']) ?></div>
+            <?php if ($g === 0 && trim((string) ($t['blocked_reason'] ?? '')) !== ''): ?><div class="t-rework-why"><i class="fa-solid fa-rotate-left"></i> علت برگشت: <?= e(mb_strimwidth((string) $t['blocked_reason'], 0, 160, '…')) ?></div><?php endif; ?>
             <div class="item-meta">
                 <?= priority_badge($t) ?>
                 <?php if ($can['status'] !== null && !$isDone): $bs = \App\Services\BoardService::STATUSES[$can['status']] ?? null; if ($bs): ?><span class="badge board-st tone-<?= e($bs['tone']) ?>" title="وضعیت در بورد پروژه"><i class="fa-solid <?= e($bs['icon']) ?>"></i> <?= e($bs['label']) ?></span><?php endif; endif; ?>

@@ -15,10 +15,12 @@ $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red
 $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => pid('projects', $project)] + $q);
 ?>
 <div class="page-head"><div><a class="small muted an-back" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div></div>
-<div class="grid grid-4 mb-2">
+<?php // کارت‌ها هم‌تعریف با «خلاصه‌ی تحلیل» (v5.4): «تأییدشده» (تکمیل‌شده با تأیید سرپرست) جدا از «منتظر تأیید» (تحویل‌شده، هنوز تأییدنشده)؛ تحویل‌شده = جمع این دو ?>
+<div class="grid an-cards mb-2">
     <a class="card stat" href="<?= e($tl(['status' => 'all'])) ?>" title="نمایش همه‌ی تسک‌های پروژه"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['total'])) ?></div><div class="lbl">کل تسک‌ها</div></div></a>
-    <a class="card stat" href="<?= e($tl(['status' => 'done'])) ?>" title="نمایش تسک‌های انجام‌شده‌ی پروژه"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['done'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
-    <a class="card stat" href="<?= e($tl(['status' => 'open'])) ?>" title="نمایش تسک‌های باز پروژه"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num((int) $t['open'])) ?></div><div class="lbl">باز</div></div></a>
+    <a class="card stat" href="<?= e($tl(['status' => 'done'])) ?>" title="تسک‌هایی که سرپرست تأیید و تکمیل کرده است"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['done'])) ?></div><div class="lbl">تأییدشده</div></div></a>
+    <a class="card stat" href="<?= e(url('/board?project=' . pid('projects', $project))) ?>" title="تحویل‌شده و منتظر تأیید سرپرست (ستون «بررسی سرپرست» بورد)"><div class="ico purple"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num((int) $t['review'])) ?></div><div class="lbl">منتظر تأیید</div></div></a>
+    <a class="card stat" href="<?= e($tl(['status' => 'open'])) ?>" title="تسک‌های باز پروژه (هنوز تحویل نشده)"><div class="ico warn"><i class="fa-solid fa-person-digging"></i></div><div><div class="num"><?= e(fa_num((int) $t['open'] - (int) $t['review'])) ?></div><div class="lbl">باز (تحویل‌نشده)</div></div></a>
     <a class="card stat" href="<?= e($tl(['status' => 'open', 'when' => 'overdue'])) ?>" title="نمایش تسک‌های عقب‌افتاده‌ی پروژه"><div class="ico danger"><i class="fa-solid fa-triangle-exclamation"></i></div><div><div class="num"><?= e(fa_num((int) $t['overdue'])) ?></div><div class="lbl">عقب‌افتاده</div></div></a>
 </div>
 
@@ -26,7 +28,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div class="card-head"><h3><i class="fa-solid fa-clipboard-check"></i> خلاصه‌ی تحلیل پروژه</h3>
         <?php if ($sum['rating']['score'] !== null): ?><span class="badge <?= e($sum['rating']['tone']) ?>">عملکرد کلی: <?= e($sum['rating']['label']) ?> (<?= e(fa_num($sum['rating']['score'])) ?> از ۱۰۰)</span><?php endif; ?></div>
     <p class="an-summary-text"><?= e($sum['text']) ?></p>
-    <?php $sp = $sum['split']; $cn = $sum['counts']; $segs = [['done_ontime', 'به‌موقع انجام‌شده', 'ok'], ['done_late', 'با تأخیر انجام‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
+    <?php $sp = $sum['split']; $cn = $sum['counts']; $segs = [['done_ontime', 'به‌موقع تحویل‌شده', 'ok'], ['done_late', 'با تأخیر تحویل‌شده', 'warn'], ['open_ontime', 'باز (در مهلت)', 'info'], ['open_late', 'باز و عقب‌افتاده', 'danger']]; ?>
     <?php // یک نوار انباشته با جمع ۱۰۰٪ (بخش‌ها هم‌پوشانی ندارند) ?>
     <div class="an-stack" role="img" aria-label="<?= e(implode('، ', array_map(static fn($g) => $g[1] . ' ' . fa_num($sp[$g[0]]) . '٪', $segs))) ?>">
         <?php foreach ($segs as [$sk, $l, $tone]): if ($sp[$sk] > 0): ?><div class="an-stack-seg <?= $tone ?>" data-css="width:<?= (int) $sp[$sk] ?>%" title="<?= e($l) ?>: <?= e(fa_num($sp[$sk])) ?>٪ (<?= e(fa_num($cn[$sk])) ?> تسک)"></div><?php endif; endforeach; ?>
@@ -34,7 +36,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div class="an-stack-legend">
         <?php foreach ($segs as [$sk, $l, $tone]): ?><span><i class="<?= $tone ?>"></i><?= e($l) ?> <b><?= e(fa_num($sp[$sk])) ?>٪</b> <span class="faint">(<?= e(fa_num($cn[$sk])) ?> تسک)</span></span><?php endforeach; ?>
     </div>
-    <p class="hint">بخش‌ها روی هم ۱۰۰٪ همه‌ی وظایف‌اند. «انجام‌شده» یعنی مسئول آن را تحویل داده (تأییدشده یا منتظر تأیید سرپرست)؛ «با تأخیر» یعنی روز تحویل بعد از روز سررسید بوده (ساعت سررسید حساب نمی‌شود)؛ «عقب‌افتاده» یعنی روز سررسیدش گذشته و هنوز تحویل نشده. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
+    <p class="hint">بخش‌ها روی هم ۱۰۰٪ همه‌ی وظایف‌اند. «تحویل‌شده» یعنی مسئول آن را تحویل داده (تأییدشده + منتظر تأیید سرپرست، همان دو کارت بالا)؛ «با تأخیر» یعنی روز تحویل بعد از روز سررسید بوده (ساعت سررسید حساب نمی‌شود)؛ «عقب‌افتاده» یعنی روز سررسیدش گذشته و هنوز تحویل نشده. ارزیابی عملکرد بر اساس استاندارد KPI سرعت (پایین صفحه) است.</p>
 </div>
 
 <div class="grid mb-2 an-row">

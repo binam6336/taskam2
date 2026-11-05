@@ -83,6 +83,9 @@ final class TaskController extends Controller
             'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1 AND blocked_at IS NULL', [$uid]),
             'others_open' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL', [$uid, $uid]),
             'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
+            // «در جریان» جدا از «منتظر تأیید»: کار تحویل‌داده‌شده دیگر کار مسئول نیست (v5.4)
+            'mine_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid]),
+            'others_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid, $uid]),
         ];
 
         // نمای اشتراکی: /tasks?task=<token>
@@ -187,7 +190,12 @@ final class TaskController extends Controller
     public function status(string $id)
     {
         $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
+        $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
+        // «تأیید و بستن» (جزئیات / پیشخوان): پیام با دکمه‌ی «بازگردانی» چند دقیقه‌ای (v5.4)
+        if ($res['ok'] && ($d['status'] ?? '') === 'done') {
+            $d['undo'] = url('/tasks/' . Pid::of('tasks', $id) . '/undo-done');
+        }
+        $this->respond($res['ok'], $res['message'], '/tasks', $d);
     }
 
     /** «انتقال به مرحله‌ی بعد» در جزئیات تسک (همان قواعد بورد: دسترسی مرحله‌ها، تکمیل و سقف ستون) */
@@ -267,9 +275,18 @@ final class TaskController extends Controller
         // بعد از «انجام شد»، دکمه‌ی «بازگردانی» در پیام (همان مسیر تیک، چند ثانیه)
         // تحویل برای بررسی ← «بازگردانی» = پس گرفتن تحویل؛ تکمیل مستقیم (تسک قدیمی بی‌پروژه) ← همان تیک
         $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
-        $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/withdraw') : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . Pid::of('tasks', $id) . '/toggle') : null);
+        $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/withdraw')
+            : (($d['status'] ?? '') === 'done' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/undo-done')   // تکمیل مستقیم با تیک (دسترسی تأیید)
+            : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . Pid::of('tasks', $id) . '/toggle') : null));
         $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
+    }
+
+    /** «بازگردانی» بعد از تکمیل مستقیم یا تأیید (v5.4) */
+    public function undoDone(string $id)
+    {
+        $res = BoardService::undoDone($this->uid(), (int) $id);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
     /** پس گرفتن تحویل (دکمه‌ی «بازگردانی» پیام بعد از تیک) */

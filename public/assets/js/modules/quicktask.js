@@ -39,7 +39,12 @@ document.addEventListener('tk:ready', () => {
   const closeMenu = () => { ac = null; menu.hidden = true; menu.innerHTML = ''; inp.setAttribute('aria-expanded', 'false'); };
   const drawMenu = () => {
     if (!ac || !ac.items.length) {
-      if (ac) { menu.hidden = false; menu.innerHTML = `<div class="qk-empty">${ac.type === '@' ? 'کسی پیدا نشد.' : 'پروژه‌ای پیدا نشد.'}</div>`; }
+      if (ac) {
+        // بدون دسترسی «تغییر مسئول» در پروژه‌ی انتخاب‌شده: علت را بگو، نه «کسی پیدا نشد» (v5.4)
+        const p = project(), noAssign = ac.type === '@' && p && !p.can_assign;
+        const msg = ac.type === '#' ? 'پروژه‌ای پیدا نشد.' : noAssign ? `در پروژه‌ی «${E(p.title)}» فقط می‌توانید برای خودتان تسک بسازید (دسترسی «تغییر مسئول» ندارید).` : 'کسی پیدا نشد.';
+        menu.hidden = false; menu.innerHTML = `<div class="qk-empty${noAssign ? ' warn' : ''}">${msg}</div>`;
+      }
       return;
     }
     menu.innerHTML = ac.items.map((it, i) => `<div class="qk-opt${i === ac.idx ? ' active' : ''}" role="option" id="qk-o${i}" aria-selected="${i === ac.idx}" data-i="${i}">`
@@ -94,6 +99,9 @@ document.addEventListener('tk:ready', () => {
     if (ac && !menu.hidden) return;
     const title = inp.value.replace(/\s+/g, ' ').trim();
     if (!title) { inp.reportValidity(); return; }
+    // @ یا # حل‌نشده (به فرد یا پروژه‌ای وصل نشده) در عنوان: پیش از ذخیره بپرس (v5.4)
+    const loose = title.match(/(^|\s)([@#][^\s@#]*)/);
+    if (loose && !(await TK.confirm(`«${loose[2]}» در عنوان به ${loose[2][0] === '@' ? 'هیچ فردی' : 'هیچ پروژه‌ای'} وصل نشده و به‌صورت متن در عنوان ذخیره می‌شود${loose[2][0] === '@' ? ' و مسئول تسک خودتان می‌شوید' : ''}. همین‌طور ثبت شود؟`, { okText: 'ثبت همین‌طور', danger: false }))) { inp.focus(); return; }
     const btn = TK.qs('#qk-submit'); btn.disabled = true;
     const p = sel.project, who = sel.person;
     const r = await TK.post('/tasks/quick', { title, project_id: p ? p.id : '', assignee_id: who ? who.id : '' });
