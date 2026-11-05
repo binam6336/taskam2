@@ -56,8 +56,8 @@ document.addEventListener('tk:ready', () => {
     const mem = all.filter((a) => a.value === cfg.me || (p.members || []).includes(a.value));
     const others = all.filter((a) => !mem.includes(a));
     const why = !p.can_add ? 'برای افزودن این همکار به پروژه دسترسی «افزودن کاربر» لازم است؛ با مدیر پروژه هماهنگ کنید.'
-      : !p.can_assign ? 'برای واگذاری تسک به دیگران دسترسی «تغییر مسئول» در این پروژه لازم است.' : '';
-    const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'برای واگذاری تسک به دیگران دسترسی «تغییر مسئول» در این پروژه لازم است.' }));
+      : !p.can_assign ? 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' : '';
+    const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }));
     const out = [{ group: 'اعضای این پروژه' }, ...memOpts];
     if (others.length) out.push({ group: 'همکاران غیرعضو' }, ...others.map((a) => ({ ...a, note: why ? 'عضو پروژه نیست' : 'افزودن به پروژه و واگذاری', addTo: p.id, disabled: !!why, hint: why })));
     return out;

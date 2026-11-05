@@ -106,9 +106,9 @@ final class TaskService
         if ($e = self::blockError($actor, $assignee)) {
             return $e;
         }
-        // واگذاری تسک جدید به دیگران فقط با مجوز «تغییر مسئول» در همین پروژه (سازنده‌ی پروژه همیشه)
-        if ($assignee !== $actor && !in_array('reassign', Access::projectTaskPerms($projectId, $actor), true)) {
-            return self::err('برای واگذاری تسک به عضو دیگر، دسترسی «تغییر مسئول» در این پروژه لازم است؛ تسک را برای خودتان بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
+        // ساخت تسک برای هر عضو پروژه (v5.5): هر عضو جز نقش «بدون دسترسی»؛ تغییر مسئول بعد از ثبت = مجوز «تغییر مسئول»
+        if ($assignee !== $actor && !Access::canAssignOnCreate($projectId, $actor)) {
+            return self::err('با نقش «بدون دسترسی» در این پروژه فقط می‌توانید برای خودتان تسک بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
         }
         if (!self::assigneeAllowed($actor, $actor, $assignee, $projectId)) {
             return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (مسئول تسک پروژه باید عضو همان پروژه باشد).', 'ASSIGNEE_INVALID', 403);
@@ -144,7 +144,7 @@ final class TaskService
         foreach ($projects as $p) {
             $pid = (int) $p['id'];
             $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
-            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => in_array('reassign', Access::projectTaskPerms($pid, $uid), true)];
+            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid)];
             foreach ($mem as $m) {
                 $people[$m] = true;
             }

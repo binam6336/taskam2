@@ -159,6 +159,20 @@ final class Access
     }
 
     /** دسترسی تسک یک عضو در پروژه (سازنده‌ی پروژه = همه). */
+    /**
+     * انتخاب مسئول هنگام «ساخت» تسک پروژه (v5.5): سازنده‌ی پروژه و هر عضوی که نقشش «بدون دسترسی» نیست، می‌تواند تسک را
+     * به هر عضو پروژه بدهد (قابل تنظیم نیست). تغییر مسئولِ تسکِ ثبت‌شده همچنان مجوز «تغییر مسئول» (reassign) می‌خواهد.
+     */
+    public static function canAssignOnCreate(int $projectId, int $uid): bool
+    {
+        [$creator] = self::projectRole($projectId, $uid);
+        if ($creator === $uid) {
+            return true;
+        }
+        $row = DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        return $row !== null && self::memberRole($row) !== 'none';
+    }
+
     public static function projectTaskPerms(int $projectId, int $uid): array
     {
         [$creator, $perms] = self::projectRole($projectId, $uid);

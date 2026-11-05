@@ -19,7 +19,8 @@ $this->boot['tasks'] = [
     'label_colors' => \App\Models\SubjectModel::COLORS,
     'projects' => array_map(static fn($p) => ['id' => pid('projects', $p), 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category',
         'members' => $pMembers[(int) $p['id']] ?? [], 'can_add' => !empty($p['is_creator']) || in_array('add_member', $p['perms'] ?? [], true),
-        'can_assign' => !empty($p['is_creator']) || in_array('reassign', $p['task_perms'] ?? [], true)], $projects),
+        // انتخاب مسئول هنگام ساخت (v5.5): هر عضو جز «بدون دسترسی»؛ تغییر مسئول تسک ثبت‌شده با can.reassign خود تسک قفل می‌شود
+        'can_assign' => \App\Services\Access::canAssignOnCreate((int) $p['id'], $meId)], $projects),
     'me_name' => full_name($me),
     'assignees' => $assignees,
     'shared' => $shared ?? null,

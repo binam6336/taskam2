@@ -14,7 +14,7 @@ document.addEventListener('tk:ready', () => {
   const projOf = (id) => (opt?.projects || []).find((p) => p.id === id) || null;
   const project = () => sel.project || projOf(opt?.default_project);
   const me = () => (opt?.people || []).find((p) => p.me) || null;
-  /** کسانی که در پروژه‌ی فعلی می‌توان مسئولشان کرد (بدون دسترسی «تغییر مسئول» فقط خود کاربر) */
+  /** کسانی که در پروژه‌ی فعلی می‌توان مسئولشان کرد (هر عضو جز نقش «بدون دسترسی»؛ v5.5) */
   const assignable = () => {
     const p = project(); const all = opt?.people || [];
     if (!p) return all.filter((x) => x.me);
@@ -40,9 +40,9 @@ document.addEventListener('tk:ready', () => {
   const drawMenu = () => {
     if (!ac || !ac.items.length) {
       if (ac) {
-        // بدون دسترسی «تغییر مسئول» در پروژه‌ی انتخاب‌شده: علت را بگو، نه «کسی پیدا نشد» (v5.4)
+        // نقش «بدون دسترسی» در پروژه‌ی انتخاب‌شده: علت را بگو، نه «کسی پیدا نشد» (v5.4)
         const p = project(), noAssign = ac.type === '@' && p && !p.can_assign;
-        const msg = ac.type === '#' ? 'پروژه‌ای پیدا نشد.' : noAssign ? `در پروژه‌ی «${E(p.title)}» فقط می‌توانید برای خودتان تسک بسازید (دسترسی «تغییر مسئول» ندارید).` : 'کسی پیدا نشد.';
+        const msg = ac.type === '#' ? 'پروژه‌ای پیدا نشد.' : noAssign ? `در پروژه‌ی «${E(p.title)}» فقط می‌توانید برای خودتان تسک بسازید (نقش شما «بدون دسترسی» است).` : 'کسی پیدا نشد.';
         menu.hidden = false; menu.innerHTML = `<div class="qk-empty${noAssign ? ' warn' : ''}">${msg}</div>`;
       }
       return;
