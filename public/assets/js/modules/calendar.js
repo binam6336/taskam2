@@ -135,7 +135,7 @@ document.addEventListener('tk:ready', () => {
 
   /* ───── جابه‌جایی سررسید ───── */
   const move = async (id, date) => {
-    const t = items.find((x) => x.id === +id);
+    const t = items.find((x) => String(x.id) === String(id));
     if (!t || t.date === date) return;
     const r = await TK.post('/tasks/' + id + '/update', { due_date: date });
     TK.toast(TK.ok(r) ? `سررسید «${t.title}» به ${dayName(date, true)} منتقل شد.` : r.message || 'خطا', TK.ok(r) ? 'success' : 'error');
