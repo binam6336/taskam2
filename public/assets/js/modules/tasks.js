@@ -192,10 +192,25 @@ document.addEventListener('tk:ready', () => {
     subjMode(false); descLinks.reset();
   };
 
-  // گروه «منتظر تأیید سرپرست» لیست: جمع‌شده؛ با کلیک باز/بسته می‌شود (v5.4)
-  TK.on('click', '[data-tgroup]', (e, b) => {
-    const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open));
-    TK.qsa('[data-tgroup-item="' + b.dataset.tgroup + '"]').forEach((x) => { x.hidden = !open; });
+  // سرگروه‌های تاشوی لیست (v5.7): وضعیت هر گروه در localStorage؛ پیش‌فرض از data-tgh-default (منتظر تأیید = بسته)
+  // delegation روی document + اعمال دوباره بعد از هر به‌روزرسانی AJAX (tk:live) — فقط وقتی #task-list هست
+  const grpStore = {
+    get(k) { try { return localStorage.getItem('tk.tgrp.' + k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem('tk.tgrp.' + k, v); } catch { /* حالت خصوصی */ } },
+  };
+  const grpSet = (b, open) => {
+    b.setAttribute('aria-expanded', String(open));
+    const body = document.getElementById(b.getAttribute('aria-controls')); if (body) body.hidden = !open;
+  };
+  const grpApply = () => {
+    if (!TK.qs('#task-list')) return;
+    TK.qsa('#task-list [data-tgh]').forEach((b) => { const v = grpStore.get(b.dataset.tgh); grpSet(b, (v ?? b.dataset.tghDefault) === '1'); });
+  };
+  grpApply();
+  document.addEventListener('tk:live', grpApply);
+  TK.on('click', '#task-list [data-tgh]', (e, b) => {
+    const open = b.getAttribute('aria-expanded') !== 'true';
+    grpSet(b, open); grpStore.set(b.dataset.tgh, open ? '1' : '0');
   });
   // بدون دسترسی «تکمیل تسک»: دکمه دیده می‌شود ولی فقط پیام می‌دهد
   TK.on('click', '[data-no-complete]', (e) => { e.preventDefault(); e.stopPropagation(); TK.toast('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'error'); });
