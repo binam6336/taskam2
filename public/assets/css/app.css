@@ -700,13 +700,16 @@ body.docs { background: var(--bg); --muted: var(--docs-muted); --faint: var(--do
 /* ───────────── Misc ───────────── */
 .profile-head { display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap; }
 .profile-head .chip { white-space: nowrap; }
-/* موبایل: آواتار و اطلاعات کنار هم، دکمه‌ی «تصویر پروفایل» در سطر جدا زیرشان (قبلاً هر سه در یک سطر فشرده می‌شدند و نام و چیپ‌ها می‌شکستند) */
+/* موبایل (v5.5.2): کادر پروفایل ستونی و وسط‌چین — آواتار، نام و شماره، چیپ‌ها، بعد دکمه‌های تصویر؛ هیچ‌کدام روی هم نمی‌افتند */
 @media (max-width: 600px) {
-  .profile-head { gap: .9rem 1rem; }
-  .profile-head > .avatar.lg { width: 64px; height: 64px; font-size: 1.5rem; }
-  .profile-head > .grow { flex: 1 1 0; min-width: 0; }
+  .profile-head { flex-direction: column; align-items: center; text-align: center; gap: .7rem; }
+  .profile-head > .avatar.lg { width: 76px; height: 76px; font-size: 1.7rem; flex: none; }
+  .profile-head > .grow { width: 100%; min-width: 0; }
   .profile-head h2 { font-size: 1.15rem; overflow-wrap: anywhere; }
-  .profile-head > form { flex: 1 0 100%; }
+  .profile-head .ltr.muted { text-align: center !important; }
+  .profile-head .wrap { justify-content: center; }
+  .profile-head .chip, .profile-head .badge { font-size: .78rem; }
+  .profile-head > form { width: 100%; justify-content: center; }
   #sessions .card-head { flex-wrap: wrap; }   /* دکمه‌ی «خروج همه‌ی دستگاه‌های دیگر» زیر عنوان، نه بیرون از صفحه */
 }
 .kv { display: grid; grid-template-columns: 140px 1fr; gap: .5rem 1rem; } .kv dt { color: var(--faint); } .kv dd { margin: 0; }
