@@ -23,6 +23,8 @@ $this->boot['tasks'] = [
         'can_assign' => \App\Services\Access::canAssignOnCreate((int) $p['id'], $meId)], $projects),
     'me_name' => full_name($me),
     'assignees' => $assignees,
+    // دپارتمان / گروه (v5.10): گروه‌های هر پروژه به‌عنوان گزینه‌ی «مسئول انجام»
+    'groups' => \App\Models\GroupModel::optionsFor($pIds),
     'shared' => $shared ?? null,
     'me' => (int) ($me['id'] ?? 0),
     'context' => $context ?? 'tasks',
@@ -43,7 +45,11 @@ $this->scripts[] = 'tasks';
                 <?php endif; ?>
                 <div class="row">
                     <div class="field" data-tour="project"><label>پروژه <span class="req" aria-hidden="true">*</span></label><div data-rselect="project_id"></div></div>
-                    <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div></div>
+                    <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div>
+                        <input type="hidden" name="assignee_group_id" value="" data-group-input>
+                        <label class="grp-head-row" id="grp-head-row" hidden><input type="checkbox" name="group_head_approval" value="1" data-group-head>
+                            <span><b>تأیید با سرگروه</b><small>هر عضو تیک خودش را می‌زند و تسک فقط با تیک سرگروه تحویل می‌شود؛ بدون این گزینه تیک هر عضو تسک را تحویل می‌دهد.</small></span></label>
+                    </div>
                 </div>
                 <button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more"><i class="fa-solid fa-chevron-down"></i> گزینه‌های بیشتر</button>
                 <div class="task-more" id="task-more" hidden>

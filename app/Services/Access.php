@@ -130,6 +130,30 @@ final class Access
         return is_array($d) ? array_values(array_intersect($allowed, $d)) : [];
     }
 
+    /**
+     * «مسئول» تسک (v5.10): خود مسئول، یا هر عضو گروهی که تسک به آن داده شده (tasks.assignee_group_id).
+     * در دسترسی‌ها، دیدن در برد و تیک «انجام شد»، عضو گروه مثل مسئول رفتار می‌کند.
+     */
+    public static function isAssignee(array $task, int $uid): bool
+    {
+        if ($uid > 0 && (int) ($task['assignee_id'] ?? 0) === $uid) {
+            return true;
+        }
+        $g = (int) ($task['assignee_group_id'] ?? 0);
+        return $g > 0 && \App\Models\GroupModel::isMember($g, $uid);
+    }
+
+    /** سرگروه گروهِ مسئول تسک؟ */
+    public static function isGroupHead(array $task, int $uid): bool
+    {
+        $g = (int) ($task['assignee_group_id'] ?? 0);
+        if ($g <= 0) {
+            return false;
+        }
+        $grp = \App\Models\GroupModel::find($g);
+        return $grp !== null && (int) $grp['head_id'] === $uid && \App\Models\GroupModel::isMember($g, $uid);
+    }
+
     /** آیا $uid می‌تواند عملِ $action را روی درخواست تماس انجام دهد؟ */
     public static function can(array $row, int $uid, string $action): bool
     {
@@ -210,10 +234,10 @@ final class Access
             if ($out && !self::canBoardView($task, $uid)) {
                 $out = self::projectCan($pid, $uid, 'view_analytics') ? ['view'] : [];
             }
-        } elseif ((int) ($task['assignee_id'] ?? 0) === $uid) {
+        } elseif (self::isAssignee($task, $uid)) {
             $out = ['complete', 'notes'];                     // تسک‌های قدیمیِ بدون پروژه: رفتار قبلی برای مسئول
         }
-        if ($out || (int) ($task['assignee_id'] ?? 0) === $uid) {
+        if ($out || self::isAssignee($task, $uid)) {
             $out[] = 'view';
         }
         return array_values(array_unique($out));
@@ -228,7 +252,7 @@ final class Access
         if (!empty($task['blocked_at']) || !self::canTask($task, $uid, 'view')) {
             return false;
         }
-        if ((int) ($task['assignee_id'] ?? 0) === $uid || (int) $task['user_id'] === $uid) {
+        if (self::isAssignee($task, $uid) || (int) $task['user_id'] === $uid) {
             return true;
         }
         return self::canTask($task, $uid, 'complete') || in_array('to_review', self::boardPerms($task, $uid), true);
@@ -339,7 +363,7 @@ final class Access
     public static function canBoardView(array $task, int $uid): bool
     {
         $assignee = (int) ($task['assignee_id'] ?? 0);
-        if ((int) $task['user_id'] === $uid || $assignee === $uid) {
+        if ((int) $task['user_id'] === $uid || self::isAssignee($task, $uid)) {
             return true;
         }
         $pid = (int) ($task['project_id'] ?? 0);
@@ -347,7 +371,12 @@ final class Access
             return false;
         }
         $scope = self::boardViewScope($pid, $uid);
-        return $scope === null || ($assignee > 0 && in_array($assignee, $scope, true));
+        if ($scope === null || ($assignee > 0 && in_array($assignee, $scope, true))) {
+            return true;
+        }
+        // تسک گروهی: کسی که تسک‌های یکی از اعضای گروه را در برد می‌بیند، تسک گروه را هم می‌بیند
+        $g = (int) ($task['assignee_group_id'] ?? 0);
+        return $g > 0 && (bool) array_intersect(\App\Models\GroupModel::memberIds($g), $scope);
     }
 
     /**

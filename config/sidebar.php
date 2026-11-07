@@ -21,6 +21,7 @@ return [
         'group:team' => 'همکاران، پروژه‌ها و گفتگو',
         'colleagues' => 'اعضای تیم و دسترسی‌ها',
         'projects' => 'ساخت و مدیریت پروژه‌ها',
+        'groups' => 'دپارتمان‌ها و گروه‌های هر پروژه',
         'chat' => 'پیام‌های داخلی تیم',
         'group:api' => 'اتصال تسکام به سیستم‌های دیگر',
         'tokens' => 'ساخت و مدیریت کلیدهای دسترسی',
@@ -43,6 +44,7 @@ return [
         'texts'      => ['/texts', 'fa-message', 'متن‌های آماده'],
         'colleagues' => ['/colleagues', 'fa-users', 'همکاران'],
         'projects'   => ['/projects', 'fa-diagram-project', 'پروژه‌ها'],
+        'groups'     => ['/groups', 'fa-people-group', 'دپارتمان / گروه'],
         'chat'       => ['/chat', 'fa-comments', 'گفتگو'],
         'tokens'     => ['/tokens', 'fa-key', 'توکن API'],
         'docs'       => ['/docs', 'fa-book', 'مستندات API'],
@@ -66,6 +68,7 @@ return [
         ['t' => 'group', 'id' => 'team', 'icon' => 'fa-people-group', 'label' => 'مدیریت تیم', 'items' => [
             ['t' => 'page', 'page' => 'colleagues', 'label' => 'همکاران'],
             ['t' => 'page', 'page' => 'projects', 'label' => 'پروژه‌ها'],
+            ['t' => 'page', 'page' => 'groups', 'label' => 'دپارتمان / گروه'],
             ['t' => 'page', 'page' => 'chat', 'label' => 'گفتگو'],
         ]],
         ['t' => 'group', 'id' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [

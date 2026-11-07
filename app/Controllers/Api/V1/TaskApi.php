@@ -20,6 +20,8 @@ final class TaskApi extends ApiController
             'is_completed' => (bool) $t['is_completed'], 'is_quick' => (bool) ($t['is_quick'] ?? false), 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'created_at' => $t['created_at'], 'completed_at' => $t['completed_at'],
             'user_id' => (int) $t['user_id'], 'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null,
+            'assignee_group_id' => !empty($t['assignee_group_id']) ? (int) $t['assignee_group_id'] : null, 'group_title' => $t['group_title'] ?? null,
+            'group_head_approval' => (bool) ($t['group_head_approval'] ?? false),
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null,
             'project_title' => $t['project_title'] ?? null, 'subject_title' => $t['subject_title'] ?? null, 'subject_color' => $t['subject_color'] ?? null,
             'board_status' => !empty($t['archived_at']) ? 'archived' : ($t['board_status'] ?? null),
@@ -72,6 +74,6 @@ final class TaskApi extends ApiController
 
     public function toggle()
     {
-        $this->fromService(TaskService::toggle($this->uid, $this->id()), static fn($d) => ['id' => pid('tasks', $d['id']), 'is_completed' => $d['is_completed']]);
+        $this->fromService(TaskService::toggle($this->uid, $this->id()), static fn($d) => ['id' => pid('tasks', $d['id']), 'is_completed' => (bool) ($d['is_completed'] ?? false)] + (array_key_exists('group_tick', $d) ? ['group_tick' => (bool) $d['group_tick']] : []));
     }
 }

@@ -12,6 +12,7 @@ final class TaskModel
             p.title AS project_title, p.profile_image AS project_image, p.priority_type AS project_priority_type,
             ua.first_name AS assignee_first_name, ua.last_name AS assignee_last_name, ua.mobile AS assignee_mobile, ua.avatar AS assignee_avatar,
             uc.first_name AS creator_first_name, uc.last_name AS creator_last_name, uc.mobile AS creator_mobile, uc.avatar AS creator_avatar,
+            pg.title AS group_title, pg.head_id AS group_head_id,
             (SELECT COUNT(*) FROM task_notes tn WHERE tn.task_id = t.id) AS notes_count,
             (SELECT COUNT(*) FROM task_attachments ta WHERE ta.task_id = t.id) AS attachments_count,
             (SELECT pm.task_permissions FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = :me LIMIT 1) AS my_task_permissions
@@ -19,7 +20,17 @@ final class TaskModel
         LEFT JOIN subjects s ON s.id = t.subject_id
         LEFT JOIN projects p ON p.id = t.project_id
         LEFT JOIN users ua ON ua.id = t.assignee_id
-        LEFT JOIN users uc ON uc.id = t.user_id";
+        LEFT JOIN users uc ON uc.id = t.user_id
+        LEFT JOIN project_groups pg ON pg.id = t.assignee_group_id";
+
+    /**
+     * «مسئولش منم» (v5.10): مسئول مستقیم یا عضو گروهِ مسئول. یک placeholder (شناسه‌ی کاربر برای assignee_id) مثل قبل؛
+     * شرط عضویت گروه شناسه را به‌صورت عدد صحیح در خود SQL دارد.
+     */
+    public static function mine(int $uid, string $t = 't'): string
+    {
+        return '(' . $t . '.assignee_id = ? OR ' . GroupModel::memberSql($uid, $t) . ')';
+    }
 
     /** SELECT پایه با placeholder موقعیتی: اولین ? = شناسه‌ی کاربر برای دسترسی تسک او در پروژه. */
     private static function base(): string
@@ -62,7 +73,7 @@ final class TaskModel
             $where = 't.project_id = ?';
             $params = [$projectId];
         } elseif ($scope === 'mine') {
-            $where = 't.assignee_id = ?';
+            $where = self::mine($uid);
             $params = [$uid];
         } else {
             $where = '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))';
@@ -82,7 +93,7 @@ final class TaskModel
      */
     public static function calendar(int $uid, string $from, string $to, string $scope, bool $withDone): array
     {
-        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $where = ['mine' => self::mine($uid), 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(' . self::mine($uid) . ' OR t.user_id = ?)';
         $params = [$uid, $uid];
         if ($scope === 'mine') {
             $params = [$uid];
@@ -109,6 +120,10 @@ final class TaskModel
         if (!empty($f['assignee'])) {
             $where .= ' AND t.assignee_id = ?';
             $params[] = (int) $f['assignee'];
+        }
+        if (!empty($f['group'])) {
+            $where .= ' AND t.assignee_group_id = ?';
+            $params[] = (int) $f['group'];
         }
         $q = (string) ($f['q'] ?? '');
         if ($q !== '') {
@@ -175,7 +190,7 @@ final class TaskModel
     /** لیست API: تسک‌هایی که کاربر سازنده یا مسئول آن‌هاست. */
     public static function apiList(int $uid, string $status, int $limit, int $offset): array
     {
-        $where = '(t.user_id = ? OR t.assignee_id = ?) AND t.blocked_at IS NULL';
+        $where = '(t.user_id = ? OR ' . self::mine($uid) . ') AND t.blocked_at IS NULL';
         $params = [$uid, $uid];
         if ($status === 'pending') {
             $where .= ' AND t.is_completed = 0';
@@ -242,7 +257,7 @@ final class TaskModel
     {
         $rows = DB::all("SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.share_token, p.title AS project_title
               FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE t.assignee_id = ? AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
+             WHERE " . self::mine($uid) . " AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
                AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
                AND TIMESTAMP(t.due_date, t.due_time) <= NOW()
                AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)", [$uid]);
@@ -257,7 +272,7 @@ final class TaskModel
             return 0;
         }
         $ids = array_slice($ids, 0, 50);
-        return DB::run('UPDATE tasks SET notified_at = NOW() WHERE assignee_id = ? AND notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
+        return DB::run('UPDATE tasks t SET t.notified_at = NOW() WHERE ' . self::mine($uid) . ' AND t.notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
     }
 
     // ───── آمار داشبورد ─────
@@ -266,7 +281,7 @@ final class TaskModel
     /** همه‌ی تسک‌های باز عقب‌افتاده (مستقل از ماه تقویم)؛ scope مثل تقویم: mine / others / all */
     public static function overdueCount(int $uid, string $scope): int
     {
-        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $where = ['mine' => self::mine($uid), 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(' . self::mine($uid) . ' OR t.user_id = ?)';
         $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
         return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
     }
@@ -309,8 +324,8 @@ final class TaskModel
      */
     public static function focus(int $uid, int $limit = 12): array
     {
-        $today = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
-        $late = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
+        $today = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
+        $late = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
         $rows = static function (string $where, string $order) use ($uid, $limit): array {
             $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
             foreach ($list as &$t) {

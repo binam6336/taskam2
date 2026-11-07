@@ -64,8 +64,13 @@ final class TaskHistory
             $t = static fn($pid) => $pid ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $pid]) : '';
             self::log($id, $actor, 'project', ['from' => $t($old['project_id']), 'to' => $t($set['project_id'])]);
         }
-        if (array_key_exists('assignee_id', $set)) {
-            self::log($id, $actor, 'assignee', ['from' => $old['assignee_id'] ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']]);
+        // واگذاری به گروه (v5.10): رویداد group با نام گروه‌ها؛ از گروه به یک نفر = assignee
+        $gt = static fn($gid) => $gid ? (string) DB::value('SELECT title FROM project_groups WHERE id = ?', [(int) $gid]) : '';
+        if (!empty($set['assignee_group_id'])) {
+            self::log($id, $actor, 'group', ['from' => $gt($old['assignee_group_id'] ?? null), 'to' => $gt($set['assignee_group_id'])]);
+        } elseif (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
+            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id'],
+                'from_group' => $gt($old['assignee_group_id'] ?? null)]);
         }
     }
 
@@ -77,7 +82,8 @@ final class TaskHistory
         $add = static function (string $type, ?int $uid, string $at, array $data = []) use (&$items): void {
             $items[] = ['type' => $type, 'uid' => $uid, 'at' => $at, 'data' => $data];
         };
-        $add('created', (int) $t['user_id'], (string) $t['created_at'], ['assignee' => $t['assignee_id'] ? (int) $t['assignee_id'] : null]);
+        $add('created', (int) $t['user_id'], (string) $t['created_at'], ['assignee' => $t['assignee_id'] ? (int) $t['assignee_id'] : null,
+            'group' => !empty($t['assignee_group_id']) && !DB::value("SELECT 1 FROM task_events WHERE task_id = ? AND type = 'group' LIMIT 1", [$id]) ? (string) DB::value('SELECT title FROM project_groups WHERE id = ?', [(int) $t['assignee_group_id']]) : null]);
 
         $events = [];
         try {

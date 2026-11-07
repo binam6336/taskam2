@@ -20,6 +20,8 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && $t['
                     <?php if ($t['project_title'] && !$filters['project']): ?><span class="kb-proj"><i class="fa-solid fa-diagram-project"></i> <?= e($t['project_title']) ?></span><?php else: ?><span></span><?php endif; ?>
                     <?php if ($t['assignee_id']): $an = full_name($t, 'assignee_'); ?>
                         <span class="avatar sm" title="مسئول: <?= e($an) ?>"><?php if ($t['assignee_avatar']): ?><img src="<?= e(avatar_url($t['assignee_avatar'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($an)) ?><?php endif; ?></span>
+                    <?php elseif (!empty($t['assignee_group_id'])): // تسک گروهی (v5.10) ?>
+                        <span class="kb-grp" title="مسئول: گروه <?= e((string) $t['group_title']) ?><?= !empty($t['group_head_approval']) ? ' (تحویل با سرگروه)' : '' ?>"><i class="fa-solid fa-people-group"></i> <?= e((string) $t['group_title']) ?></span>
                     <?php endif; ?>
                 </div>
             </article>

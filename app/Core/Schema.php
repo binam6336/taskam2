@@ -10,10 +10,13 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '034';
+    public const VERSION = '035';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 035 دپارتمان / گروه
+        ['tasks', 'assignee_group_id', "ADD COLUMN `assignee_group_id` INT UNSIGNED NULL DEFAULT NULL AFTER `assignee_id`, ADD COLUMN `group_head_approval` TINYINT(1) NOT NULL DEFAULT 0 AFTER `assignee_group_id`, ADD KEY `idx_tasks_group` (`assignee_group_id`, `is_completed`)", null],
+        ['project_groups', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_project_groups_pid` (`pid`)", null],
         // 032 شناسه‌ی عمومی
         ['users', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_users_pid` (`pid`)", null],
         ['projects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_projects_pid` (`pid`)", null],
@@ -114,6 +117,9 @@ final class Schema
         ['task_mentions', '020_task_mentions.sql'],
         ['impersonations', '033_impersonations.sql'],
         ['admin_logs', '034_admin_logs.sql'],
+        ['project_groups', '035_project_groups.sql'],
+        ['project_group_members', '035_project_groups.sql'],
+        ['task_group_ticks', '035_project_groups.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */

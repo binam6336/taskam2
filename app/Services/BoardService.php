@@ -158,7 +158,7 @@ final class BoardService
             $params[] = (int) $f['project'];
         }
         if (!empty($f['mine'])) {
-            $where .= ' AND t.assignee_id = ?';
+            $where .= ' AND ' . TaskModel::mine($uid);
             $params[] = $uid;
         }
         if (($f['q'] ?? '') !== '') {
@@ -417,7 +417,7 @@ final class BoardService
     public static function waiting(int $uid, int $limit = 10): array
     {
         // پیش‌نمایش برای سرپرست پیش از تأیید (v5.4): آخرین یادداشت مسئول، تعداد پیوست‌ها، سررسید (تحویل نسبت به سررسید)
-        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, p.title AS project_title,
+        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.assignee_group_id, t.group_head_approval, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, p.title AS project_title,
                 u.first_name, u.last_name, u.avatar,
                 (SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS files_count,
                 (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND n.user_id = COALESCE(t.assignee_id, t.user_id) ORDER BY n.id DESC LIMIT 1) AS last_note
@@ -432,8 +432,10 @@ final class BoardService
                 }
             }
         }
-        $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND COALESCE(t.assignee_id, t.user_id) = ?
-                ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid]);
+        // برگشت‌خورده: مسئولش منم، یا عضو گروهِ مسئولم (v5.10)، یا بی‌مسئول و سازنده‌اش منم
+        $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL
+                AND (t.assignee_id = ? OR " . \App\Models\GroupModel::memberSql($uid) . " OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND t.user_id = ?))
+                ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid, $uid]);
         return ['review' => $review, 'rework' => $rework];
     }
 
@@ -474,6 +476,9 @@ final class BoardService
         if ($status === 'done' && $from !== 'review') {
             return self::res(false, 'تسک اول باید با تیک «انجام شد» به «بررسی سرپرست» برود؛ تکمیل فقط با تأیید در همان مرحله است.', 'REVIEW_REQUIRED', 409);
         }
+        if ($e = self::groupHeadError($t, $actor, $from, $status)) {
+            return $e;
+        }
         if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
             return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);
         }
@@ -482,6 +487,21 @@ final class BoardService
         }
         self::apply($t, $actor, $from, $status, $reason);
         return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+    }
+
+    /**
+     * تسک گروهی با «تأیید سرگروه» (v5.10): اعضای گروه (جز سرگروه) تسک را به بررسی سرپرست / انجام‌شده نمی‌برند؛
+     * هر عضو فقط تیک خودش را می‌زند و تحویل نهایی با تیک سرگروه است.
+     */
+    public static function groupHeadError(array $t, int $actor, string $from, string $to): ?array
+    {
+        if (empty($t['assignee_group_id']) || empty($t['group_head_approval']) || $from === 'review' || !in_array($to, ['review', 'done'], true)) {
+            return null;
+        }
+        if (Access::isAssignee($t, $actor) && !Access::isGroupHead($t, $actor)) {
+            return self::res(false, 'این تسک گروهی با تأیید سرگروه تحویل می‌شود؛ تیک «انجام شد» شما ثبت می‌شود و سرگروه آن را تحویل می‌دهد.', 'GROUP_HEAD_REQUIRED', 409);
+        }
+        return null;
     }
 
     /**
@@ -504,6 +524,10 @@ final class BoardService
                    approved_by = CASE WHEN ? = 1 THEN ? ELSE NULL END WHERE id = ?',
             [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $actor, $done ? 1 : 0, $actor, $done ? 1 : 0, $actor, $id]);
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
+        // تسک گروهی که از بررسی/انجام‌شده برگشته (اصلاح، بازکردن، پس گرفتن تحویل): تیک‌های اعضا از نو
+        if (!empty($t['assignee_group_id']) && in_array($from, ['review', 'done', 'archived'], true) && !in_array($status, ['review', 'done'], true)) {
+            \App\Models\GroupModel::clearTicks($id);
+        }
         if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {
@@ -532,6 +556,9 @@ final class BoardService
             return self::res(false, 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.', 'FORBIDDEN', 403);
         }
         $from = self::status($t);
+        if ($e = self::groupHeadError($t, $actor, $from, 'review')) {
+            return $e;
+        }
         if ($from === 'review') {
             return self::res(true, 'این تسک همین حالا منتظر تأیید سرپرست است.', '', 200, ['id' => $id, 'status' => 'review', 'is_completed' => false]);
         }

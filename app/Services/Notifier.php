@@ -34,16 +34,38 @@ final class Notifier
 
     public static function taskAssigned(array $task, int $actorId, ?string $projectTitle): void
     {
+        // تسک گروهی (v5.10): برای همه‌ی اعضای گروه (جز خود انجام‌دهنده)
+        $gid = (int) ($task['assignee_group_id'] ?? 0);
+        if ($gid > 0) {
+            $g = \App\Models\GroupModel::find($gid);
+            if ($g === null || empty($task['share_token'])) {
+                return;
+            }
+            foreach (\App\Models\GroupModel::memberIds($gid) as $m) {
+                if ($m !== $actorId) {
+                    self::taskAssignedTo($task, $actorId, $projectTitle, $m, $g['title'], (int) $g['head_id'] === $m, !empty($task['group_head_approval']));
+                }
+            }
+            return;
+        }
         $assignee = (int) ($task['assignee_id'] ?? 0);
         if ($assignee <= 0 || $assignee === $actorId || empty($task['share_token'])) {
             return;
         }
+        self::taskAssignedTo($task, $actorId, $projectTitle, $assignee, null, false, false);
+    }
+
+    private static function taskAssignedTo(array $task, int $actorId, ?string $projectTitle, int $assignee, ?string $group, bool $isHead, bool $headApproval): void
+    {
         $actor = UserModel::find($actorId);
         $pr = ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$task['priority']] ?? $task['priority'];
         if (isset($task['priority_percent']) && Priority::projectType(isset($task['project_id']) ? (int) $task['project_id'] : null) === 'percent') {
             $pr = fa_num((int) $task['priority_percent']) . '٪';
         }
-        $lines = ['📌 وظیفه جدیدی برای شما ایجاد شد', '', 'عنوان: ' . $task['title'], 'ایجاد کننده: ' . ($actor ? full_name($actor) : 'کاربر')];
+        $lines = [$group !== null ? '📌 وظیفه جدیدی برای گروه «' . $group . '» ایجاد شد' : '📌 وظیفه جدیدی برای شما ایجاد شد', '', 'عنوان: ' . $task['title'], 'ایجاد کننده: ' . ($actor ? full_name($actor) : 'کاربر')];
+        if ($group !== null && $headApproval) {
+            $lines[] = $isHead ? 'این تسک با تیک شما (سرگروه) تحویل می‌شود.' : 'هر عضو تیک خودش را می‌زند؛ تحویل نهایی با تیک سرگروه است.';
+        }
         if ($projectTitle) {
             $lines[] = 'پروژه: ' . $projectTitle;
         }
@@ -109,13 +131,25 @@ final class Notifier
     /** سرپرست تسک را به «بازبینی مسئول» برگرداند → برای مسئول تسک (یا سازنده اگر مسئول ندارد) */
     public static function taskReturned(array $task, int $actorId, ?string $reason): void
     {
-        $to = (int) ($task['assignee_id'] ?: $task['user_id']);
-        if ($to === $actorId) {
-            return;
-        }
+        // تسک گروهی (v5.10): همه‌ی اعضای گروه
+        $gid = (int) ($task['assignee_group_id'] ?? 0);
+        $to = $gid > 0 ? \App\Models\GroupModel::memberIds($gid) : [(int) ($task['assignee_id'] ?: $task['user_id'])];
         $actor = UserModel::find($actorId);
         $msg = '↩️ تسک «' . $task['title'] . '» برای اصلاح به «بازبینی مسئول» برگشت' . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرپرست')
             . ($reason ? "\nعلت: " . $reason : '') . "\n\nپس از اصلاح، تسک را دوباره به «بررسی سرپرست» بفرستید.\n\n[[task:" . self::token($task) . ']]';
-        self::sendFrom($actorId, $to, $msg);
+        foreach (array_unique($to) as $u) {
+            if ($u > 0 && $u !== $actorId) {
+                self::sendFrom($actorId, $u, $msg);
+            }
+        }
+    }
+
+    /** تسک گروهی با تأیید سرگروه: همه‌ی اعضا تیک زدند → پیام به سرگروه */
+    public static function groupAllTicked(array $task, int $actorId, int $headId): void
+    {
+        if ($headId <= 0 || $headId === $actorId) {
+            return;
+        }
+        self::sendFrom($actorId, $headId, '✅ همه‌ی اعضای گروه تسک «' . $task['title'] . '» را انجام‌شده علامت زدند؛ با تیک شما (سرگروه) تسک تحویل می‌شود.' . "\n\n[[task:" . self::token($task) . ']]');
     }
 }

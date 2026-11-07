@@ -69,7 +69,8 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
-        <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => pid('users', $m['id'])])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
+        <tr><td><?php if (!empty($m['is_group'])): // گروه (v5.10) ?><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'group' => pid('project_groups', $m['id'])])) ?>" title="تسک‌های <?= e(full_name($m)) ?>"><span class="avatar sm sq an-grp-av" aria-hidden="true"><i class="fa-solid fa-people-group"></i></span><?= e(full_name($m)) ?></a>
+            <?php else: ?><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => pid('users', $m['id'])])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a><?php endif; ?></td>
             <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= (int) $m['waiting'] > 0 ? '<span class="badge purple">' . e(fa_num($m['waiting'])) . '</span>' : '—' ?></td><td><?= e(fa_num($m['open'])) ?></td>
             <td><?= (int) $m['overdue'] > 0 ? '<span class="badge red">' . e(fa_num($m['overdue'])) . '</span>' : '—' ?></td>
             <td><?php if ($r['score'] === null): ?><span class="faint small">هنوز تسکی انجام نداده</span><?php else: ?>
@@ -82,7 +83,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div class="an-kpis">
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
         <div class="an-kpi">
-            <div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><b class="truncate"><?= e(full_name($m)) ?></b></div>
+            <div class="flex items-center gap-1"><?php if (!empty($m['is_group'])): ?><span class="avatar sm sq an-grp-av" aria-hidden="true"><i class="fa-solid fa-people-group"></i></span><?php else: $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); endif; ?><b class="truncate"><?= e(full_name($m)) ?></b></div>
             <div class="an-kpi-v"><?= e($m['avg_hours'] === null ? '—' : duration_fa((float) $m['avg_hours'])) ?></div>
             <div class="xs muted">میانگین زمان تا تحویل · <?= e(fa_num($m['done'] + $m['waiting'])) ?> تسک</div>
             <div class="flex between items-center mt-1"><span class="xs muted">به‌موقع: <?= $m['on_time'] === null ? '—' : e(fa_num($m['on_time'])) . '٪' ?></span><span class="badge <?= e($r['tone']) ?>"><?= e($r['label']) ?></span></div>

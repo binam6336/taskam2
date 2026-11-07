@@ -73,13 +73,14 @@ final class SidebarModel
             $raw = null;
         }
         $o = is_string($raw) ? json_decode($raw, true) : null;
-        return $opts = ['show_desc' => !is_array($o) || !array_key_exists('show_desc', $o) || (bool) $o['show_desc']];
+        return $opts = ['show_desc' => !is_array($o) || !array_key_exists('show_desc', $o) || (bool) $o['show_desc'],
+            'known_pages' => is_array($o) && isset($o['known_pages']) && is_array($o['known_pages']) ? array_values(array_map('strval', $o['known_pages'])) : null];
     }
 
     public static function saveOptions(array $o, int $uid): void
     {
         DB::run('INSERT INTO content_texts (`key`, body, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body), updated_by = VALUES(updated_by)',
-            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc'])]), $uid]);
+            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc']), 'known_pages' => array_keys(self::pages())]), $uid]);
     }
 
     /** صفحه‌های قابل انتخاب: کلید => [مسیر، آیکون، نام پیش‌فرض] */
@@ -105,10 +106,55 @@ final class SidebarModel
         if (is_array($data)) {
             [$menu] = self::normalize($data);
             if ($menu) {
-                return $menu;
+                return self::withNewPages($menu);
             }
         }
         return self::defaults();
+    }
+
+    /**
+     * صفحه‌های تازه‌ی پنل که در چیدمانِ ذخیره‌شده‌ی ادمین (قبل از اضافه شدنشان) نیستند، کنار صفحه‌ی مشخص‌شده اضافه می‌شوند —
+     * تا وقتی ادمین چیدمان را دوباره ذخیره کند (known_pages در تنظیمات = صفحه‌هایی که ادمین موقع ذخیره دیده؛ حذف عمدی‌شان محترم است).
+     */
+    private const NEW_PAGES = ['groups' => 'projects'];
+
+    private static function withNewPages(array $menu): array
+    {
+        $known = self::options()['known_pages'] ?? null;
+        $has = static function (array $items, string $page) use (&$has): bool {
+            foreach ($items as $i) {
+                if (($i['t'] ?? '') === 'page' && $i['page'] === $page) {
+                    return true;
+                }
+                if (($i['t'] ?? '') === 'group' && $has($i['items'], $page)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        foreach (self::NEW_PAGES as $page => $after) {
+            if ((is_array($known) && in_array($page, $known, true)) || $has($menu, $page) || !isset(self::pages()[$page])) {
+                continue;
+            }
+            $item = ['t' => 'page', 'page' => $page, 'label' => self::pages()[$page][2]];
+            $put = false;
+            foreach ($menu as $gi => $g) {
+                if (($g['t'] ?? '') !== 'group') {
+                    continue;
+                }
+                foreach ($g['items'] as $ii => $c) {
+                    if (($c['t'] ?? '') === 'page' && $c['page'] === $after) {
+                        array_splice($menu[$gi]['items'], $ii + 1, 0, [$item]);
+                        $put = true;
+                        break 2;
+                    }
+                }
+            }
+            if (!$put) {
+                $menu[] = $item;
+            }
+        }
+        return $menu;
     }
 
     public static function isCustom(): bool

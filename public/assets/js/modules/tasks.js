@@ -59,6 +59,10 @@ document.addEventListener('tk:ready', () => {
       : !p.can_assign ? 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' : '';
     const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }));
     const out = [{ group: 'اعضای این پروژه' }, ...memOpts];
+    // دپارتمان / گروه (v5.10): مثل یک مسئول انتخاب می‌شود؛ مقدار «g:<شناسه>» و هنگام ارسال در assignee_group_id می‌رود
+    const grps = (cfg.groups || {})[String(p.id)] || [];
+    if (grps.length) out.push({ group: 'گروه‌های این پروژه' }, ...grps.map((g) => ({ value: 'g:' + g.id, label: 'گروه ' + g.title, icon: 'fa-people-group', note: TK.fa(g.count) + ' عضو' + (g.has_head ? ' · سرگروه دارد' : ''), hasHead: g.has_head,
+      disabled: !p.can_assign, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' })));
     if (others.length) out.push({ group: 'همکاران غیرعضو' }, ...others.map((a) => ({ ...a, note: why ? 'عضو پروژه نیست' : 'افزودن به پروژه و واگذاری', addTo: p.id, disabled: !!why, hint: why })));
     return out;
   };
@@ -71,7 +75,16 @@ document.addEventListener('tk:ready', () => {
     if (!form.priority.dataset.locked) { range.disabled = !pct; form.priority.disabled = pct; }
     paintRange();
   };
-  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); });
+  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); syncGroup(); });
+  // گروه انتخاب‌شده: شناسه در assignee_group_id و گزینه‌ی «تأیید با سرگروه» فقط برای گروهِ دارای سرگروه
+  const grpInput = TK.qs('[data-group-input]', form), grpHead = TK.qs('[data-group-head]', form), grpRow = TK.qs('#grp-head-row', form);
+  const syncGroup = () => {
+    const v = String(rs.assignee_id.get() || ''), o = rs.assignee_id.option(v), isG = v.startsWith('g:');
+    grpInput.value = isG ? v.slice(2) : '';
+    grpRow.hidden = !(isG && o?.hasHead);
+    if (grpRow.hidden) grpHead.checked = false;
+  };
+  rs.assignee_id.input.addEventListener('change', syncGroup);
 
   /* ───── افزودن سریع لیبل ───── */
   const subjSel = form.subject_id, subjNew = TK.qs('#subj-pick .subj-new'), subjIn = subjNew.querySelector('input');
@@ -189,6 +202,7 @@ document.addEventListener('tk:ready', () => {
     form.setAttribute('action', TK.url(action));
     TK.qs('#task-files-field').classList.toggle('hidden', !files);
     lock(['title', 'description', 'priority', 'due_date', 'due_time', 'subject_id', 'project_id', 'assignee_id'], false);
+    grpInput.disabled = grpHead.disabled = false;
     subjMode(false); descLinks.reset();
   };
 
@@ -220,7 +234,7 @@ document.addEventListener('tk:ready', () => {
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
-    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me);
+    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); grpHead.checked = false; syncGroup();
     dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
@@ -237,7 +251,9 @@ document.addEventListener('tk:ready', () => {
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
-    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); rs.assignee_id.set(d.assignee_id ?? cfg.me);
+    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? ''));
+    rs.assignee_id.set(d.assignee_group_id ? 'g:' + d.assignee_group_id : (d.assignee_id ?? cfg.me));
+    syncGroup(); grpHead.checked = !!d.group_head_approval && !grpRow.hidden;
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
@@ -245,7 +261,7 @@ document.addEventListener('tk:ready', () => {
     if (!c.edit_info) lock(['title', 'description'], true);
     if (!c.edit_due) lock(['due_date', 'due_time'], true);
     if (!c.edit_meta) lock(['priority', 'subject_id'], true);
-    if (!c.reassign) lock(['assignee_id'], true);
+    if (!c.reassign) { lock(['assignee_id'], true); grpInput.disabled = grpHead.disabled = true; }
     if (!c.change_project) lock(['project_id'], true);
     TK.modal.open(modal);
   };
@@ -265,6 +281,8 @@ document.addEventListener('tk:ready', () => {
       form.requestSubmit ? form.requestSubmit() : form.submit();
       return;
     }
+    // گروه: مقدار «g:…» در assignee_id ارسال نشود (شناسه‌ی گروه در assignee_group_id است)؛ بعد از جمع‌آوری فرم برمی‌گردد
+    if (grpInput.value && !rs.assignee_id.input.disabled) { rs.assignee_id.input.disabled = true; setTimeout(() => { rs.assignee_id.input.disabled = false; }, 0); }
     const missing = [];
     if (tp.get() && !dp.get() && !dp.input.disabled) dp.set(dp.today());   // ساعت بدون تاریخ → امروز
     if (!subjNew.classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); setMore(true); return TK.toast('لیبل جدید را با دکمه‌ی تیک ثبت کنید یا انصراف دهید.', 'warning'); }
@@ -306,7 +324,8 @@ document.addEventListener('tk:ready', () => {
       </div>
     </div>`;
 
-  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id, _id: t.id, _can: t.can });
+  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
+    assignee_group_id: t.group?.id || null, group_head_approval: !!t.group?.head_approval, _id: t.id, _can: t.can });
 
   // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
   /* دکمه‌های انجام (v4.1): «انجام شد» = تحویل برای بررسی سرپرست (برای همه)؛ در بررسی: «تأیید و بستن» / «برگرداندن برای اصلاح» */
@@ -322,6 +341,11 @@ document.addEventListener('tk:ready', () => {
         : '<span class="badge board-st tone-purple"><i class="fa-solid fa-hourglass-half"></i> منتظر تأیید سرپرست</span>';
     }
     if (t.is_completed) return c.complete ? '<button class="btn btn-sm" data-detail-toggle><i class="fa-solid fa-rotate-left"></i> بازگشت به بررسی سرپرست</button>' : '';
+    // عضو گروه با «تأیید سرگروه» (v5.10): فقط تیک سهم خودش؛ تحویل با سرگروه
+    if (c.member_tick) {
+      return c.group?.ticked ? '<button class="btn btn-sm" data-detail-toggle title="تحویل نهایی با تیک سرگروه است"><i class="fa-solid fa-user-xmark"></i> برداشتن تیک من</button>'
+        : '<button class="btn btn-sm btn-primary" data-detail-toggle title="تحویل نهایی با تیک سرگروه است"><i class="fa-solid fa-user-check"></i> سهم من انجام شد</button>';
+    }
     if (c.status === null || c.status === undefined) return c.complete ? '<button class="btn btn-sm btn-primary" data-detail-toggle><i class="fa-solid fa-check"></i> انجام شد</button>' : lock('انجام شد', 'شما دسترسی لازم برای تکمیل تسک را ندارید.');
     // برگشت‌خورده برای اصلاح (v5.4): دکمه‌ی اصلی «اصلاح شد، ارسال دوباره»؛ انتقال به «برنامه‌ریزی‌نشده» فقط از منوی چیپ وضعیت
     if (c.status === 'rework') {
@@ -330,6 +354,15 @@ document.addEventListener('tk:ready', () => {
     }
     return c.deliver ? `<button class="btn btn-sm btn-primary" data-detail-toggle title="${c.approve_direct ? 'تکمیل تسک (شما دسترسی تأیید دارید)' : 'ارسال برای بررسی سرپرست'}"><i class="fa-solid fa-check"></i> انجام شد</button>`
       : lock('انجام شد', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.');
+  };
+  /* تسک گروهی (v5.10): اعضا با تیک «انجام دادم» هر کدام؛ سرگروه با تاج */
+  const groupBox = (t) => {
+    const g = t.group; if (!g) return '';
+    const head = g.head_approval ? '<span class="badge yellow"><i class="fa-solid fa-crown"></i> تحویل با تیک سرگروه</span>' : '<span class="badge">تیک هر عضو تحویل می‌دهد</span>';
+    return `<div class="tg-box mb-2"><div class="flex between items-center gap-1 wrap mb-1"><b class="small"><i class="fa-solid fa-people-group"></i> اعضای گروه «${E(g.title)}» <span class="faint xs">${TK.fa(g.ticked)} از ${TK.fa(g.count)} تیک زده‌اند</span></b>${head}</div>
+      <div class="tg-members">${g.members.map((m) => `<span class="tg-m${m.ticked ? ' on' : ''}" title="${E(m.name + (m.is_head ? ' — سرگروه' : '') + (m.ticked ? ' — انجام داده (' + (m.ticked_fa || '') + ')' : ' — هنوز تیک نزده'))}">
+        <span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}${m.ticked ? '<i class="fa-solid fa-check tg-ok" aria-hidden="true"></i>' : ''}</span>
+        <span class="tg-n">${m.is_head ? '<i class="fa-solid fa-crown tg-crown" aria-label="سرگروه"></i> ' : ''}${E(m.name)}</span><span class="sr-only">${m.ticked ? 'انجام داده' : 'هنوز تیک نزده'}</span></span>`).join('')}</div></div>`;
   };
   const nextBtn = (b) => {
     if (!b || !b.next || b.next === 'done' || b.status === 'rework') return '';
@@ -475,9 +508,10 @@ document.addEventListener('tk:ready', () => {
       </div>
       ${t.description ? `<div class="card flat mb-2 note-body">${rich(t.description)}</div>` : ''}
       <dl class="kv small mb-2">
-        <dt>سازنده</dt><dd>${E(t.creator_name)}</dd><dt>مسئول</dt><dd>${E(t.assignee_name || '—')}</dd>
+        <dt>سازنده</dt><dd>${E(t.creator_name)}</dd><dt>مسئول</dt><dd>${t.group ? `<i class="fa-solid fa-people-group"></i> گروه ${E(t.group.title)}` : E(t.assignee_name || '—')}</dd>
         <dt>ایجاد</dt><dd>${E(t.created_fa)}</dd>${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
       </dl>
+      ${groupBox(t)}
       <div class="flex gap-1 wrap mb-2">
         ${doneBtns(t)}
         ${nextBtn(t.board)}
@@ -504,14 +538,17 @@ document.addEventListener('tk:ready', () => {
   const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
   const q = (v) => (v ? `«${E(v)}»` : '<span class="muted">(خالی)</span>');
   const HIST = {
-    created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
+    created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.group ? ` و به گروه ${q(i.data.group)} واگذار شد` : i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
+    group: ['fa-people-group', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} ${i.data.from ? `از گروه ${q(i.data.from)} ` : ''}به گروه ${q(i.data.to)} تغییر کرد.`],
+    group_tick: ['fa-user-check', 'ok', (i) => `${who(i.actor)} سهم خودش از تسک گروهی را انجام‌شده علامت زد.`],
+    group_untick: ['fa-user-xmark', 'warn', (i) => `${who(i.actor)} علامت انجام‌شده‌ی خودش را برداشت.`],
     title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
     priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
+    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${i.data.from_group ? `گروه ${q(i.data.from_group)}` : who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
     completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
     reopened: ['fa-rotate-left', 'warn', (i) => `${who(i.actor)} تسک را به حالت انجام‌نشده برگرداند.`],
     board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت: ${E(i.data.reason)}</div>` : '')],

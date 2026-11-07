@@ -18,6 +18,7 @@ use App\Controllers\Api\V1\TextApi;
 use App\Controllers\AuthController;
 use App\Controllers\CalendarController;
 use App\Controllers\CallController;
+use App\Controllers\GroupController;
 use App\Controllers\ChatController;
 use App\Controllers\ColleagueController;
 use App\Controllers\DashboardController;
@@ -128,6 +129,12 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues/{user}/block', [ColleagueController::class, 'block']);
     $r->post('/colleagues/unblock-key', [ColleagueController::class, 'unblockKey']);
     $r->post('/colleagues/{user}/unblock', [ColleagueController::class, 'unblock']);
+
+    // دپارتمان / گروه (v5.10)
+    $r->get('/groups', [GroupController::class, 'index']);
+    $r->post('/groups', [GroupController::class, 'store']);
+    $r->post('/groups/{group}/update', [GroupController::class, 'update']);
+    $r->post('/groups/{group}/delete', [GroupController::class, 'delete']);
 
     // پروژه‌ها
     $r->get('/projects', [ProjectController::class, 'index']);

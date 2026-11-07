@@ -22,19 +22,19 @@ final class Pid
 
     /** جدول‌هایی که شناسه‌شان بیرون دیده می‌شود (متن‌های آماده از قبل شناسه‌ی رشته‌ای تصادفی دارند) */
     public const TABLES = ['users', 'projects', 'tasks', 'task_notes', 'task_attachments', 'note_attachments', 'subjects', 'call_requests',
-        'support_tickets', 'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests', 'impersonations'];
+        'support_tickets', 'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests', 'impersonations', 'project_groups'];
 
     /** نام پارامتر مسیر => جدول (config/routes.php) */
     public const ROUTE = [
         'task' => 'tasks', 'note' => 'task_notes', 'label' => 'subjects', 'call' => 'call_requests', 'user' => 'users', 'project' => 'projects',
-        'ticket' => 'support_tickets', 'token' => 'api_tokens', 'projreq' => 'project_join_requests', 'colreq' => 'colleague_requests', 'imp' => 'impersonations',
+        'ticket' => 'support_tickets', 'token' => 'api_tokens', 'projreq' => 'project_join_requests', 'colreq' => 'colleague_requests', 'imp' => 'impersonations', 'group' => 'project_groups',
     ];
 
     /** فیلدهای ورودی (query، فرم، JSON) که شناسه‌ی یک جدول‌اند => جدول */
     public const INPUTS = [
         'user_id' => 'users', 'assignee_id' => 'users', 'receiver_id' => 'users', 'colleague_user_id' => 'users', 'assignee' => 'users',
         'user_ids' => 'users', 'view_users' => 'users', 'view_user_ids' => 'users', 'mentions' => 'users', 'members' => 'users', 'member_ids' => 'users',
-        'project_id' => 'projects', 'project' => 'projects',
+        'project_id' => 'projects', 'project' => 'projects', 'assignee_group_id' => 'project_groups', 'group_id' => 'project_groups', 'group' => 'project_groups', 'head_id' => 'users',
         'subject_id' => 'subjects', 'label' => 'subjects',
         'task_id' => 'tasks', 'message_id' => 'chat_messages', 'ticket_id' => 'support_tickets', 'call_id' => 'call_requests', 'request_id' => 'project_join_requests',
         'row_id' => 'colleagues', 'note_id' => 'task_notes', 'member_row_id' => 'project_members',
@@ -47,14 +47,14 @@ final class Pid
         'target_id' => 'users', 'peer_id' => 'users', 'other_id' => 'users', 'blocked_user_id' => 'users', 'unblocked_user_id' => 'users', 'uploader_id' => 'users',
         'requester_id' => 'users', 'from_user_id' => 'users', 'to_user_id' => 'users', 'admin_id' => 'users', 'me' => 'users',
         'forwarded_from' => 'users', 'other_user_id' => 'users', 'blocker_user_id' => 'users',
-        'project_id' => 'projects', 'subject_id' => 'subjects', 'label_id' => 'subjects', 'task_id' => 'tasks', 'note_id' => 'task_notes',
+        'project_id' => 'projects', 'assignee_group_id' => 'project_groups', 'group_id' => 'project_groups', 'head_id' => 'users', 'subject_id' => 'subjects', 'label_id' => 'subjects', 'task_id' => 'tasks', 'note_id' => 'task_notes',
         'message_id' => 'chat_messages', 'ticket_id' => 'support_tickets', 'call_id' => 'call_requests', 'member_row_id' => 'project_members', 'row_id' => 'colleagues',
         'request_id' => 'project_join_requests',
     ];
     /** کلیدهای خروجی که فهرست شناسه‌اند */
     public const OUTPUT_LISTS = [
         'user_ids' => 'users', 'member_ids' => 'users', 'assignee_ids' => 'users', 'board_view_user_ids' => 'users', 'my_board_view_user_ids' => 'users',
-        'view_user_ids' => 'users', 'members' => 'users', 'mentioned' => 'users', 'mentions' => 'users', 'project_ids' => 'projects', 'task_ids' => 'tasks',
+        'view_user_ids' => 'users', 'members' => 'users', 'mentioned' => 'users', 'mentions' => 'users', 'project_ids' => 'projects', 'task_ids' => 'tasks', 'ticked' => 'users',
     ];
 
     /** @var array<string,array<int,string>> */
