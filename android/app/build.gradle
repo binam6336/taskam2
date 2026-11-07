@@ -13,10 +13,10 @@ android {
         applicationId 'com.taskam.app'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '1.0.0'
-        // آدرس سرور پیش‌فرض: gradle assembleRelease -PserverUrl=https://example.com — خالی = در اولین اجرا پرسیده می‌شود
-        buildConfigField 'String', 'SERVER_URL', '"' + (project.findProperty('serverUrl') ?: '') + '"'
+        versionCode 2
+        versionName '1.0.1'
+        // آدرس سرور پیش‌فرض (صفحه‌ی اول نمایش داده نمی‌شود)؛ با -PserverUrl=... عوض می‌شود و -PserverUrl= (خالی) یعنی در اولین اجرا پرسیده شود
+        buildConfigField 'String', 'SERVER_URL', '"' + (project.findProperty('serverUrl') ?: 'https://mahyarsalehee.ir/taskam') + '"'
     }
 
     signingConfigs {

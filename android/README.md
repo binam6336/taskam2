@@ -4,7 +4,8 @@
 بک‌اند (PHP + MySQL) روی سرور می‌ماند؛ برنامه فقط به آدرس سرور وصل می‌شود.
 
 ## رفتار برنامه
-- **اولین اجرا:** آدرس پنل پرسیده می‌شود (مثل `https://example.com` یا `http://192.168.1.10:8080`) و با درخواست `GET {آدرس}/manifest` بررسی می‌شود که سرور تسکام باشد. اگر آدرس یک صفحه (مثل `/login`) چسبانده شود، پوشه‌های بالاتر هم امتحان می‌شوند. بدون scheme اول https امتحان می‌شود (برای IP و localhost اول http).
+- **آدرس سرور:** پیش‌فرض `https://mahyarsalehee.ir/taskam` (در `app/build.gradle`) است و برنامه مستقیم به آن وصل می‌شود. اگر سرور در دسترس نباشد، در صفحه‌ی خطا دکمه‌ی «تغییر آدرس سرور» هست و آدرس انتخابی کاربر بر پیش‌فرض مقدم است.
+- **بدون آدرس پیش‌فرض** (`-PserverUrl=`): در اولین اجرا آدرس پنل پرسیده می‌شود (مثل `https://example.com` یا `http://192.168.1.10:8080`) و با درخواست `GET {آدرس}/manifest` بررسی می‌شود که سرور تسکام باشد. اگر آدرس یک صفحه (مثل `/login`) چسبانده شود، پوشه‌های بالاتر هم امتحان می‌شوند. بدون scheme اول https امتحان می‌شود (برای IP و localhost اول http).
 - **لینک‌ها:** صفحه‌های همان سرور داخل برنامه باز می‌شوند. `tel:`، `mailto:` و سایت‌های دیگر در برنامه‌ی مربوط باز می‌شوند.
 - **پنجره‌ی جدید** (`window.open` / `target=_blank`، مثل «ورود به پنل کاربر» از پنل مدیر) به‌صورت یک لایه روی صفحه باز می‌شود و دکمه‌ی بازگشت آن را می‌بندد.
 - **دکمه‌ی بازگشت:** به ترتیب پنجره‌ی باز (modal، با همان `TK.modal.tryClose`)، منوی کناری یا dropdown را می‌بندد، بعد به صفحه‌ی قبل برمی‌گردد و در آخر از برنامه خارج می‌شود.
@@ -21,8 +22,9 @@
 ```bash
 cd android
 echo "sdk.dir=/path/to/android-sdk" > local.properties
-./gradlew assembleRelease                                   # آدرس سرور در اولین اجرا پرسیده می‌شود
-./gradlew assembleRelease -PserverUrl=https://example.com   # آدرس پیش‌فرض داخل برنامه؛ صفحه‌ی اول نمایش داده نمی‌شود
+./gradlew assembleRelease                                   # با آدرس پیش‌فرض https://mahyarsalehee.ir/taskam
+./gradlew assembleRelease -PserverUrl=https://example.com   # سرور دیگر
+./gradlew assembleRelease -PserverUrl=                      # بدون پیش‌فرض: آدرس در اولین اجرا پرسیده می‌شود
 ```
 
 خروجی: `android/app/build/outputs/apk/release/app-release.apk`
