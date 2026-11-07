@@ -132,6 +132,7 @@ $router->group(['panel'], function ($r) {
 
     // دپارتمان / گروه (v5.10)
     $r->get('/groups', [GroupController::class, 'index']);
+    $r->get('/groups/members', [GroupController::class, 'members']);
     $r->post('/groups', [GroupController::class, 'store']);
     $r->post('/groups/{group}/update', [GroupController::class, 'update']);
     $r->post('/groups/{group}/delete', [GroupController::class, 'delete']);

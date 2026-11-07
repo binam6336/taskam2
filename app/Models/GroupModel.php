@@ -66,9 +66,26 @@ final class GroupModel
     /** گروه‌های یک پروژه با اعضا، سرگروه و تعداد تسک‌های باز */
     public static function forProject(int $projectId): array
     {
-        $rows = DB::all("SELECT g.*, (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id AND t.is_completed = 0 AND t.blocked_at IS NULL) open_tasks,
+        return self::forProjects([$projectId]);
+    }
+
+    /** گروه‌های چند پروژه (صفحه‌ی دپارتمان / گروه)؛ $q = جستجو در نام گروه */
+    public static function forProjects(array $projectIds, string $q = ''): array
+    {
+        $projectIds = array_values(array_filter(array_map('intval', $projectIds)));
+        if (!$projectIds) {
+            return [];
+        }
+        $params = $projectIds;
+        $where = 'g.project_id IN (' . DB::in($projectIds) . ')';
+        if ($q !== '') {
+            $where .= ' AND g.title LIKE ?';
+            $params[] = DB::like($q);
+        }
+        $rows = DB::all("SELECT g.*, p.title AS project_title, p.profile_image AS project_image,
+                (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id AND t.is_completed = 0 AND t.blocked_at IS NULL) open_tasks,
                 (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id) all_tasks
-            FROM project_groups g WHERE g.project_id = ? ORDER BY g.title", [$projectId]);
+            FROM project_groups g JOIN projects p ON p.id = g.project_id WHERE $where ORDER BY p.title, g.title LIMIT 500", $params);
         if (!$rows) {
             return [];
         }

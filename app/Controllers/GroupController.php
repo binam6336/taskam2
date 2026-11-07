@@ -17,32 +17,44 @@ final class GroupController extends Controller
     {
         $uid = $this->uid();
         $projects = ProjectModel::forUser($uid);
-        $want = (int) ($this->request->query['project'] ?? 0);
         $pids = array_map(static fn($p) => (int) $p['id'], $projects);
-        $cur = in_array($want, $pids, true) ? $want : ($pids[0] ?? 0);
-        $groups = $cur ? GroupModel::forProject($cur) : [];
-        $members = [];
-        if ($cur) {
-            $p = DB::one('SELECT p.user_id, u.first_name, u.last_name, u.avatar FROM projects p JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$cur]);
-            if ($p) {
-                $members[] = ['id' => (int) $p['user_id'], 'name' => full_name($p), 'avatar' => avatar_url($p['avatar']), 'creator' => true];
-            }
-            foreach (ProjectModel::members($cur) as $m) {
-                if ((int) $m['user_id'] !== (int) ($p['user_id'] ?? 0)) {
-                    $members[] = ['id' => (int) $m['user_id'], 'name' => full_name($m), 'avatar' => avatar_url($m['avatar']), 'creator' => false];
-                }
+        // فیلتر پروژه (خالی = همه‌ی پروژه‌های من) و جستجو در نام گروه
+        $want = (int) ($this->request->query['project'] ?? 0);
+        $cur = in_array($want, $pids, true) ? $want : 0;
+        $q = mb_substr(trim((string) ($this->request->query['q'] ?? '')), 0, 80);
+        $groups = GroupModel::forProjects($cur ? [$cur] : $pids, $q);
+        $manage = $analytics = [];
+        foreach ($pids as $pid) {
+            $manage[$pid] = GroupService::canManage($pid, $uid);
+            $analytics[$pid] = \App\Services\Access::projectCan($pid, $uid, 'view_analytics');
+        }
+        // پنجره‌ی «گروه جدید» ← مرحله‌ی اول: فقط پروژه‌هایی که کاربر در آن‌ها گروه می‌سازد
+        $manageable = array_values(array_filter($projects, static fn($p) => $manage[(int) $p['id']]));
+        $this->view('groups/index', [
+            'projects' => $projects, 'current' => $cur, 'q' => $q, 'groups' => $groups, 'manage' => $manage, 'analytics' => $analytics,
+            'manageable' => $manageable, 'total' => $pids && ($cur || $q !== '') ? (int) DB::value('SELECT COUNT(*) FROM project_groups WHERE project_id IN (' . DB::in($pids) . ')', $pids) : count($groups),
+        ], ['title' => 'دپارتمان / گروه', 'page' => 'groups']);
+    }
+
+    /** مرحله‌ی دوم «گروه جدید» / ویرایش: اعضای پروژه با تصویر پروفایل (فقط برای کسی که در آن پروژه گروه می‌سازد) */
+    public function members()
+    {
+        $uid = $this->uid();
+        $pid = (int) ($this->request->query['project'] ?? 0);
+        if ($pid <= 0 || !GroupService::canManage($pid, $uid)) {
+            $this->fail('برای ساخت گروه در این پروژه مجوز «افزودن کاربر» لازم است.', 403);
+        }
+        $p = DB::one('SELECT p.title, p.user_id, u.first_name, u.last_name, u.avatar FROM projects p JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$pid]);
+        $out = [];
+        if ($p) {
+            $out[] = ['id' => Pid::of('users', (int) $p['user_id']), 'name' => full_name($p), 'avatar' => avatar_url($p['avatar']), 'role' => 'سازنده‌ی پروژه'];
+        }
+        foreach (ProjectModel::members($pid) as $m) {
+            if ((int) $m['user_id'] !== (int) ($p['user_id'] ?? 0) && ($m['user_status'] ?? 'active') === 'active') {
+                $out[] = ['id' => Pid::of('users', (int) $m['user_id']), 'name' => full_name($m), 'avatar' => avatar_url($m['avatar']), 'role' => ''];
             }
         }
-        $canManage = $cur && GroupService::canManage($cur, $uid);
-        // داده‌ی فرم ساخت/ویرایش گروه (groups.js)؛ شناسه‌ها عمومی
-        $boot = [
-            'project' => $cur ? Pid::of('projects', $cur) : null,
-            'members' => array_map(static fn($m) => ['id' => Pid::of('users', $m['id']), 'name' => $m['name'], 'avatar' => $m['avatar']], $members),
-            'can_manage' => $canManage,
-        ];
-        $this->view('groups/index', [
-            'boot' => $boot, 'projects' => $projects, 'current' => $cur, 'groups' => $groups, 'canManage' => $canManage, 'memberCount' => count($members),
-        ], ['title' => 'دپارتمان / گروه', 'page' => 'groups']);
+        $this->ok('', ['project' => ['id' => Pid::of('projects', $pid), 'title' => (string) ($p['title'] ?? '')], 'members' => $out]);
     }
 
     public function store()
@@ -50,7 +62,7 @@ final class GroupController extends Controller
         $r = $this->request;
         $pid = (int) $r->input('project_id', 0);
         $res = GroupService::create($this->uid(), $pid, $this->input());
-        $this->respond($res['ok'], $res['message'], '/groups?project=' . Pid::of('projects', $pid));
+        $this->respond($res['ok'], $res['message'], '/groups');
     }
 
     public function update(string $id)
