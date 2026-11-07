@@ -1,13 +1,16 @@
 <?php
-/** @var array $menu @var array $pages @var bool $custom @var string $linkIcon */
+/** @var array $menu @var array $pages @var bool $custom @var string $linkIcon @var array $options @var int $maxDesc @var array $defaultDesc */
 $this->scripts[] = 'sidebar_editor';
-$this->boot['sb'] = ['menu' => $menu, 'pages' => $pages, 'linkIcon' => $linkIcon];
+$this->boot['sb'] = ['menu' => $menu, 'pages' => $pages, 'linkIcon' => $linkIcon, 'maxDesc' => $maxDesc, 'defaultDesc' => $defaultDesc];
 ?>
-<div class="callout mb-2"><i class="fa-solid fa-circle-info"></i> چیدمان سایدبار پنل کاربران. گزینه‌ها را با <i class="fa-solid fa-grip-vertical"></i> بکشید و جابه‌جا کنید (داخل گروه‌ها یا بیرون از آن‌ها). هر گزینه یا یک <b>صفحه</b>‌ی پنل است یا یک <b>لینک</b> خارجی که در تب جدید باز می‌شود. تغییرات بعد از «ذخیره» برای همه‌ی کاربران اعمال می‌شود.</div>
+<div class="callout mb-2"><i class="fa-solid fa-circle-info"></i> چیدمان سایدبار پنل کاربران. گزینه‌ها را با <i class="fa-solid fa-grip-vertical"></i> بکشید و جابه‌جا کنید (داخل گروه‌ها یا بیرون از آن‌ها). هر گزینه یا یک <b>صفحه</b>‌ی پنل است یا یک <b>لینک</b> خارجی که در تب جدید باز می‌شود. <b>توضیح</b> زیر نام هر گزینه در پنجره‌ی زیرمنوی سایدبار دیده می‌شود (برای گروه‌ها: زیر عنوان پنجره)؛ خالی بگذارید تا توضیحی نمایش داده نشود. تغییرات بعد از «ذخیره» برای همه‌ی کاربران اعمال می‌شود.</div>
 <div class="card">
     <div class="card-head">
         <h3><i class="fa-solid fa-bars-staggered"></i> گزینه‌های سایدبار</h3>
         <?php if ($custom): ?><span class="badge yellow">چیدمان سفارشی</span><?php else: ?><span class="badge">چیدمان پیش‌فرض</span><?php endif; ?>
+    </div>
+    <div class="sb-opts mb-2">
+        <label class="switch-row"><input type="checkbox" id="sb-show-desc"<?= $options['show_desc'] ? ' checked' : '' ?>> <span><b>نمایش توضیح زیر گزینه‌ها</b><small class="muted"> — در پنجره‌ی زیرمنوهای سایدبار پنل کاربران؛ خاموش = فقط نام گزینه‌ها</small></span></label>
     </div>
     <ul class="sb-list sb-root" id="sb-root" aria-label="گزینه‌های سایدبار"></ul>
     <div class="flex gap-1 mt-2 sb-actions">

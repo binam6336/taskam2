@@ -173,7 +173,7 @@ TABLES = {
     'desc': 'متن‌هایی که مدیر در «پنل مدیر ← محتوا» تغییر داده: متن‌های تور آموزشی، چیدمان سایدبار، متن خطاها و placeholderها. نبودن ردیف = متن پیش‌فرض از config.',
     'flow': [
         'مدیر متن را ویرایش می‌کند ← ردیف با کلید ثابت ذخیره/به‌روز می‌شود؛ «بازگشت به پیش‌فرض» ردیف را حذف می‌کند.',
-        'کلیدها: tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php)، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
+        'کلیدها: tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php؛ JSON چیدمان، هر گزینه با desc = توضیح زیر نام در پاپ‌آپ زیرمنو، نبودِ desc = توضیح پیش‌فرض config)، sidebar.user.opts (تنظیمات نمایش سایدبار: {"show_desc": true/false})، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
     ],
     'cols': {
         'key': 'کلید یکتای متن، مثل tour.step_5 یا sidebar.user.',

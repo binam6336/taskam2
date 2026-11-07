@@ -5,7 +5,8 @@
  * @var array  $menu    آیتم‌ها: [key, path, icon, label] | ['group' => id, 'icon', 'label', 'items' => [...]] | ['soon' => true, …] | ['link' => url, …]
  * @var string $active  کلید صفحه‌ی فعلی
  * @var array  $badges  کلید => مقدار اولیه‌ی شمارنده @var array $badgeAs (اختیاری) کلید صفحه => کلید /live/poll
- * @var array  $sb      ['home' => url, 'title', 'sub', 'user' => ردیف کاربر, 'user_sub', 'user_sub_ltr' => bool, 'logout' => متن, 'desc' => [key|group => توضیح]]
+ * @var array  $sb      ['home' => url, 'title', 'sub', 'user' => ردیف کاربر, 'user_sub', 'user_sub_ltr' => bool, 'logout' => متن, 'desc' => [key|group:id => توضیح]]
+ * توضیح زیر نام: کلید desc هر آیتم منو (پنل کاربر: از «محتوا ← سایدبار» در ادمین، SidebarModel::nav) و در غیر این صورت $sb['desc']
  */
 $badgeAs = $badgeAs ?? [];
 $desc = $sb['desc'] ?? [];
@@ -68,17 +69,17 @@ $pops = [];
     <div class="sb-pop" id="<?= e($gid) ?>" role="dialog" aria-modal="false" aria-labelledby="<?= e($gid) ?>-t" hidden>
         <div class="sb-pop-hd">
             <span class="sb-pop-hic" aria-hidden="true"><i class="fa-solid <?= e($item['icon']) ?>"></i></span>
-            <div class="min0"><b id="<?= e($gid) ?>-t"><?= e($item['label']) ?></b><?php if (!empty($desc['group:' . $item['group']])): ?><small><?= e($desc['group:' . $item['group']]) ?></small><?php endif; ?></div>
+            <div class="min0"><b id="<?= e($gid) ?>-t"><?= e($item['label']) ?></b><?php $gd = $item['desc'] ?? ($desc['group:' . $item['group']] ?? ''); if ($gd !== ''): ?><small><?= e($gd) ?></small><?php endif; ?></div>
             <button type="button" class="sb-pop-x" aria-label="بستن <?= e($item['label']) ?>"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
         <ul class="sb-pop-ul">
         <?php foreach ($item['items'] as $c):
             if (isset($c['link'])): ?>
-            <li><a class="sb-pop-a" href="<?= e($c['link']) ?>" target="_blank" rel="noopener noreferrer"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small>لینک خارجی (تب جدید)</small></span><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
+            <li><a class="sb-pop-a" href="<?= e($c['link']) ?>" target="_blank" rel="noopener noreferrer"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small><?= e(($c['desc'] ?? '') !== '' ? $c['desc'] : 'لینک خارجی (تب جدید)') ?></small></span><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
             <?php elseif (isset($c['soon'])): ?>
-            <li><span class="sb-pop-a is-soon" aria-disabled="true"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small>به‌زودی</small></span></span></li>
-            <?php else: [$key, $path, $icon, $label] = $c; $on = $active === $key; ?>
-            <li><a class="sb-pop-a<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?>><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($icon) ?>"></i></span><span class="sb-pop-t"><b><?= e($label) ?><?php if ($on): ?> <em class="sb-pop-now">صفحه فعلی</em><?php endif; ?></b><?php if (!empty($desc[$key])): ?><small><?= e($desc[$key]) ?></small><?php endif; ?></span><?= $badge($key) ?><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
+            <li><span class="sb-pop-a is-soon" aria-disabled="true"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small>به‌زودی<?= ($c['desc'] ?? '') !== '' ? ' · ' . e($c['desc']) : '' ?></small></span></span></li>
+            <?php else: [$key, $path, $icon, $label] = $c; $on = $active === $key; $cd = $c['desc'] ?? ($desc[$key] ?? ''); ?>
+            <li><a class="sb-pop-a<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?>><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($icon) ?>"></i></span><span class="sb-pop-t"><b><?= e($label) ?><?php if ($on): ?> <em class="sb-pop-now">صفحه فعلی</em><?php endif; ?></b><?php if ($cd !== ''): ?><small><?= e($cd) ?></small><?php endif; ?></span><?= $badge($key) ?><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
             <?php endif; ?>
         <?php endforeach; ?>
         </ul>

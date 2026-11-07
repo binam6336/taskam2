@@ -367,7 +367,8 @@ final class AdminController extends Controller
             $pages[] = ['key' => $k, 'path' => $path, 'icon' => $icon, 'label' => $label];
         }
         $this->view('admin/content_sidebar', [
-            'menu' => SidebarModel::current(), 'pages' => $pages, 'custom' => SidebarModel::isCustom(),
+            'menu' => SidebarModel::currentWithDesc(), 'pages' => $pages, 'custom' => SidebarModel::isCustom(),
+            'options' => SidebarModel::options(), 'maxDesc' => SidebarModel::MAX_DESC, 'defaultDesc' => SidebarModel::descriptions(),
             'linkIcon' => SidebarModel::LINK_ICON, 'supportUnread' => SupportModel::unreadForAdmin(),
         ], ['title' => 'سایدبار', 'page' => 'admin-content-sidebar'], 'admin');
     }
@@ -387,6 +388,7 @@ final class AdminController extends Controller
             $this->respond(false, 'سایدبار نمی‌تواند خالی باشد.', '/admin/content/sidebar');
         }
         SidebarModel::save($menu, $this->uid());
+        SidebarModel::saveOptions(['show_desc' => $this->request->input('show_desc', '1') === '1'], $this->uid());
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user']);
         $this->respond(true, 'سایدبار پنل کاربران ذخیره شد.', '/admin/content/sidebar');
     }
