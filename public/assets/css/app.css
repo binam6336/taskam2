@@ -699,6 +699,16 @@ body.docs { background: var(--bg); --muted: var(--docs-muted); --faint: var(--do
 
 /* ───────────── Misc ───────────── */
 .profile-head { display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap; }
+.profile-head .chip { white-space: nowrap; }
+/* موبایل: آواتار و اطلاعات کنار هم، دکمه‌ی «تصویر پروفایل» در سطر جدا زیرشان (قبلاً هر سه در یک سطر فشرده می‌شدند و نام و چیپ‌ها می‌شکستند) */
+@media (max-width: 600px) {
+  .profile-head { gap: .9rem 1rem; }
+  .profile-head > .avatar.lg { width: 64px; height: 64px; font-size: 1.5rem; }
+  .profile-head > .grow { flex: 1 1 0; min-width: 0; }
+  .profile-head h2 { font-size: 1.15rem; overflow-wrap: anywhere; }
+  .profile-head > form { flex: 1 0 100%; }
+  #sessions .card-head { flex-wrap: wrap; }   /* دکمه‌ی «خروج همه‌ی دستگاه‌های دیگر» زیر عنوان، نه بیرون از صفحه */
+}
 .kv { display: grid; grid-template-columns: 140px 1fr; gap: .5rem 1rem; } .kv dt { color: var(--faint); } .kv dd { margin: 0; }
 .sort-handle { cursor: grab; color: var(--faint); } .dragging { opacity: .4; } .drag-over { outline: 2px dashed var(--g-500); outline-offset: 2px; }
 .text-card pre { white-space: pre-wrap; margin: 0; font-family: var(--font); direction: rtl; color: var(--muted); max-height: 120px; overflow: hidden; }
