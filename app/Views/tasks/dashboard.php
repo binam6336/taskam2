@@ -178,10 +178,6 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <ul class="dash-mix-legend">
             <?php foreach (['high', 'medium', 'low'] as $k): ?><li class="p-<?= $k ?>"><span class="dash-mix-sq" aria-hidden="true"></span>اولویت <?= e($prioName[$k]) ?> <b><?= e(fa_num($mix[$k])) ?></b></li><?php endforeach; ?>
         </ul>
-        <div class="dash-keys xs muted">
-            <div><kbd>N</kbd> ثبت سریع تسک</div>
-            <div><kbd>↑</kbd> <kbd>↓</kbd> جابه‌جایی بین تسک‌ها · <kbd>Enter</kbd> باز کردن</div>
-        </div>
     </section>
     </div>
 </div>

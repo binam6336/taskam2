@@ -1985,8 +1985,6 @@ html[data-theme="sage"] .stat .ico.purple { background: rgba(124, 92, 220, .14);
 .dash-mix-legend li { display: inline-flex; align-items: center; gap: .4rem; }
 .dash-mix-legend b { color: var(--text); }
 .dash-mix-sq { width: .7rem; height: .7rem; border-radius: 3px; background: var(--dash-p); }
-.dash-keys { margin-top: .85rem; padding-top: .7rem; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: .35rem; }
-.dash-keys kbd { display: inline-block; min-width: 1.4rem; text-align: center; font-size: .7rem; padding: .05rem .35rem; border-radius: 5px; background: var(--surface-3); border: 1px solid var(--border); color: var(--text); }
 @media (max-width: 720px) {
   .dash-hello { grid-template-columns: 1fr; }
   .dash-suggest { max-width: none; }
