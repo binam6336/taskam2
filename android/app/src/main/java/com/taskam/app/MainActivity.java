@@ -4,24 +4,22 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.net.http.SslCertificate;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Message;
 import android.view.View;
 import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.JsResult;
 import android.webkit.SslErrorHandler;
-import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -34,20 +32,23 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.net.URLDecoder;
+import java.io.ByteArrayInputStream;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * پوسته‌ی اندروید تسکام: همان پنل وب (بدون تغییر فرانت) داخل WebView.
  * - لینک‌های همان سرور داخل برنامه، بقیه (tel:، mailto:، سایت‌های دیگر) در برنامه‌ی مربوط باز می‌شوند.
  * - window.open / target=_blank (مثل «ورود به پنل کاربر» مدیر) یک لایه‌ی جدید روی صفحه باز می‌کند؛ دکمه‌ی بازگشت آن را می‌بندد.
- * - انتخاب فایل برای پیوست‌ها، دانلود فایل با DownloadManager (همراه کوکی نشست)، صفحه‌ی خطای اتصال، رنگ نوار وضعیت از theme-color.
+ * - آدرس سرور ثابت است (SERVER_URL)؛ زنجیره‌ی گواهی ناقص سرور مثل کروم تکمیل می‌شود (AiaTrust).
+ * - انتخاب فایل برای پیوست‌ها، دانلود فایل در Downloads (همراه کوکی نشست)، صفحه‌ی خطای اتصال با کد خطا، رنگ نوار وضعیت از theme-color.
  */
 public class MainActivity extends Activity {
     private static final int REQ_FILE = 10;
     private static final int REQ_STORAGE = 11;
+    /** آدرس ثابت سرور (app/build.gradle → SERVER_URL)؛ کاربر آن را نمی‌بیند و عوض نمی‌کند. */
+    private static final String SERVER = BuildConfig.SERVER_URL.replaceAll("/+$", "");
     private static final String UA_SUFFIX = " TaskamAndroid/" + BuildConfig.VERSION_NAME;
 
     private FrameLayout stack;
@@ -61,12 +62,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        server = Config.server(this);
-        if (server == null) {
-            startActivity(new Intent(this, SetupActivity.class));
-            finish();
-            return;
-        }
+        server = SERVER;
         serverHost = Uri.parse(server).getHost();
         setContentView(R.layout.activity_main);
         stack = findViewById(R.id.web_stack);
@@ -74,10 +70,6 @@ public class MainActivity extends Activity {
         splash = findViewById(R.id.splash);
         errorView = findViewById(R.id.error_view);
         findViewById(R.id.retry).setOnClickListener(v -> retry());
-        findViewById(R.id.change_server).setOnClickListener(v -> {
-            startActivity(new Intent(this, SetupActivity.class));
-            finish();
-        });
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         CookieManager.getInstance().setAcceptCookie(true);
@@ -181,13 +173,38 @@ public class MainActivity extends Activity {
 
         @Override
         public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
-            if (req.isForMainFrame()) showError(null);
+            if (req.isForMainFrame()) showError(null, "ERR " + err.getErrorCode() + " · " + err.getDescription());
         }
 
+        /**
+         * فقط یک حالت با بررسی کامل پذیرفته می‌شود: گواهی همین سرور که زنجیره‌اش ناقص فرستاده شده (SSL_UNTRUSTED) و بعد از
+         * دریافت گواهی واسط از نشانی رسمی داخل گواهی (AIA، مثل کروم) به یک ریشه‌ی معتبر اندروید می‌رسد. بقیه همیشه رد می‌شوند.
+         */
         @Override
         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-            handler.cancel();   // گواهی نامعتبر هرگز پذیرفته نمی‌شود
-            showError("گواهی امنیتی (SSL) سرور معتبر نیست؛ اتصال برای امنیت حساب شما برقرار نشد.");
+            final String host = Uri.parse(error.getUrl()).getHost();
+            final String code = "SSL " + sslName(error);
+            boolean onlyChain = error.hasError(SslError.SSL_UNTRUSTED) && !error.hasError(SslError.SSL_IDMISMATCH)
+                    && !error.hasError(SslError.SSL_EXPIRED) && !error.hasError(SslError.SSL_NOTYETVALID)
+                    && !error.hasError(SslError.SSL_DATE_INVALID) && serverHost.equalsIgnoreCase(host);
+            final X509Certificate leaf = onlyChain ? x509(error.getCertificate()) : null;
+            if (leaf == null) {
+                handler.cancel();
+                showError("گواهی امنیتی (SSL) سرور معتبر نیست؛ اتصال برای امنیت حساب شما برقرار نشد.", code);
+                return;
+            }
+            new Thread(() -> {
+                boolean ok;
+                try { ok = AiaTrust.get().verifyLeaf(leaf, host); } catch (Exception e) { ok = false; }
+                final boolean trusted = ok;
+                runOnUiThread(() -> {
+                    if (trusted) handler.proceed();
+                    else {
+                        handler.cancel();
+                        showError("گواهی امنیتی (SSL) سرور کامل یا معتبر نیست؛ اتصال برای امنیت حساب شما برقرار نشد.", code + " (chain)");
+                    }
+                });
+            }).start();
         }
     }
 
@@ -280,6 +297,24 @@ public class MainActivity extends Activity {
         fileCb = null;
     }
 
+    private static X509Certificate x509(SslCertificate c) {
+        if (c == null) return null;
+        try {
+            if (Build.VERSION.SDK_INT >= 29) return c.getX509Certificate();
+            byte[] der = SslCertificate.saveState(c).getByteArray("x509-certificate");
+            return der == null ? null : (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(der));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String sslName(SslError e) {
+        String[] n = {"NOTYETVALID", "EXPIRED", "IDMISMATCH", "UNTRUSTED", "DATE_INVALID", "INVALID"};
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < n.length; i++) if (e.hasError(i)) b.append(b.length() > 0 ? "," : "").append(n[i]);
+        return b.toString();
+    }
+
     // ───────────────────────── دانلود ─────────────────────────
 
     private void download(String url, String ua, String cd, String mime) {
@@ -292,39 +327,7 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
             return;
         }
-        try {
-            String name = fileName(url, cd, mime);
-            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
-            String cookie = CookieManager.getInstance().getCookie(url);
-            if (cookie != null) r.addRequestHeader("Cookie", cookie);
-            r.addRequestHeader("User-Agent", ua);
-            if (mime != null && !mime.isEmpty()) r.setMimeType(mime);
-            r.setTitle(name);
-            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-            ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
-            Toast.makeText(this, "دانلود «" + name + "» شروع شد.", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "دانلود انجام نشد.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    /** نام فایل از Content-Disposition (filename*=UTF-8''… برای نام‌های فارسی)، وگرنه حدس از آدرس. */
-    private static String fileName(String url, String cd, String mime) {
-        if (cd != null) {
-            Matcher m = Pattern.compile("filename\\*\\s*=\\s*(?:UTF-8|utf-8)''([^;]+)").matcher(cd);
-            try {
-                if (m.find()) return safe(URLDecoder.decode(m.group(1).trim().replace("+", "%2B"), "UTF-8"));
-            } catch (Exception ignored) { }
-            m = Pattern.compile("filename\\s*=\\s*\"?([^\";]+)\"?").matcher(cd);
-            if (m.find()) return safe(m.group(1).trim());
-        }
-        return safe(URLUtil.guessFileName(url, cd, mime));
-    }
-
-    private static String safe(String n) {
-        n = n.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1f]", "_").trim();
-        return n.isEmpty() ? "taskam-file" : n;
+        Downloader.start(this, url, ua, CookieManager.getInstance().getCookie(url), cd, mime);
     }
 
     @Override
@@ -339,8 +342,9 @@ public class MainActivity extends Activity {
 
     // ───────────────────────── خطا، نوار وضعیت، بازگشت ─────────────────────────
 
-    private void showError(String desc) {
+    private void showError(String desc, String code) {
         ((TextView) findViewById(R.id.error_desc)).setText(desc != null ? desc : getString(R.string.err_desc));
+        ((TextView) findViewById(R.id.error_code)).setText(code == null ? "" : code + "\n" + server);
         errorView.setVisibility(View.VISIBLE);
         splash.setVisibility(View.GONE);
         progress.setVisibility(View.GONE);

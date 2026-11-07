@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">تسکام</string>
-    <string name="setup_title">اتصال به سرور تسکام</string>
-    <string name="setup_desc">آدرس پنل تسکام خود را وارد کنید؛ همان آدرسی که در مرورگر برای ورود به پنل باز می‌کنید.</string>
-    <string name="setup_hint">https://example.com</string>
-    <string name="setup_connect">اتصال</string>
-    <string name="setup_checking">در حال بررسی…</string>
-    <string name="setup_force">ذخیره بدون بررسی</string>
     <string name="err_title">اتصال برقرار نشد</string>
     <string name="err_desc">اینترنت گوشی یا در دسترس بودن سرور را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="err_retry">تلاش دوباره</string>
-    <string name="err_change">تغییر آدرس سرور</string>
 </resources>

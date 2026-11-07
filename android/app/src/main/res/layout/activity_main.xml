@@ -28,12 +28,12 @@
             android:layout_marginTop="8dp" android:text="@string/err_desc" android:textColor="@color/muted"
             android:textSize="14sp" android:gravity="center" android:lineSpacingMultiplier="1.3" />
 
+        <TextView android:id="@+id/error_code" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" android:textColor="#55705f" android:textSize="12sp" android:gravity="center"
+            android:textIsSelectable="true" android:layoutDirection="ltr" android:textDirection="ltr" />
+
         <Button android:id="@+id/retry" android:layout_width="220dp" android:layout_height="48dp"
             android:layout_marginTop="22dp" android:background="@drawable/btn_primary" android:text="@string/err_retry"
             android:textColor="#04130a" android:textStyle="bold" android:stateListAnimator="@null" />
-
-        <Button android:id="@+id/change_server" android:layout_width="220dp" android:layout_height="44dp"
-            android:layout_marginTop="10dp" android:background="@drawable/btn_ghost" android:text="@string/err_change"
-            android:textColor="@color/muted" android:stateListAnimator="@null" />
     </LinearLayout>
 </FrameLayout>

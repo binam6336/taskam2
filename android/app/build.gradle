@@ -13,10 +13,12 @@ android {
         applicationId 'com.taskam.app'
         minSdk 24
         targetSdk 34
-        versionCode 2
-        versionName '1.0.1'
-        // آدرس سرور پیش‌فرض (صفحه‌ی اول نمایش داده نمی‌شود)؛ با -PserverUrl=... عوض می‌شود و -PserverUrl= (خالی) یعنی در اولین اجرا پرسیده شود
-        buildConfigField 'String', 'SERVER_URL', '"' + (project.findProperty('serverUrl') ?: 'https://mahyarsalehee.ir/taskam') + '"'
+        versionCode 3
+        versionName '1.0.2'
+        // آدرس ثابت سرور؛ کاربر آن را نمی‌بیند و عوض نمی‌کند. برای سرور دیگر: ./gradlew assembleRelease -PserverUrl=https://example.com
+        def serverUrl = (project.findProperty('serverUrl') ?: 'https://mahyarsalehee.ir/taskam').toString().trim()
+        if (!(serverUrl ==~ /(?i)^https?:\/\/[^\s"]+$/)) throw new GradleException('serverUrl نامعتبر است: ' + serverUrl)
+        buildConfigField 'String', 'SERVER_URL', '"' + serverUrl + '"'
     }
 
     signingConfigs {

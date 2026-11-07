@@ -27,9 +27,5 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".SetupActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>
