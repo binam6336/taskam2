@@ -28,7 +28,7 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
 <div class="app">
     <?php $sb = [
         'home' => url('/dashboard'), 'title' => 'تسکام', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => $u['mobile'], 'user_sub_ltr' => true,
-        'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'new_task' => true, 'desc' => \App\Models\SidebarModel::descriptions(),
+        'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'desc' => \App\Models\SidebarModel::descriptions(),
     ];
     require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>

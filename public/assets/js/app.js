@@ -439,15 +439,13 @@
     t.style.setProperty('--tt-top', (r.top + r.height / 2) + 'px');
     sbTipEl = el; el.setAttribute('aria-describedby', 'sb-tooltip');
   };
-  const SB_TIP = '#sidebar .sb-it, #sidebar .sb-search, #sidebar .sb-new, #sidebar .sb-rail-btn, #sidebar .sb-out, #sidebar .brand';
+  const SB_TIP = '#sidebar .sb-it, #sidebar .sb-search, #sidebar .sb-rail-btn, #sidebar .sb-out, #sidebar .brand';
   document.addEventListener('pointerover', (e) => { const el = e.target.closest?.(SB_TIP); if (el && el !== sbTipEl) sbTipShow(el); else if (!el && sbTipEl) sbTipHide(); });
   document.addEventListener('focusin', (e) => { const el = e.target.closest?.(SB_TIP); if (el && el.matches(':focus-visible')) sbTipShow(el); });
   document.addEventListener('focusout', (e) => { if (e.target === sbTipEl) sbTipHide(); });
   document.addEventListener('pointerdown', sbTipHide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sbTipHide(); });
 
-  // «تسک جدید» سایدبار = همان ثبت سریع
-  TK.on('click', '.sb-new', () => { sbTipHide(); if (sbMobile.matches) sbSide(false); TK.qs('.qa-fab')?.click(); });
 
   // پالت جستجو و پرش سریع (Ctrl/⌘+K)
   const sbNorm = (s) => String(s || '').toLowerCase().replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[‌‏‎]/g, '').replace(/\s+/g, ' ').trim();

@@ -1,11 +1,11 @@
 <?php
 /**
- * سایدبار مشترک پنل کاربر و ادمین (v5.8): برند + جمع کردن (rail)، جستجو/پالت (Ctrl+K) و «تسک جدید»، منوی ساده با پاپ‌آپ زیرمنو، کارت کاربر و خروج.
+ * سایدبار مشترک پنل کاربر و ادمین (v5.8): برند + جمع کردن (rail)، جستجو/پالت (Ctrl+K)، منوی ساده با پاپ‌آپ زیرمنو، کارت کاربر و خروج.
  * رفتار در app.js (بخش «سایدبار v5.8»)، کلاس sb-rail روی <html> را assets/js/rail.js پیش از رندر می‌گذارد.
  * @var array  $menu    آیتم‌ها: [key, path, icon, label] | ['group' => id, 'icon', 'label', 'items' => [...]] | ['soon' => true, …] | ['link' => url, …]
  * @var string $active  کلید صفحه‌ی فعلی
  * @var array  $badges  کلید => مقدار اولیه‌ی شمارنده @var array $badgeAs (اختیاری) کلید صفحه => کلید /live/poll
- * @var array  $sb      ['home' => url, 'title', 'sub', 'user' => ردیف کاربر, 'user_sub', 'user_sub_ltr' => bool, 'logout' => متن, 'new_task' => bool, 'desc' => [key|group => توضیح]]
+ * @var array  $sb      ['home' => url, 'title', 'sub', 'user' => ردیف کاربر, 'user_sub', 'user_sub_ltr' => bool, 'logout' => متن, 'desc' => [key|group => توضیح]]
  */
 $badgeAs = $badgeAs ?? [];
 $desc = $sb['desc'] ?? [];
@@ -28,9 +28,8 @@ $pops = [];
         <button type="button" class="sb-icon-btn sb-rail-btn" aria-pressed="false" aria-label="جمع کردن منو"><i class="fa-solid fa-angles-right" aria-hidden="true"></i></button>
     </div>
 
-    <div class="sb-tools<?= empty($sb['new_task']) ? ' no-new' : '' ?>">
+    <div class="sb-tools">
         <button type="button" class="sb-search" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" aria-label="جستجو و پرش سریع"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>جستجو و پرش سریع…</span></button>
-        <?php if (!empty($sb['new_task'])): ?><button type="button" class="sb-new" aria-label="ثبت تسک جدید"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="sb-tip" aria-hidden="true">تسک جدید</span></button><?php endif; ?>
     </div>
 
     <nav class="sb-nav" aria-label="منوی اصلی">
