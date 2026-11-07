@@ -318,11 +318,28 @@ final class TaskModel
             }
             return $list;
         };
+        $overdue = $rows($late, 't.due_date, t.due_time IS NULL, t.due_time, t.id');
+        foreach ($overdue as &$t) {
+            // روزهای تأخیر (پیشخوان v5.6): روز تقویمی از سررسید تا امروز، سمت سرور
+            $t['late_days'] = max(1, (int) ((strtotime(date('Y-m-d')) - strtotime((string) $t['due_date'])) / 86400));
+        }
+        unset($t);
+        $both = '(' . $today . ') OR (' . $late . ')';
+        // ترکیب اولویت‌ها: همه‌ی تسک‌های امروز + عقب‌افتاده (نه فقط ردیف‌های نمایش‌داده‌شده)
+        $mix = DB::one("SELECT COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+            FROM tasks t WHERE $both", [$uid, $uid]) ?? [];
+        // پیشنهاد شروع: اولویت بالاتر، در اولویت برابر عقب‌افتاده جلوتر از امروز، بعد سررسید قدیمی‌تر
+        $suggest = DB::one(self::base() . " WHERE $both ORDER BY FIELD(t.priority, 'high', 'medium', 'low'), t.due_date < CURDATE() DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id LIMIT 1", [$uid, $uid, $uid]);
+        if ($suggest) {
+            $suggest['share_token'] = $suggest['share_token'] ?: self::ensureShareToken((int) $suggest['id']);
+        }
         return [
             'today' => $rows($today, 't.due_time IS NULL, t.due_time, t.id'),
-            'overdue' => $rows($late, 't.due_date, t.due_time IS NULL, t.due_time, t.id'),
+            'overdue' => $overdue,
             'today_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $today, [$uid]),
             'overdue_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $late, [$uid]),
+            'mix' => ['high' => (int) ($mix['high'] ?? 0), 'medium' => (int) ($mix['medium'] ?? 0), 'low' => (int) ($mix['low'] ?? 0)],
+            'suggest' => $suggest,
         ];
     }
 

@@ -15,44 +15,83 @@ if ($nToday && $nLate) {
 } else {
     $summary = 'امروز تسکی ندارید و هیچ تسکی هم عقب نیفتاده است.';
 }
+$prioName = ['high' => 'بالا', 'medium' => 'متوسط', 'low' => 'پایین'];
 /** یک ردیف تسک در باکس امروز/عقب‌افتاده (کلیک = جزئیات تسک در همین صفحه) */
-$taskRow = static function (array $t, bool $late): string {
+$taskRow = static function (array $t, bool $late) use ($prioName): string {
     $due = $late ? jdate($t['due_date'] . ' 00:00:00', false) : '';
     $time = $t['due_time'] ? fa_num(substr((string) $t['due_time'], 0, 5)) : '';
     // امروز با ساعت گذشته: در «امروز» می‌ماند (عقب‌افتاده فقط روزهای قبل) و برچسب قرمز «ساعت گذشته» می‌گیرد
     $hourPast = !$late && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
-    return '<a class="dash-task p-' . e($t['priority']) . '" href="' . e(url('/tasks?task=' . $t['share_token'])) . '" data-open-task="' . e(pid('tasks', $t)) . '">'
-        . '<span class="dash-task-dot"></span><span class="grow truncate">' . e($t['title']) . '</span>'
-        . ($t['project_title'] ? '<span class="dash-task-proj truncate"><i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . '</span>' : '')
+    $pr = isset($prioName[$t['priority']]) ? $t['priority'] : 'medium';
+    return '<a class="dash-task p-' . e($pr) . '" data-prio="' . e($pr) . '" title="' . e($t['title']) . '" href="' . e(url('/tasks?task=' . $t['share_token'])) . '" data-open-task="' . e(pid('tasks', $t)) . '">'
+        . '<span class="dash-task-dot" title="اولویت ' . e($prioName[$pr]) . '"></span>'
+        . '<span class="grow truncate"><span class="sr-only">اولویت ' . e($prioName[$pr]) . ': </span>' . e($t['title']) . '</span>'
+        . ($t['project_title'] ? '<span class="dash-task-proj truncate"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> ' . e($t['project_title']) . '</span>' : '')
+        . ($late && !empty($t['late_days']) ? '<span class="dash-late-badge">' . e(fa_num($t['late_days'])) . ' روز تأخیر</span>' : '')
         . '<span class="dash-task-due' . ($late || $hourPast ? ' late' : '') . '">' . e(trim($due . ' ' . $time)) . ($hourPast ? ' <span class="hour-past">ساعت گذشته</span>' : '') . '</span></a>';
 };
+// سلام بر اساس ساعت تهران (v5.6)
+$nowTeh = new \DateTime('now', new \DateTimeZone('Asia/Tehran'));
+$hr = (int) $nowTeh->format('G');
+$greet = $hr < 11 ? 'صبح بخیر' : ($hr < 16 ? 'ظهر بخیر' : ($hr < 20 ? 'عصر بخیر' : 'شب بخیر'));
+$mix = $focus['mix'];
+$mixTotal = $mix['high'] + $mix['medium'] + $mix['low'];
+$sg = $focus['suggest'];
 $w = $waiting;
 $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']) + count($w['review']) + count($w['rework']);
 ?>
 <div data-live="dash-top">
 <div class="dash-hello mb-2">
-    <h2>سلام <?= e(($me['first_name'] ?? '') !== '' ? $me['first_name'] : full_name($me)) ?> عزیز <span aria-hidden="true">👋</span></h2>
-    <p><?= e($summary) ?></p>
+    <div class="dash-hello-main">
+        <time class="dash-date" datetime="<?= e($nowTeh->format('Y-m-d')) ?>"><?= e(jdate($nowTeh->format('Y-m-d H:i:s'), false, true)) ?></time>
+        <h2><?= e($greet) ?> <?= e(($me['first_name'] ?? '') !== '' ? $me['first_name'] : full_name($me)) ?> <span aria-hidden="true">👋</span></h2>
+        <p><?= e($summary) ?></p>
+        <nav class="dash-chips" aria-label="خلاصه و پرش به بخش‌ها">
+            <button type="button" class="dash-chip" data-dash-jump="dash-sec-today"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> <?= e(fa_num($nToday)) ?> تسک امروز</button>
+            <button type="button" class="dash-chip is-danger" data-dash-jump="dash-sec-late"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> <?= e(fa_num($nLate)) ?> عقب‌افتاده</button>
+            <button type="button" class="dash-chip is-warn" data-dash-jump="dash-wait"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> <?= e(fa_num($wCount)) ?> منتظر اقدام شما</button>
+        </nav>
+    </div>
+    <?php if ($sg): $sp = isset($prioName[$sg['priority']]) ? $sg['priority'] : 'medium'; ?>
+    <aside class="dash-suggest" aria-label="پیشنهاد شروع">
+        <div class="xs muted"><i class="fa-solid fa-play" aria-hidden="true"></i> پیشنهاد برای شروع</div>
+        <button type="button" class="dash-suggest-title" data-open-task="<?= e(pid('tasks', $sg)) ?>"><?= e($sg['title']) ?></button>
+        <div class="xs muted"><?= $sg['project_title'] ? e($sg['project_title']) . ' · ' : '' ?>اولویت <?= e($prioName[$sp]) ?><?= $sg['due_date'] < date('Y-m-d') ? ' · عقب‌افتاده' : '' ?> <span aria-hidden="true">←</span></div>
+    </aside>
+    <?php endif; ?>
 </div>
 
 <div class="grid grid-2 mb-2 dash-main">
-    <div class="card dash-focus">
-        <div class="card-head"><h3><i class="fa-solid fa-bolt"></i> کارهای مهم</h3></div>
-        <div class="dash-sec">
-            <div class="dash-sec-head"><b><i class="fa-regular fa-calendar-check"></i> تسک‌های امروز <span class="badge"><?= e(fa_num($nToday)) ?></span></b>
+    <section class="card dash-focus" aria-labelledby="dash-focus-h">
+        <div class="card-head dash-focus-head"><h3 id="dash-focus-h"><i class="fa-solid fa-bolt" aria-hidden="true"></i> کارهای مهم</h3>
+            <div class="dash-filter" role="group" aria-label="فیلتر بر اساس اولویت">
+                <button type="button" class="dash-fbtn" data-dash-prio="all" aria-pressed="true">همه</button>
+                <button type="button" class="dash-fbtn p-high" data-dash-prio="high" aria-pressed="false"><span class="dash-fdot" aria-hidden="true"></span>بالا</button>
+                <button type="button" class="dash-fbtn p-medium" data-dash-prio="medium" aria-pressed="false"><span class="dash-fdot" aria-hidden="true"></span>متوسط</button>
+                <button type="button" class="dash-fbtn p-low" data-dash-prio="low" aria-pressed="false"><span class="dash-fdot" aria-hidden="true"></span>پایین</button>
+            </div>
+            <span class="sr-only" aria-live="polite" id="dash-filter-live"></span>
+        </div>
+        <div class="dash-sec" id="dash-sec-today">
+            <div class="dash-sec-head"><button type="button" class="dash-sec-toggle" aria-expanded="true" aria-controls="dash-body-today" data-dash-sec="today"><i class="fa-solid fa-chevron-down dash-chev" aria-hidden="true"></i><b><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> تسک‌های امروز <span class="badge"><?= e(fa_num($nToday)) ?></span></b></button>
                 <?php if ($nToday > count($focus['today'])): ?><a class="xs" href="<?= e(url('/tasks?when=today')) ?>">همه</a><?php endif; ?></div>
-            <?php if ($focus['today']): ?><div class="dash-tasks"><?php foreach ($focus['today'] as $t) { echo $taskRow($t, false); } ?></div>
+            <div id="dash-body-today" class="dash-sec-body">
+            <?php if ($focus['today']): ?><div class="dash-tasks"><?php foreach ($focus['today'] as $t) { echo $taskRow($t, false); } ?></div><div class="dash-empty" hidden>موردی با این اولویت نیست 🎉</div>
             <?php else: ?><div class="faint small dash-none">برای امروز تسکی ندارید.</div><?php endif; ?>
+            </div>
         </div>
-        <div class="dash-sec">
-            <div class="dash-sec-head"><b class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> تسک‌های عقب‌افتاده <span class="badge red"><?= e(fa_num($nLate)) ?></span></b>
+        <div class="dash-sec" id="dash-sec-late">
+            <div class="dash-sec-head"><button type="button" class="dash-sec-toggle" aria-expanded="true" aria-controls="dash-body-late" data-dash-sec="late"><i class="fa-solid fa-chevron-down dash-chev" aria-hidden="true"></i><b class="text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> تسک‌های عقب‌افتاده <span class="badge red"><?= e(fa_num($nLate)) ?></span></b></button>
                 <?php if ($nLate > count($focus['overdue'])): ?><a class="xs" href="<?= e(url('/tasks?when=overdue')) ?>">همه</a><?php endif; ?></div>
-            <?php if ($focus['overdue']): ?><div class="dash-tasks"><?php foreach ($focus['overdue'] as $t) { echo $taskRow($t, true); } ?></div>
+            <div id="dash-body-late" class="dash-sec-body">
+            <?php if ($focus['overdue']): ?><div class="dash-tasks"><?php foreach ($focus['overdue'] as $t) { echo $taskRow($t, true); } ?></div><div class="dash-empty" hidden>موردی با این اولویت نیست 🎉</div>
             <?php else: ?><div class="faint small dash-none">تسک عقب‌افتاده‌ای ندارید. 👌</div><?php endif; ?>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="card dash-wait">
+    <div class="dash-side">
+    <div class="card dash-wait" id="dash-wait">
         <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> منتظر اقدام <?php if ($wCount): ?><span class="badge yellow"><?= e(fa_num($wCount)) ?></span><?php endif; ?></h3></div>
         <?php if (!$wCount): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
 
@@ -128,6 +167,22 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                     <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"accept"}' data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"reject"}' data-after="reload">رد</button></div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>
+    </div>
+    <?php $mixLabel = fa_num($mix['high']) . ' تسک اولویت بالا، ' . fa_num($mix['medium']) . ' تسک اولویت متوسط، ' . fa_num($mix['low']) . ' تسک اولویت پایین'; ?>
+    <section class="card dash-mix" aria-labelledby="dash-mix-h">
+        <div class="card-head"><h3 id="dash-mix-h"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i> ترکیب اولویت‌ها</h3><span class="xs faint">امروز + عقب‌افتاده</span></div>
+        <div class="dash-mix-bar<?= $mixTotal ? '' : ' is-empty' ?>" role="img" aria-label="<?= e($mixTotal ? $mixLabel : 'تسکی برای امروز یا عقب‌افتاده نیست') ?>">
+            <?php foreach (['high', 'medium', 'low'] as $k): if ($mix[$k]): ?><span class="dash-mix-seg p-<?= $k ?>" data-css="flex:<?= (int) $mix[$k] ?> 1 0"></span><?php endif; endforeach; ?>
+        </div>
+        <?php if (!$mixTotal): ?><div class="xs faint mt-1">تسکی برای امروز یا عقب‌افتاده ندارید.</div><?php endif; ?>
+        <ul class="dash-mix-legend">
+            <?php foreach (['high', 'medium', 'low'] as $k): ?><li class="p-<?= $k ?>"><span class="dash-mix-sq" aria-hidden="true"></span>اولویت <?= e($prioName[$k]) ?> <b><?= e(fa_num($mix[$k])) ?></b></li><?php endforeach; ?>
+        </ul>
+        <div class="dash-keys xs muted">
+            <div><kbd>N</kbd> ثبت سریع تسک</div>
+            <div><kbd>↑</kbd> <kbd>↓</kbd> جابه‌جایی بین تسک‌ها · <kbd>Enter</kbd> باز کردن</div>
+        </div>
+    </section>
     </div>
 </div>
 </div>
