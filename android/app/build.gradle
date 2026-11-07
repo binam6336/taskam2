@@ -1,0 +1,46 @@
+plugins { id 'com.android.application' }
+
+// امضای نسخه‌ی release: android/keystore.properties (storeFile, storePassword, keyAlias, keyPassword) — در گیت نیست.
+def ksFile = rootProject.file('keystore.properties')
+def ks = new Properties()
+if (ksFile.exists()) { ksFile.withInputStream { ks.load(it) } }
+
+android {
+    namespace 'com.taskam.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.taskam.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+        // آدرس سرور پیش‌فرض: gradle assembleRelease -PserverUrl=https://example.com — خالی = در اولین اجرا پرسیده می‌شود
+        buildConfigField 'String', 'SERVER_URL', '"' + (project.findProperty('serverUrl') ?: '') + '"'
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

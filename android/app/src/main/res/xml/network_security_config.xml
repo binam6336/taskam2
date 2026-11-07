@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTP ساده هم مجاز است تا سرور داخلی (مثلاً http://192.168.1.10) قابل استفاده باشد؛ برای سرور واقعی HTTPS توصیه می‌شود. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
