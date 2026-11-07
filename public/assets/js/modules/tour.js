@@ -8,8 +8,10 @@
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
   // جای «تسک‌ها» در سایدبار را ادمین تعیین می‌کند (محتوا ← سایدبار): داخل هر گروهی یا بیرون از گروه‌ها
-  const TASKS_LINK = '.sidebar .nav a[href$="/tasks"]';
-  const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('[data-nav-group]');
+  const TASKS_LINK = '#sidebar a[href$="/tasks"]';
+  // سایدبار v5.8: زیرمنو پاپ‌آپ .sb-pop است و دکمه‌ی گروه با aria-controls به آن اشاره می‌کند
+  const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('.sb-pop');
+  const groupBtn = () => { const p = tasksGroup(); return p ? TK.qs(`.sb-it[aria-controls="${p.id}"]`) : null; };
   const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
   const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
   // فیلدهای داخل «گزینه‌های بیشتر»: اگر بخش بسته بود (مثلاً ادامه‌ی تور بعد از رفرش) باز می‌شود
@@ -29,7 +31,7 @@
     },
     2: {
       page: 'dashboard', when: () => !!tasksGroup(), action: 'click', next: 3,
-      target: () => `.nav-parent[aria-controls="${tasksGroup()?.querySelector('.nav-flyout')?.id}"]`,
+      target: () => `.sb-it[aria-controls="${tasksGroup()?.id}"]`,
       prepare: () => { if (mobile.matches && !sidebarOpen()) TK.qs('.menu-btn')?.click(); },
       text: T.step_2,
     },
@@ -38,7 +40,7 @@
       prepare: () => {
         if (mobile.matches && !sidebarOpen()) TK.qs('.menu-btn')?.click();
         const g = tasksGroup();
-        if (g && !g.classList.contains('open')) g.querySelector('.nav-parent').click();
+        if (g && g.hidden) groupBtn()?.click();
       },
       text: T.step_3,
     },

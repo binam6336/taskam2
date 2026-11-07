@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="<?= e(env('APP_NAME', 'تسکام')) ?>">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <?php if (!$imp): // پنجره‌ی ورود به پنل کاربر: بدون service worker و اشتراک اعلان (اعلان‌های کاربر به دستگاه مدیر نمی‌رسد) ?><meta name="sw-url" content="<?= e(url('service-worker')) ?>"><?php endif; ?>
+<script src="<?= e(asset('js/rail.js')) ?>"></script>
 <link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">

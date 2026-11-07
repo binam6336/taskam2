@@ -342,47 +342,171 @@
     qa.classList.toggle('qa-hide', window.innerWidth <= 640 && y > qaY && y > 80);
     qaY = y;
   }, { passive: true });
-  TK.on('click', '[data-sidebar]', () => { TK.qs('.sidebar')?.classList.toggle('open'); TK.qs('.overlay')?.classList.toggle('show'); });
-  TK.on('click', '.overlay', () => { TK.qs('.sidebar')?.classList.remove('open'); TK.qs('.overlay')?.classList.remove('show'); });
+  /* ───── سایدبار v5.8 (partials/sidebar.php): موبایل off-canvas، پاپ‌آپ زیرمنو، هایلایت متحرک، حالت rail + tooltip، پالت Ctrl/⌘+K ─────
+     همه با delegation روی document (سایدبار در هر جابه‌جایی نرم صفحه دوباره ساخته می‌شود) */
+  const sbMobile = window.matchMedia('(max-width: 960px)');
+  const sbReduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sbStore = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* حالت خصوصی */ } } };
+  const sbSide = (open) => {
+    const sb = TK.qs('#sidebar'); if (!sb) return;
+    sb.classList.toggle('open', open); TK.qs('.overlay')?.classList.toggle('show', open);
+    TK.qsa('[data-sidebar]').forEach((b) => b.setAttribute('aria-expanded', String(open)));
+    if (!open) sbPopClose(false);
+  };
+  TK.on('click', '[data-sidebar]', () => sbSide(!TK.qs('#sidebar')?.classList.contains('open')));
+  TK.on('click', '.overlay', () => sbSide(false));
 
-  // گروه‌های سایدبار: دسکتاپ = پنل شناور کنار سایدبار، موبایل = آکاردئون
-  const navMobile = window.matchMedia('(max-width: 960px)');
-  const navClose = (g) => { g.classList.remove('open'); g.querySelector('.nav-parent')?.setAttribute('aria-expanded', 'false'); };
-  const navCloseAll = (except) => TK.qsa('[data-nav-group].open').forEach((g) => { if (g !== except) navClose(g); });
-  const navPlace = (g) => {
-    const btn = g.querySelector('.nav-parent'), fly = g.querySelector('.nav-flyout');
-    const r = btn.getBoundingClientRect();
-    const top = Math.max(12, Math.min(r.top - 10, window.innerHeight - fly.offsetHeight - 12));
-    fly.style.setProperty('--fly-top', top + 'px');
-    fly.style.setProperty('--arrow-top', (r.top + r.height / 2 - top) + 'px');
+  // پاپ‌آپ زیرمنو: هر بار یکی؛ موقعیت کنار سایدبار، فلش (--ay) دقیقاً روبه‌روی دکمه
+  let sbPop = null, sbPopBtn = null;
+  const sbPlace = () => {
+    if (!sbPop || !sbPopBtn) return;
+    const side = TK.qs('#sidebar').getBoundingClientRect(), r = sbPopBtn.getBoundingClientRect(), h = sbPop.offsetHeight;
+    const mid = r.top + r.height / 2;
+    const top = Math.max(12, Math.min(mid - 34, window.innerHeight - h - 12));
+    sbPop.style.setProperty('--pop-top', top + 'px');
+    if (!sbMobile.matches) sbPop.style.setProperty('--pop-right', (window.innerWidth - side.left + 12) + 'px');
+    sbPop.style.setProperty('--ay', Math.max(18, Math.min(mid - top, h - 18)) + 'px');
   };
-  TK.on('click', '.nav-parent', (e, btn) => {
-    e.stopPropagation();
-    const g = btn.closest('[data-nav-group]');
-    const open = !g.classList.contains('open');
-    navCloseAll(g);                     // فقط یک گروه باز بماند (دسکتاپ و موبایل)
-    if (!open) { navClose(g); return; }
-    if (!navMobile.matches) navPlace(g);
-    g.classList.add('open');
-    btn.setAttribute('aria-expanded', 'true');
-  });
-  TK.on('click', '[data-nav-close]', (e, t) => { e.stopPropagation(); const g = t.closest('[data-nav-group]'); navClose(g); g.querySelector('.nav-parent').focus(); });
-  document.addEventListener('click', (e) => { if (!navMobile.matches && !e.target.closest('[data-nav-group]')) navCloseAll(); });
+  const sbPopItems = () => TK.qsa('.sb-pop-a:not(.is-soon), .sb-pop-x', sbPop).filter((x) => !x.classList.contains('sb-pop-x'));
+  function sbPopClose(focusBack = true) {
+    if (!sbPop) return;
+    sbPop.hidden = true; sbPopBtn?.setAttribute('aria-expanded', 'false');
+    const b = sbPopBtn; sbPop = null; sbPopBtn = null;
+    if (focusBack && b) b.focus();
+  }
+  const sbPopOpen = (btn) => {
+    const pop = document.getElementById(btn.getAttribute('aria-controls')); if (!pop) return;
+    sbTipHide(); sbPopClose(false);
+    sbPop = pop; sbPopBtn = btn; pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    sbPlace();
+    const items = sbPopItems();
+    (items.find((a) => a.getAttribute('aria-current') === 'page') || items[0] || TK.qs('.sb-pop-x', pop))?.focus({ preventScroll: true });
+  };
+  TK.on('click', '.sb-it[aria-controls]', (e, btn) => { e.stopPropagation(); if (sbPopBtn === btn) sbPopClose(); else sbPopOpen(btn); });
+  TK.on('click', '.sb-pop-x', () => sbPopClose());
+  TK.on('click', '.sb-pop-a', () => { sbPopClose(false); if (sbMobile.matches) sbSide(false); });
+  document.addEventListener('pointerdown', (e) => { if (sbPop && !e.target.closest('.sb-pop, .sb-it[aria-controls]')) sbPopClose(false); });
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const g = TK.qs('[data-nav-group].open');
-    if (g && !navMobile.matches) { navClose(g); g.querySelector('.nav-parent').focus(); }
-  });
-  const navScroll = () => TK.qs('.sidebar .nav')?.addEventListener('scroll', () => { if (!navMobile.matches) navCloseAll(); }, { passive: true });
-  navScroll();
-  window.addEventListener('resize', () => { if (!navMobile.matches) TK.qsa('[data-nav-group].open').forEach(navPlace); });
-  const navSync = () => {
-    navCloseAll();
-    if (navMobile.matches) TK.qsa('[data-nav-group].current').forEach((g) => { g.classList.add('open'); g.querySelector('.nav-parent').setAttribute('aria-expanded', 'true'); });
+    if (!sbPop || !sbPop.contains(document.activeElement)) return;
+    const items = sbPopItems(), i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); sbPopClose(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = items.length; if (n) items[((i < 0 ? -1 : i) + (e.key === 'ArrowDown' ? 1 : -1) + n) % n].focus(); return; }
+    if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1]?.focus(); return; }
+    if (e.key === 'Tab') {
+      const all = TK.qsa('a, button', sbPop).filter((x) => !x.hidden), first = all[0], last = all[all.length - 1];
+      if ((!e.shiftKey && document.activeElement === last) || (e.shiftKey && document.activeElement === first)) { e.preventDefault(); sbPopClose(); }
+    }
+  }, true);
+  window.addEventListener('resize', () => { sbPlace(); sbTipHide(); }, { passive: true });
+  const sbBind = () => {
+    const nav = TK.qs('.sb-nav'); if (!nav) return;
+    nav.addEventListener('scroll', () => { sbPopClose(false); sbTipHide(); }, { passive: true });
+    // هایلایت متحرک: offsetTop/offsetHeight خود li
+    const hl = TK.qs('.sb-hl', nav), list = TK.qs('.sb-list', nav); if (!hl || !list) return;
+    const move = (li) => { hl.style.setProperty('transform', 'translateY(' + li.offsetTop + 'px)'); hl.style.setProperty('height', li.offsetHeight + 'px'); hl.classList.add('on'); };
+    list.addEventListener('pointerenter', (e) => { const li = e.target.closest?.('.sb-list > li'); if (li) move(li); }, true);
+    list.addEventListener('focusin', (e) => { const li = e.target.closest('.sb-list > li'); if (li) move(li); });
+    list.addEventListener('pointerleave', () => { if (!list.contains(document.activeElement)) hl.classList.remove('on'); });
+    list.addEventListener('focusout', (e) => { if (!list.contains(e.relatedTarget) && !list.matches(':hover')) hl.classList.remove('on'); });
+    sbRailSync();
   };
-  navMobile.addEventListener?.('change', navSync);
-  navSync();
-  TK.afterSwap.push(navScroll, navSync);
+
+  // حالت rail (فقط دسکتاپ؛ کلاس پیش از رندر با assets/js/rail.js)
+  const sbRail = () => document.documentElement.classList.contains('sb-rail') && !sbMobile.matches;
+  function sbRailSync() {
+    const on = document.documentElement.classList.contains('sb-rail');
+    TK.qsa('.sb-rail-btn').forEach((b) => {
+      b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'باز کردن کامل منو' : 'جمع کردن منو');
+      const i = b.querySelector('i'); if (i) { i.classList.toggle('fa-angles-right', !on); i.classList.toggle('fa-angles-left', on); }
+    });
+  }
+  const sbRailToggle = () => {
+    const on = !document.documentElement.classList.contains('sb-rail');
+    document.documentElement.classList.toggle('sb-rail', on); sbStore.set('tk.sb.rail', on ? '1' : '0');
+    sbPopClose(false); sbTipHide(); sbRailSync();
+  };
+  TK.on('click', '.sb-rail-btn', sbRailToggle);
+  // tooltip در حالت rail
+  let sbTipEl = null;
+  function sbTipHide() { const t = TK.qs('#sb-tooltip'); if (t) t.hidden = true; if (sbTipEl) { sbTipEl.removeAttribute('aria-describedby'); sbTipEl = null; } }
+  const sbTipShow = (el) => {
+    if (!sbRail() || el === sbPopBtn) return;
+    const t = TK.qs('#sb-tooltip'); if (!t) return;
+    const txt = (el.querySelector('.sb-lbl')?.textContent || el.getAttribute('aria-label') || '').trim(); if (!txt) return;
+    const r = el.getBoundingClientRect();
+    t.textContent = txt; t.hidden = false;
+    t.style.setProperty('--tt-right', (window.innerWidth - r.left + 10) + 'px');
+    t.style.setProperty('--tt-top', (r.top + r.height / 2) + 'px');
+    sbTipEl = el; el.setAttribute('aria-describedby', 'sb-tooltip');
+  };
+  const SB_TIP = '#sidebar .sb-it, #sidebar .sb-search, #sidebar .sb-new, #sidebar .sb-rail-btn, #sidebar .sb-out, #sidebar .brand';
+  document.addEventListener('pointerover', (e) => { const el = e.target.closest?.(SB_TIP); if (el && el !== sbTipEl) sbTipShow(el); else if (!el && sbTipEl) sbTipHide(); });
+  document.addEventListener('focusin', (e) => { const el = e.target.closest?.(SB_TIP); if (el && el.matches(':focus-visible')) sbTipShow(el); });
+  document.addEventListener('focusout', (e) => { if (e.target === sbTipEl) sbTipHide(); });
+  document.addEventListener('pointerdown', sbTipHide);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sbTipHide(); });
+
+  // «تسک جدید» سایدبار = همان ثبت سریع
+  TK.on('click', '.sb-new', () => { sbTipHide(); if (sbMobile.matches) sbSide(false); TK.qs('.qa-fab')?.click(); });
+
+  // پالت جستجو و پرش سریع (Ctrl/⌘+K)
+  const sbNorm = (s) => String(s || '').toLowerCase().replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[‌‏‎]/g, '').replace(/\s+/g, ' ').trim();
+  let sbPalBack = null, sbPalRes = [], sbPalSel = 0;
+  const sbPalItems = () => {
+    const out = [];
+    TK.qsa('#sidebar .sb-list > li > a.sb-it').forEach((a) => out.push({ label: a.querySelector('.sb-lbl')?.textContent.trim(), icon: a.querySelector('.sb-ic i')?.className, href: a.href, blank: a.target === '_blank' }));
+    TK.qsa('#sidebar .sb-pop').forEach((p) => {
+      const g = p.querySelector('.sb-pop-hd b')?.textContent.trim();
+      TK.qsa('a.sb-pop-a', p).forEach((a) => out.push({ label: a.querySelector('.sb-pop-t b')?.childNodes[0]?.textContent.trim(), group: g, icon: a.querySelector('.sb-pop-ic i')?.className, href: a.href, blank: a.target === '_blank' }));
+    });
+    if (TK.qs('.qa-fab')) out.push({ label: 'ثبت تسک جدید', group: 'عملیات', icon: 'fa-solid fa-plus', run: () => TK.qs('.qa-fab')?.click() });
+    if (!sbMobile.matches) out.push({ label: document.documentElement.classList.contains('sb-rail') ? 'باز کردن کامل منو' : 'جمع کردن منو', group: 'عملیات', icon: 'fa-solid fa-angles-right', run: sbRailToggle });
+    return out;
+  };
+  const sbPalRender = () => {
+    const d = TK.qs('.sb-palette'), q = sbNorm(TK.qs('.sb-pal-q', d).value), list = TK.qs('.sb-pal-list', d);
+    sbPalRes = sbPalItems().filter((x) => !q || sbNorm(x.label + ' ' + (x.group || '')).includes(q));
+    sbPalSel = Math.min(sbPalSel, Math.max(0, sbPalRes.length - 1));
+    list.innerHTML = sbPalRes.map((x, i) => `<li role="option" id="sb-pal-o${i}" aria-selected="${i === sbPalSel}" data-i="${i}"><i class="${TK.esc(x.icon || 'fa-solid fa-link')}" aria-hidden="true"></i><span>${TK.esc(x.label)}</span>${x.group ? `<small>${TK.esc(x.group)}</small>` : ''}</li>`).join('');
+    TK.qs('.sb-pal-empty', d).hidden = sbPalRes.length > 0;
+    TK.qs('.sb-pal-q', d).setAttribute('aria-activedescendant', sbPalRes.length ? 'sb-pal-o' + sbPalSel : '');
+    TK.qs('#sb-pal-o' + sbPalSel, d)?.scrollIntoView({ block: 'nearest' });
+  };
+  const sbPalOpen = () => {
+    const d = TK.qs('.sb-palette'); if (!d || d.open) return;
+    sbPalBack = document.activeElement; sbPopClose(false); sbTipHide();
+    TK.qs('.sb-pal-q', d).value = ''; sbPalSel = 0; sbPalRender();
+    d.showModal(); TK.qs('.sb-pal-q', d).focus();
+  };
+  const sbPalClose = () => { const d = TK.qs('.sb-palette'); if (d?.open) d.close(); };
+  const sbPalRun = (i) => {
+    const x = sbPalRes[i]; if (!x) return;
+    sbPalClose(); sbPalBack = null;
+    if (x.run) { x.run(); return; }
+    if (x.blank) window.open(x.href, '_blank', 'noopener'); else if (TK.visit) TK.visit(x.href); else location.href = x.href;
+  };
+  TK.on('click', '.sb-search', () => { if (sbMobile.matches) sbSide(false); sbPalOpen(); });
+  TK.on('input', '.sb-pal-q', () => { sbPalSel = 0; sbPalRender(); });
+  TK.on('keydown', '.sb-pal-q', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = sbPalRes.length; if (n) { sbPalSel = (sbPalSel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; sbPalRender(); } }
+    else if (e.key === 'Enter') { e.preventDefault(); sbPalRun(sbPalSel); }
+  });
+  TK.on('click', '.sb-pal-list li', (e, li) => sbPalRun(Number(li.dataset.i)));
+  TK.on('click', '.sb-palette', (e, d) => { if (e.target === d) sbPalClose(); });   // کلیک روی backdrop
+  document.addEventListener('close', (e) => { if (e.target.matches?.('.sb-palette')) { const b = sbPalBack; sbPalBack = null; if (b && document.contains(b)) b.focus?.(); } }, true);
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (e.key !== 'k' && e.key !== 'K' && e.key !== 'ن' && e.code !== 'KeyK') return;
+    if (!TK.qs('.sb-palette')) return;
+    e.preventDefault();
+    if (TK.qs('.sb-palette').open) sbPalClose(); else sbPalOpen();
+  });
+  const sbKbd = () => { if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) TK.qsa('.sb-kbd').forEach((k) => { k.textContent = '⌘ K'; }); };
+
+  const sbSync = () => { sbPop = null; sbPopBtn = null; sbSide(false); sbBind(); sbKbd(); };
+  sbMobile.addEventListener?.('change', () => { sbPopClose(false); sbTipHide(); sbRailSync(); });
+  sbSync();
+  TK.afterSwap.push(sbSync);
 
   TK.on('submit', 'form[data-ajax]', async (e, form) => {
     e.preventDefault();
@@ -679,12 +803,14 @@
       if (last === null) params.baseline = 1; else params.last_msg = last;
       const r = await TK.get('/live/poll', params);
       if (!r || r.status !== 'success') return;
-      Object.entries(r.counts || {}).forEach(([k, v]) => TK.qsa(`[data-badge="${k}"]`).forEach((b) => { b.textContent = TK.fa(v); b.classList.toggle('zero', !v); }));
+      // متن صفحه‌خوان کنار شمارنده‌ی سایدبار («، n مورد»)
+      const sbSr = (b, v) => { const sr = b.nextElementSibling; if (sr?.classList.contains('sb-sr')) sr.textContent = v ? '، ' + TK.fa(v) + ' مورد' : ''; };
+      Object.entries(r.counts || {}).forEach(([k, v]) => TK.qsa(`[data-badge="${k}"]`).forEach((b) => { b.textContent = TK.fa(v); b.classList.toggle('zero', !v); sbSr(b, v); }));
       TK.qsa('[data-badge-sum]').forEach((b) => {
         const keys = b.dataset.badgeSum.split(',');
         if (!keys.some((k) => k in (r.counts || {}))) return;
         const v = keys.reduce((s, k) => s + Number(r.counts[k] || 0), 0);
-        b.textContent = TK.fa(v); b.classList.toggle('zero', !v);
+        b.textContent = TK.fa(v); b.classList.toggle('zero', !v); sbSr(b, v);
       });
       if (navigator.setAppBadge && r.counts && 'chat' in r.counts) { try { r.counts.chat ? navigator.setAppBadge(r.counts.chat) : navigator.clearAppBadge(); } catch { /* */ } }
       if (r.msg_base !== null && r.msg_base !== undefined) ls.set(KEY, String(r.msg_base));

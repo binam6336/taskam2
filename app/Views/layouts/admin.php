@@ -41,24 +41,18 @@ $badgeAs = ['admin-support' => 'support'];
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>" data-layout="admin">
 <div class="app">
-    <aside class="sidebar" id="sidebar">
-        <a href="<?= e(url('/admin')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>پنل مدیریت<small>تسکام</small></span></a>
-        <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
-        <div class="sidebar-foot">
-            <div class="flex items-center gap-2 mb-1">
-                <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
-                <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted"><?= e(\App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label']) ?></div></div>
-            </div>
-            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> خروج</button></form>
-        </div>
-    </aside>
+    <?php $sb = [
+        'home' => url('/admin'), 'title' => 'پنل مدیریت', 'sub' => 'تسکام', 'user' => $u, 'user_sub' => \App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label'],
+        'logout' => 'خروج از حساب', 'new_task' => false, 'desc' => [],
+    ];
+    require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>
     <div class="main">
         <header class="topbar">
-            <button class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-label="منو"><i class="fa-solid fa-bars"></i></button>
+            <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>
         </header>
-        <main class="content"><?= $content ?></main>
+        <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>
 </div>
 <?php require __DIR__ . '/../partials/confirm.php'; ?>

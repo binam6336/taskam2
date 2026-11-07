@@ -25,6 +25,12 @@ final class SidebarModel
         return self::$cfg ??= require BASE_PATH . '/config/sidebar.php';
     }
 
+    /** توضیح کوتاه صفحه‌ها و گروه‌ها (group:<id>) برای پاپ‌آپ زیرمنوهای سایدبار (v5.8) */
+    public static function descriptions(): array
+    {
+        return self::cfg()['desc'] ?? [];
+    }
+
     /** صفحه‌های قابل انتخاب: کلید => [مسیر، آیکون، نام پیش‌فرض] */
     public static function pages(): array
     {
@@ -146,7 +152,7 @@ final class SidebarModel
         DB::run('DELETE FROM content_texts WHERE `key` = ?', [self::KEY]);
     }
 
-    /** قالب partials/sidebar_nav.php (گروه‌های خالی نمایش داده نمی‌شوند) */
+    /** قالب partials/sidebar.php (گروه‌های خالی نمایش داده نمی‌شوند) */
     public static function nav(): array
     {
         $pages = self::pages();

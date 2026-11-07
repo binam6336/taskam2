@@ -26,17 +26,11 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>" data-layout="app">
 <div class="app">
-    <aside class="sidebar" id="sidebar">
-        <a href="<?= e(url('/')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>تسکام<small>مدیریت وظایف و تیم</small></span></a>
-        <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
-        <div class="sidebar-foot">
-            <div class="flex items-center gap-2 mb-1">
-                <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
-                <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted ltr"><?= e($u['mobile']) ?></div></div>
-            </div>
-            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> <?= Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج' ?></button></form>
-        </div>
-    </aside>
+    <?php $sb = [
+        'home' => url('/dashboard'), 'title' => 'تسکام', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => $u['mobile'], 'user_sub_ltr' => true,
+        'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'new_task' => true, 'desc' => \App\Models\SidebarModel::descriptions(),
+    ];
+    require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>
     <div class="main">
         <?php if ($impCtx = \App\Core\Impersonation::current()): ?>
@@ -47,13 +41,13 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
 </div>
 <?php endif; ?>
         <header class="topbar">
-            <button class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-label="منو"><i class="fa-solid fa-bars"></i></button>
+            <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>
             <div class="grow"></div>
             <button type="button" class="btn btn-ghost btn-icon" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell"></i></button>
             <a class="btn btn-ghost btn-icon" href="<?= e(url('/chat')) ?>" title="گفتگو" data-css="position:relative"><i class="fa-regular fa-comments"></i><span class="badge-count zero" data-badge="chat" data-css="position:absolute;top:-2px;left:-2px">0</span></a>
         </header>
-        <main class="content"><?= $content ?></main>
+        <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>
 </div>
 <div class="qa">
