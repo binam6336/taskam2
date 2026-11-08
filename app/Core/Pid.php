@@ -34,7 +34,7 @@ final class Pid
     public const INPUTS = [
         'user_id' => 'users', 'assignee_id' => 'users', 'receiver_id' => 'users', 'colleague_user_id' => 'users', 'assignee' => 'users',
         'user_ids' => 'users', 'view_users' => 'users', 'view_user_ids' => 'users', 'mentions' => 'users', 'members' => 'users', 'member_ids' => 'users',
-        'project_id' => 'projects', 'project' => 'projects', 'assignee_group_id' => 'project_groups', 'group_id' => 'project_groups', 'group' => 'project_groups', 'head_id' => 'users',
+        'project_id' => 'projects', 'project' => 'projects', 'assignee_group_id' => 'project_groups', 'group_id' => 'project_groups', 'group' => 'project_groups', 'head_id' => 'users', 'rework_members' => 'users', 'member_id' => 'users',
         'subject_id' => 'subjects', 'label' => 'subjects',
         'task_id' => 'tasks', 'message_id' => 'chat_messages', 'ticket_id' => 'support_tickets', 'call_id' => 'call_requests', 'request_id' => 'project_join_requests',
         'row_id' => 'colleagues', 'note_id' => 'task_notes', 'member_row_id' => 'project_members',

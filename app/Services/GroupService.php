@@ -24,9 +24,26 @@ final class GroupService
         return self::res(false, $msg, $code, $http);
     }
 
+    /**
+     * مدیریت گروه‌های پروژه (v5.12): سرپرست به بالا — سازنده‌ی پروژه، دارنده‌ی مجوز «افزودن کاربر»،
+     * نقش‌های سرپرست / مدیر واحد / مدیر کل، یا هر عضوی که دسترسی تأیید تسک دارد (تکمیل تسک + بررسی سرپرست ← انجام‌شده).
+     */
     public static function canManage(int $projectId, int $uid): bool
     {
-        return $projectId > 0 && Access::projectCan($projectId, $uid, 'add_member');
+        if ($projectId <= 0 || !Access::isProjectMember($projectId, $uid)) {
+            return false;
+        }
+        if (Access::projectCan($projectId, $uid, 'add_member')) {
+            return true;
+        }
+        $row = DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        if ($row === null) {
+            return false;
+        }
+        if (in_array(Access::memberRole($row), ['admin', 'unit_manager', 'supervisor'], true)) {
+            return true;
+        }
+        return in_array('complete', Access::projectTaskPerms($projectId, $uid), true) && in_array('to_done', Access::projectBoardPerms($projectId, $uid), true);
     }
 
     /** دیدن گروه‌های پروژه: هر عضو پروژه */
@@ -41,7 +58,7 @@ final class GroupService
             return self::err('پروژه‌ی انتخاب‌شده معتبر نیست یا عضو آن نیستید.', 'PROJECT_INVALID', 404);
         }
         if (!self::canManage($projectId, $actor)) {
-            return self::err('برای ساخت گروه در این پروژه مجوز «افزودن کاربر» لازم است.', 'FORBIDDEN', 403);
+            return self::err('ساخت گروه در این پروژه با سرپرست و نقش‌های بالاتر (یا مجوز «افزودن کاربر») است.', 'FORBIDDEN', 403);
         }
         if (BlockService::isBlocked('project', $projectId)) {
             return self::err('این پروژه مسدود شده است.', 'PROJECT_BLOCKED', 403);
@@ -65,14 +82,23 @@ final class GroupService
             return self::err('گروه یافت نشد.', 'GROUP_NOT_FOUND', 404);
         }
         if (!self::canManage((int) $g['project_id'], $actor)) {
-            return self::err('برای ویرایش گروه‌های این پروژه مجوز «افزودن کاربر» لازم است.', 'FORBIDDEN', 403);
+            return self::err('ویرایش گروه‌های این پروژه با سرپرست و نقش‌های بالاتر (یا مجوز «افزودن کاربر») است.', 'FORBIDDEN', 403);
         }
         $v = self::validate((int) $g['project_id'], $in, $groupId);
         if (isset($v['error'])) {
             return $v['error'];
         }
         DB::update('project_groups', ['title' => $v['title'], 'description' => $v['description'], 'head_id' => $v['head']], 'id = ?', [$groupId]);
+        $gone = array_values(array_diff(GroupModel::memberIds($groupId), $v['members']));
         self::syncMembers($groupId, $v['members']);
+        // خروج عضو از گروه (v5.12): روی هر تسک باز گروه در تاریخچه ثبت می‌شود
+        if ($gone) {
+            $names = array_map('full_name', DB::all('SELECT first_name, last_name FROM users WHERE id IN (' . DB::in($gone) . ')', $gone));
+            foreach (DB::column('SELECT id FROM tasks WHERE assignee_group_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$groupId]) as $tid) {
+                TaskHistory::log((int) $tid, $actor, 'group_member_removed', ['group' => $v['title'], 'names' => $names]);
+                DB::run('DELETE FROM task_group_duties WHERE task_id = ? AND user_id IN (' . DB::in($gone) . ')', array_merge([(int) $tid], $gone));
+            }
+        }
         // بدون سرگروه، «تأیید سرگروه» روی تسک‌های باز معنی ندارد
         if ($v['head'] === null) {
             DB::run('UPDATE tasks SET group_head_approval = 0 WHERE assignee_group_id = ? AND is_completed = 0', [$groupId]);
@@ -80,23 +106,47 @@ final class GroupService
         return self::res(true, 'گروه «' . $v['title'] . '» ذخیره شد.', '', 200, ['id' => $groupId]);
     }
 
-    /** حذف فقط وقتی هیچ تسکی (حتی انجام‌شده یا مسدود) به گروه داده نشده؛ وگرنه سابقه و KPI گروه از بین می‌رود */
-    public static function delete(int $actor, int $groupId): array
+    /**
+     * مسدود کردن گروه به‌جای حذف (v5.12): هر گروهی، حتی با تسک فعال. تسک‌های فعلی گروه عادی ادامه پیدا می‌کنند و
+     * به همان گروه می‌مانند؛ فقط تسک جدید یا واگذاری تازه به گروه مسدود ممکن نیست. با «رفع مسدودی» برمی‌گردد.
+     */
+    public static function setBlocked(int $actor, int $groupId, bool $block): array
     {
         $g = GroupModel::find($groupId);
         if ($g === null || !self::canView((int) $g['project_id'], $actor)) {
             return self::err('گروه یافت نشد.', 'GROUP_NOT_FOUND', 404);
         }
         if (!self::canManage((int) $g['project_id'], $actor)) {
-            return self::err('برای حذف گروه‌های این پروژه مجوز «افزودن کاربر» لازم است.', 'FORBIDDEN', 403);
+            return self::err('ویرایش گروه‌های این پروژه با سرپرست و نقش‌های بالاتر (یا مجوز «افزودن کاربر») است.', 'FORBIDDEN', 403);
         }
-        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_group_id = ?', [$groupId]);
-        if ($n > 0) {
-            return self::err('این گروه ' . fa_num($n) . ' تسک دارد و حذف نمی‌شود؛ می‌توانید نام یا اعضایش را تغییر دهید.', 'GROUP_HAS_TASKS', 409);
+        if ($block === ($g['blocked_at'] !== null)) {
+            return self::res(true, $block ? 'گروه همین حالا مسدود است.' : 'گروه مسدود نیست.');
         }
-        DB::run('DELETE FROM project_groups WHERE id = ?', [$groupId]);
-        GroupModel::flush();
-        return self::res(true, 'گروه «' . $g['title'] . '» حذف شد.');
+        DB::update('project_groups', $block ? ['blocked_at' => date('Y-m-d H:i:s'), 'blocked_by' => $actor] : ['blocked_at' => null, 'blocked_by' => null], 'id = ?', [$groupId]);
+        $open = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_group_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$groupId]);
+        return self::res(true, $block
+            ? 'گروه «' . $g['title'] . '» مسدود شد؛ دیگر تسک جدید نمی‌گیرد' . ($open ? ' و ' . fa_num($open) . ' تسک باز آن عادی ادامه پیدا می‌کند.' : '.')
+            : 'مسدودی گروه «' . $g['title'] . '» برداشته شد.');
+    }
+
+    /** عضوهایی که با این ویرایش از گروه بیرون می‌روند و در تسک‌های باز گروه سهم دارند (هشدار پیش از ذخیره) */
+    public static function removalImpact(int $actor, int $groupId, array $members): array
+    {
+        $g = GroupModel::find($groupId);
+        if ($g === null || !self::canManage((int) $g['project_id'], $actor)) {
+            return [];
+        }
+        $gone = array_values(array_diff(GroupModel::memberIds($groupId), array_map('intval', $members)));
+        $open = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_group_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$groupId]);
+        if (!$gone || $open === 0) {
+            return [];
+        }
+        $out = [];
+        foreach (DB::all('SELECT id, first_name, last_name FROM users WHERE id IN (' . DB::in($gone) . ')', $gone) as $u) {
+            $ticked = (int) DB::value('SELECT COUNT(*) FROM task_group_ticks k JOIN tasks t ON t.id = k.task_id WHERE t.assignee_group_id = ? AND t.is_completed = 0 AND k.user_id = ?', [$groupId, (int) $u['id']]);
+            $out[] = ['id' => \App\Core\Pid::of('users', (int) $u['id']), 'name' => full_name($u), 'open' => $open, 'ticked' => $ticked];
+        }
+        return $out;
     }
 
     /** خروج یا خارج شدن عضو از پروژه: از گروه‌های آن پروژه بیرون می‌رود (و اگر سرگروه بود، گروه بی‌سرگروه می‌شود) */
@@ -110,6 +160,65 @@ final class GroupService
         } catch (\Throwable $e) {
             // پیش از migration ۰۳۵ جدول‌ها نیستند
         }
+    }
+
+    /**
+     * اختیارات سرگروه روی تسک گروهی (v5.12): سرگروه، سازنده‌ی تسک و مدیران گروه (canManage) می‌توانند
+     * برای هر عضو «وظیفه‌ی شخصی» بنویسند و تیک «انجام دادم» هر عضو را بزنند یا بردارند.
+     */
+    public static function canLead(array $task, int $uid): bool
+    {
+        $gid = (int) ($task['assignee_group_id'] ?? 0);
+        if ($gid <= 0 || !empty($task['blocked_at'])) {
+            return false;
+        }
+        return Access::isGroupHead($task, $uid) || (int) $task['user_id'] === $uid || self::canManage((int) $task['project_id'], $uid);
+    }
+
+    /** وظیفه‌ی شخصی یک عضو روی تسک گروهی (متن خالی = برداشتن) */
+    public static function setDuty(int $actor, int $taskId, int $memberId, string $duty): array
+    {
+        $t = \App\Models\TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!self::canLead($t, $actor)) {
+            return self::err('وظیفه‌ی اعضا را فقط سرگروه، سازنده‌ی تسک یا مدیر گروه‌ها تعیین می‌کند.', 'FORBIDDEN', 403);
+        }
+        if (!GroupModel::isMember((int) $t['assignee_group_id'], $memberId)) {
+            return self::err('این کاربر عضو گروه این تسک نیست.', 'NOT_GROUP_MEMBER');
+        }
+        $duty = trim(mb_substr(preg_replace('/[ \t]+/u', ' ', $duty), 0, 500));
+        if ($duty === '') {
+            DB::run('DELETE FROM task_group_duties WHERE task_id = ? AND user_id = ?', [$taskId, $memberId]);
+            return self::res(true, 'وظیفه‌ی شخصی برداشته شد.');
+        }
+        DB::run('INSERT INTO task_group_duties (task_id, user_id, duty, set_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE duty = VALUES(duty), set_by = VALUES(set_by)', [$taskId, $memberId, $duty, $actor]);
+        TaskHistory::log($taskId, $actor, 'group_duty', ['user' => $memberId, 'duty' => $duty]);
+        Notifier::groupDuty($t, $actor, $memberId, $duty);
+        return self::res(true, 'وظیفه‌ی شخصی ثبت شد و برای عضو فرستاده شد.');
+    }
+
+    /** سرگروه تیک یک عضو را می‌زند یا برمی‌دارد (تیک خود سرگروه = تحویل، از مسیر عادی تیک) */
+    public static function setMemberTick(int $actor, int $taskId, int $memberId, bool $on): array
+    {
+        $t = \App\Models\TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!self::canLead($t, $actor)) {
+            return self::err('تیک اعضا را فقط سرگروه، سازنده‌ی تسک یا مدیر گروه‌ها تغییر می‌دهد.', 'FORBIDDEN', 403);
+        }
+        $gid = (int) $t['assignee_group_id'];
+        if (!GroupModel::isMember($gid, $memberId)) {
+            return self::err('این کاربر عضو گروه این تسک نیست.', 'NOT_GROUP_MEMBER');
+        }
+        if (in_array(BoardService::statusOf($t), ['review', 'done', 'archived'], true)) {
+            return self::err('تسک تحویل شده است؛ تیک اعضا دیگر تغییر نمی‌کند.', 'GROUP_DELIVERED', 409);
+        }
+        GroupModel::tick($taskId, $memberId, $on);
+        TaskHistory::log($taskId, $actor, $on ? 'group_tick_by' : 'group_untick_by', ['user' => $memberId]);
+        return self::res(true, $on ? 'تیک عضو زده شد.' : 'تیک عضو برداشته شد.');
     }
 
     /** @return array{title:string,description:?string,members:int[],head:?int}|array{error:array} */

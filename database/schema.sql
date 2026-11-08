@@ -279,6 +279,8 @@ CREATE TABLE `project_groups` (
   `description` VARCHAR(255) NULL DEFAULT NULL,
   `head_id`     INT UNSIGNED NULL DEFAULT NULL        COMMENT 'سرگروه (اختیاری؛ باید عضو گروه باشد)',
   `created_by`  INT UNSIGNED NULL DEFAULT NULL,
+  `blocked_at`  TIMESTAMP NULL DEFAULT NULL           COMMENT 'مسدودشده (به‌جای حذف؛ تسک جدید نمی‌گیرد)',
+  `blocked_by`  INT UNSIGNED NULL DEFAULT NULL,
   `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -306,6 +308,17 @@ CREATE TABLE `task_group_ticks` (
   PRIMARY KEY (`task_id`, `user_id`),
   CONSTRAINT `fk_tgt_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_tgt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_group_duties` (
+  `task_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL                 COMMENT 'عضو گروه',
+  `duty`       VARCHAR(500) NOT NULL                 COMMENT 'وظیفه‌ی شخصی این عضو در همین تسک',
+  `set_by`     INT UNSIGNED NULL DEFAULT NULL        COMMENT 'سرگروه یا مدیر پروژه',
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`task_id`, `user_id`),
+  CONSTRAINT `fk_tgd_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tgd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_notes` (

@@ -58,11 +58,12 @@ document.addEventListener('tk:ready', () => {
     const why = !p.can_add ? 'برای افزودن این همکار به پروژه دسترسی «افزودن کاربر» لازم است؛ با مدیر پروژه هماهنگ کنید.'
       : !p.can_assign ? 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' : '';
     const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }));
-    const out = [{ group: 'اعضای این پروژه' }, ...memOpts];
-    // دپارتمان / گروه (v5.10): مثل یک مسئول انتخاب می‌شود؛ مقدار «g:<شناسه>» و هنگام ارسال در assignee_group_id می‌رود
+    // دپارتمان / گروه (v5.10): مثل یک مسئول انتخاب می‌شود؛ مقدار «g:<شناسه>» و هنگام ارسال در assignee_group_id می‌رود.
+    // v5.12: گروه‌ها بالای فهرست (در پروژه‌های پرعضو زیر اعضا گم می‌شدند)
     const grps = (cfg.groups || {})[String(p.id)] || [];
-    if (grps.length) out.push({ group: 'گروه‌های این پروژه' }, ...grps.map((g) => ({ value: 'g:' + g.id, label: 'گروه ' + g.title, icon: 'fa-people-group', note: TK.fa(g.count) + ' عضو' + (g.has_head ? ' · سرگروه دارد' : ''), hasHead: g.has_head,
-      disabled: !p.can_assign, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' })));
+    const out = grps.length ? [{ group: 'گروه‌های این پروژه' }, ...grps.map((g) => ({ value: 'g:' + g.id, label: 'گروه ' + g.title, icon: 'fa-people-group', note: TK.fa(g.count) + ' عضو' + (g.head ? ' · سرگروه: ' + g.head : ''), hasHead: g.has_head, head: g.head,
+      disabled: !p.can_assign, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }))] : [];
+    out.push({ group: 'اعضای این پروژه' }, ...memOpts);
     if (others.length) out.push({ group: 'همکاران غیرعضو' }, ...others.map((a) => ({ ...a, note: why ? 'عضو پروژه نیست' : 'افزودن به پروژه و واگذاری', addTo: p.id, disabled: !!why, hint: why })));
     return out;
   };
@@ -77,12 +78,16 @@ document.addEventListener('tk:ready', () => {
   };
   rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); syncGroup(); });
   // گروه انتخاب‌شده: شناسه در assignee_group_id و گزینه‌ی «تأیید با سرگروه» فقط برای گروهِ دارای سرگروه
-  const grpInput = TK.qs('[data-group-input]', form), grpHead = TK.qs('[data-group-head]', form), grpRow = TK.qs('#grp-head-row', form);
+  const grpInput = TK.qs('[data-group-input]', form), grpHead = TK.qs('[data-group-head]', form), grpRow = TK.qs('#grp-head-row', form), grpOff = TK.qs('[data-group-head-off]', form);
+  let grpLast = '';
   const syncGroup = () => {
     const v = String(rs.assignee_id.get() || ''), o = rs.assignee_id.option(v), isG = v.startsWith('g:');
     grpInput.value = isG ? v.slice(2) : '';
     grpRow.hidden = !(isG && o?.hasHead);
-    if (grpRow.hidden) grpHead.checked = false;
+    TK.qs('#grp-head-label', form).textContent = 'تحویل با تیک سرگروه' + (o?.head ? ' (' + o.head + ')' : '');
+    // پیش‌فرض امن (v5.12): با انتخاب گروهِ دارای سرگروه، تحویل با سرگروه روشن است
+    if (grpRow.hidden) grpHead.checked = false; else if (v !== grpLast) grpHead.checked = true;
+    grpLast = v;
   };
   rs.assignee_id.input.addEventListener('change', syncGroup);
 
@@ -202,7 +207,7 @@ document.addEventListener('tk:ready', () => {
     form.setAttribute('action', TK.url(action));
     TK.qs('#task-files-field').classList.toggle('hidden', !files);
     lock(['title', 'description', 'priority', 'due_date', 'due_time', 'subject_id', 'project_id', 'assignee_id'], false);
-    grpInput.disabled = grpHead.disabled = false;
+    grpInput.disabled = grpHead.disabled = grpOff.disabled = false; grpLast = '';
     subjMode(false); descLinks.reset();
   };
 
@@ -241,6 +246,16 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open(modal);
   };
   TK.qs('#btn-new-task')?.addEventListener('click', () => openNew());
+  // «تسک برای این گروه» از صفحه‌ی گروه‌ها (v5.12): /tasks?new=1&project=<پروژه>&assign=g:<گروه>
+  (() => {
+    const u = new URLSearchParams(location.search);
+    if (u.get('new') !== '1' || !TK.qs('#btn-new-task')) return;
+    openNew();
+    const pr = u.get('project'), as = u.get('assign');
+    if (pr && rs.project_id.option(pr)) { rs.project_id.set(pr); rs.project_id.input.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (as && rs.assignee_id.option(as) && !rs.assignee_id.option(as).disabled) { rs.assignee_id.set(as); syncGroup(); }
+    history.replaceState(history.state, '', location.pathname);
+  })();
   // موبایل: منوی ⋮ دکمه‌های هر کارت (جزئیات/ویرایش/حذف)
   const closeMore = (except) => TK.qsa('.item-actions.open').forEach((a) => { if (a !== except) { a.classList.remove('open'); a.querySelector('[data-item-more]')?.setAttribute('aria-expanded', 'false'); } });
   TK.on('click', '[data-item-more]', (e, b) => { e.stopPropagation(); const a = b.closest('.item-actions'); closeMore(a); const on = a.classList.toggle('open'); b.setAttribute('aria-expanded', on ? 'true' : 'false'); });
@@ -253,7 +268,7 @@ document.addEventListener('tk:ready', () => {
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
     rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? ''));
     rs.assignee_id.set(d.assignee_group_id ? 'g:' + d.assignee_group_id : (d.assignee_id ?? cfg.me));
-    syncGroup(); grpHead.checked = !!d.group_head_approval && !grpRow.hidden;
+    syncGroup(); grpHead.checked = !!d.group_head_approval && !grpRow.hidden; grpLast = String(rs.assignee_id.get() || '');
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
@@ -261,7 +276,7 @@ document.addEventListener('tk:ready', () => {
     if (!c.edit_info) lock(['title', 'description'], true);
     if (!c.edit_due) lock(['due_date', 'due_time'], true);
     if (!c.edit_meta) lock(['priority', 'subject_id'], true);
-    if (!c.reassign) { lock(['assignee_id'], true); grpInput.disabled = grpHead.disabled = true; }
+    if (!c.reassign) { lock(['assignee_id'], true); grpInput.disabled = grpHead.disabled = grpOff.disabled = true; }
     if (!c.change_project) lock(['project_id'], true);
     TK.modal.open(modal);
   };
@@ -296,7 +311,7 @@ document.addEventListener('tk:ready', () => {
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
     TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label'] : ['when', 'prio', 'project', 'label']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=smart]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label', 'group'] : ['when', 'prio', 'project', 'label', 'group']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=smart]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {
@@ -352,18 +367,50 @@ document.addEventListener('tk:ready', () => {
       return c.deliver ? `<button class="btn btn-sm btn-primary" data-detail-toggle title="${c.approve_direct ? 'تکمیل تسک' : 'ارسال دوباره برای بررسی سرپرست'}"><i class="fa-solid fa-paper-plane"></i> اصلاح شد، ارسال دوباره</button>`
         : lock('اصلاح شد، ارسال دوباره', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را دوباره برای بررسی بفرستد.');
     }
+    // سرگروه روی تسکِ «تحویل با سرگروه» (v5.12): تیک او تسک را از طرف گروه تحویل می‌دهد
+    if (c.deliver && c.group?.is_head && c.group?.head_only) return `<button class="btn btn-sm btn-primary" data-detail-toggle data-confirm-group="1" title="${c.approve_direct ? 'تکمیل تسک (شما دسترسی تأیید دارید)' : 'ارسال برای بررسی سرپرست'}"><i class="fa-solid fa-paper-plane"></i> تحویل از طرف گروه</button>`;
     return c.deliver ? `<button class="btn btn-sm btn-primary" data-detail-toggle title="${c.approve_direct ? 'تکمیل تسک (شما دسترسی تأیید دارید)' : 'ارسال برای بررسی سرپرست'}"><i class="fa-solid fa-check"></i> انجام شد</button>`
       : lock('انجام شد', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.');
   };
   /* تسک گروهی (v5.10): اعضا با تیک «انجام دادم» هر کدام؛ سرگروه با تاج */
+  /* تسک گروهی (v5.10، v5.12): اعضا با تیک و «وظیفه‌ی شخصی» هر کدام؛ سرگروه/سازنده/مدیر گروه‌ها تیک اعضا را می‌زند و وظیفه می‌نویسد */
   const groupBox = (t) => {
     const g = t.group; if (!g) return '';
-    const head = g.head_approval ? '<span class="badge yellow"><i class="fa-solid fa-crown"></i> تحویل با تیک سرگروه</span>' : '<span class="badge">تیک هر عضو تحویل می‌دهد</span>';
-    return `<div class="tg-box mb-2"><div class="flex between items-center gap-1 wrap mb-1"><b class="small"><i class="fa-solid fa-people-group"></i> اعضای گروه «${E(g.title)}» <span class="faint xs">${TK.fa(g.ticked)} از ${TK.fa(g.count)} تیک زده‌اند</span></b>${head}</div>
-      <div class="tg-members">${g.members.map((m) => `<span class="tg-m${m.ticked ? ' on' : ''}" title="${E(m.name + (m.is_head ? ' — سرگروه' : '') + (m.ticked ? ' — انجام داده (' + (m.ticked_fa || '') + ')' : ' — هنوز تیک نزده'))}">
+    const head = g.members.find((m) => m.is_head);
+    const mode = g.head_approval ? `<span class="badge yellow"><i class="fa-solid fa-crown"></i> تحویل با تیک سرگروه${head ? ' (' + E(head.name) + ')' : ''}</span>` : '<span class="badge">تیک هر عضو تحویل می‌دهد</span>';
+    const open = t.can?.status && !['review', 'done', 'archived'].includes(t.can.status) && !t.is_blocked;
+    const row = (m) => `<li class="tg-row${m.ticked ? ' on' : ''}${m.me ? ' me' : ''}">
         <span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}${m.ticked ? '<i class="fa-solid fa-check tg-ok" aria-hidden="true"></i>' : ''}</span>
-        <span class="tg-n">${m.is_head ? '<i class="fa-solid fa-crown tg-crown" aria-label="سرگروه"></i> ' : ''}${E(m.name)}</span><span class="sr-only">${m.ticked ? 'انجام داده' : 'هنوز تیک نزده'}</span></span>`).join('')}</div></div>`;
+        <div class="grow min0"><div class="tg-n">${m.is_head ? '<i class="fa-solid fa-crown tg-crown" aria-label="سرگروه"></i> ' : ''}${E(m.name)}${m.me ? ' <span class="xs faint">(شما)</span>' : ''}
+            <span class="xs ${m.ticked ? 'tg-done' : 'faint'}">${m.ticked ? '· انجام داده' + (m.ticked_fa ? ' (' + E(m.ticked_fa) + ')' : '') : '· هنوز تیک نزده'}</span></div>
+          ${m.duty ? `<div class="tg-duty${m.me ? ' mine' : ''}"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> ${m.me ? '<b>وظیفه‌ی تو:</b> ' : ''}${E(m.duty)}</div>` : ''}</div>
+        ${g.can_lead ? `<div class="tg-acts">${open && !(m.is_head && g.head_approval) ? `<button type="button" class="btn btn-xs btn-icon" data-gtick="${E(m.id)}" data-on="${m.ticked ? 0 : 1}" title="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}" aria-label="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}"><i class="fa-solid ${m.ticked ? 'fa-user-xmark' : 'fa-user-check'}"></i></button>` : ''}
+          <button type="button" class="btn btn-xs btn-icon" data-gduty="${E(m.id)}" data-name="${E(m.name)}" data-duty="${E(m.duty || '')}" title="وظیفه‌ی شخصی ${E(m.name)}" aria-label="وظیفه‌ی شخصی ${E(m.name)}"><i class="fa-solid fa-clipboard-list"></i></button></div>` : ''}
+      </li>`;
+    return `<div class="tg-box mb-2"><div class="flex between items-center gap-1 wrap mb-1"><b class="small"><i class="fa-solid fa-people-group"></i> اعضای گروه «${E(g.title)}» <span class="faint xs">${TK.fa(g.ticked)} از ${TK.fa(g.count)} تیک زده‌اند</span></b>${mode}</div>
+      ${g.blocked ? '<div class="xs faint mb-1"><i class="fa-solid fa-ban"></i> این گروه مسدود شده؛ این تسک عادی ادامه دارد ولی تسک جدید نمی‌گیرد.</div>' : ''}
+      <ul class="tg-list">${g.members.map(row).join('')}</ul></div>`;
   };
+  // برگرداندن تسک گروهی برای اصلاح (v5.12): علت + انتخاب اعضایی که تیکشان پاک می‌شود و اعلان می‌گیرند (پیش‌فرض همه)
+  const groupRework = (t) => new Promise((resolve) => {
+    const box = document.createElement('div'); box.className = 'tg-rework card flat mb-2';
+    const mem = t.group.members.filter((m) => !m.is_head || !t.group.head_approval);
+    box.innerHTML = `<b class="small"><i class="fa-solid fa-rotate-left"></i> برگرداندن برای اصلاح</b>
+      <textarea class="input mt-1" rows="2" maxlength="255" placeholder="چه چیزی باید اصلاح شود؟ (اختیاری)"></textarea>
+      <div class="xs muted mt-1">ایراد مال سهم چه کسانی است؟ تیک همین‌ها پاک و فقط به آن‌ها${t.group.head_approval ? ' (و سرگروه)' : ''} اعلان می‌رود:</div>
+      <div class="tg-rw-list">${mem.map((m) => `<label class="tg-rw"><input type="checkbox" value="${E(m.id)}" checked> ${E(m.name)}${m.ticked ? '' : ' <span class="faint xs">(تیک نزده)</span>'}</label>`).join('')}</div>
+      <div class="flex gap-1 mt-1"><button type="button" class="btn btn-sm btn-primary" data-rw-ok>برگرداندن</button><button type="button" class="btn btn-sm" data-rw-no>انصراف</button></div>`;
+    const anchor = detail.querySelector('.tg-box') || detail.firstElementChild;
+    anchor.after(box); box.querySelector('textarea').focus();
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('[data-rw-no]')) { box.remove(); resolve(null); }
+      if (e.target.closest('[data-rw-ok]')) {
+        const who = TK.qsa('input:checked', box).map((i) => i.value);
+        if (!who.length) { TK.toast('دست‌کم یک عضو را انتخاب کنید.', 'error'); return; }
+        const why = box.querySelector('textarea').value; box.remove(); resolve({ why, who });
+      }
+    });
+  });
   const nextBtn = (b) => {
     if (!b || !b.next || b.next === 'done' || b.status === 'rework') return '';
     const txt = `انتقال به «${E(b.next_label)}»`;
@@ -542,6 +589,10 @@ document.addEventListener('tk:ready', () => {
     group: ['fa-people-group', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} ${i.data.from ? `از گروه ${q(i.data.from)} ` : ''}به گروه ${q(i.data.to)} تغییر کرد.`],
     group_tick: ['fa-user-check', 'ok', (i) => `${who(i.actor)} سهم خودش از تسک گروهی را انجام‌شده علامت زد.`],
     group_untick: ['fa-user-xmark', 'warn', (i) => `${who(i.actor)} علامت انجام‌شده‌ی خودش را برداشت.`],
+    group_tick_by: ['fa-user-check', 'ok', (i) => `${who(i.actor)} تیک ${who(i.data.user_user)} را زد.`],
+    group_untick_by: ['fa-user-xmark', 'warn', (i) => `${who(i.actor)} تیک ${who(i.data.user_user)} را برداشت.`],
+    group_duty: ['fa-clipboard-list', 'info', (i) => `${who(i.actor)} برای ${who(i.data.user_user)} وظیفه‌ی شخصی گذاشت:`, (i) => `<div class="hist-box">${E(i.data.duty || '')}</div>`],
+    group_member_removed: ['fa-user-minus', 'warn', (i) => `${who(i.actor)} ${E((i.data.names || []).join('، '))} را از گروه ${q(i.data.group)} بیرون برد.`],
     title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
     priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
@@ -641,6 +692,18 @@ document.addEventListener('tk:ready', () => {
       TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { await refresh(); TK.reload(); }
     }
     if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-rework') && current?.group) {
+      const v = await groupRework(current); if (!v) return;
+      const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: v.why, rework_present: 1, rework_members: v.who });
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } return;
+    }
+    // اختیارات سرگروه (v5.12): تیک عضو و وظیفه‌ی شخصی
+    if (b.dataset.gtick) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/group-tick', { member_id: b.dataset.gtick, on: b.dataset.on }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } return; }
+    if (b.dataset.gduty) {
+      const d = await TK.prompt('وظیفه‌ی ' + b.dataset.name + ' در این تسک (خالی = برداشتن):', { title: 'وظیفه‌ی شخصی', okText: 'ذخیره و ارسال', multiline: true, value: b.dataset.duty || '' });
+      if (d === null) return;
+      const r = await TK.post('/tasks/' + currentId + '/group-duty', { member_id: b.dataset.gduty, duty: d }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) await refresh(); return;
+    }
     if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }

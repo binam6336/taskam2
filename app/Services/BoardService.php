@@ -420,8 +420,13 @@ final class BoardService
         $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.assignee_group_id, t.group_head_approval, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, p.title AS project_title,
                 u.first_name, u.last_name, u.avatar,
                 (SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS files_count,
-                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND n.user_id = COALESCE(t.assignee_id, t.user_id) ORDER BY n.id DESC LIMIT 1) AS last_note
-                FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)';
+                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND (n.user_id = t.assignee_id OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND n.user_id = t.user_id)
+                    OR n.user_id IN (SELECT gm.user_id FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id)) ORDER BY n.id DESC LIMIT 1) AS last_note,
+                g.title AS group_title, g.head_id AS group_head_id, dv.first_name AS deliverer_first, dv.last_name AS deliverer_last, (t.delivered_by IS NOT NULL AND t.delivered_by = g.head_id) AS delivered_by_head,
+                (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members gm ON gm.group_id = t.assignee_group_id AND gm.user_id = k.user_id WHERE k.task_id = t.id) AS group_ticked,
+                (SELECT COUNT(*) FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id) AS group_members
+                FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)
+                LEFT JOIN project_groups g ON g.id = t.assignee_group_id LEFT JOIN users dv ON dv.id = t.delivered_by';
         $review = [];
         foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
                 AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
@@ -436,7 +441,10 @@ final class BoardService
         $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL
                 AND (t.assignee_id = ? OR " . \App\Models\GroupModel::memberSql($uid) . " OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND t.user_id = ?))
                 ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid, $uid]);
-        return ['review' => $review, 'rework' => $rework];
+        // منتظر تیک سرگروه (v5.12): تسک‌های گروهی «تحویل با سرگروه» که من سرگروهشان هستم و هنوز تحویل نشده‌اند
+        $headwait = DB::all($sel . " WHERE t.assignee_group_id IS NOT NULL AND t.group_head_approval = 1 AND g.head_id = ? AND t.is_completed = 0 AND t.blocked_at IS NULL
+                AND t.archived_at IS NULL AND t.board_status NOT IN ('review','done','rework') ORDER BY t.due_date IS NULL, t.due_date, t.id DESC LIMIT " . max(1, $limit), [$uid]);
+        return ['review' => $review, 'rework' => $rework, 'headwait' => $headwait];
     }
 
     /** انتقال کارت به ستون دیگر. */
@@ -489,6 +497,9 @@ final class BoardService
         return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
     }
 
+    /** برگشت برای اصلاح تسک گروهی (v5.12): فقط تیک این اعضا پاک و فقط به همین‌ها اعلان (null = همه) */
+    public static ?array $reworkOnly = null;
+
     /**
      * تسک گروهی با «تأیید سرگروه» (v5.10): اعضای گروه (جز سرگروه) تسک را به بررسی سرپرست / انجام‌شده نمی‌برند؛
      * هر عضو فقط تیک خودش را می‌زند و تحویل نهایی با تیک سرگروه است.
@@ -525,8 +536,20 @@ final class BoardService
             [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $actor, $done ? 1 : 0, $actor, $done ? 1 : 0, $actor, $id]);
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
         // تسک گروهی که از بررسی/انجام‌شده برگشته (اصلاح، بازکردن، پس گرفتن تحویل): تیک‌های اعضا از نو
+        // برگشت برای اصلاح (v5.12): سرپرست انتخاب می‌کند تیک چه کسانی پاک شود (پیش‌فرض همه)؛ بقیه تیکشان می‌ماند
         if (!empty($t['assignee_group_id']) && in_array($from, ['review', 'done', 'archived'], true) && !in_array($status, ['review', 'done'], true)) {
-            \App\Models\GroupModel::clearTicks($id);
+            if ($status === 'rework' && self::$reworkOnly !== null) {
+                foreach (self::$reworkOnly as $u) {
+                    \App\Models\GroupModel::tick($id, (int) $u, false);
+                }
+                // سرگروه هم دوباره باید تحویل دهد
+                $hd = (int) (\App\Models\GroupModel::find((int) $t['assignee_group_id'])['head_id'] ?? 0);
+                if ($hd > 0) {
+                    \App\Models\GroupModel::tick($id, $hd, false);
+                }
+            } else {
+                \App\Models\GroupModel::clearTicks($id);
+            }
         }
         if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
@@ -534,7 +557,7 @@ final class BoardService
             // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
             DB::insert('task_notes', ['task_id' => $id, 'user_id' => $actor,
                 'note' => '↩️ برگشت به «' . self::STATUSES['rework']['label'] . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
-            Notifier::taskReturned($t, $actor, $reason);
+            Notifier::taskReturned($t, $actor, $reason, $status === 'rework' ? self::$reworkOnly : null);
         }
     }
 

@@ -99,7 +99,7 @@ final class ProjectModel
             $trend['created'][] = (int) ($created[$d] ?? 0);
             $trend['done'][] = (int) ($finished[$d] ?? 0);
         }
-        $recent = DB::all('SELECT t.id, t.title, t.is_completed, t.priority, t.due_date, t.created_at, u.first_name, u.last_name, u.mobile FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id = ? AND t.blocked_at IS NULL ORDER BY t.created_at DESC LIMIT 8', [$projectId]);
+        $recent = DB::all('SELECT t.id, t.title, t.is_completed, t.priority, t.due_date, t.created_at, u.first_name, u.last_name, u.mobile, g.title AS group_title FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id LEFT JOIN project_groups g ON g.id = t.assignee_group_id WHERE t.project_id = ? AND t.blocked_at IS NULL ORDER BY t.created_at DESC LIMIT 8', [$projectId]);
         return ['totals' => array_map(static fn($v) => $v === null ? 0 : (float) $v, $totals), 'members' => $perMember, 'trend' => $trend, 'recent' => $recent];
     }
 }

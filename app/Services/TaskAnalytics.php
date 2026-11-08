@@ -110,6 +110,9 @@ final class TaskAnalytics
     }
 
     /** سازنده + اعضای پروژه. */
+    /** حداقل تسک گروه برای رتبه‌بندی در KPI (v5.12) */
+    public const GROUP_MIN_TASKS = 3;
+
     public static function people(int $projectId): array
     {
         return DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar FROM users u
@@ -189,6 +192,13 @@ final class TaskAnalytics
             unset($m);
         }
 
+        // سهم هر عضو در کار گروهی (v5.12): تعداد تسک‌های گروهی که تیک زده؛ در امتیاز سرعت فردی اثری ندارد
+        $gTicks = [];
+        try {
+            $gTicks = array_map('intval', array_column(DB::all('SELECT k.user_id, COUNT(*) n FROM task_group_ticks k JOIN tasks t ON t.id = k.task_id
+                WHERE t.project_id = ? AND t.blocked_at IS NULL GROUP BY k.user_id', [$projectId]), 'n', 'user_id'));
+        } catch (\Throwable $e) {
+        }
         $out = [];
         $wSum = 0.0;
         $wCnt = 0;
@@ -196,6 +206,7 @@ final class TaskAnalytics
             if (!empty($m['is_group']) && $m['total'] === 0) {
                 continue;                                    // گروه بدون تسک در جدول KPI نمی‌آید
             }
+            $m['group_ticks'] = empty($m['is_group']) ? ($gTicks[(int) $m['id']] ?? 0) : 0;
             $score = $m['scores'] ? array_sum($m['scores']) / count($m['scores']) : null;
             $avgH = $m['hours'] ? array_sum($m['hours']) / count($m['hours']) : null;
             if ($score !== null) {
@@ -203,13 +214,19 @@ final class TaskAnalytics
                 $wCnt += count($m['scores']);
             }
             unset($m['hours'], $m['scores']);
-            $out[] = $m + [
+            $row = $m + [
                 'avg_hours' => $avgH,
                 'on_time' => $m['done'] + $m['waiting'] > 0 ? (int) round(($m['done'] + $m['waiting'] - $m['late']) / ($m['done'] + $m['waiting']) * 100) : null,
                 'rating' => self::rating($score),
             ];
+            // گروه با کمتر از GROUP_MIN_TASKS تسک: «داده‌ی کم» و بدون رتبه (یک تحویل سریع نباید «بسیار عالی» شود)
+            if (!empty($m['is_group']) && $m['total'] < self::GROUP_MIN_TASKS) {
+                $row['few'] = true;
+                $row['rating'] = ['score' => $row['rating']['score'], 'label' => 'داده‌ی کم', 'tone' => ''];
+            }
+            $out[] = $row;
         }
-        usort($out, static fn($a, $b) => [$b['rating']['score'] ?? -1, $b['done']] <=> [$a['rating']['score'] ?? -1, $a['done']]);
+        usort($out, static fn($a, $b) => [empty($a['few']) ? 1 : 0, $b['rating']['score'] ?? -1, $b['done']] <=> [empty($b['few']) ? 1 : 0, $a['rating']['score'] ?? -1, $a['done']]);
 
         $pct = static fn(int $n) => $sum['total'] > 0 ? (int) round($n / $sum['total'] * 100) : 0;
         $labeled = array_sum(array_column($subjects, 'value'));

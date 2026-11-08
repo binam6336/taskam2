@@ -47,8 +47,9 @@ $this->scripts[] = 'tasks';
                     <div class="field" data-tour="project"><label>پروژه <span class="req" aria-hidden="true">*</span></label><div data-rselect="project_id"></div></div>
                     <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div>
                         <input type="hidden" name="assignee_group_id" value="" data-group-input>
+                        <input type="hidden" name="group_head_approval" value="0" data-group-head-off>
                         <label class="grp-head-row" id="grp-head-row" hidden><input type="checkbox" name="group_head_approval" value="1" data-group-head>
-                            <span><b>تأیید با سرگروه</b><small>هر عضو تیک خودش را می‌زند و تسک فقط با تیک سرگروه تحویل می‌شود؛ بدون این گزینه تیک هر عضو تسک را تحویل می‌دهد.</small></span></label>
+                            <span><b id="grp-head-label">تحویل با تیک سرگروه</b><small>پیشنهادی: هر عضو تیک سهم خودش را می‌زند و تسک فقط با تیک سرگروه تحویل می‌شود. خاموش = اولین تیکِ هر عضو کل تسک را تحویل می‌دهد.</small></span></label>
                     </div>
                 </div>
                 <button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more"><i class="fa-solid fa-chevron-down"></i> گزینه‌های بیشتر</button>

@@ -1,6 +1,6 @@
 <?php
 /** مدیریت تیم ← دپارتمان / گروه (v5.10؛ فلوی ساخت دومرحله‌ای v5.11)
- * @var array $projects @var int $current @var string $q @var array $groups @var array $manage @var array $analytics @var array $manageable @var int $total */
+ * @var array $projects @var int $current @var string $q @var array $groups @var array $manage @var array $analytics @var array $manageable @var int $total @var array $canAssign */
 $this->scripts[] = 'groups';
 $me = (int) (\App\Core\Auth::user()['id'] ?? 0);
 ?>
@@ -31,16 +31,21 @@ $me = (int) (\App\Core\Auth::user()['id'] ?? 0);
 <div class="grp-grid">
     <?php foreach ($groups as $g): $gp = pid('project_groups', $g); $pp = pid('projects', (int) $g['project_id']); $head = null; $canM = !empty($manage[(int) $g['project_id']]);
         foreach ($g['members'] as $m) { if ((int) $m['id'] === (int) $g['head_id']) { $head = $m; } } ?>
-    <article class="card grp-card" id="grp-<?= e($gp) ?>">
+    <?php $blk = $g['blocked_at'] !== null; ?>
+    <article class="card grp-card<?= $blk ? ' is-blocked' : '' ?>" id="grp-<?= e($gp) ?>">
         <div class="grp-head">
             <span class="grp-ic" aria-hidden="true"><i class="fa-solid fa-people-group"></i></span>
-            <div class="grow min0"><h3 class="truncate"><?= e($g['title']) ?></h3>
+            <div class="grow min0"><h3 class="truncate"><?= e($g['title']) ?><?php if ($blk): ?> <span class="badge red xs" title="تسک جدید نمی‌گیرد؛ تسک‌های فعلی‌اش ادامه دارد"><i class="fa-solid fa-ban"></i> مسدود</span><?php endif; ?></h3>
                 <div class="xs muted truncate"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> <?= e($g['project_title']) ?></div>
                 <?php if ($g['description']): ?><p class="xs muted grp-desc"><?= e($g['description']) ?></p><?php endif; ?></div>
             <?php if ($canM): ?>
             <div class="flex gap-1">
                 <button type="button" class="btn btn-sm btn-icon" data-edit-group="<?= e($gp) ?>" data-group='<?= e(json_html(['id' => $gp, 'project' => $pp, 'title' => $g['title'], 'description' => (string) $g['description'], 'head_id' => $g['head_id'] !== null ? pid('users', (int) $g['head_id']) : null, 'members' => array_map(static fn($m) => pid('users', (int) $m['id']), $g['members'])])) ?>' title="ویرایش گروه" aria-label="ویرایش گروه «<?= e($g['title']) ?>»"><i class="fa-solid fa-pen"></i></button>
-                <button type="button" class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/groups/' . $gp . '/delete')) ?>" data-confirm="گروه «<?= e($g['title']) ?>» حذف شود؟ (فقط گروهی که هیچ تسکی ندارد حذف می‌شود)" title="حذف گروه" aria-label="حذف گروه «<?= e($g['title']) ?>»"><i class="fa-solid fa-trash"></i></button>
+                <?php if ($blk): // مسدود کردن به‌جای حذف (v5.12) ?>
+                <button type="button" class="btn btn-sm btn-icon" data-post="<?= e(url('/groups/' . $gp . '/unblock')) ?>" title="رفع مسدودی گروه" aria-label="رفع مسدودی گروه «<?= e($g['title']) ?>»"><i class="fa-solid fa-lock-open"></i></button>
+                <?php else: ?>
+                <button type="button" class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/groups/' . $gp . '/block')) ?>" data-confirm="گروه «<?= e($g['title']) ?>» مسدود شود؟ دیگر تسک جدید نمی‌گیرد؛ تسک‌های فعلی‌اش (<?= e(fa_num($g['open_tasks'])) ?> باز) عادی ادامه پیدا می‌کنند و به همین گروه می‌مانند. با «رفع مسدودی» برمی‌گردد." title="مسدود کردن گروه" aria-label="مسدود کردن گروه «<?= e($g['title']) ?>»"><i class="fa-solid fa-ban"></i></button>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>
@@ -52,6 +57,9 @@ $me = (int) (\App\Core\Auth::user()['id'] ?? 0);
             <?php if ($tq): ?><a href="<?= e(url('/tasks') . '?' . http_build_query($tq)) ?>" title="تسک‌های باز این گروه"><i class="fa-solid fa-list-check"></i> <?= e(fa_num($g['open_tasks'])) ?> تسک باز</a>
             <?php else: ?><span><i class="fa-solid fa-list-check"></i> <?= e(fa_num($g['open_tasks'])) ?> تسک باز</span><?php endif; ?>
         </div>
+        <?php if (!$blk && !empty($canAssign[(int) $g['project_id']])): // تسک برای این گروه (v5.12): فرم تسک با پروژه و گروه پرشده ?>
+        <a class="btn btn-sm grp-new-task" href="<?= e(url('/tasks') . '?' . http_build_query(['new' => 1, 'project' => $pp, 'assign' => 'g:' . $gp])) ?>"><i class="fa-solid fa-plus"></i> تسک برای این گروه</a>
+        <?php endif; ?>
         <ul class="grp-members" aria-label="اعضای گروه">
             <?php foreach ($g['members'] as $m): $isHead = (int) $m['id'] === (int) $g['head_id']; ?>
             <li class="grp-m<?= $isHead ? ' is-head' : '' ?>"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar'] ?? null), 'size' => 'sm']); ?><span class="truncate"><?= e(full_name($m)) ?></span><?php if ($isHead): ?><i class="fa-solid fa-crown grp-crown" title="سرگروه" aria-label="سرگروه"></i><?php endif; ?></li>

@@ -85,7 +85,7 @@ final class GroupModel
         $rows = DB::all("SELECT g.*, p.title AS project_title, p.profile_image AS project_image,
                 (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id AND t.is_completed = 0 AND t.blocked_at IS NULL) open_tasks,
                 (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id) all_tasks
-            FROM project_groups g JOIN projects p ON p.id = g.project_id WHERE $where ORDER BY p.title, g.title LIMIT 500", $params);
+            FROM project_groups g JOIN projects p ON p.id = g.project_id WHERE $where ORDER BY g.blocked_at IS NOT NULL, p.title, g.title LIMIT 500", $params);
         if (!$rows) {
             return [];
         }
@@ -110,15 +110,15 @@ final class GroupModel
             return [];
         }
         $out = [];
-        $groups = DB::all('SELECT g.id, g.project_id, g.title, g.head_id, (SELECT COUNT(*) FROM project_group_members m WHERE m.group_id = g.id) n
-            FROM project_groups g WHERE g.project_id IN (' . DB::in($projectIds) . ') ORDER BY g.title', $projectIds);
+        $groups = DB::all('SELECT g.id, g.project_id, g.title, g.head_id, (SELECT first_name FROM users WHERE id = g.head_id) head_first, (SELECT last_name FROM users WHERE id = g.head_id) head_last, (SELECT COUNT(*) FROM project_group_members m WHERE m.group_id = g.id) n
+            FROM project_groups g WHERE g.project_id IN (' . DB::in($projectIds) . ') AND g.blocked_at IS NULL ORDER BY g.title', $projectIds);
         foreach ($groups as $g) {
             if ((int) $g['n'] === 0) {
                 continue;
             }
             $out[Pid::of('projects', (int) $g['project_id'])][] = [
                 'id' => Pid::of('project_groups', (int) $g['id']), 'title' => $g['title'], 'count' => (int) $g['n'],
-                'has_head' => $g['head_id'] !== null,
+                'has_head' => $g['head_id'] !== null, 'head' => $g['head_id'] !== null ? trim($g['head_first'] . ' ' . $g['head_last']) : null,
             ];
         }
         return $out;

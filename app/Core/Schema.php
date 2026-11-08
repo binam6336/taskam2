@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '035';
+    public const VERSION = '036';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        // 036 مسدود کردن گروه
+        ['project_groups', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `created_by`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         // 035 دپارتمان / گروه
         ['tasks', 'assignee_group_id', "ADD COLUMN `assignee_group_id` INT UNSIGNED NULL DEFAULT NULL AFTER `assignee_id`, ADD COLUMN `group_head_approval` TINYINT(1) NOT NULL DEFAULT 0 AFTER `assignee_group_id`, ADD KEY `idx_tasks_group` (`assignee_group_id`, `is_completed`)", null],
         ['project_groups', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_project_groups_pid` (`pid`)", null],
@@ -120,6 +122,7 @@ final class Schema
         ['project_groups', '035_project_groups.sql'],
         ['project_group_members', '035_project_groups.sql'],
         ['task_group_ticks', '035_project_groups.sql'],
+        ['task_group_duties', '036_group_block_duties.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */

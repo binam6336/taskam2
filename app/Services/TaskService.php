@@ -29,7 +29,7 @@ final class TaskService
      * گروه مسئول (v5.10): [group_id|null, group_head_approval, خطا|null]. گروه باید مال همان پروژه باشد و عضو داشته باشد؛
      * «تأیید سرگروه» فقط وقتی گروه سرگروه دارد. ورودی نامعتبر (شناسه‌ی عمومی ناشناس) = -1 از Request.
      */
-    private static function groupInput(array $in, int $projectId): array
+    private static function groupInput(array $in, int $projectId, int $keep = 0): array
     {
         $gid = (int) ($in['assignee_group_id'] ?? 0);
         if ($gid === 0) {
@@ -42,7 +42,13 @@ final class TaskService
         if (!\App\Models\GroupModel::memberIds($gid)) {
             return [null, 0, self::err('این گروه هنوز عضوی ندارد.', 'GROUP_EMPTY')];
         }
-        $head = $g['head_id'] !== null && !empty($in['group_head_approval']) && (string) $in['group_head_approval'] !== '0' ? 1 : 0;
+        // گروه مسدود (v5.12) تسک تازه نمی‌گیرد؛ تسک‌هایی که از قبل دارد عادی ادامه پیدا می‌کنند
+        if ($g['blocked_at'] !== null && $gid !== $keep) {
+            return [null, 0, self::err('این گروه مسدود شده است و تسک جدید نمی‌گیرد.', 'GROUP_BLOCKED', 403)];
+        }
+        // پیش‌فرض امن (v5.12): گروهِ دارای سرگروه = «تحویل با تیک سرگروه» مگر صریحاً خاموش شده باشد
+        $want = array_key_exists('group_head_approval', $in) ? (!empty($in['group_head_approval']) && (string) $in['group_head_approval'] !== '0' && $in['group_head_approval'] !== 'false') : true;
+        $head = $g['head_id'] !== null && $want ? 1 : 0;
         return [$gid, $head, null];
     }
 
@@ -170,10 +176,17 @@ final class TaskService
         }
         $people = [];
         $out = [];
+        $grp = [];
+        try {
+            $grp = \App\Models\GroupModel::optionsFor($ids);
+        } catch (\Throwable $e) {
+        }
         foreach ($projects as $p) {
             $pid = (int) $p['id'];
             $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
-            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid)];
+            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid),
+                // گروه‌های پروژه برای @ در ثبت سریع (v5.12)
+                'groups' => $grp[\App\Core\Pid::of('projects', $pid)] ?? []];
             foreach ($mem as $m) {
                 $people[$m] = true;
             }
@@ -334,7 +347,7 @@ final class TaskService
         // واگذاری به گروه (v5.10): assignee_group_id > 0 = گروه (مسئول فردی خالی)، خالی = مسئول فردی
         $proj = $newProject ?? (int) $t['project_id'];
         if ($has('assignee_group_id') && (int) $in['assignee_group_id'] !== 0) {
-            [$gid, $headApproval, $ge] = self::groupInput($in, (int) $proj);
+            [$gid, $headApproval, $ge] = self::groupInput($in, (int) $proj, (int) $t['assignee_group_id']);
             if ($ge !== null) {
                 return $ge;
             }

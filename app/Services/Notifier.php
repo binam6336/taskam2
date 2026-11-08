@@ -129,11 +129,15 @@ final class Notifier
     }
 
     /** سرپرست تسک را به «بازبینی مسئول» برگرداند → برای مسئول تسک (یا سازنده اگر مسئول ندارد) */
-    public static function taskReturned(array $task, int $actorId, ?string $reason): void
+    public static function taskReturned(array $task, int $actorId, ?string $reason, ?array $only = null): void
     {
-        // تسک گروهی (v5.10): همه‌ی اعضای گروه
+        // تسک گروهی (v5.10): همه‌ی اعضای گروه؛ با انتخاب سرپرست (v5.12) فقط اعضای انتخاب‌شده + سرگروه
         $gid = (int) ($task['assignee_group_id'] ?? 0);
         $to = $gid > 0 ? \App\Models\GroupModel::memberIds($gid) : [(int) ($task['assignee_id'] ?: $task['user_id'])];
+        if ($gid > 0 && $only !== null) {
+            $head = (int) (\App\Models\GroupModel::find($gid)['head_id'] ?? 0);
+            $to = array_values(array_intersect($to, array_merge(array_map('intval', $only), [$head])));
+        }
         $actor = UserModel::find($actorId);
         $msg = '↩️ تسک «' . $task['title'] . '» برای اصلاح به «بازبینی مسئول» برگشت' . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرپرست')
             . ($reason ? "\nعلت: " . $reason : '') . "\n\nپس از اصلاح، تسک را دوباره به «بررسی سرپرست» بفرستید.\n\n[[task:" . self::token($task) . ']]';
@@ -142,6 +146,16 @@ final class Notifier
                 self::sendFrom($actorId, $u, $msg);
             }
         }
+    }
+
+    /** وظیفه‌ی شخصی عضو روی تسک گروهی (v5.12) → پیام به همان عضو */
+    public static function groupDuty(array $task, int $actorId, int $memberId, string $duty): void
+    {
+        if ($memberId === $actorId) {
+            return;
+        }
+        $actor = UserModel::find($actorId);
+        self::sendFrom($actorId, $memberId, '📝 وظیفه‌ی شما در تسک گروهی «' . $task['title'] . '»' . "\n\n" . $duty . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرگروه') . "\n\n[[task:" . self::token($task) . ']]');
     }
 
     /** تسک گروهی با تأیید سرگروه: همه‌ی اعضا تیک زدند → پیام به سرگروه */

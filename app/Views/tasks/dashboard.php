@@ -38,7 +38,7 @@ $mix = $focus['mix'];
 $mixTotal = $mix['high'] + $mix['medium'] + $mix['low'];
 $sg = $focus['suggest'];
 $w = $waiting;
-$wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']) + count($w['review']) + count($w['rework']);
+$wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) + count($w['invites']) + count($w['review']) + count($w['rework']) + count($w['headwait'] ?? []);
 ?>
 <div data-live="dash-top">
 <div class="dash-hello mb-2">
@@ -102,7 +102,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                     <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
-                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div>
+                        <div class="xs faint truncate"><?php if (!empty($t['assignee_group_id'])): // تسک گروهی (v5.12): گروه، تحویل‌دهنده و تیک‌ها ?><i class="fa-solid fa-people-group"></i> گروه <?= e((string) $t['group_title']) ?> · تحویل: <?= e(trim($t['deliverer_first'] . ' ' . $t['deliverer_last']) ?: '—') ?><?= (int) $t['delivered_by_head'] ? ' (سرگروه)' : '' ?> · <?= e(fa_num($t['group_ticked'])) ?> از <?= e(fa_num($t['group_members'])) ?> تیک • <?php else: ?>مسئول: <?= e(full_name($t)) ?> • <?php endif; ?><?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div>
                         <?php // پیش‌نمایش کار پیش از تأیید: آخرین یادداشت مسئول، پیوست‌ها و تحویل نسبت به سررسید (v5.4)
                         $dl = $t['delivered_at'] ? substr((string) $t['delivered_at'], 0, 10) : date('Y-m-d');
                         $lateDays = $t['due_date'] && $dl > $t['due_date'] ? (int) round((strtotime($dl) - strtotime((string) $t['due_date'])) / 86400) : 0; ?>
@@ -115,6 +115,20 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                     <div class="flex gap-1 dash-review-acts">
                         <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . pid('tasks', $t) . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
                         <button type="button" class="btn btn-xs" data-dash-rework="<?= e(pid('tasks', $t)) ?>" title="برگرداندن برای اصلاح"><i class="fa-solid fa-rotate-left"></i> اصلاح</button>
+                    </div></div>
+            <?php endforeach; ?></div></div>
+        <?php endif; ?>
+
+        <?php if (!empty($w['headwait'])): // سرگروه (v5.12): تسک‌های گروهی منتظر تیک تحویل من ?>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-crown" data-css="color:var(--warn)"></i> منتظر تیک سرگروه (شما)</b></div>
+            <div class="list"><?php foreach ($w['headwait'] as $t): ?>
+                <div class="item dash-wait-item dash-review-item">
+                    <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
+                    <span class="avatar sm sq dash-grp-ico" aria-hidden="true"><i class="fa-solid fa-people-group"></i></span>
+                    <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b></div>
+                        <div class="xs faint truncate">گروه <?= e((string) $t['group_title']) ?> · <b class="<?= (int) $t['group_ticked'] >= (int) $t['group_members'] - 1 ? 'dash-pv-ok' : '' ?>"><?= e(fa_num($t['group_ticked'])) ?> از <?= e(fa_num($t['group_members'])) ?> عضو</b> تیک زده‌اند<?= $t['project_title'] ? ' • ' . e($t['project_title']) : '' ?></div></div></a>
+                    <div class="flex gap-1 dash-review-acts">
+                        <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . pid('tasks', $t) . '/toggle')) ?>" data-confirm="تسک «<?= e($t['title']) ?>» از طرف گروه تحویل شود؟" data-danger="0" title="تحویل تسک گروه"><i class="fa-solid fa-paper-plane"></i> تحویل</button>
                     </div></div>
             <?php endforeach; ?></div></div>
         <?php endif; ?>

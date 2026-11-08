@@ -18,7 +18,9 @@ document.addEventListener('tk:ready', () => {
   const assignable = () => {
     const p = project(); const all = opt?.people || [];
     if (!p) return all.filter((x) => x.me);
-    return all.filter((x) => x.me || (p.can_assign && p.members.includes(x.id)));
+    // گروه‌های پروژه (v5.12) اول؛ مقدار «g:<شناسه>»
+    const groups = p.can_assign ? (p.groups || []).map((g) => ({ id: 'g:' + g.id, name: 'گروه ' + g.title, group: true, note: TK.fa(g.count) + ' عضو' + (g.head ? ' · تحویل با ' + g.head : '') })) : [];
+    return [...groups, ...all.filter((x) => x.me || (p.can_assign && p.members.includes(x.id)))];
   };
 
   const chip = (icon, label, value, kind, extra = '') => `<span class="qk-chip ${extra}"><i class="fa-solid ${icon}"></i> ${label}: <b>${E(value)}</b>${kind ? `<button type="button" class="qk-x" data-qk-clear="${kind}" aria-label="حذف ${label}"><i class="fa-solid fa-xmark"></i></button>` : ''}</span>`;
@@ -29,7 +31,7 @@ document.addEventListener('tk:ready', () => {
     else if (opt) h += '<span class="qk-chip warn"><i class="fa-solid fa-triangle-exclamation"></i> پروژه‌ای ندارید؛ اول یک پروژه بسازید.</span>';
     if (who) {
       const bad = sel.person && p && !assignable().some((x) => x.id === sel.person.id);
-      h += chip('fa-user', 'مسئول', who.name, sel.person ? 'person' : '', bad ? 'warn' : '');
+      h += chip(who.group ? 'fa-people-group' : 'fa-user', 'مسئول', who.name, sel.person ? 'person' : '', bad ? 'warn' : '');
       if (bad) h += '<span class="qk-chip warn"><i class="fa-solid fa-circle-info"></i> این فرد در پروژه‌ی انتخاب‌شده قابل انتخاب به‌عنوان مسئول نیست.</span>';
     }
     chips.innerHTML = h;
@@ -48,8 +50,8 @@ document.addEventListener('tk:ready', () => {
       return;
     }
     menu.innerHTML = ac.items.map((it, i) => `<div class="qk-opt${i === ac.idx ? ' active' : ''}" role="option" id="qk-o${i}" aria-selected="${i === ac.idx}" data-i="${i}">`
-      + (ac.type === '@' ? `<span class="avatar xs">${it.avatar ? `<img src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>` : '<i class="fa-solid fa-diagram-project"></i>')
-      + `<span>${E(ac.type === '@' ? it.name : it.title)}</span></div>`).join('');
+      + (ac.type === '@' ? (it.group ? '<span class="avatar xs sq"><i class="fa-solid fa-people-group"></i></span>' : `<span class="avatar xs">${it.avatar ? `<img src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>`) : '<i class="fa-solid fa-diagram-project"></i>')
+      + `<span>${E(ac.type === '@' ? it.name : it.title)}${it.note ? ` <small class="faint">${E(it.note)}</small>` : ''}</span></div>`).join('');
     menu.hidden = false; inp.setAttribute('aria-expanded', 'true'); inp.setAttribute('aria-activedescendant', 'qk-o' + ac.idx);
   };
   const detect = async () => {
@@ -104,7 +106,8 @@ document.addEventListener('tk:ready', () => {
     if (loose && !(await TK.confirm(`«${loose[2]}» در عنوان به ${loose[2][0] === '@' ? 'هیچ فردی' : 'هیچ پروژه‌ای'} وصل نشده و به‌صورت متن در عنوان ذخیره می‌شود${loose[2][0] === '@' ? ' و مسئول تسک خودتان می‌شوید' : ''}. همین‌طور ثبت شود؟`, { okText: 'ثبت همین‌طور', danger: false }))) { inp.focus(); return; }
     const btn = TK.qs('#qk-submit'); btn.disabled = true;
     const p = sel.project, who = sel.person;
-    const r = await TK.post('/tasks/quick', { title, project_id: p ? p.id : '', assignee_id: who ? who.id : '' });
+    const g = who && who.group;
+    const r = await TK.post('/tasks/quick', { title, project_id: p ? p.id : '', assignee_id: who && !g ? who.id : '', assignee_group_id: g ? who.id.slice(2) : '' });
     btn.disabled = false;
     if (!TK.ok(r)) { TK.toast(r.message || 'خطا', 'error'); return; }
     if (p) opt.default_project = p.id;                    // پروژه‌ی پیش‌فرض بعدی = همین

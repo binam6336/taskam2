@@ -23,7 +23,7 @@ final class AdminLog
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
         'support_messages' => ['پیام تیکت', null], 'texts' => ['متن آماده', 'title'], 'users' => ['پروفایل کاربر', null],
-        'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null],
+        'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null], 'task_group_duties' => ['وظیفه‌ی شخصی عضو گروه', 'duty'],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */

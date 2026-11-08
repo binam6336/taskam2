@@ -49,7 +49,7 @@ document.addEventListener('tk:ready', () => {
 
   // مرحله‌ی ۲: فرم گروه برای یک پروژه (ساخت یا ویرایش)
   const openForm = async (project, g) => {
-    TK.resetForm(form);
+    TK.resetForm(form); editing = g ? g.id : null;
     form.elements.project_id.value = project;
     TK.qs('#m-group-title').textContent = g ? 'ویرایش گروه «' + g.title + '»' : 'گروه جدید';
     form.setAttribute('action', TK.url(g ? '/groups/' + g.id + '/update' : '/groups'));
@@ -78,7 +78,21 @@ document.addEventListener('tk:ready', () => {
   changeBtn.addEventListener('click', () => { TK.modal.close('m-group'); TK.modal.open('m-group-proj'); });
   // داده‌ی هر گروه روی دکمه‌ی خودش (داخل بخش زنده؛ بعد از ذخیره بدون رفرش کامل هم تازه است)
   TK.on('click', '[data-edit-group]', (e, b) => { try { const g = JSON.parse(b.dataset.group); openForm(g.project, g); } catch { /* داده‌ی نامعتبر */ } });
-  form.addEventListener('submit', (e) => {
-    if (!TK.qs('input[name="members[]"]:checked', list)) { e.preventDefault(); e.stopImmediatePropagation(); TK.toast('دست‌کم یک عضو برای گروه انتخاب کنید.', 'error'); }
+  let editing = null, confirmed = false;
+  form.addEventListener('submit', async (e) => {
+    if (!TK.qs('input[name="members[]"]:checked', list)) { e.preventDefault(); e.stopImmediatePropagation(); TK.toast('دست‌کم یک عضو برای گروه انتخاب کنید.', 'error'); return; }
+    // ویرایش (v5.12): بیرون رفتن عضوی که در تسک‌های باز گروه سهم دارد = هشدار پیش از ذخیره
+    if (!editing || confirmed) { confirmed = false; return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    const mem = TK.qsa('input[name="members[]"]:checked', list).map((c) => c.value);
+    const r = await TK.post('/groups/' + editing + '/impact', { members: mem });
+    const gone = (TK.ok(r) && r.removed) || [];
+    if (gone.length) {
+      const txt = gone.map((u) => `«${u.name}»${u.ticked ? ` (در ${TK.fa(u.ticked)} تسک تیک زده)` : ''}`).join('، ');
+      const ok = await TK.confirm(`${txt} از گروه بیرون می‌رود؛ گروه ${TK.fa(gone[0].open)} تسک باز دارد. بعد از ذخیره این عضو دیگر تسک‌های گروه را نمی‌بیند، تیک و وظیفه‌ی شخصی‌اش روی آن‌ها پاک و خروجش در تاریخچه‌ی هر تسک ثبت می‌شود. ادامه می‌دهید؟`, { okText: 'بیرون بردن و ذخیره', danger: true });
+      if (!ok) return;
+    }
+    confirmed = true;
+    form.requestSubmit ? form.requestSubmit() : form.submit();
   });
 });

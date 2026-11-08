@@ -135,7 +135,11 @@ $router->group(['panel'], function ($r) {
     $r->get('/groups/members', [GroupController::class, 'members']);
     $r->post('/groups', [GroupController::class, 'store']);
     $r->post('/groups/{group}/update', [GroupController::class, 'update']);
-    $r->post('/groups/{group}/delete', [GroupController::class, 'delete']);
+    $r->post('/groups/{group}/block', [GroupController::class, 'block']);
+    $r->post('/groups/{group}/unblock', [GroupController::class, 'unblock']);
+    $r->post('/groups/{group}/impact', [GroupController::class, 'impact']);
+    $r->post('/tasks/{task}/group-duty', [GroupController::class, 'duty']);
+    $r->post('/tasks/{task}/group-tick', [GroupController::class, 'memberTick']);
 
     // پروژه‌ها
     $r->get('/projects', [ProjectController::class, 'index']);

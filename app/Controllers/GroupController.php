@@ -23,15 +23,16 @@ final class GroupController extends Controller
         $cur = in_array($want, $pids, true) ? $want : 0;
         $q = mb_substr(trim((string) ($this->request->query['q'] ?? '')), 0, 80);
         $groups = GroupModel::forProjects($cur ? [$cur] : $pids, $q);
-        $manage = $analytics = [];
+        $manage = $analytics = $assign = [];
         foreach ($pids as $pid) {
             $manage[$pid] = GroupService::canManage($pid, $uid);
             $analytics[$pid] = \App\Services\Access::projectCan($pid, $uid, 'view_analytics');
+            $assign[$pid] = \App\Services\Access::canAssignOnCreate($pid, $uid);
         }
         // پنجره‌ی «گروه جدید» ← مرحله‌ی اول: فقط پروژه‌هایی که کاربر در آن‌ها گروه می‌سازد
         $manageable = array_values(array_filter($projects, static fn($p) => $manage[(int) $p['id']]));
         $this->view('groups/index', [
-            'projects' => $projects, 'current' => $cur, 'q' => $q, 'groups' => $groups, 'manage' => $manage, 'analytics' => $analytics,
+            'projects' => $projects, 'current' => $cur, 'q' => $q, 'groups' => $groups, 'manage' => $manage, 'analytics' => $analytics, 'canAssign' => $assign,
             'manageable' => $manageable, 'total' => $pids && ($cur || $q !== '') ? (int) DB::value('SELECT COUNT(*) FROM project_groups WHERE project_id IN (' . DB::in($pids) . ')', $pids) : count($groups),
         ], ['title' => 'دپارتمان / گروه', 'page' => 'groups']);
     }
@@ -42,7 +43,7 @@ final class GroupController extends Controller
         $uid = $this->uid();
         $pid = (int) ($this->request->query['project'] ?? 0);
         if ($pid <= 0 || !GroupService::canManage($pid, $uid)) {
-            $this->fail('برای ساخت گروه در این پروژه مجوز «افزودن کاربر» لازم است.', 403);
+            $this->fail('ساخت گروه در این پروژه با سرپرست و نقش‌های بالاتر (یا مجوز «افزودن کاربر») است.', 403);
         }
         $p = DB::one('SELECT p.title, p.user_id, u.first_name, u.last_name, u.avatar FROM projects p JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$pid]);
         $out = [];
@@ -71,10 +72,37 @@ final class GroupController extends Controller
         $this->respond($res['ok'], $res['message'], '/groups');
     }
 
-    public function delete(string $id)
+    /** مسدود کردن گروه به‌جای حذف (v5.12) */
+    public function block(string $id)
     {
-        $res = GroupService::delete($this->uid(), (int) $id);
+        $res = GroupService::setBlocked($this->uid(), (int) $id, true);
         $this->respond($res['ok'], $res['message'], '/groups');
+    }
+
+    public function unblock(string $id)
+    {
+        $res = GroupService::setBlocked($this->uid(), (int) $id, false);
+        $this->respond($res['ok'], $res['message'], '/groups');
+    }
+
+    /** هشدار پیش از ذخیره‌ی ویرایش: اعضایی که بیرون می‌روند و در تسک‌های باز گروه سهم دارند */
+    public function impact(string $id)
+    {
+        $this->ok('', ['removed' => GroupService::removalImpact($this->uid(), (int) $id, array_map('intval', $this->request->arr('members')))]);
+    }
+
+    /** وظیفه‌ی شخصی یک عضو روی تسک گروهی (سرگروه / سازنده‌ی تسک / مدیر گروه‌ها) */
+    public function duty(string $task)
+    {
+        $res = GroupService::setDuty($this->uid(), (int) $task, (int) $this->request->input('member_id', 0), $this->request->str('duty', 600));
+        $this->respond($res['ok'], $res['message'], '/tasks');
+    }
+
+    /** سرگروه تیک یک عضو را می‌زند یا برمی‌دارد */
+    public function memberTick(string $task)
+    {
+        $res = GroupService::setMemberTick($this->uid(), (int) $task, (int) $this->request->input('member_id', 0), $this->request->input('on', '1') === '1');
+        $this->respond($res['ok'], $res['message'], '/tasks');
     }
 
     private function input(): array

@@ -128,6 +128,9 @@ final class TaskHistory
             if ($i['type'] === 'created') {
                 $uids[] = $i['data']['assignee'] ?? null;
             }
+            if (isset($i['data']['user']) && in_array($i['type'], ['group_tick_by', 'group_untick_by', 'group_duty'], true)) {
+                $uids[] = $i['data']['user'];
+            }
         }
         $uids = array_values(array_unique(array_filter($uids)));
         $users = [];
@@ -146,6 +149,10 @@ final class TaskHistory
             }
             if ($i['type'] === 'created') {
                 $d['assignee_user'] = $who($d['assignee'] ?? null);
+            }
+            if (in_array($i['type'], ['group_tick_by', 'group_untick_by', 'group_duty'], true)) {
+                $d['user_user'] = $who($d['user'] ?? null);
+                unset($d['user']);                            // شناسه‌ی عددی بیرون نرود
             }
             if ($i['type'] === 'board') {
                 $d['from'] = $labels[$d['from'] ?? ''] ?? '';
