@@ -185,6 +185,23 @@ final class Schema
         };
         $ok = true;
         try {
+            // اول جدول‌های جدید (v5.12.1): ستون‌های بعدی ممکن است مال همین جدول‌ها باشند (مثل project_groups.blocked_at)؛
+            // قبلاً ستون‌ها اول اجرا می‌شدند و روی سرور تازه خطای «جدول نیست» و تغییرات ناقص می‌ماند
+            foreach (self::TABLES as [$table, $file]) {
+                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) > 0) {
+                    continue;
+                }
+                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
+                if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
+                    try {
+                        DB::run($m[0]);
+                        $say('✓ جدول ' . $table . ' ساخته شد');
+                    } catch (\Throwable $e) {
+                        $ok = false;
+                        $fail('جدول ' . $table, $e);
+                    }
+                }
+            }
             $cols = [];
             foreach (DB::all('SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE()') as $r) {
                 $cols[strtolower((string) $r['t']) . '.' . strtolower((string) $r['c'])] = true;
@@ -215,21 +232,6 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('مقدار ENUM ' . $table . '.' . $col, $e);
-                }
-            }
-            foreach (self::TABLES as [$table, $file]) {
-                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) > 0) {
-                    continue;
-                }
-                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
-                if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
-                    try {
-                        DB::run($m[0]);
-                        $say('✓ جدول ' . $table . ' ساخته شد');
-                    } catch (\Throwable $e) {
-                        $ok = false;
-                        $fail('جدول ' . $table, $e);
-                    }
                 }
             }
             // ساخت pid ردیف‌های بدون شناسه‌ی عمومی (v5.0)
