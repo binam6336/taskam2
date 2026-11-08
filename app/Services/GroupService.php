@@ -175,6 +175,27 @@ final class GroupService
         return Access::isGroupHead($task, $uid) || (int) $task['user_id'] === $uid || self::canManage((int) $task['project_id'], $uid);
     }
 
+    /**
+     * چه کسی وظیفه‌ی شخصی عضو $memberId را می‌نویسد (v5.12.3):
+     * گروهِ دارای سرگروه ← فقط سرگروه (برای هر عضو، از جمله خودش)؛ گروهِ بدون سرگروه ← هر عضو فقط برای خودش.
+     */
+    public static function canDuty(array $task, int $actor, int $memberId): bool
+    {
+        $gid = (int) ($task['assignee_group_id'] ?? 0);
+        if ($gid <= 0 || !empty($task['blocked_at']) || !GroupModel::isMember($gid, $actor)) {
+            return false;
+        }
+        $g = GroupModel::find($gid);
+        if ($g === null) {
+            return false;
+        }
+        $head = (int) ($g['head_id'] ?? 0);
+        if ($head > 0 && GroupModel::isMember($gid, $head)) {
+            return $actor === $head;
+        }
+        return $actor === $memberId;
+    }
+
     /** وظیفه‌ی شخصی یک عضو روی تسک گروهی (متن خالی = برداشتن) */
     public static function setDuty(int $actor, int $taskId, int $memberId, string $duty): array
     {
@@ -182,11 +203,11 @@ final class GroupService
         if ($t === null || !Access::canTask($t, $actor, 'view')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
         }
-        if (!self::canLead($t, $actor)) {
-            return self::err('وظیفه‌ی اعضا را فقط سرگروه، سازنده‌ی تسک یا مدیر گروه‌ها تعیین می‌کند.', 'FORBIDDEN', 403);
-        }
         if (!GroupModel::isMember((int) $t['assignee_group_id'], $memberId)) {
             return self::err('این کاربر عضو گروه این تسک نیست.', 'NOT_GROUP_MEMBER');
+        }
+        if (!self::canDuty($t, $actor, $memberId)) {
+            return self::err('وظیفه‌ی اعضا را فقط سرگروه می‌نویسد؛ در گروه بدون سرگروه هر عضو فقط وظیفه‌ی خودش را.', 'FORBIDDEN', 403);
         }
         $duty = trim(mb_substr(preg_replace('/[ \t]+/u', ' ', $duty), 0, 500));
         if ($duty === '') {

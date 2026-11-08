@@ -215,10 +215,13 @@ final class TaskController extends Controller
         $ids = \App\Models\GroupModel::memberIds($gid);
         $rows = $ids ? DB::all('SELECT id, first_name, last_name, avatar FROM users WHERE id IN (' . DB::in($ids) . ')', $ids) : [];
         $head = (int) $g['head_id'];
+        $hasHead = $head > 0 && in_array($head, array_map('intval', $ids), true);
         $members = array_map(static fn($u) => [
             'id' => Pid::of('users', (int) $u['id']), 'name' => full_name($u), 'avatar' => avatar_url($u['avatar']),
             'is_head' => (int) $u['id'] === $head, 'ticked' => isset($ticks[(int) $u['id']]), 'ticked_fa' => isset($ticks[(int) $u['id']]) ? jdate((string) $ticks[(int) $u['id']]) : null,
             'duty' => $duties[(int) $u['id']] ?? null, 'me' => (int) $u['id'] === $uid,
+            // وظیفه‌ی شخصی (v5.12.3): با سرگروه فقط سرگروه برای همه؛ بدون سرگروه هر عضو برای خودش
+            'can_duty' => $uid > 0 && empty($t['blocked_at']) && in_array($uid, array_map('intval', $ids), true) && ($hasHead ? $uid === $head : (int) $u['id'] === $uid),
         ], $rows);
         usort($members, static fn($a, $b) => ($b['is_head'] <=> $a['is_head']) ?: strcmp($a['name'], $b['name']));
         return ['id' => Pid::of('project_groups', $gid), 'title' => $g['title'], 'head_approval' => (int) $t['group_head_approval'] === 1 && $head > 0,

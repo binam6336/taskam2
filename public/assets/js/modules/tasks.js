@@ -373,7 +373,7 @@ document.addEventListener('tk:ready', () => {
       : lock('انجام شد', 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.');
   };
   /* تسک گروهی (v5.10): اعضا با تیک «انجام دادم» هر کدام؛ سرگروه با تاج */
-  /* تسک گروهی (v5.10، v5.12): اعضا با تیک و «وظیفه‌ی شخصی» هر کدام؛ سرگروه/سازنده/مدیر گروه‌ها تیک اعضا را می‌زند و وظیفه می‌نویسد */
+  /* تسک گروهی (v5.10، v5.12): اعضا با تیک و «وظیفه‌ی شخصی» هر کدام؛ سرگروه/سازنده/مدیر گروه‌ها تیک اعضا را می‌زند؛ وظیفه را فقط سرگروه (بدون سرگروه: هر عضو برای خودش، v5.12.3) */
   const groupBox = (t) => {
     const g = t.group; if (!g) return '';
     const head = g.members.find((m) => m.is_head);
@@ -384,8 +384,8 @@ document.addEventListener('tk:ready', () => {
         <div class="grow min0"><div class="tg-n">${m.is_head ? '<i class="fa-solid fa-crown tg-crown" aria-label="سرگروه"></i> ' : ''}${E(m.name)}${m.me ? ' <span class="xs faint">(شما)</span>' : ''}
             <span class="xs ${m.ticked ? 'tg-done' : 'faint'}">${m.ticked ? '· انجام داده' + (m.ticked_fa ? ' (' + E(m.ticked_fa) + ')' : '') : '· هنوز تیک نزده'}</span></div>
           ${m.duty ? `<div class="tg-duty${m.me ? ' mine' : ''}"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> ${m.me ? '<b>وظیفه‌ی تو:</b> ' : ''}${E(m.duty)}</div>` : ''}</div>
-        ${g.can_lead ? `<div class="tg-acts">${open && !(m.is_head && g.head_approval) ? `<button type="button" class="btn btn-xs btn-icon" data-gtick="${E(m.id)}" data-on="${m.ticked ? 0 : 1}" title="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}" aria-label="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}"><i class="fa-solid ${m.ticked ? 'fa-user-xmark' : 'fa-user-check'}"></i></button>` : ''}
-          <button type="button" class="btn btn-xs btn-icon" data-gduty="${E(m.id)}" data-name="${E(m.name)}" data-duty="${E(m.duty || '')}" title="وظیفه‌ی شخصی ${E(m.name)}" aria-label="وظیفه‌ی شخصی ${E(m.name)}"><i class="fa-solid fa-clipboard-list"></i></button></div>` : ''}
+        ${g.can_lead || m.can_duty ? `<div class="tg-acts">${g.can_lead && open && !(m.is_head && g.head_approval) ? `<button type="button" class="btn btn-xs btn-icon" data-gtick="${E(m.id)}" data-on="${m.ticked ? 0 : 1}" title="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}" aria-label="${m.ticked ? 'برداشتن تیک ' : 'زدن تیک '}${E(m.name)}"><i class="fa-solid ${m.ticked ? 'fa-user-xmark' : 'fa-user-check'}"></i></button>` : ''}
+          ${m.can_duty ? `<button type="button" class="btn btn-xs btn-icon" data-gduty="${E(m.id)}" data-name="${E(m.me ? 'خودت' : m.name)}" data-duty="${E(m.duty || '')}" title="${m.me ? 'وظیفه‌ی من' : 'وظیفه‌ی شخصی ' + E(m.name)}" aria-label="${m.me ? 'وظیفه‌ی من' : 'وظیفه‌ی شخصی ' + E(m.name)}"><i class="fa-solid fa-clipboard-list"></i></button>` : ''}</div>` : ''}
       </li>`;
     return `<div class="tg-box mb-2"><div class="flex between items-center gap-1 wrap mb-1"><b class="small"><i class="fa-solid fa-people-group"></i> اعضای گروه «${E(g.title)}» <span class="faint xs">${TK.fa(g.ticked)} از ${TK.fa(g.count)} تیک زده‌اند</span></b>${mode}</div>
       ${g.blocked ? '<div class="xs faint mb-1"><i class="fa-solid fa-ban"></i> این گروه مسدود شده؛ این تسک عادی ادامه دارد ولی تسک جدید نمی‌گیرد.</div>' : ''}
