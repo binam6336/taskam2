@@ -99,10 +99,8 @@ final class GroupService
                 DB::run('DELETE FROM task_group_duties WHERE task_id = ? AND user_id IN (' . DB::in($gone) . ')', array_merge([(int) $tid], $gone));
             }
         }
-        // بدون سرگروه، «تأیید سرگروه» روی تسک‌های باز معنی ندارد
-        if ($v['head'] === null) {
-            DB::run('UPDATE tasks SET group_head_approval = 0 WHERE assignee_group_id = ? AND is_completed = 0', [$groupId]);
-        }
+        // روند تحویل تسک‌های باز (v5.13) تابع سرگروه فعلی است؛ ستون group_head_approval آینه‌ی «گروه سرگروه دارد»
+        DB::run('UPDATE tasks SET group_head_approval = ? WHERE assignee_group_id = ? AND is_completed = 0', [$v['head'] === null ? 0 : 1, $groupId]);
         return self::res(true, 'گروه «' . $v['title'] . '» ذخیره شد.', '', 200, ['id' => $groupId]);
     }
 
@@ -239,6 +237,10 @@ final class GroupService
         }
         GroupModel::tick($taskId, $memberId, $on);
         TaskHistory::log($taskId, $actor, $on ? 'group_tick_by' : 'group_untick_by', ['user' => $memberId]);
+        // گروه بدون سرگروه (v5.13): با تیکِ آخرین عضو تسک خودکار تحویل می‌شود
+        if ($on && GroupModel::headOf($gid) === 0 && GroupModel::allTicked($taskId, $gid)) {
+            return \App\Services\TaskService::groupAutoDeliver($actor, $taskId);
+        }
         return self::res(true, $on ? 'تیک عضو زده شد.' : 'تیک عضو برداشته شد.');
     }
 

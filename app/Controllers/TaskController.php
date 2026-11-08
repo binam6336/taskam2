@@ -93,7 +93,7 @@ final class TaskController extends Controller
             'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
             // «در جریان» جدا از «منتظر تأیید»: کار تحویل‌داده‌شده دیگر کار مسئول نیست (v5.4)
             // تسک گروهی که سهم من تیک خورده و منتظر بقیه‌ی گروه است (v5.12): جدا از «در جریان»
-            'mine_waitgroup' => (int) DB::value("SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id IS NOT NULL AND t.group_head_approval = 1 AND t.is_completed = 0 AND t.blocked_at IS NULL
+            'mine_waitgroup' => (int) DB::value("SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id IS NOT NULL AND t.is_completed = 0 AND t.blocked_at IS NULL
                 AND t.board_status NOT IN ('review','done','rework') AND t.archived_at IS NULL AND EXISTS (SELECT 1 FROM task_group_ticks k WHERE k.task_id = t.id AND k.user_id = ?)", [$uid]),
             'mine_review' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . TaskModel::mine($uid) . " AND t.is_completed = 0 AND t.blocked_at IS NULL AND t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review'", [$uid]),
             'others_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid, $uid]),
@@ -224,8 +224,8 @@ final class TaskController extends Controller
             'can_duty' => $uid > 0 && empty($t['blocked_at']) && in_array($uid, array_map('intval', $ids), true) && ($hasHead ? $uid === $head : (int) $u['id'] === $uid),
         ], $rows);
         usort($members, static fn($a, $b) => ($b['is_head'] <=> $a['is_head']) ?: strcmp($a['name'], $b['name']));
-        return ['id' => Pid::of('project_groups', $gid), 'title' => $g['title'], 'head_approval' => (int) $t['group_head_approval'] === 1 && $head > 0,
-            'has_head' => $head > 0, 'blocked' => $g['blocked_at'] !== null, 'members' => $members,
+        return ['id' => Pid::of('project_groups', $gid), 'title' => $g['title'], 'head_approval' => $hasHead,
+            'has_head' => $hasHead, 'blocked' => $g['blocked_at'] !== null, 'members' => $members,
             // اختیارات سرگروه (سرگروه / سازنده‌ی تسک / مدیر گروه‌ها): وظیفه‌ی شخصی و تیک اعضا
             'can_lead' => $uid > 0 && \App\Services\GroupService::canLead($t, $uid), 'ticked' => count(array_intersect(array_map('intval', array_keys($ticks)), $ids)), 'count' => count($ids)];
     }

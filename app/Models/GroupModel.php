@@ -34,6 +34,21 @@ final class GroupModel
         return $id > 0 ? DB::one('SELECT * FROM project_groups WHERE id = ? LIMIT 1', [$id]) : null;
     }
 
+    /** سرگروه فعلی گروه (فقط اگر هنوز عضو گروه باشد؛ ۰ = گروه بدون سرگروه) */
+    public static function headOf(int $groupId): int
+    {
+        $g = self::find($groupId);
+        $h = (int) ($g['head_id'] ?? 0);
+        return $h > 0 && self::isMember($groupId, $h) ? $h : 0;
+    }
+
+    /** آیا همه‌ی اعضای گروه روی این تسک تیک زده‌اند؟ ($except = بدون این عضو، مثلاً سرگروه) */
+    public static function allTicked(int $taskId, int $groupId, int $except = 0): bool
+    {
+        $need = array_diff(self::memberIds($groupId), [$except]);
+        return $need !== [] && !array_diff($need, array_map('intval', array_keys(self::ticks($taskId))));
+    }
+
     /** شناسه‌ی اعضای گروه */
     public static function memberIds(int $groupId): array
     {

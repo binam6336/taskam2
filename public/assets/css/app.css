@@ -2120,10 +2120,8 @@ html[data-theme="sage"] .stat .ico.purple { background: rgba(124, 92, 220, .14);
 .grp-opt input { accent-color: var(--g-600); }
 .grp-opt:has(input:checked) { background: rgba(var(--accent-rgb), .12); }
 /* فرم تسک: «تأیید با سرگروه» */
-.grp-head-row { display: flex; align-items: flex-start; gap: .5rem; margin-top: .5rem; padding: .5rem .6rem; border: 1px dashed var(--border-2); border-radius: var(--radius-sm); cursor: pointer; font-size: .82rem; }
-.grp-head-row[hidden] { display: none; }
-.grp-head-row input { margin-top: .3rem; accent-color: var(--g-600); }
-.grp-head-row span { display: flex; flex-direction: column; gap: .1rem; }
+.grp-flow-note { margin: .45rem 0 0; padding: .45rem .6rem; border: 1px dashed var(--border-2); border-radius: var(--radius-sm); line-height: 1.7; }
+.grp-flow-note[hidden] { display: none; }
 .grp-head-row small { color: var(--muted); line-height: 1.6; }
 /* لیست و برد */
 .t-grp-chip { display: inline-flex; align-items: center; gap: .3rem; padding: 1px 8px; border-radius: 999px; background: rgba(var(--accent-rgb), .1); color: var(--text) !important; }

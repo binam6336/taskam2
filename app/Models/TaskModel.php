@@ -322,7 +322,7 @@ final class TaskModel
      */
     public static function groupSql(int $uid): string
     {
-        $wait = "t.assignee_group_id IS NOT NULL AND t.group_head_approval = 1 AND t.is_completed = 0 AND t.board_status NOT IN ('review','done','rework')
+        $wait = "t.assignee_group_id IS NOT NULL AND t.is_completed = 0 AND t.board_status NOT IN ('review','done','rework')
             AND EXISTS (SELECT 1 FROM task_group_ticks gk WHERE gk.task_id = t.id AND gk.user_id = " . (int) $uid . ')';
         return str_replace('CASE WHEN t.is_completed = 1 THEN 6', 'CASE WHEN t.is_completed = 1 THEN 6 WHEN ' . $wait . ' THEN 4.5', self::GROUP_SQL);
     }
@@ -339,7 +339,7 @@ final class TaskModel
         if ($onBoard && ($t['board_status'] ?? '') === 'review') {
             return 5;
         }
-        if (!empty($t['my_group_tick']) && !empty($t['group_head_approval'])) {
+        if (!empty($t['my_group_tick']) && !empty($t['assignee_group_id'])) {
             return 7;                                          // منتظر بقیه‌ی گروه (سهم من تیک خورده)
         }
         $today = date('Y-m-d');

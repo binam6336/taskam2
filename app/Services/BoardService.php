@@ -442,7 +442,7 @@ final class BoardService
                 AND (t.assignee_id = ? OR " . \App\Models\GroupModel::memberSql($uid) . " OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND t.user_id = ?))
                 ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid, $uid]);
         // منتظر تیک سرگروه (v5.12): تسک‌های گروهی «تحویل با سرگروه» که من سرگروهشان هستم و هنوز تحویل نشده‌اند
-        $headwait = DB::all($sel . " WHERE t.assignee_group_id IS NOT NULL AND t.group_head_approval = 1 AND g.head_id = ? AND t.is_completed = 0 AND t.blocked_at IS NULL
+        $headwait = DB::all($sel . " WHERE t.assignee_group_id IS NOT NULL AND g.head_id = ? AND t.is_completed = 0 AND t.blocked_at IS NULL
                 AND t.archived_at IS NULL AND t.board_status NOT IN ('review','done','rework') ORDER BY t.due_date IS NULL, t.due_date, t.id DESC LIMIT " . max(1, $limit), [$uid]);
         return ['review' => $review, 'rework' => $rework, 'headwait' => $headwait];
     }
@@ -501,15 +501,21 @@ final class BoardService
     public static ?array $reworkOnly = null;
 
     /**
-     * تسک گروهی با «تأیید سرگروه» (v5.10): اعضای گروه (جز سرگروه) تسک را به بررسی سرپرست / انجام‌شده نمی‌برند؛
-     * هر عضو فقط تیک خودش را می‌زند و تحویل نهایی با تیک سرگروه است.
+     * روند تحویل تسک گروهی (v5.13): گروهِ دارای سرگروه ← اعضا (جز سرگروه) تسک را به بررسی سرپرست / انجام‌شده نمی‌برند و
+     * تحویل با تیک سرگروه است؛ گروه بدون سرگروه ← تسک فقط وقتی جلو می‌رود که همه‌ی اعضا تیک زده باشند.
      */
     public static function groupHeadError(array $t, int $actor, string $from, string $to): ?array
     {
-        if (empty($t['assignee_group_id']) || empty($t['group_head_approval']) || $from === 'review' || !in_array($to, ['review', 'done'], true)) {
+        if (empty($t['assignee_group_id']) || $from === 'review' || !in_array($to, ['review', 'done'], true)) {
             return null;
         }
-        if (Access::isAssignee($t, $actor) && !Access::isGroupHead($t, $actor)) {
+        $gid = (int) $t['assignee_group_id'];
+        $head = \App\Models\GroupModel::headOf($gid);
+        if ($head === 0) {
+            return \App\Models\GroupModel::allTicked((int) $t['id'], $gid) ? null
+                : self::res(false, 'این تسک گروهی سرگروه ندارد؛ وقتی همه‌ی اعضای گروه تیک «انجام شد» را بزنند خودکار برای بررسی می‌رود.', 'GROUP_ALL_REQUIRED', 409);
+        }
+        if (Access::isAssignee($t, $actor) && $actor !== $head) {
             return self::res(false, 'این تسک گروهی با تأیید سرگروه تحویل می‌شود؛ تیک «انجام شد» شما ثبت می‌شود و سرگروه آن را تحویل می‌دهد.', 'GROUP_HEAD_REQUIRED', 409);
         }
         return null;

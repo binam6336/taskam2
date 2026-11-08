@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '036';
+    public const VERSION = '037';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -105,6 +105,7 @@ final class Schema
         ['029', '029_admin_roles.sql'],
         ['030', '030_user_last_active.sql'],
         ['031', '031_sample_projects.sql'],
+        ['037', '037_group_delivery_flow.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */

@@ -78,16 +78,14 @@ document.addEventListener('tk:ready', () => {
   };
   rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); syncGroup(); });
   // گروه انتخاب‌شده: شناسه در assignee_group_id و گزینه‌ی «تأیید با سرگروه» فقط برای گروهِ دارای سرگروه
-  const grpInput = TK.qs('[data-group-input]', form), grpHead = TK.qs('[data-group-head]', form), grpRow = TK.qs('#grp-head-row', form), grpOff = TK.qs('[data-group-head-off]', form);
-  let grpLast = '';
+  const grpInput = TK.qs('[data-group-input]', form), grpNote = TK.qs('#grp-flow-note', form);
+  // روند تحویل گروه (v5.13) انتخابی نیست: با سرگروه = تیک سرگروه، بدون سرگروه = تیک همه‌ی اعضا
   const syncGroup = () => {
     const v = String(rs.assignee_id.get() || ''), o = rs.assignee_id.option(v), isG = v.startsWith('g:');
     grpInput.value = isG ? v.slice(2) : '';
-    grpRow.hidden = !(isG && o?.hasHead);
-    TK.qs('#grp-head-label', form).textContent = 'تحویل با تیک سرگروه' + (o?.head ? ' (' + o.head + ')' : '');
-    // پیش‌فرض امن (v5.12): با انتخاب گروهِ دارای سرگروه، تحویل با سرگروه روشن است
-    if (grpRow.hidden) grpHead.checked = false; else if (v !== grpLast) grpHead.checked = true;
-    grpLast = v;
+    grpNote.hidden = !isG;
+    grpNote.textContent = !isG ? '' : o?.hasHead ? 'هر عضو تیک سهم خودش را می‌زند؛ تسک با تیک سرگروه' + (o.head ? ' (' + o.head + ')' : '') + ' تحویل می‌شود.'
+      : 'گروه سرگروه ندارد؛ تسک وقتی برای بررسی می‌رود که همه‌ی اعضا تیک بزنند.';
   };
   rs.assignee_id.input.addEventListener('change', syncGroup);
 
@@ -207,7 +205,7 @@ document.addEventListener('tk:ready', () => {
     form.setAttribute('action', TK.url(action));
     TK.qs('#task-files-field').classList.toggle('hidden', !files);
     lock(['title', 'description', 'priority', 'due_date', 'due_time', 'subject_id', 'project_id', 'assignee_id'], false);
-    grpInput.disabled = grpHead.disabled = grpOff.disabled = false; grpLast = '';
+    grpInput.disabled = false;
     subjMode(false); descLinks.reset();
   };
 
@@ -239,7 +237,7 @@ document.addEventListener('tk:ready', () => {
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
-    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); grpHead.checked = false; syncGroup();
+    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); syncGroup();
     dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
@@ -268,7 +266,7 @@ document.addEventListener('tk:ready', () => {
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
     rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? ''));
     rs.assignee_id.set(d.assignee_group_id ? 'g:' + d.assignee_group_id : (d.assignee_id ?? cfg.me));
-    syncGroup(); grpHead.checked = !!d.group_head_approval && !grpRow.hidden; grpLast = String(rs.assignee_id.get() || '');
+    syncGroup();
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
@@ -276,7 +274,7 @@ document.addEventListener('tk:ready', () => {
     if (!c.edit_info) lock(['title', 'description'], true);
     if (!c.edit_due) lock(['due_date', 'due_time'], true);
     if (!c.edit_meta) lock(['priority', 'subject_id'], true);
-    if (!c.reassign) { lock(['assignee_id'], true); grpInput.disabled = grpHead.disabled = grpOff.disabled = true; }
+    if (!c.reassign) { lock(['assignee_id'], true); grpInput.disabled = true; }
     if (!c.change_project) lock(['project_id'], true);
     TK.modal.open(modal);
   };
@@ -356,10 +354,11 @@ document.addEventListener('tk:ready', () => {
         : '<span class="badge board-st tone-purple"><i class="fa-solid fa-hourglass-half"></i> منتظر تأیید سرپرست</span>';
     }
     if (t.is_completed) return c.complete ? '<button class="btn btn-sm" data-detail-toggle><i class="fa-solid fa-rotate-left"></i> بازگشت به بررسی سرپرست</button>' : '';
-    // عضو گروه با «تأیید سرگروه» (v5.10): فقط تیک سهم خودش؛ تحویل با سرگروه
+    // عضو گروه (v5.13): فقط تیک سهم خودش؛ تحویل با سرگروه یا با تیک همه‌ی اعضا (گروه بدون سرگروه)
     if (c.member_tick) {
-      return c.group?.ticked ? '<button class="btn btn-sm" data-detail-toggle title="تحویل نهایی با تیک سرگروه است"><i class="fa-solid fa-user-xmark"></i> برداشتن تیک من</button>'
-        : '<button class="btn btn-sm btn-primary" data-detail-toggle title="تحویل نهایی با تیک سرگروه است"><i class="fa-solid fa-user-check"></i> سهم من انجام شد</button>';
+      const why = c.group?.all_members ? 'تسک وقتی برای بررسی می‌رود که همه‌ی اعضا تیک بزنند' : 'تحویل نهایی با تیک سرگروه است';
+      return c.group?.ticked ? `<button class="btn btn-sm" data-detail-toggle title="${why}"><i class="fa-solid fa-user-xmark"></i> برداشتن تیک من</button>`
+        : `<button class="btn btn-sm btn-primary" data-detail-toggle title="${why}"><i class="fa-solid fa-user-check"></i> سهم من انجام شد</button>`;
     }
     if (c.status === null || c.status === undefined) return c.complete ? '<button class="btn btn-sm btn-primary" data-detail-toggle><i class="fa-solid fa-check"></i> انجام شد</button>' : lock('انجام شد', 'شما دسترسی لازم برای تکمیل تسک را ندارید.');
     // برگشت‌خورده برای اصلاح (v5.4): دکمه‌ی اصلی «اصلاح شد، ارسال دوباره»؛ انتقال به «برنامه‌ریزی‌نشده» فقط از منوی چیپ وضعیت
@@ -377,7 +376,7 @@ document.addEventListener('tk:ready', () => {
   const groupBox = (t) => {
     const g = t.group; if (!g) return '';
     const head = g.members.find((m) => m.is_head);
-    const mode = g.head_approval ? `<span class="badge yellow"><i class="fa-solid fa-crown"></i> تحویل با تیک سرگروه${head ? ' (' + E(head.name) + ')' : ''}</span>` : '<span class="badge">تیک هر عضو تحویل می‌دهد</span>';
+    const mode = g.head_approval ? `<span class="badge yellow"><i class="fa-solid fa-crown"></i> تحویل با تیک سرگروه${head ? ' (' + E(head.name) + ')' : ''}</span>` : '<span class="badge"><i class="fa-solid fa-users"></i> تحویل با تیک همه‌ی اعضا</span>';
     const open = t.can?.status && !['review', 'done', 'archived'].includes(t.can.status) && !t.is_blocked;
     const row = (m) => `<li class="tg-row${m.ticked ? ' on' : ''}${m.me ? ' me' : ''}">
         <span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}${m.ticked ? '<i class="fa-solid fa-check tg-ok" aria-hidden="true"></i>' : ''}</span>

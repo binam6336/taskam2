@@ -46,10 +46,9 @@ final class TaskService
         if ($g['blocked_at'] !== null && $gid !== $keep) {
             return [null, 0, self::err('این گروه مسدود شده است و تسک جدید نمی‌گیرد.', 'GROUP_BLOCKED', 403)];
         }
-        // پیش‌فرض امن (v5.12): گروهِ دارای سرگروه = «تحویل با تیک سرگروه» مگر صریحاً خاموش شده باشد
-        $want = array_key_exists('group_head_approval', $in) ? (!empty($in['group_head_approval']) && (string) $in['group_head_approval'] !== '0' && $in['group_head_approval'] !== 'false') : true;
-        $head = $g['head_id'] !== null && $want ? 1 : 0;
-        return [$gid, $head, null];
+        // روند تحویل (v5.13): گروهِ دارای سرگروه همیشه با تیک سرگروه، بدون سرگروه با تیک همه‌ی اعضا؛
+        // ستون group_head_approval فقط آینه‌ی «گروه سرگروه دارد» است و ورودی group_head_approval نادیده گرفته می‌شود
+        return [$gid, \App\Models\GroupModel::headOf($gid) > 0 ? 1 : 0, null];
     }
 
     /** خطای واگذاری به کاربری که مسدودی بین او و انجام‌دهنده هست (null = مشکلی نیست) */
@@ -351,7 +350,9 @@ final class TaskService
             if ($ge !== null) {
                 return $ge;
             }
-            if ($gid !== (int) $t['assignee_group_id'] || $headApproval !== (int) $t['group_head_approval']) {
+            if ($gid === (int) $t['assignee_group_id'] && $headApproval !== (int) $t['group_head_approval']) {
+                $set['group_head_approval'] = $headApproval;       // فقط هماهنگ‌سازی آینه‌ی «سرگروه دارد» (v5.13)
+            } elseif ($gid !== (int) $t['assignee_group_id']) {
                 if (!Access::canTask($t, $actor, 'reassign')) {
                     return self::err('اجازه‌ی تغییر مسئول این تسک را ندارید.', 'FORBIDDEN', 403);
                 }
@@ -437,22 +438,24 @@ final class TaskService
                 }
                 return self::err('این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن از جزئیات تسک انجام می‌شود.', 'IN_REVIEW', 409);
             }
-            // تسک گروهی (v5.10): تیک هر عضو کنار پروفایلش ثبت می‌شود؛ با «تأیید سرگروه» فقط تیک سرگروه تحویل می‌دهد
+            // تسک گروهی (v5.13): تیک هر عضو فقط سهم خودش را ثبت می‌کند. با سرگروه ← تیک سرگروه تحویل می‌دهد؛
+            // بدون سرگروه ← تسک وقتی به «بررسی سرپرست» می‌رود که همه‌ی اعضا تیک زده باشند (آخرین تیک = تحویل)
             if ($t['assignee_group_id'] !== null && Access::isAssignee($t, $actor)) {
                 $gid = (int) $t['assignee_group_id'];
-                $g = \App\Models\GroupModel::find($gid);
-                $headOnly = (int) $t['group_head_approval'] === 1 && $g !== null && $g['head_id'] !== null;
-                if ($headOnly && !Access::isGroupHead($t, $actor)) {
+                $headId = \App\Models\GroupModel::headOf($gid);
+                if ($headId !== $actor) {
                     $was = isset(\App\Models\GroupModel::ticks($id)[$actor]);
                     \App\Models\GroupModel::tick($id, $actor, !$was);
                     TaskHistory::log($id, $actor, $was ? 'group_untick' : 'group_tick');
-                    if (!$was) {
-                        $members = array_diff(\App\Models\GroupModel::memberIds($gid), [(int) $g['head_id']]);
-                        if (!array_diff($members, array_map('intval', array_keys(\App\Models\GroupModel::ticks($id))))) {
-                            Notifier::groupAllTicked($t + ['share_token' => TaskModel::ensureShareToken($id)], $actor, (int) $g['head_id']);
+                    if (!$was && \App\Models\GroupModel::allTicked($id, $gid, $headId)) {
+                        if ($headId > 0) {
+                            Notifier::groupAllTicked($t + ['share_token' => TaskModel::ensureShareToken($id)], $actor, $headId);
+                        } else {
+                            return self::groupAutoDeliver($actor, $id);
                         }
                     }
-                    return self::res(true, $was ? 'تیک شما برداشته شد.' : 'تیک شما ثبت شد؛ تحویل نهایی با تیک سرگروه است.', '', 200, ['id' => $id, 'group_tick' => !$was, 'status' => BoardService::statusOf($t)]);
+                    $msg = $was ? 'تیک شما برداشته شد.' : ($headId > 0 ? 'تیک شما ثبت شد؛ تحویل نهایی با تیک سرگروه است.' : 'تیک شما ثبت شد؛ تسک وقتی برای بررسی می‌رود که همه‌ی اعضا تیک بزنند.');
+                    return self::res(true, $msg, '', 200, ['id' => $id, 'group_tick' => !$was, 'status' => BoardService::statusOf($t)]);
                 }
                 $m = BoardService::deliver($actor, $id);
                 if ($m['ok']) {
@@ -468,6 +471,18 @@ final class TaskService
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
         return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+    }
+
+    /** گروه بدون سرگروه (v5.13): آخرین تیکِ اعضا تسک را تحویل می‌دهد (اگر تحویل نشد، تیک‌ها می‌مانند) */
+    public static function groupAutoDeliver(int $actor, int $id): array
+    {
+        $m = BoardService::deliver($actor, $id);
+        if ($m['ok']) {
+            $m['message'] = (($m['data']['status'] ?? '') === 'done') ? 'همه‌ی اعضای گروه تیک زدند؛ تسک انجام شد.' : 'همه‌ی اعضای گروه تیک زدند؛ تسک برای «بررسی سرپرست» ارسال شد.';
+            $m['data']['group_tick'] = true;
+            return $m;
+        }
+        return self::res(true, 'تیک ثبت شد ولی تسک تحویل نشد: ' . $m['message'], '', 200, ['id' => $id, 'group_tick' => true]);
     }
 
     /** منشن‌های دیده‌نشده‌ی کاربر در این تسک → دیده‌شده (با باز کردن جزئیات تسک) */
@@ -637,12 +652,13 @@ final class TaskService
         // تسک گروهی (v5.10): عضو گروه با «تأیید سرگروه» فقط تیک خودش را می‌زند (تحویل با سرگروه)
         $out['group'] = null;
         if (!empty($task['assignee_group_id'])) {
-            $headId = isset($task['group_head_id']) ? (int) $task['group_head_id'] : (int) (\App\Models\GroupModel::find((int) $task['assignee_group_id'])['head_id'] ?? 0);
+            $headId = \App\Models\GroupModel::headOf((int) $task['assignee_group_id']);
             $member = Access::isAssignee($task, $uid);
-            $headOnly = !empty($task['group_head_approval']) && $headId > 0;
-            $out['group'] = ['member' => $member, 'is_head' => $member && $headId === $uid, 'head_only' => $headOnly,
+            $headOnly = $headId > 0;
+            // all_members (v5.13): گروه بدون سرگروه ← تحویل با تیک همه‌ی اعضا
+            $out['group'] = ['member' => $member, 'is_head' => $member && $headId === $uid, 'head_only' => $headOnly, 'all_members' => !$headOnly,
                 'ticked' => $member && isset(\App\Models\GroupModel::ticks((int) $task['id'])[$uid])];
-            if ($member && $headOnly && $headId !== $uid) {
+            if ($member && $headId !== $uid) {
                 $out['deliver'] = false;
                 $out['member_tick'] = $st !== null && !in_array($st, ['review', 'done', 'archived'], true) && empty($task['blocked_at']);
             }
