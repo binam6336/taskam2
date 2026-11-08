@@ -423,7 +423,7 @@ final class BoardService
                 (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND (n.user_id = t.assignee_id OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND n.user_id = t.user_id)
                     OR n.user_id IN (SELECT gm.user_id FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id)) ORDER BY n.id DESC LIMIT 1) AS last_note,
                 g.title AS group_title, g.head_id AS group_head_id, dv.first_name AS deliverer_first, dv.last_name AS deliverer_last, (t.delivered_by IS NOT NULL AND t.delivered_by = g.head_id) AS delivered_by_head,
-                (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members gm ON gm.group_id = t.assignee_group_id AND gm.user_id = k.user_id WHERE k.task_id = t.id) AS group_ticked,
+                (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members gm ON gm.user_id = k.user_id WHERE k.task_id = t.id AND gm.group_id = t.assignee_group_id) AS group_ticked,
                 (SELECT COUNT(*) FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id) AS group_members
                 FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)
                 LEFT JOIN project_groups g ON g.id = t.assignee_group_id LEFT JOIN users dv ON dv.id = t.delivered_by';

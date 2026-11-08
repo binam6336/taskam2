@@ -182,7 +182,7 @@ final class TaskModel
         if ($gids) {
             $mine = array_flip(array_map('intval', DB::column('SELECT task_id FROM task_group_ticks WHERE user_id = ? AND task_id IN (' . DB::in($gids) . ')', array_merge([$uid], $gids))));
             $prog = [];
-            foreach (DB::all('SELECT t.id, (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members m ON m.group_id = t.assignee_group_id AND m.user_id = k.user_id WHERE k.task_id = t.id) ticked,
+            foreach (DB::all('SELECT t.id, (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members m ON m.user_id = k.user_id WHERE k.task_id = t.id AND m.group_id = t.assignee_group_id) ticked,
                     (SELECT COUNT(*) FROM project_group_members m WHERE m.group_id = t.assignee_group_id) members FROM tasks t WHERE t.id IN (' . DB::in($gids) . ')', $gids) as $r) {
                 $prog[(int) $r['id']] = [(int) $r['ticked'], (int) $r['members']];
             }
