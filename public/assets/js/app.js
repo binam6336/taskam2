@@ -227,10 +227,21 @@
     catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
     TK.toast('کپی شد', 'success', 1600);
   };
+  /* وضعیت تیک ردیف را بلافاصله از پاسخ سرور عوض می‌کند (v5.13.1)؛ تازه‌سازی زنده بعداً همان را از سرور می‌گذارد */
+  TK.tickState = (t, d) => {
+    if (!t || !d) return;
+    const st = d.board_status;
+    if ('group_tick' in d && st !== 'review' && st !== 'done') { t.classList.toggle('grp-on', !!d.group_tick); return; }   // فقط سهم عضو گروه
+    const done = d.is_completed === true || st === 'done';
+    t.classList.toggle('on', done);
+    t.classList.toggle('review', !done && st === 'review');
+    t.classList.remove('grp-on');
+    t.closest('.item')?.classList.add('just-changed');
+  };
   TK.after = (r, el) => {
     if (r && r.redirect) { setTimeout(() => TK.visit(r.redirect), 350); return; }
     const mode = el?.dataset.after || 'reload';
-    if (mode === 'reload') setTimeout(() => TK.reload(), 250);
+    if (mode === 'reload') TK.reload();                       // بدون مکث (v5.13.1)
     else if (mode.startsWith('redirect:')) setTimeout(() => TK.visit(TK.url(mode.slice(9))), 450);
   };
 
@@ -524,10 +535,16 @@
   TK.on('click', '[data-post]', async (e, t) => {
     e.preventDefault();
     if (t.dataset.confirm && !(await TK.confirm(t.dataset.confirm, { danger: t.dataset.danger !== '0', okText: t.dataset.ok || 'تأیید' }))) return;
+    if (t.dataset.busy) return;                                     // دوبار کلیک = یک درخواست
+    t.dataset.busy = '1';
+    const isTick = t.classList.contains('tick');
     TK.busy(t.classList.contains('btn') ? t : null, true);
+    if (isTick) t.classList.add('pending');
     const extra = t.dataset.data ? JSON.parse(t.dataset.data) : {};
     const r = await TK.post(t.dataset.post, extra);
+    delete t.dataset.busy;
     TK.busy(t.classList.contains('btn') ? t : null, false);
+    if (isTick) { t.classList.remove('pending'); if (TK.ok(r)) TK.tickState(t, r.data || r); }
     const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) TK.reload(); } } : null;
     TK.toast(r.message || (TK.ok(r) ? 'انجام شد' : 'خطا'), TK.ok(r) ? 'success' : 'error', undo ? 6500 : 4200, { action: undo });
     t.dispatchEvent(new CustomEvent('tk:done', { detail: r, bubbles: true }));
@@ -768,15 +785,24 @@
   };
 
   TK.live = {
-    sig: null, busy: false, skip: false,
+    sig: null, busy: false, skip: false, ctl: null, seq: 0,
     has: () => !!TK.qs('[data-live]'),
-    async refresh() {
-      if (TK.live.busy) { TK.live.again = true; return; }    // درخواست هم‌زمان گم نشود (مثلاً تغییر وضعیت وسط poll): بعد از این یکی دوباره
-      TK.live.busy = true;
+    /**
+     * تازه‌سازی بخش‌های زنده (v5.13.1): درخواست قبلیِ نیمه‌کاره لغو می‌شود و فقط آخرین درخواست اعمال می‌شود
+     * (قبلاً درخواست بعد از عملیات پشت poll قبلی صف می‌شد). user = بعد از کار خود کاربر ← نشانگر «در حال به‌روزرسانی».
+     */
+    async refresh(user = false) {
+      if (TK.live.ctl) TK.live.ctl.abort();
+      const ctl = new AbortController(), my = ++TK.live.seq;
+      TK.live.ctl = ctl; TK.live.busy = true;
+      const regions = TK.qsa('[data-live]');
+      if (user) regions.forEach((el) => el.classList.add('live-sync'));
       try {
-        const res = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Live': '1', Accept: 'text/html' }, credentials: 'same-origin' });
+        const res = await fetch(location.href, { signal: ctl.signal, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Live': '1', Accept: 'text/html' }, credentials: 'same-origin' });
         if (!res.ok || !(res.headers.get('content-type') || '').includes('text/html')) return;
-        const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+        const html = await res.text();
+        if (my !== TK.live.seq) return;                          // درخواست تازه‌تری راه افتاده
+        const doc = new DOMParser().parseFromString(html, 'text/html');
         const changed = [];
         TK.qsa('[data-live]').forEach((el) => {
           const next = doc.querySelector(`[data-live="${el.dataset.live}"]`);
@@ -787,9 +813,11 @@
           if (next.innerHTML !== el.innerHTML) { el.innerHTML = next.innerHTML; changed.push(el.dataset.live); }
         });
         if (changed.length) document.dispatchEvent(new CustomEvent('tk:live', { detail: { regions: changed } }));
-      } catch { /* شبکه */ } finally {
-        TK.live.busy = false;
-        if (TK.live.again) { TK.live.again = false; TK.live.refresh(); }
+      } catch { /* شبکه یا لغو */ } finally {
+        if (my === TK.live.seq) {
+          TK.live.busy = false; TK.live.ctl = null;
+          TK.qsa('.live-sync').forEach((el) => el.classList.remove('live-sync'));
+        }
       }
     },
     async poll() {
@@ -824,7 +852,7 @@
       dueNew.forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
       if (dueNew.length) TK.post('/notifications/ack', { ids: dueNew.map((t) => t.id) });
       if (r.sig) {
-        if (TK.live.sig !== null && r.sig !== TK.live.sig && !TK.live.skip) TK.live.refresh();
+        if (TK.live.sig !== null && r.sig !== TK.live.sig && !TK.live.skip && !TK.live.busy) TK.live.refresh();
         TK.live.skip = false;
         TK.live.sig = r.sig;
       }
@@ -833,7 +861,7 @@
   /** بعد از هر عملیات موفق: اگر صفحه بخش زنده دارد بدون رفرش، وگرنه رفرش معمولی */
   TK.reload = async () => {
     if (!TK.live.has()) { location.reload(); return; }
-    await TK.live.refresh();
+    await TK.live.refresh(true);
     TK.live.skip = true;
     TK.live.poll();
   };

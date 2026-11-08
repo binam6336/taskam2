@@ -28,7 +28,60 @@ final class Response
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+        self::emit((string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+    }
+
+    /** آیا PHP می‌تواند پاسخ را پیش از کارهای بعد از پاسخ (ارسال push، یادآوری‌ها) ببندد؟ */
+    public static function canFinish(): bool
+    {
+        return PHP_SAPI !== 'cli' && (function_exists('fastcgi_finish_request') || function_exists('litespeed_finish_request'));
+    }
+
+    /** بستن پاسخ برای مرورگر؛ کارهای بعدی (push) بدون معطل کردن کاربر ادامه پیدا می‌کنند */
+    public static function finish(): void
+    {
+        // قفل نشست (GET_LOCK در DbSessionHandler) همین‌جا آزاد شود؛ وگرنه درخواست‌های بعدی همین کاربر
+        // (تازه‌سازی لیست، جزئیات تسک، poll) تا پایان ارسال push پشت قفل می‌ماندند (v5.13.1)
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            @litespeed_finish_request();
+        } else {
+            @ignore_user_abort(true);
+            while (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+            @flush();
+        }
+    }
+
+    /**
+     * ارسال بدنه با Content-Length (v5.13.1): مرورگر به‌محض رسیدن همه‌ی بایت‌ها پاسخ را تمام‌شده می‌داند،
+     * حتی اگر PHP بعد از آن هنوز push می‌فرستد. روی سرورهای بدون fastcgi/litespeed_finish_request اتصال بسته
+     * و (فقط وقتی کار بعد از پاسخ در صف است) فشرده‌سازی خاموش می‌شود تا طول پاسخ دست نخورد.
+     */
+    private static function emit(string $body): void
+    {
+        // بعد از ساختن پاسخ دیگر چیزی در نشست نوشته نمی‌شود؛ قفل نشست پیش از ارسال بدنه آزاد می‌شود
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+        if (!headers_sent()) {
+            if (!self::canFinish()) {
+                header('Connection: close');
+                if (\App\Services\Push::pending()) {
+                    header('Content-Encoding: none');
+                }
+            }
+            header('Content-Length: ' . strlen($body));
+        }
+        echo $body;
         exit;
     }
 
@@ -57,6 +110,10 @@ final class Response
         }
         http_response_code($status);
         header('Location: ' . $to);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();                 // فلش پیش از این ثبت شده؛ صفحه‌ی مقصد پشت قفل نشست نماند (v5.13.1)
+        }
+        header('Content-Length: 0');
         exit;
     }
 
@@ -67,8 +124,7 @@ final class Response
         }
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
-        echo $html;
-        exit;
+        self::emit($html);
     }
 
     public static function noContent()

@@ -419,6 +419,13 @@ input[type=color].input { padding: .2rem; height: 42px; }
 .tick { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--border-2); background: transparent; cursor: pointer; flex: none; display: grid; place-items: center; color: transparent; transition: .15s; margin-top: 2px; }
 .tick:hover { border-color: var(--g-400); }
 .tick.on { background: var(--g-500); border-color: var(--g-400); color: var(--g-ink); box-shadow: var(--glow); }
+/* v5.13.1: بازخورد فوری کلیک تیک و تازه‌سازی بعد از عملیات */
+.tick.pending { position: relative; pointer-events: none; border-color: var(--g-400); }
+.tick.pending::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; border: 2px solid var(--g-400); border-top-color: transparent; animation: spin .7s linear infinite; }
+.item.just-changed { animation: tk-flash 1.2s ease-out; }
+@keyframes tk-flash { 0% { background: rgba(var(--accent-rgb), .16); } 100% { background: transparent; } }
+[data-live].live-sync { transition: opacity .2s; opacity: .72; }
+@media (prefers-reduced-motion: reduce) { .tick.pending::after, .item.just-changed { animation: none; } }
 @media (max-width: 640px) { .item { flex-wrap: wrap; } .item-actions { width: 100%; justify-content: flex-start; } }
 /* دکمه‌های کارت تسک: دسکتاپ ردیفی، موبایل در منوی ⋮ */
 .item-acts { display: flex; gap: .35rem; flex-wrap: wrap; }

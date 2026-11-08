@@ -339,7 +339,8 @@ final class TaskController extends Controller
         $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/withdraw')
             : (($d['status'] ?? '') === 'done' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/undo-done')   // تکمیل مستقیم با تیک (دسترسی تأیید)
             : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . Pid::of('tasks', $id) . '/toggle') : null));
-        $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) : [];
+        // board_status (v5.13.1): کلید status پاسخ JSON با «success» پر می‌شود؛ وضعیت تازه‌ی تسک جدا برای به‌روزرسانی فوری تیک
+        $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) + (isset($d['status']) ? ['board_status' => $d['status']] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
     }
 

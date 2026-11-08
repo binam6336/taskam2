@@ -445,7 +445,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.post(url, data);
     TK.busy(btn, false);
     TK.toast(r.message || (TK.ok(r) ? 'ذخیره شد.' : 'خطا'), TK.ok(r) ? 'success' : 'error');
-    if (TK.ok(r)) { qeClose(); await refresh(); TK.reload(); }
+    if (TK.ok(r)) { qeClose(); Promise.all([refresh(), TK.reload()]); }
   };
   const qeUpdate = (data, btn) => qeSave('/tasks/' + currentId + '/update', data, btn);
   const opt = (attrs, html, on = false) => `<button type="button" class="qe-opt${on ? ' on' : ''}" ${attrs}>${html}</button>`;
@@ -684,26 +684,26 @@ document.addEventListener('tk:ready', () => {
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
     if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
-    if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); await refresh(); if (TK.ok(r)) TK.reload(); return; }
+    if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) Promise.all([refresh(), TK.reload()]); else refresh(); return; }
     if (b.hasAttribute('data-detail-toggle')) {
       const r = await TK.post('/tasks/' + currentId + '/toggle');
-      const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) { await refresh(); TK.reload(); } } } : null;
-      TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { await refresh(); TK.reload(); }
+      const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) { Promise.all([refresh(), TK.reload()]); } } } : null;
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); }
     }
-    if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } }
     if (b.hasAttribute('data-detail-rework') && current?.group) {
       const v = await groupRework(current); if (!v) return;
       const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: v.why, rework_present: 1, rework_members: v.who });
-      TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } return;
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } return;
     }
     // اختیارات سرگروه (v5.12): تیک عضو و وظیفه‌ی شخصی
-    if (b.dataset.gtick) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/group-tick', { member_id: b.dataset.gtick, on: b.dataset.on }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } return; }
+    if (b.dataset.gtick) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/group-tick', { member_id: b.dataset.gtick, on: b.dataset.on }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } return; }
     if (b.dataset.gduty) {
       const d = await TK.prompt('وظیفه‌ی ' + b.dataset.name + ' در این تسک (خالی = برداشتن):', { title: 'وظیفه‌ی شخصی', okText: 'ذخیره و ارسال', multiline: true, value: b.dataset.duty || '' });
       if (d === null) return;
       const r = await TK.post('/tasks/' + currentId + '/group-duty', { member_id: b.dataset.gduty, duty: d }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) await refresh(); return;
     }
-    if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.hasAttribute('data-detail-block') || b.hasAttribute('data-detail-unblock')) {
@@ -712,7 +712,7 @@ document.addEventListener('tk:ready', () => {
       if (on && !(await TK.confirm('این تسک مسدود شود؟ از فهرست‌ها، بورد و تقویم کنار می‌رود و فقط از «تسک‌های مسدودشده» در صفحه‌ی تسک‌ها برمی‌گردد.', { okText: 'مسدود کن' }))) return;
       const r = await TK.post((on ? '/block/tasks/' : '/unblock/tasks/') + currentId);
       TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
-      if (TK.ok(r)) { if (on) TK.modal.close('m-detail'); else await refresh(); TK.reload(); }
+      if (TK.ok(r)) { if (on) TK.modal.close('m-detail'); else Promise.all([refresh(), TK.reload()]); }
       return;
     }
     if (b.dataset.editNote) {
