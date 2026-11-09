@@ -231,11 +231,9 @@
   TK.tickState = (t, d) => {
     if (!t || !d) return;
     const st = d.board_status;
-    if ('group_tick' in d && st !== 'review' && st !== 'done') { t.classList.toggle('grp-on', !!d.group_tick); return; }   // فقط سهم عضو گروه
     const done = d.is_completed === true || st === 'done';
     t.classList.toggle('on', done);
     t.classList.toggle('review', !done && st === 'review');
-    t.classList.remove('grp-on');
     t.closest('.item')?.classList.add('just-changed');
   };
   TK.after = (r, el) => {

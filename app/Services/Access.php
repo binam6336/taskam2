@@ -141,28 +141,10 @@ final class Access
         return self::ROLES[self::memberRole($row)]['limit'] ?? null;
     }
 
-    /**
-     * «مسئول» تسک (v5.10): خود مسئول، یا هر عضو گروهی که تسک به آن داده شده (tasks.assignee_group_id).
-     * در دسترسی‌ها، دیدن در برد و تیک «انجام شد»، عضو گروه مثل مسئول رفتار می‌کند.
-     */
+    /** «مسئول» تسک */
     public static function isAssignee(array $task, int $uid): bool
     {
-        if ($uid > 0 && (int) ($task['assignee_id'] ?? 0) === $uid) {
-            return true;
-        }
-        $g = (int) ($task['assignee_group_id'] ?? 0);
-        return $g > 0 && \App\Models\GroupModel::isMember($g, $uid);
-    }
-
-    /** سرگروه گروهِ مسئول تسک؟ */
-    public static function isGroupHead(array $task, int $uid): bool
-    {
-        $g = (int) ($task['assignee_group_id'] ?? 0);
-        if ($g <= 0) {
-            return false;
-        }
-        $grp = \App\Models\GroupModel::find($g);
-        return $grp !== null && (int) $grp['head_id'] === $uid && \App\Models\GroupModel::isMember($g, $uid);
+        return $uid > 0 && (int) ($task['assignee_id'] ?? 0) === $uid;
     }
 
     /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو، اعضایی که تسک‌هایشان را در برد می‌بیند] — با کش درون درخواست */
@@ -212,7 +194,7 @@ final class Access
     public const CONFIDENTIAL_MAX = 3;
 
     /**
-     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک، مسئول (یا اعضای گروه مسئول) و حداکثر CONFIDENTIAL_MAX کاربر انتخابی (task_viewers)؛
+     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک، مسئول و حداکثر CONFIDENTIAL_MAX کاربر انتخابی (task_viewers)؛
      * بقیه — حتی سازنده‌ی پروژه — نه در فهرست‌ها، نه در جستجو و نه با لینک تسک را نمی‌بینند.
      */
     public static function canSeeConfidential(array $task, int $uid): bool
@@ -389,12 +371,7 @@ final class Access
             return false;
         }
         $scope = self::boardViewScope($pid, $uid);
-        if ($scope === null || ($assignee > 0 && in_array($assignee, $scope, true))) {
-            return true;
-        }
-        // تسک گروهی: کسی که تسک‌های یکی از اعضای گروه را در برد می‌بیند، تسک گروه را هم می‌بیند
-        $g = (int) ($task['assignee_group_id'] ?? 0);
-        return $g > 0 && (bool) array_intersect(\App\Models\GroupModel::memberIds($g), $scope);
+        return $scope === null || ($assignee > 0 && in_array($assignee, $scope, true));
     }
 
     /**

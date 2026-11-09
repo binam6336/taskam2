@@ -23,8 +23,6 @@ $this->boot['tasks'] = [
         'can_assign' => \App\Services\Access::canAssignOnCreate((int) $p['id'], $meId)], $projects),
     'me_name' => full_name($me),
     'assignees' => $assignees,
-    // دپارتمان / گروه (v5.10): گروه‌های هر پروژه به‌عنوان گزینه‌ی «مسئول انجام»
-    'groups' => \App\Models\GroupModel::optionsFor($pIds),
     'shared' => $shared ?? null,
     'me' => (int) ($me['id'] ?? 0),
     'context' => $context ?? 'tasks',
@@ -46,8 +44,6 @@ $this->scripts[] = 'tasks';
                 <div class="row">
                     <div class="field" data-tour="project"><label>پروژه <span class="req" aria-hidden="true">*</span></label><div data-rselect="project_id"></div></div>
                     <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div>
-                        <input type="hidden" name="assignee_group_id" value="" data-group-input>
-                        <p class="grp-flow-note xs muted" id="grp-flow-note" hidden></p>
                     </div>
                 </div>
                 <button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more"><i class="fa-solid fa-chevron-down"></i> گزینه‌های بیشتر</button>

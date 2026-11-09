@@ -2,10 +2,22 @@
 declare(strict_types=1);
 
 /**
- * تم‌های ظاهری پنل. کلید = مقدار ذخیره‌شده در users.theme و data-theme روی <html>.
- * preview: رنگ‌های پیش‌نمایش کارت انتخاب تم در پروفایل [پس‌زمینه، سایدبار، کارت، رنگ اصلی]
+ * تم‌های ظاهری پنل (v7.0): سه پالت × روشن/تیره. کلید = data-theme روی <html>؛ mode = data-mode (light|dark).
+ * تم در دیتابیس ذخیره نمی‌شود: کوکی tk_theme روی همان دستگاه (هر دستگاه تم خودش را دارد؛ user_theme()).
+ * palette: [dark, main, accent, card, bg] — رنگ‌های پایه‌ی هر پالت (app.css توکن‌ها را از همین‌ها می‌سازد).
+ * preview: رنگ‌های پیش‌نمایش کارت انتخاب تم [پس‌زمینه، سایدبار، کارت، رنگ اصلی]؛ meta: theme-color مرورگر.
  */
 return [
-    'dark' => ['title' => 'شب سبز', 'desc' => 'تیره — سبز و مشکی (پیش‌فرض)', 'meta' => '#060908', 'preview' => ['#060908', '#0b110e', '#141d18', '#22c55e']],
-    'sage' => ['title' => 'سبز روشن', 'desc' => 'روشن — سبز ملایم و کرم', 'meta' => '#E8E9D3', 'preview' => ['#E8E9D3', '#DCE1C5', '#F7F6DC', '#7FB77E']],
+    'green-light'    => ['title' => 'سبز تسکام — روشن', 'desc' => 'Taskam Green، روشن', 'mode' => 'light', 'meta' => '#FBFAEC',
+        'palette' => ['#2F4A2F', '#4A7C45', '#8DBB86', '#F4F1D8', '#FBFAEC'], 'preview' => ['#FBFAEC', '#F8F6E6', '#FFFFFF', '#4A7C45']],
+    'green-dark'     => ['title' => 'سبز تسکام — تیره', 'desc' => 'Taskam Green، تیره (پیش‌فرض)', 'mode' => 'dark', 'meta' => '#0e130e',
+        'palette' => ['#2F4A2F', '#4A7C45', '#8DBB86', '#F4F1D8', '#FBFAEC'], 'preview' => ['#0e130e', '#141c14', '#1a251a', '#8DBB86']],
+    'momentum-light' => ['title' => 'Action & Momentum — روشن', 'desc' => 'نارنجی پرانرژی، روشن', 'mode' => 'light', 'meta' => '#F8F7F5',
+        'palette' => ['#202631', '#F07836', '#FFB36B', '#F4E9DF', '#F8F7F5'], 'preview' => ['#F8F7F5', '#FAF4EE', '#FFFFFF', '#F07836']],
+    'momentum-dark'  => ['title' => 'Action & Momentum — تیره', 'desc' => 'نارنجی پرانرژی، تیره', 'mode' => 'dark', 'meta' => '#0d0f13',
+        'palette' => ['#202631', '#F07836', '#FFB36B', '#F4E9DF', '#F8F7F5'], 'preview' => ['#0d0f13', '#141820', '#1b2029', '#F07836']],
+    'violet-light'   => ['title' => 'Midnight Violet — روشن', 'desc' => 'بنفش، روشن', 'mode' => 'light', 'meta' => '#FAF9FF',
+        'palette' => ['#241B3D', '#6D4AFF', '#A78BFA', '#F0ECFF', '#FAF9FF'], 'preview' => ['#FAF9FF', '#F6F3FF', '#FFFFFF', '#6D4AFF']],
+    'violet-dark'    => ['title' => 'Midnight Violet — تیره', 'desc' => 'بنفش، تیره', 'mode' => 'dark', 'meta' => '#0e0b17',
+        'palette' => ['#241B3D', '#6D4AFF', '#A78BFA', '#F0ECFF', '#FAF9FF'], 'preview' => ['#0e0b17', '#151027', '#1c1633', '#A78BFA']],
 ];

@@ -51,8 +51,8 @@ $tabs = [
         </section>
         <section class="pf-pane" id="pf-appearance" data-pf-pane="appearance" aria-labelledby="pf-h-appearance" hidden>
             <h2 class="pf-h" id="pf-h-appearance"><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h2>
-<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" data-css="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
-    <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
+<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" data-css="margin:0">تم فقط روی همین دستگاه و مرورگر ذخیره می‌شود؛ هر دستگاه می‌تواند تم خودش را داشته باشد.</span></div>
+    <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-modes="<?= e(json_html(array_map(static fn($t) => $t['mode'], themes()))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
         <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
         <?php $cur = user_theme($u); foreach (themes() as $key => $th): [$pBg, $pSide, $pCard, $pAcc] = $th['preview']; ?>
             <label class="theme-opt"><input type="radio" name="theme" value="<?= e($key) ?>" <?= $cur === $key ? 'checked' : '' ?>>

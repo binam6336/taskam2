@@ -25,32 +25,6 @@ final class TaskService
         return self::res(false, $msg, $code, $http);
     }
 
-    /**
-     * گروه مسئول (v5.10): [group_id|null, group_head_approval, خطا|null]. گروه باید مال همان پروژه باشد و عضو داشته باشد؛
-     * «تأیید سرگروه» فقط وقتی گروه سرگروه دارد. ورودی نامعتبر (شناسه‌ی عمومی ناشناس) = -1 از Request.
-     */
-    private static function groupInput(array $in, int $projectId, int $keep = 0): array
-    {
-        $gid = (int) ($in['assignee_group_id'] ?? 0);
-        if ($gid === 0) {
-            return [null, 0, null];
-        }
-        $g = $gid > 0 ? \App\Models\GroupModel::find($gid) : null;
-        if ($g === null || (int) $g['project_id'] !== $projectId) {
-            return [null, 0, self::err('گروه انتخاب‌شده مال این پروژه نیست.', 'GROUP_INVALID')];
-        }
-        if (!\App\Models\GroupModel::memberIds($gid)) {
-            return [null, 0, self::err('این گروه هنوز عضوی ندارد.', 'GROUP_EMPTY')];
-        }
-        // گروه مسدود (v5.12) تسک تازه نمی‌گیرد؛ تسک‌هایی که از قبل دارد عادی ادامه پیدا می‌کنند
-        if ($g['blocked_at'] !== null && $gid !== $keep) {
-            return [null, 0, self::err('این گروه مسدود شده است و تسک جدید نمی‌گیرد.', 'GROUP_BLOCKED', 403)];
-        }
-        // روند تحویل (v5.13): گروهِ دارای سرگروه همیشه با تیک سرگروه، بدون سرگروه با تیک همه‌ی اعضا؛
-        // ستون group_head_approval فقط آینه‌ی «گروه سرگروه دارد» است و ورودی group_head_approval نادیده گرفته می‌شود
-        return [$gid, \App\Models\GroupModel::headOf($gid) > 0 ? 1 : 0, null];
-    }
-
     /** خطای واگذاری به کاربری که مسدودی بین او و انجام‌دهنده هست (null = مشکلی نیست) */
     private static function blockError(int $actor, int $assignee): ?array
     {
@@ -128,14 +102,7 @@ final class TaskService
         if (BlockService::isBlocked('project', $projectId)) {
             return self::err('این پروژه مسدود شده است و تسک جدید نمی‌گیرد.', 'PROJECT_BLOCKED', 403);
         }
-        [$groupId, $headApproval, $ge] = self::groupInput($in, $projectId);
-        if ($ge !== null) {
-            return $ge;
-        }
-        if ($groupId !== null && !Access::canAssignOnCreate($projectId, $actor)) {
-            return self::err('با نقش «بدون دسترسی» در این پروژه فقط می‌توانید برای خودتان تسک بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
-        }
-        $assignee = $groupId !== null ? $actor : ((int) ($in['assignee_id'] ?? 0) ?: $actor);
+        $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
         if ($e = self::blockError($actor, $assignee)) {
             return $e;
         }
@@ -148,7 +115,7 @@ final class TaskService
         }
 
         $id = TaskModel::create([
-            'user_id' => $actor, 'assignee_id' => $groupId !== null ? null : $assignee, 'assignee_group_id' => $groupId, 'group_head_approval' => $headApproval,
+            'user_id' => $actor, 'assignee_id' => $assignee,
             'subject_id' => $subjectId, 'project_id' => $projectId,
             'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
             'due_date' => $due, 'due_time' => $time,
@@ -175,17 +142,10 @@ final class TaskService
         }
         $people = [];
         $out = [];
-        $grp = [];
-        try {
-            $grp = \App\Models\GroupModel::optionsFor($ids);
-        } catch (\Throwable $e) {
-        }
         foreach ($projects as $p) {
             $pid = (int) $p['id'];
             $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
-            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid),
-                // گروه‌های پروژه برای @ در ثبت سریع (v5.12)
-                'groups' => $grp[\App\Core\Pid::of('projects', $pid)] ?? []];
+            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid)];
             foreach ($mem as $m) {
                 $people[$m] = true;
             }
@@ -343,33 +303,6 @@ final class TaskService
             }
         }
         $reassigned = false;
-        // واگذاری به گروه (v5.10): assignee_group_id > 0 = گروه (مسئول فردی خالی)، خالی = مسئول فردی
-        $proj = $newProject ?? (int) $t['project_id'];
-        if ($has('assignee_group_id') && (int) $in['assignee_group_id'] !== 0) {
-            [$gid, $headApproval, $ge] = self::groupInput($in, (int) $proj, (int) $t['assignee_group_id']);
-            if ($ge !== null) {
-                return $ge;
-            }
-            if ($gid === (int) $t['assignee_group_id'] && $headApproval !== (int) $t['group_head_approval']) {
-                $set['group_head_approval'] = $headApproval;       // فقط هماهنگ‌سازی آینه‌ی «سرگروه دارد» (v5.13)
-            } elseif ($gid !== (int) $t['assignee_group_id']) {
-                if (!Access::canTask($t, $actor, 'reassign')) {
-                    return self::err('اجازه‌ی تغییر مسئول این تسک را ندارید.', 'FORBIDDEN', 403);
-                }
-                $set['group_head_approval'] = $headApproval;
-                if ($gid !== (int) $t['assignee_group_id']) {
-                    $set += ['assignee_id' => null, 'assignee_group_id' => $gid, 'notified_at' => null];
-                    $reassigned = true;
-                    \App\Models\GroupModel::clearTicks($id);
-                }
-            }
-            unset($in['assignee_id']);
-        } elseif ($has('assignee_group_id') && $t['assignee_group_id'] !== null && !$has('assignee_id')) {
-            return self::err('برای برداشتن گروه، یک مسئول انتخاب کنید.', 'ASSIGNEE_REQUIRED');
-        }
-        if ($has('assignee_id') && $t['assignee_group_id'] !== null) {
-            $t['assignee_id'] = 0;                         // از گروه به یک نفر: همیشه تغییر مسئول حساب می‌شود
-        }
         if ($has('assignee_id')) {
             $aid = (int) $in['assignee_id'] ?: (int) $t['user_id'];
             if ($aid !== (int) $t['assignee_id']) {
@@ -383,17 +316,11 @@ final class TaskService
                     return self::err('امکان واگذاری تسک به این کاربر وجود ندارد.', 'ASSIGNEE_INVALID', 403);
                 }
                 $set['assignee_id'] = $aid;
-                $set['assignee_group_id'] = null;
-                $set['group_head_approval'] = 0;
                 $set['notified_at'] = null;
                 $reassigned = true;
-                \App\Models\GroupModel::clearTicks($id);
             }
         }
         // تغییر پروژه: مسئول فعلی (اگر عوضش نکرده‌اند) باید عضو پروژه‌ی جدید باشد، وگرنه محتوای پروژه‌ی دیگر را می‌بیند
-        if (isset($set['project_id']) && !array_key_exists('assignee_group_id', $set) && $t['assignee_group_id'] !== null) {
-            return self::err('گروه فعلی تسک مال پروژه‌ی دیگری است؛ همراه با تغییر پروژه، مسئول یا گروه را هم عوض کنید.', 'ASSIGNEE_NOT_MEMBER');
-        }
         if (isset($set['project_id']) && !isset($set['assignee_id']) && $t['assignee_id'] !== null
             && !Access::isProjectMember((int) $set['project_id'], (int) $t['assignee_id'])) {
             return self::err('مسئول فعلی تسک عضو پروژه‌ی انتخاب‌شده نیست؛ همراه با تغییر پروژه، مسئول را هم به یکی از اعضای آن پروژه تغییر دهید.', 'ASSIGNEE_NOT_MEMBER');
@@ -438,31 +365,6 @@ final class TaskService
                 }
                 return self::err('این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن از جزئیات تسک انجام می‌شود.', 'IN_REVIEW', 409);
             }
-            // تسک گروهی (v5.13): تیک هر عضو فقط سهم خودش را ثبت می‌کند. با سرگروه ← تیک سرگروه تحویل می‌دهد؛
-            // بدون سرگروه ← تسک وقتی به «بررسی سرپرست» می‌رود که همه‌ی اعضا تیک زده باشند (آخرین تیک = تحویل)
-            if ($t['assignee_group_id'] !== null && Access::isAssignee($t, $actor)) {
-                $gid = (int) $t['assignee_group_id'];
-                $headId = \App\Models\GroupModel::headOf($gid);
-                if ($headId !== $actor) {
-                    $was = isset(\App\Models\GroupModel::ticks($id)[$actor]);
-                    \App\Models\GroupModel::tick($id, $actor, !$was);
-                    TaskHistory::log($id, $actor, $was ? 'group_untick' : 'group_tick');
-                    if (!$was && \App\Models\GroupModel::allTicked($id, $gid, $headId)) {
-                        if ($headId > 0) {
-                            Notifier::groupAllTicked($t + ['share_token' => TaskModel::ensureShareToken($id)], $actor, $headId);
-                        } else {
-                            return self::groupAutoDeliver($actor, $id);
-                        }
-                    }
-                    $msg = $was ? 'تیک شما برداشته شد.' : ($headId > 0 ? 'تیک شما ثبت شد؛ تحویل نهایی با تیک سرگروه است.' : 'تیک شما ثبت شد؛ تسک وقتی برای بررسی می‌رود که همه‌ی اعضا تیک بزنند.');
-                    return self::res(true, $msg, '', 200, ['id' => $id, 'group_tick' => !$was, 'status' => BoardService::statusOf($t)]);
-                }
-                $m = BoardService::deliver($actor, $id);
-                if ($m['ok']) {
-                    \App\Models\GroupModel::tick($id, $actor, true);
-                }
-                return $m;
-            }
             return BoardService::deliver($actor, $id);
         }
         if (!Access::canTask($t, $actor, 'complete')) {
@@ -471,18 +373,6 @@ final class TaskService
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
         return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
-    }
-
-    /** گروه بدون سرگروه (v5.13): آخرین تیکِ اعضا تسک را تحویل می‌دهد (اگر تحویل نشد، تیک‌ها می‌مانند) */
-    public static function groupAutoDeliver(int $actor, int $id): array
-    {
-        $m = BoardService::deliver($actor, $id);
-        if ($m['ok']) {
-            $m['message'] = (($m['data']['status'] ?? '') === 'done') ? 'همه‌ی اعضای گروه تیک زدند؛ تسک انجام شد.' : 'همه‌ی اعضای گروه تیک زدند؛ تسک برای «بررسی سرپرست» ارسال شد.';
-            $m['data']['group_tick'] = true;
-            return $m;
-        }
-        return self::res(true, 'تیک ثبت شد ولی تسک تحویل نشد: ' . $m['message'], '', 200, ['id' => $id, 'group_tick' => true]);
     }
 
     /** منشن‌های دیده‌نشده‌ی کاربر در این تسک → دیده‌شده (با باز کردن جزئیات تسک) */
@@ -703,22 +593,7 @@ final class TaskService
         // تیک ردیف: تسک بی‌پروژه‌ی قدیمی = تکمیل مستقیم؛ تسک پروژه = تحویل / پس گرفتن / بازکردن تسک انجام‌شده
         // دسترسی تأیید (v5.4): تیک این کاربر مستقیم «انجام‌شده» می‌کند (و روی تسک منتظر تأیید = تأیید)
         $out['approve_direct'] = $st !== null && Access::canApprove($task, $uid);
-        // تسک گروهی (v5.10): عضو گروه با «تأیید سرگروه» فقط تیک خودش را می‌زند (تحویل با سرگروه)
-        $out['group'] = null;
-        if (!empty($task['assignee_group_id'])) {
-            $headId = \App\Models\GroupModel::headOf((int) $task['assignee_group_id']);
-            $member = Access::isAssignee($task, $uid);
-            $headOnly = $headId > 0;
-            // all_members (v5.13): گروه بدون سرگروه ← تحویل با تیک همه‌ی اعضا
-            $out['group'] = ['member' => $member, 'is_head' => $member && $headId === $uid, 'head_only' => $headOnly, 'all_members' => !$headOnly,
-                'ticked' => $member && isset(\App\Models\GroupModel::ticks((int) $task['id'])[$uid])];
-            if ($member && $headId !== $uid) {
-                $out['deliver'] = false;
-                $out['member_tick'] = $st !== null && !in_array($st, ['review', 'done', 'archived'], true) && empty($task['blocked_at']);
-            }
-        }
-        $out['member_tick'] = $out['member_tick'] ?? false;
-        $out['tick'] = $out['member_tick'] || ($st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete'])));
+        $out['tick'] = ($st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete'])));
         $out['status'] = $st;
         return $out;
     }

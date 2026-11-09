@@ -10,15 +10,10 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '040';
+    public const VERSION = '041';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
-        // 036 مسدود کردن گروه
-        ['project_groups', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `created_by`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
-        // 035 دپارتمان / گروه
-        ['tasks', 'assignee_group_id', "ADD COLUMN `assignee_group_id` INT UNSIGNED NULL DEFAULT NULL AFTER `assignee_id`, ADD COLUMN `group_head_approval` TINYINT(1) NOT NULL DEFAULT 0 AFTER `assignee_group_id`, ADD KEY `idx_tasks_group` (`assignee_group_id`, `is_completed`)", null],
-        ['project_groups', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_project_groups_pid` (`pid`)", null],
         // 032 شناسه‌ی عمومی
         ['users', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_users_pid` (`pid`)", null],
         ['projects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_projects_pid` (`pid`)", null],
@@ -105,6 +100,15 @@ final class Schema
         ['tasks', 'board_status', 'varchar', "MODIFY `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog'"],
     ];
 
+    /**
+     * حذف ستون (v7.0؛ حذف قابلیت): [جدول، ستون، DDL]؛ فقط اگر ستون هنوز هست (نصب تازه آن را ندارد). بعد از DATA اجرا می‌شود.
+     */
+    private const DROP_COLUMNS = [
+        // تسکِ گروهی بی‌مسئول ← مسئول = سازنده‌ی تسک (پیش از حذف ستون)
+        ['tasks', 'assignee_group_id', 'DROP COLUMN `assignee_group_id`', 'UPDATE `tasks` SET `assignee_id` = `user_id` WHERE `assignee_id` IS NULL AND `assignee_group_id` IS NOT NULL'],
+        ['tasks', 'group_head_approval', 'DROP COLUMN `group_head_approval`', null],
+    ];
+
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
     private const DATA = [
         ['022', '022_member_board_perms.sql'],
@@ -114,9 +118,9 @@ final class Schema
         ['029', '029_admin_roles.sql'],
         ['030', '030_user_last_active.sql'],
         ['031', '031_sample_projects.sql'],
-        ['037', '037_group_delivery_flow.sql'],
         ['038', '038_drop_call_requests.sql'],
         ['040', '040_project_boards.sql'],
+        ['041', '041_drop_groups.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
@@ -131,10 +135,6 @@ final class Schema
         ['task_mentions', '020_task_mentions.sql'],
         ['impersonations', '033_impersonations.sql'],
         ['admin_logs', '034_admin_logs.sql'],
-        ['project_groups', '035_project_groups.sql'],
-        ['project_group_members', '035_project_groups.sql'],
-        ['task_group_ticks', '035_project_groups.sql'],
-        ['task_group_duties', '036_group_block_duties.sql'],
         ['task_viewers', '040_project_boards.sql'],
     ];
 
@@ -283,6 +283,25 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('اصلاح داده ' . $id, $e);
+                }
+            }
+            foreach (self::DROP_COLUMNS as [$table, $col, $ddl, $before]) {
+                if (!DB::value('SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col])) {
+                    continue;
+                }
+                try {
+                    if ($before !== null) {
+                        DB::run($before);
+                    }
+                    // ایندکسی که فقط با همین ستون شروع می‌شود اول حذف شود (MySQL قدیمی ستون ایندکس‌دار چندستونی را حذف نمی‌کند)
+                    foreach (DB::column('SELECT DISTINCT index_name FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? AND index_name <> \'PRIMARY\'', [$table, $col]) as $ix) {
+                        DB::run('ALTER TABLE `' . $table . '` DROP INDEX `' . str_replace('`', '', (string) $ix) . '`');
+                    }
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ ستون ' . $table . '.' . $col . ' حذف شد');
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('حذف ستون ' . $table . '.' . $col, $e);
                 }
             }
         } catch (\Throwable $e) {

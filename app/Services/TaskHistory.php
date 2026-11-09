@@ -64,13 +64,8 @@ final class TaskHistory
             $t = static fn($pid) => $pid ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $pid]) : '';
             self::log($id, $actor, 'project', ['from' => $t($old['project_id']), 'to' => $t($set['project_id'])]);
         }
-        // واگذاری به گروه (v5.10): رویداد group با نام گروه‌ها؛ از گروه به یک نفر = assignee
-        $gt = static fn($gid) => $gid ? (string) DB::value('SELECT title FROM project_groups WHERE id = ?', [(int) $gid]) : '';
-        if (!empty($set['assignee_group_id'])) {
-            self::log($id, $actor, 'group', ['from' => $gt($old['assignee_group_id'] ?? null), 'to' => $gt($set['assignee_group_id'])]);
-        } elseif (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
-            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id'],
-                'from_group' => $gt($old['assignee_group_id'] ?? null)]);
+        if (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
+            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']]);
         }
     }
 
@@ -82,8 +77,7 @@ final class TaskHistory
         $add = static function (string $type, ?int $uid, string $at, array $data = []) use (&$items): void {
             $items[] = ['type' => $type, 'uid' => $uid, 'at' => $at, 'data' => $data];
         };
-        $add('created', (int) $t['user_id'], (string) $t['created_at'], ['assignee' => $t['assignee_id'] ? (int) $t['assignee_id'] : null,
-            'group' => !empty($t['assignee_group_id']) && !DB::value("SELECT 1 FROM task_events WHERE task_id = ? AND type = 'group' LIMIT 1", [$id]) ? (string) DB::value('SELECT title FROM project_groups WHERE id = ?', [(int) $t['assignee_group_id']]) : null]);
+        $add('created', (int) $t['user_id'], (string) $t['created_at'], ['assignee' => $t['assignee_id'] ? (int) $t['assignee_id'] : null]);
 
         $events = [];
         try {
@@ -93,6 +87,9 @@ final class TaskHistory
         }
         $hasDone = false;
         foreach ($events as $e) {
+            if (strpos((string) $e['type'], 'group') === 0) {
+                continue;                                  // رویدادهای قابلیت حذف‌شده‌ی «دپارتمان / گروه» (تا v6.1)
+            }
             $data = json_decode((string) $e['data'], true) ?: [];
             $hasDone = $hasDone || $e['type'] === 'completed' || ($e['type'] === 'board' && ($data['to'] ?? '') === 'done');
             $add((string) $e['type'], $e['user_id'] !== null ? (int) $e['user_id'] : null, (string) $e['created_at'], $data);
@@ -128,9 +125,6 @@ final class TaskHistory
             if ($i['type'] === 'created') {
                 $uids[] = $i['data']['assignee'] ?? null;
             }
-            if (isset($i['data']['user']) && in_array($i['type'], ['group_tick_by', 'group_untick_by', 'group_duty'], true)) {
-                $uids[] = $i['data']['user'];
-            }
         }
         $uids = array_values(array_unique(array_filter($uids)));
         $users = [];
@@ -159,10 +153,6 @@ final class TaskHistory
             }
             if ($i['type'] === 'created') {
                 $d['assignee_user'] = $who($d['assignee'] ?? null);
-            }
-            if (in_array($i['type'], ['group_tick_by', 'group_untick_by', 'group_duty'], true)) {
-                $d['user_user'] = $who($d['user'] ?? null);
-                unset($d['user']);                            // شناسه‌ی عددی بیرون نرود
             }
             if ($i['type'] === 'board') {
                 $d['from'] = $labels[$d['from'] ?? ''] ?? '';

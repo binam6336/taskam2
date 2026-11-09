@@ -23,7 +23,7 @@ final class AdminLog
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
         'support_messages' => ['پیام تیکت', null], 'texts' => ['یادداشت', 'title'], 'users' => ['پروفایل کاربر', null],
-        'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null], 'task_group_duties' => ['وظیفه‌ی شخصی عضو گروه', 'duty'], 'task_viewers' => ['بیننده‌ی تسک محرمانه', null],
+        'task_viewers' => ['بیننده‌ی تسک محرمانه', null],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */
@@ -294,7 +294,7 @@ final class AdminLog
     /** نام فارسی ستون‌ها */
     private const LABELS = [
         'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
-        'assignee_id' => 'مسئول', 'assignee_group_id' => 'گروه مسئول', 'group_head_approval' => 'تحویل با تیک سرگروه', 'head_id' => 'سرگروه', 'group_id' => 'گروه', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
+        'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
         'delivered_at' => 'زمان تحویل برای بررسی', 'delivered_by' => 'تحویل‌دهنده', 'approved_by' => 'تأییدکننده', 'blocked_at' => 'زمان مسدود شدن', 'blocked_by' => 'مسدودکننده',
         'blocked_reason' => 'دلیل برگشت برای اصلاح', 'archived_at' => 'زمان آرشیو', 'is_quick' => 'ثبت سریع', 'note' => 'متن یادداشت', 'color' => 'رنگ',
         'first_name' => 'نام', 'last_name' => 'نام خانوادگی', 'mobile' => 'موبایل', 'email' => 'ایمیل', 'store' => 'فروشگاه', 'website' => 'وب‌سایت', 'status' => 'وضعیت',

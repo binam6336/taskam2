@@ -12,7 +12,6 @@ final class TaskModel
             p.title AS project_title, p.profile_image AS project_image, p.priority_type AS project_priority_type,
             ua.first_name AS assignee_first_name, ua.last_name AS assignee_last_name, ua.mobile AS assignee_mobile, ua.avatar AS assignee_avatar,
             uc.first_name AS creator_first_name, uc.last_name AS creator_last_name, uc.mobile AS creator_mobile, uc.avatar AS creator_avatar,
-            pg.title AS group_title, pg.head_id AS group_head_id,
             (SELECT COUNT(*) FROM task_notes tn WHERE tn.task_id = t.id) AS notes_count,
             (SELECT COUNT(*) FROM task_attachments ta WHERE ta.task_id = t.id) AS attachments_count,
             (SELECT pm.task_permissions FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = :me LIMIT 1) AS my_task_permissions
@@ -20,16 +19,12 @@ final class TaskModel
         LEFT JOIN subjects s ON s.id = t.subject_id
         LEFT JOIN projects p ON p.id = t.project_id
         LEFT JOIN users ua ON ua.id = t.assignee_id
-        LEFT JOIN users uc ON uc.id = t.user_id
-        LEFT JOIN project_groups pg ON pg.id = t.assignee_group_id";
+        LEFT JOIN users uc ON uc.id = t.user_id";
 
-    /**
-     * «مسئولش منم» (v5.10): مسئول مستقیم یا عضو گروهِ مسئول. یک placeholder (شناسه‌ی کاربر برای assignee_id) مثل قبل؛
-     * شرط عضویت گروه شناسه را به‌صورت عدد صحیح در خود SQL دارد.
-     */
+    /** «مسئولش منم»: یک placeholder (شناسه‌ی کاربر) */
     public static function mine(int $uid, string $t = 't'): string
     {
-        return '(' . $t . '.assignee_id = ? OR ' . GroupModel::memberSql($uid, $t) . ')';
+        return '(' . $t . '.assignee_id = ?)';
     }
 
     /** SELECT پایه با placeholder موقعیتی: اولین ? = شناسه‌ی کاربر برای دسترسی تسک او در پروژه. */
@@ -66,7 +61,7 @@ final class TaskModel
     public static function confidentialSql(int $uid, string $t = 't'): string
     {
         $u = (int) $uid;
-        return "($t.is_confidential = 0 OR $t.user_id = $u OR $t.assignee_id = $u OR " . \App\Models\GroupModel::memberSql($u, $t)
+        return "($t.is_confidential = 0 OR $t.user_id = $u OR $t.assignee_id = $u"
             . " OR EXISTS (SELECT 1 FROM task_viewers tv WHERE tv.task_id = $t.id AND tv.user_id = $u))";
     }
 
@@ -130,10 +125,6 @@ final class TaskModel
             $where .= ' AND t.assignee_id = ?';
             $params[] = (int) $f['assignee'];
         }
-        if (!empty($f['group'])) {
-            $where .= ' AND t.assignee_group_id = ?';
-            $params[] = (int) $f['group'];
-        }
         $q = (string) ($f['q'] ?? '');                 // جستجو پایین‌تر، بعد از بقیه‌ی فیلترها (برای غلط تایپی)
         $when = (string) ($f['when'] ?? '');
         if ($when === 'overdue') {
@@ -194,23 +185,6 @@ final class TaskModel
                 $order = self::groupSql($uid) . ', ' . "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id DESC";
         }
         $rows = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge([$uid], $params, [$limit, $offset]));
-        // تسک گروهی که سهم من در آن تیک خورده (v5.12): تیک من + پیشرفت گروه برای لیست
-        $gids = array_values(array_map(static fn($t) => (int) $t['id'], array_filter($rows, static fn($t) => !empty($t['assignee_group_id']))));
-        if ($gids) {
-            $mine = array_flip(array_map('intval', DB::column('SELECT task_id FROM task_group_ticks WHERE user_id = ? AND task_id IN (' . DB::in($gids) . ')', array_merge([$uid], $gids))));
-            $prog = [];
-            foreach (DB::all('SELECT t.id, (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members m ON m.user_id = k.user_id WHERE k.task_id = t.id AND m.group_id = t.assignee_group_id) ticked,
-                    (SELECT COUNT(*) FROM project_group_members m WHERE m.group_id = t.assignee_group_id) members FROM tasks t WHERE t.id IN (' . DB::in($gids) . ')', $gids) as $r) {
-                $prog[(int) $r['id']] = [(int) $r['ticked'], (int) $r['members']];
-            }
-            foreach ($rows as &$t) {
-                if (!empty($t['assignee_group_id'])) {
-                    $t['my_group_tick'] = isset($mine[(int) $t['id']]);
-                    [$t['group_ticked'], $t['group_members']] = $prog[(int) $t['id']] ?? [0, 0];
-                }
-            }
-            unset($t);
-        }
         return ['rows' => $rows, 'total' => $total];
     }
 
@@ -333,17 +307,12 @@ final class TaskModel
      * همان ترتیب در PHP: groupOf() و نام‌ها GROUP_NAMES (سرتیتر گروه‌ها در لیست).
      */
     public const GROUP_SQL = "CASE WHEN t.is_completed = 1 THEN 6 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'rework' THEN 0 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review' THEN 5 WHEN t.due_date IS NOT NULL AND t.due_date < CURDATE() THEN 1 WHEN t.due_date = CURDATE() THEN 2 WHEN t.due_date IS NULL THEN 3 ELSE 4 END";
-    public const GROUP_NAMES = ['نیاز به اصلاح', 'عقب‌افتاده', 'امروز', 'بدون زمان', 'پیش رو', 'منتظر تأیید سرپرست', 'انجام‌شده', 'منتظر بقیه‌ی گروه'];
+    public const GROUP_NAMES = ['نیاز به اصلاح', 'عقب‌افتاده', 'امروز', 'بدون زمان', 'پیش رو', 'منتظر تأیید سرپرست', 'انجام‌شده'];
 
-    /**
-     * GROUP_SQL برای یک کاربر (v5.12): تسک گروهیِ «تحویل با سرگروه» که سهم این کاربر در آن تیک خورده و هنوز تحویل نشده،
-     * گروه جدا «منتظر بقیه‌ی گروه» (۷) بعد از «پیش رو» و پیش از «منتظر تأیید سرپرست» — کار من در آن تمام است.
-     */
+    /** مرتب‌سازی هوشمند (سازگاری با فراخوانی قدیمی) */
     public static function groupSql(int $uid): string
     {
-        $wait = "t.assignee_group_id IS NOT NULL AND t.is_completed = 0 AND t.board_status NOT IN ('review','done','rework')
-            AND EXISTS (SELECT 1 FROM task_group_ticks gk WHERE gk.task_id = t.id AND gk.user_id = " . (int) $uid . ')';
-        return str_replace('CASE WHEN t.is_completed = 1 THEN 6', 'CASE WHEN t.is_completed = 1 THEN 6 WHEN ' . $wait . ' THEN 4.5', self::GROUP_SQL);
+        return self::GROUP_SQL;
     }
 
     public static function groupOf(array $t): int
@@ -357,9 +326,6 @@ final class TaskModel
         }
         if ($onBoard && ($t['board_status'] ?? '') === 'review') {
             return 5;
-        }
-        if (!empty($t['my_group_tick']) && !empty($t['assignee_group_id'])) {
-            return 7;                                          // منتظر بقیه‌ی گروه (سهم من تیک خورده)
         }
         $today = date('Y-m-d');
         if ($t['due_date'] && $t['due_date'] < $today) {

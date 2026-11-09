@@ -22,7 +22,7 @@ $this->scripts[] = 'quicktask';                       // «ثبت سریع تس�
 $this->scripts[] = 'blocked';                         // پنجره‌ی «مسدودشده‌ها» (مسدود کردن به‌جای حذف)
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
+<html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>" data-layout="app">
 <div class="app">

@@ -247,11 +247,10 @@ function duration_fa(float $hours): string
  */
 function logo_palette(string $theme): array
 {
-    $p = [
-        'dark' => ['#22c55e', '#10b981', '#121816', '#0a0f0d', '#111c16'],
-        'sage' => ['#7FB77E', '#4E9A5B', '#FBFAEB', '#E3E4C9', '#F7F6DC'],
-    ];
-    return $p[$theme] ?? $p['dark'];
+    // رنگ لوگو از پالت تم (v7.0): [گرادیان ۱، گرادیان ۲، پس‌زمینه ۱، پس‌زمینه ۲، داخل]
+    $t = themes()[theme_key($theme)];
+    [$dark, $main, $acc, $card, $bg] = $t['palette'];
+    return $t['mode'] === 'light' ? [$main, $acc, '#FFFFFF', $card, $bg] : [$acc, $main, '#16131f', '#0b0a10', '#13101c'];
 }
 
 /**
@@ -292,7 +291,7 @@ function favicon_uri(string $theme = 'dark'): string
 /** پسوند فایل آیکن‌های PNG تم ('' برای تیره، '-light' برای تم‌های روشن). */
 function icon_suffix(string $theme): string
 {
-    return $theme === 'sage' ? '-light' : '';
+    return theme_mode($theme) === 'light' ? '-light' : '';
 }
 
 /** رنگ اولویت درصدی: سبز (کم) ← زرد (متوسط) ← قرمز (زیاد) */
@@ -322,11 +321,37 @@ function themes(): array
     return $t ?? ($t = require BASE_PATH . '/config/themes.php');
 }
 
-/** تم معتبر کاربر؛ اگر ستون theme هنوز با migration اضافه نشده باشد، تم پیش‌فرض. */
-function user_theme(?array $u): string
+/** تم پیش‌فرض و نام کوکی تم (v7.0: تم روی هر دستگاه جدا، در کوکی؛ دیگر در دیتابیس ذخیره نمی‌شود) */
+const THEME_DEFAULT = 'green-dark';
+const THEME_COOKIE = 'tk_theme';
+
+/** کلید معتبر تم؛ کلیدهای قدیمی (dark / sage) به معادل تازه‌شان */
+function theme_key(?string $t): string
 {
-    $t = (string) ($u['theme'] ?? 'dark');
-    return isset(themes()[$t]) ? $t : 'dark';
+    $t = ['dark' => 'green-dark', 'sage' => 'green-light'][(string) $t] ?? (string) $t;
+    return isset(themes()[$t]) ? $t : THEME_DEFAULT;
+}
+
+/** حالت تم: light | dark */
+function theme_mode(string $theme): string
+{
+    return themes()[theme_key($theme)]['mode'];
+}
+
+/** صفت‌های تم روی <html>: data-theme و data-mode (light|dark) */
+function theme_attrs(?array $u = null): string
+{
+    $t = user_theme($u);
+    return 'data-theme="' . e($t) . '" data-mode="' . e(theme_mode($t)) . '"';
+}
+
+/** تم این دستگاه از کوکی؛ اگر این دستگاه هنوز تمی انتخاب نکرده، تم قدیمی حساب (users.theme، منسوخ) فقط برای خواندن */
+function user_theme(?array $u = null): string
+{
+    if (isset($_COOKIE[THEME_COOKIE])) {
+        return theme_key((string) $_COOKIE[THEME_COOKIE]);
+    }
+    return theme_key(isset($u['theme']) ? (string) $u['theme'] : null);
 }
 
 /** متن placeholder یک فیلد (قابل ویرایش در «محتوا ← Placeholder» پنل ادمین؛ config/placeholder_texts.php) */

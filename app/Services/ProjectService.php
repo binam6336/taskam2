@@ -165,7 +165,6 @@ final class ProjectService
                     // همان قاعده‌ی دکمه‌ی حذف: غیرسازنده فقط اعضای با دسترسی کمتر از خودش را حذف می‌کند
                     if ($mid !== $creator && $mid !== $uid && self::canManageMember($projectId, $uid, $mid)) {
                         DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $mid]);
-                        GroupService::onMemberLeft($projectId, $mid);   // از گروه‌های پروژه هم بیرون می‌رود
                     }
                 }
                 foreach (array_diff($pending, $want) as $mid) {
@@ -227,7 +226,6 @@ final class ProjectService
         }
         $n = DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
         if ($n > 0) {
-            GroupService::onMemberLeft($projectId, $memberId);
         }
         return $n > 0 ? [true, 'کاربر از پروژه حذف شد.'] : [false, 'کاربر عضو پروژه نیست.'];
     }
@@ -431,7 +429,6 @@ final class ProjectService
             DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
             DB::run('DELETE FROM project_blocks WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
         });
-        GroupService::onMemberLeft($projectId, $uid);
         return [true, 'از پروژه خارج شدید.'];
     }
 

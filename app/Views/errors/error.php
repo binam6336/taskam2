@@ -4,11 +4,11 @@ $titles = [403 => 'دسترسی ممنوع', 404 => 'صفحه پیدا نشد', 
 $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 => 'fa-triangle-exclamation'];
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
+<html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titles[$status] ?? 'خطا') ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri()) ?>">
+<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri(user_theme($currentUser ?? null))) ?>">
 <link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">

@@ -5,8 +5,8 @@ $status = $projScope['status'] ?? (!empty($statusAll) ? 'all' : ($done ? 'done' 
 $pq = $projScope ? array_filter(['project' => $projScope['id'], 'assignee' => $projScope['assignee'] ? pid('users', $projScope['assignee']) : null]) : [];
 $lq = $filters['label'] ? ['label' => pid('subjects', $filters['label'])] : [];   // فیلتر لیبل بین تب‌ها می‌ماند
 $tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_query(['scope' => $sc, 'status' => $st] + ($sc === 'project' ? $pq : []) + $lq);
-$fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0) + ($filters['label'] > 0 ? 1 : 0) + (!empty($filters['group']) ? 1 : 0);
-$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'smart' ? $filters['sort'] : '', 'flow' => $filters['flow'], 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ? pid('projects', $filters['project']) : '', 'assignee' => $filters['assignee'] ? pid('users', $filters['assignee']) : '', 'label' => $filters['label'] ? pid('subjects', $filters['label']) : '', 'group' => $filters['group'] ? pid('project_groups', $filters['group']) : '']);
+$fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0) + ($filters['label'] > 0 ? 1 : 0);
+$keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'smart' ? $filters['sort'] : '', 'flow' => $filters['flow'], 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ? pid('projects', $filters['project']) : '', 'assignee' => $filters['assignee'] ? pid('users', $filters['assignee']) : '', 'label' => $filters['label'] ? pid('subjects', $filters['label']) : '']);
 ?>
 <section class="t-ctrl" aria-label="ابزار تسک‌ها">
 <div class="t-ctrl-row t-ctrl-scope">
@@ -28,7 +28,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
 <div class="t-ctrl-row t-ctrl-search">
     <form method="get" class="t-toolbar" id="t-toolbar">
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
-        <?php foreach (['when', 'prio', 'project', 'assignee', 'label', 'flow', 'group'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e($k === 'group' ? pid('project_groups', $filters[$k]) : (string) $filters[$k]) ?>"><?php endif; endforeach; ?>
+        <?php foreach (['when', 'prio', 'project', 'assignee', 'label', 'flow'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'smart' ? 1 : 0); ?>
         <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
@@ -51,10 +51,6 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
                         <option value="">همه</option><option value="high" <?= $filters['prio'] === 'high' ? 'selected' : '' ?>>اولویت بیشتر</option><option value="low" <?= $filters['prio'] === 'low' ? 'selected' : '' ?>>اولویت کمتر</option></select></div>
                     <div class="field"><label><i class="fa-solid fa-tag"></i> بر اساس لیبل</label><select class="input" data-f="label">
                         <option value="">همه‌ی لیبل‌ها</option><?php foreach ($subjects as $sb): ?><option value="<?= e(pid('subjects', $sb)) ?>" <?= $filters['label'] === (int) $sb['id'] ? 'selected' : '' ?>><?= e($sb['title']) ?></option><?php endforeach; ?></select></div>
-                    <?php if (!empty($groupOptions)): // فیلتر گروه (v5.12) ?>
-                    <div class="field"><label><i class="fa-solid fa-people-group"></i> بر اساس گروه</label><select class="input" data-f="group">
-                        <option value="">همه‌ی گروه‌ها</option><?php foreach ($groupOptions as $go): ?><option value="<?= e(pid('project_groups', (int) $go['id'])) ?>" <?= (int) $filters['group'] === (int) $go['id'] ? 'selected' : '' ?>><?= e($go['title']) ?> — <?= e($go['project_title']) ?><?= $go['blocked_at'] ? ' (مسدود)' : '' ?></option><?php endforeach; ?></select></div>
-                    <?php endif; ?>
                     <div class="field"><label><i class="fa-solid fa-diagram-project"></i> بر اساس پروژه</label><select class="input" data-f="project" data-logo-select>
                         <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
                 </div>
@@ -72,8 +68,8 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($pc['done'])) ?></span></a>
         <?php else: ?>
         <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] + $counts[$scope . '_done'])) ?></span></a>
-        <?php $rv = ($counts[$scope . '_review'] ?? 0); $wgc = $counts[$scope . '_waitgroup'] ?? 0; ?>
-        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>" title="<?= $rv ? e(fa_num($counts[$scope . '_open'] - $rv) . ' تسک در جریان و ' . fa_num($rv) . ' تسک تحویل‌داده‌شده که منتظر تأیید سرپرست است') : '' ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] - $rv - $wgc)) ?></span><?php if ($rv): ?> <span class="badge-count t-rv-count">+ <?= e(fa_num($rv)) ?> منتظر تأیید</span><?php endif; ?><?php $wg = $counts[$scope . '_waitgroup'] ?? 0; if ($wg): ?> <span class="badge-count t-rv-count" title="تسک‌های گروهی که سهم شما تیک خورده و منتظر بقیه‌ی گروه است">+ <?= e(fa_num($wg)) ?> منتظر گروه</span><?php endif; ?></a>
+        <?php $rv = ($counts[$scope . '_review'] ?? 0); ?>
+        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>" title="<?= $rv ? e(fa_num($counts[$scope . '_open'] - $rv) . ' تسک در جریان و ' . fa_num($rv) . ' تسک تحویل‌داده‌شده که منتظر تأیید سرپرست است') : '' ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] - $rv)) ?></span><?php if ($rv): ?> <span class="badge-count t-rv-count">+ <?= e(fa_num($rv)) ?> منتظر تأیید</span><?php endif; ?></a>
         <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
         <?php endif; ?>
     </div>
@@ -89,7 +85,6 @@ $chips = [
 ]; ?>
 <div class="t-fgrp" role="group" aria-label="فیلترهای سریع">
 <span class="t-fgrp-lbl">فیلتر سریع:</span>
-<?php if (!empty($filters['group'])): // فیلتر گروه (v5.10) ?><a class="chip t-chip on" href="<?= e(url('/tasks') . '?' . http_build_query(array_diff_key($keep, ['group' => 1]))) ?>" aria-pressed="true"><i class="fa-solid fa-people-group"></i> گروه <?= e($filters['group_title']) ?> <i class="fa-solid fa-xmark xs"></i></a><?php endif; ?>
 <div class="t-chips" data-live="t-chips">
     <?php foreach ($chips as [$k, $v, $ic, $lbl, $n]): $on = $filters[$k] === $v; if ($k === 'flow' && !$n && !$on) continue; ?>
     <a class="chip t-chip<?= $on ? ' on' : '' ?>" href="<?= e($chipUrl([$k => $on ? '' : $v] + ($k === 'flow' ? ['when' => ''] : ['flow' => '']))) ?>" aria-pressed="<?= $on ? 'true' : 'false' ?>"><i class="<?= e($ic) ?>"></i> <?= e($lbl) ?><?php if ($n): ?> <span class="badge-count"><?= e(fa_num($n)) ?></span><?php endif; ?><?php if ($on): ?> <i class="fa-solid fa-xmark xs"></i><?php endif; ?></a>
@@ -109,14 +104,14 @@ $chips = [
     // تعداد هر گروه در همین صفحه (شمارنده‌ی سرگروه)
     $grpCount = array_count_values(array_map([\App\Models\TaskModel::class, 'groupOf'], $tasks));
     // سرگروه‌های تاشو (v5.7): دکمه با aria-expanded + بدنه‌ی گروه؛ «منتظر تأیید سرپرست» پیش‌فرض بسته (وضعیت در localStorage، tasks.js)
-    $grpKeys = ['rework', 'overdue', 'today', 'nodate', 'upcoming', 'review', 'done', 'waitgroup'];
+    $grpKeys = ['rework', 'overdue', 'today', 'nodate', 'upcoming', 'review', 'done'];
     foreach ($tasks as $t):
         $isDone = (int) $t['is_completed'] === 1;
         $g = \App\Models\TaskModel::groupOf($t);
         if ($smart && $g !== $grpPrev) {
             if ($grpPrev !== null) { echo '</div></div>'; }
-            $grpPrev = $g; $gk = $grpKeys[$g] ?? ('g' . $g); $gOpen = $g !== 5 && $g !== 7;   // منتظر تأیید و منتظر بقیه‌ی گروه: جمع‌شده
-            $gIco = [0 => 'fa-rotate-left', 5 => 'fa-hourglass-half', 7 => 'fa-people-group'][$g] ?? '';
+            $grpPrev = $g; $gk = $grpKeys[$g] ?? ('g' . $g); $gOpen = $g !== 5;   // منتظر تأیید: جمع‌شده
+            $gIco = [0 => 'fa-rotate-left', 5 => 'fa-hourglass-half'][$g] ?? '';
             echo '<div class="t-grp t-grp-' . e($gk) . '"><button type="button" class="t-gh t-gh-' . $g . ($g === 1 ? ' late' : '') . '" data-tgh="' . e($gk) . '" data-tgh-default="' . ($gOpen ? '1' : '0') . '" aria-expanded="' . ($gOpen ? 'true' : 'false') . '" aria-controls="grp-' . e($gk) . '">'
                 . '<span>' . ($gIco ? '<i class="fa-solid ' . $gIco . '" aria-hidden="true"></i> ' : '') . e($grpNames[$g]) . '</span><span class="t-gh-cnt">' . e(fa_num($grpCount[$g] ?? 0)) . ' تسک</span>'
                 . '<i class="fa-solid fa-chevron-down t-gh-chev" aria-hidden="true"></i></button>'
@@ -129,17 +124,15 @@ $chips = [
         $edit = [
             'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'due_date' => $t['due_date'],
             'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '', 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'],
-            'assignee_group_id' => $t['assignee_group_id'] ?? null, 'group_head_approval' => (int) ($t['group_head_approval'] ?? 0) === 1, '_id' => pid('tasks', $t), '_can' => $can,
+            '_id' => pid('tasks', $t), '_can' => $can,
         ];
         ?>
     <div class="item p-<?= e($t['priority']) ?> <?= $isDone ? 'done' : '' ?><?= $smart && $g === 5 ? ' t-in-review' : '' ?><?= $g === 0 ? ' t-rework' : '' ?>" id="task-<?= e(pid('tasks', $t)) ?>">
         <?php // تیک (v4.1): برای همه = تحویل برای «بررسی سرپرست»؛ تسک منتظر تأیید = ساعت شنی (تحویل‌دهنده با کلیک پس می‌گیرد)
         $inReview = $can['status'] === 'review';
-        $memberTick = !empty($can['member_tick']);
-        $grpWhy = !empty($can['group']['all_members']) ? 'تسک با تیک همه‌ی اعضا برای بررسی می‌رود' : 'تحویل نهایی با تیک سرگروه';
-        $tickTitle = $memberTick ? (!empty($can['group']['ticked']) ? 'برداشتن تیک سهم شما (' . $grpWhy . ')' : 'سهم من انجام شد (' . $grpWhy . ')') : ($isDone ? 'بازگشت به بررسی سرپرست' : ($inReview ? (!empty($can['approve']) ? 'تأیید و بستن (شما دسترسی تأیید دارید)' : ($can['withdraw'] ? 'منتظر تأیید سرپرست — کلیک: پس گرفتن تحویل' : 'منتظر تأیید سرپرست')) : (!empty($can['approve_direct']) ? 'انجام شد (مستقیم؛ شما دسترسی تأیید دارید)' : 'انجام شد (ارسال برای بررسی سرپرست)')));
+        $tickTitle = ($isDone ? 'بازگشت به بررسی سرپرست' : ($inReview ? (!empty($can['approve']) ? 'تأیید و بستن (شما دسترسی تأیید دارید)' : ($can['withdraw'] ? 'منتظر تأیید سرپرست — کلیک: پس گرفتن تحویل' : 'منتظر تأیید سرپرست')) : (!empty($can['approve_direct']) ? 'انجام شد (مستقیم؛ شما دسترسی تأیید دارید)' : 'انجام شد (ارسال برای بررسی سرپرست)')));
         $tickLock = $isDone ? 'بازکردن تسک انجام‌شده فقط با دسترسی تأیید (تکمیل تسک) در این پروژه ممکن است.' : ($inReview ? 'این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن برای اصلاح از جزئیات تسک انجام می‌شود.' : 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.'); ?>
-        <button type="button" class="tick <?= $isDone ? 'on' : '' ?><?= $inReview ? ' review' : '' ?><?= $memberTick ? ' grp' . (!empty($can['group']['ticked']) ? ' grp-on' : '') : '' ?><?= $can['tick'] ? '' : ' locked' ?>" <?= $can['tick'] ? 'data-post="' . e(url('/tasks/' . pid('tasks', $t) . '/toggle')) . '"' . ($isDone ? ' data-confirm="تسک انجام‌شده دوباره به «بررسی سرپرست» برگردد؟" data-danger="0"' : '') : 'data-lock-reason="' . e($tickLock) . '" data-lock-title="انجام شد" aria-disabled="true"' ?> title="<?= e($tickTitle) ?>" aria-label="<?= e($tickTitle) ?>"><i class="fa-solid <?= $inReview ? 'fa-hourglass-half' : ($memberTick ? 'fa-user-check' : 'fa-check') ?>"></i></button>
+        <button type="button" class="tick <?= $isDone ? 'on' : '' ?><?= $inReview ? ' review' : '' ?><?= $can['tick'] ? '' : ' locked' ?>" <?= $can['tick'] ? 'data-post="' . e(url('/tasks/' . pid('tasks', $t) . '/toggle')) . '"' . ($isDone ? ' data-confirm="تسک انجام‌شده دوباره به «بررسی سرپرست» برگردد؟" data-danger="0"' : '') : 'data-lock-reason="' . e($tickLock) . '" data-lock-title="انجام شد" aria-disabled="true"' ?> title="<?= e($tickTitle) ?>" aria-label="<?= e($tickTitle) ?>"><i class="fa-solid <?= $inReview ? 'fa-hourglass-half' : 'fa-check' ?>"></i></button>
         <div class="grow">
             <button type="button" class="item-title" data-open-task="<?= e(pid('tasks', $t)) ?>"><?= e($t['title']) ?></button>
             <?php if ($g === 0 && trim((string) ($t['blocked_reason'] ?? '')) !== ''): ?><div class="t-rework-why"><i class="fa-solid fa-rotate-left"></i> علت برگشت: <?= e(mb_strimwidth((string) $t['blocked_reason'], 0, 160, '…')) ?></div><?php endif; ?>
@@ -149,8 +142,7 @@ $chips = [
                 <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i><?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $t['due_time'] ? ' - ' . e(fa_num(substr((string) $t['due_time'], 0, 5))) : '' ?><?= $overdue && !($smart && $g === 1) ? ' (عقب‌افتاده)' : '' ?><?php if ($hourPast): ?> <span class="hour-past">ساعت گذشته</span><?php endif; ?></span><?php endif; ?>
                 <?php if ($t['subject_title']): ?><span class="t-label"><i class="fa-solid fa-tag" data-css="color:<?= e($t['subject_color']) ?>"></i> <?= e($t['subject_title']) ?></span><?php endif; ?>
                 <?php if ($t['project_title']): ?><span><i class="fa-solid fa-diagram-project"></i><?= e($t['project_title']) ?></span><?php endif; ?>
-                <?php if (!empty($t['assignee_group_id'])): $gr = $can['group'] ?? null; // تسک گروهی (v5.10) ?><span class="t-grp-chip" title="<?= e(!empty($t['group_head_approval']) ? 'تحویل با تیک سرگروه' : 'تحویل با تیک همه‌ی اعضا') ?>"><i class="fa-solid fa-people-group"></i>گروه <?= e((string) $t['group_title']) ?><?php if (!empty($t['group_head_approval'])): ?> <i class="fa-solid fa-crown xs" aria-label="با تأیید سرگروه"></i><?php endif; ?><?php if (!empty($t['group_members'])): // پیشرفت تیک اعضا (v5.12) ?> <span class="t-grp-prog" title="<?= e(fa_num($t['group_ticked']) . ' از ' . fa_num($t['group_members']) . ' عضو تیک زده‌اند') ?>"><?= e(fa_num($t['group_ticked']) . '/' . fa_num($t['group_members'])) ?></span><?php endif; ?><?php if ($gr && $gr['ticked']): ?> · <b>تیک شما خورده</b><?php endif; ?></span>
-                <?php elseif ($scope === 'others' && $t['assignee_id']): ?><span><i class="fa-solid fa-user"></i><?= e(full_name($t, 'assignee_')) ?></span><?php endif; ?>
+                <?php if ($scope === 'others' && $t['assignee_id']): ?><span><i class="fa-solid fa-user"></i><?= e(full_name($t, 'assignee_')) ?></span><?php endif; ?>
                 <?php if ($scope === 'mine' && (int) $t['user_id'] !== (int) $currentUser['id']): ?><span><i class="fa-solid fa-user-pen"></i>از طرف <?= e(full_name($t, 'creator_')) ?></span><?php endif; ?>
                 <?php if ((int) $t['notes_count'] > 0): ?><span><i class="fa-regular fa-comment"></i><?= e(fa_num($t['notes_count'])) ?></span><?php endif; ?>
                 <?php if ((int) $t['attachments_count'] > 0): ?><span><i class="fa-solid fa-paperclip"></i><?= e(fa_num($t['attachments_count'])) ?></span><?php endif; ?>

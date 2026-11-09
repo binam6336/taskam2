@@ -16,7 +16,6 @@ use App\Controllers\Api\V1\TaskApi;
 use App\Controllers\Api\V1\TextApi;
 use App\Controllers\AuthController;
 use App\Controllers\CalendarController;
-use App\Controllers\GroupController;
 use App\Controllers\ChatController;
 use App\Controllers\ColleagueController;
 use App\Controllers\DashboardController;
@@ -125,17 +124,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues/unblock-key', [ColleagueController::class, 'unblockKey']);
     $r->post('/colleagues/{user}/unblock', [ColleagueController::class, 'unblock']);
 
-    // دپارتمان / گروه (v5.10)
-    $r->get('/groups', [GroupController::class, 'index']);
-    $r->get('/groups/members', [GroupController::class, 'members']);
-    $r->post('/groups', [GroupController::class, 'store']);
-    $r->post('/groups/{group}/update', [GroupController::class, 'update']);
-    $r->post('/groups/{group}/block', [GroupController::class, 'block']);
-    $r->post('/groups/{group}/unblock', [GroupController::class, 'unblock']);
-    $r->post('/groups/{group}/impact', [GroupController::class, 'impact']);
-    $r->post('/tasks/{task}/group-duty', [GroupController::class, 'duty']);
     $r->post('/tasks/{task}/confidential', [TaskController::class, 'confidential']);
-    $r->post('/tasks/{task}/group-tick', [GroupController::class, 'memberTick']);
 
     // پروژه‌ها
     $r->get('/projects', [ProjectController::class, 'index']);

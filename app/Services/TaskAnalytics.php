@@ -104,15 +104,12 @@ final class TaskAnalytics
     /** همه‌ی تسک‌های پروژه با فیلدهای لازم برای محاسبه. */
     private static function tasks(int $projectId): array
     {
-        return DB::all('SELECT t.id, t.assignee_id, t.assignee_group_id, t.subject_id, t.priority, t.is_completed, t.board_status, t.created_at, t.completed_at, t.delivered_at, t.approved_by, t.due_date, t.due_time,
+        return DB::all('SELECT t.id, t.assignee_id, t.subject_id, t.priority, t.is_completed, t.board_status, t.created_at, t.completed_at, t.delivered_at, t.approved_by, t.due_date, t.due_time,
                 s.title AS subject_title, s.color AS subject_color
             FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id WHERE t.project_id = ? AND t.blocked_at IS NULL', [$projectId]);
     }
 
     /** سازنده + اعضای پروژه. */
-    /** حداقل تسک گروه برای رتبه‌بندی در KPI (v5.12) */
-    public const GROUP_MIN_TASKS = 3;
-
     public static function people(int $projectId): array
     {
         return DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar FROM users u
@@ -131,15 +128,6 @@ final class TaskAnalytics
         $members = [];
         foreach (self::people($projectId) as $u) {
             $members[(int) $u['id']] = $u + ['total' => 0, 'done' => 0, 'waiting' => 0, 'open' => 0, 'overdue' => 0, 'late' => 0, 'hours' => [], 'scores' => []];
-        }
-        // دپارتمان / گروه (v5.10): هر گروه یک ردیف KPI مثل یک عضو؛ تسک گروهی فقط به نام گروه حساب می‌شود (نه اعضا)
-        try {
-            foreach (DB::all('SELECT id, title FROM project_groups WHERE project_id = ? ORDER BY title', [$projectId]) as $g) {
-                $members['g' . $g['id']] = ['id' => (int) $g['id'], 'is_group' => true, 'first_name' => 'گروه ' . $g['title'], 'last_name' => '', 'mobile' => null, 'avatar' => null,
-                    'total' => 0, 'done' => 0, 'waiting' => 0, 'open' => 0, 'overdue' => 0, 'late' => 0, 'hours' => [], 'scores' => []];
-            }
-        } catch (\Throwable $e) {
-            // پیش از migration ۰۳۵
         }
         $sum = ['total' => 0, 'done' => 0, 'open' => 0, 'delayed' => 0, 'done_late' => 0, 'open_late' => 0];
         $subjects = [];
@@ -167,7 +155,7 @@ final class TaskAnalytics
                 $reviewers[$rid][] = max(0, (strtotime($t['completed_at']) - strtotime($t['delivered_at'])) / 3600);
             }
 
-            $aid = !empty($t['assignee_group_id']) ? 'g' . (int) $t['assignee_group_id'] : (int) $t['assignee_id'];
+            $aid = (int) $t['assignee_id'];
             if (!isset($members[$aid])) {
                 continue;     // مسئول دیگر عضو پروژه نیست
             }
@@ -192,21 +180,10 @@ final class TaskAnalytics
             unset($m);
         }
 
-        // سهم هر عضو در کار گروهی (v5.12): تعداد تسک‌های گروهی که تیک زده؛ در امتیاز سرعت فردی اثری ندارد
-        $gTicks = [];
-        try {
-            $gTicks = array_map('intval', array_column(DB::all('SELECT k.user_id, COUNT(*) n FROM task_group_ticks k JOIN tasks t ON t.id = k.task_id
-                WHERE t.project_id = ? AND t.blocked_at IS NULL GROUP BY k.user_id', [$projectId]), 'n', 'user_id'));
-        } catch (\Throwable $e) {
-        }
         $out = [];
         $wSum = 0.0;
         $wCnt = 0;
         foreach ($members as $m) {
-            if (!empty($m['is_group']) && $m['total'] === 0) {
-                continue;                                    // گروه بدون تسک در جدول KPI نمی‌آید
-            }
-            $m['group_ticks'] = empty($m['is_group']) ? ($gTicks[(int) $m['id']] ?? 0) : 0;
             $score = $m['scores'] ? array_sum($m['scores']) / count($m['scores']) : null;
             $avgH = $m['hours'] ? array_sum($m['hours']) / count($m['hours']) : null;
             if ($score !== null) {
@@ -219,14 +196,9 @@ final class TaskAnalytics
                 'on_time' => $m['done'] + $m['waiting'] > 0 ? (int) round(($m['done'] + $m['waiting'] - $m['late']) / ($m['done'] + $m['waiting']) * 100) : null,
                 'rating' => self::rating($score),
             ];
-            // گروه با کمتر از GROUP_MIN_TASKS تسک: «داده‌ی کم» و بدون رتبه (یک تحویل سریع نباید «بسیار عالی» شود)
-            if (!empty($m['is_group']) && $m['total'] < self::GROUP_MIN_TASKS) {
-                $row['few'] = true;
-                $row['rating'] = ['score' => $row['rating']['score'], 'label' => 'داده‌ی کم', 'tone' => ''];
-            }
             $out[] = $row;
         }
-        usort($out, static fn($a, $b) => [empty($a['few']) ? 1 : 0, $b['rating']['score'] ?? -1, $b['done']] <=> [empty($b['few']) ? 1 : 0, $a['rating']['score'] ?? -1, $a['done']]);
+        usort($out, static fn($a, $b) => [$b['rating']['score'] ?? -1, $b['done']] <=> [$a['rating']['score'] ?? -1, $a['done']]);
 
         $pct = static fn(int $n) => $sum['total'] > 0 ? (int) round($n / $sum['total'] * 100) : 0;
         $labeled = array_sum(array_column($subjects, 'value'));

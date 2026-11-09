@@ -444,16 +444,13 @@ final class BoardService
     public static function waiting(int $uid, int $limit = 10): array
     {
         // پیش‌نمایش برای سرپرست پیش از تأیید (v5.4): آخرین یادداشت مسئول، تعداد پیوست‌ها، سررسید (تحویل نسبت به سررسید)
-        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.assignee_group_id, t.group_head_approval, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, p.title AS project_title,
+        $sel = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, t.is_confidential, p.title AS project_title,
                 u.first_name, u.last_name, u.avatar,
                 (SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS files_count,
-                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND (n.user_id = t.assignee_id OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND n.user_id = t.user_id)
-                    OR n.user_id IN (SELECT gm.user_id FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id)) ORDER BY n.id DESC LIMIT 1) AS last_note,
-                g.title AS group_title, g.head_id AS group_head_id, dv.first_name AS deliverer_first, dv.last_name AS deliverer_last, (t.delivered_by IS NOT NULL AND t.delivered_by = g.head_id) AS delivered_by_head,
-                (SELECT COUNT(*) FROM task_group_ticks k JOIN project_group_members gm ON gm.user_id = k.user_id WHERE k.task_id = t.id AND gm.group_id = t.assignee_group_id) AS group_ticked,
-                (SELECT COUNT(*) FROM project_group_members gm WHERE gm.group_id = t.assignee_group_id) AS group_members
+                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND (n.user_id = t.assignee_id OR (t.assignee_id IS NULL AND n.user_id = t.user_id)) ORDER BY n.id DESC LIMIT 1) AS last_note,
+                dv.first_name AS deliverer_first, dv.last_name AS deliverer_last
                 FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)
-                LEFT JOIN project_groups g ON g.id = t.assignee_group_id LEFT JOIN users dv ON dv.id = t.delivered_by';
+                LEFT JOIN users dv ON dv.id = t.delivered_by';
         $review = [];
         foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
                 AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
@@ -464,14 +461,11 @@ final class BoardService
                 }
             }
         }
-        // برگشت‌خورده: مسئولش منم، یا عضو گروهِ مسئولم (v5.10)، یا بی‌مسئول و سازنده‌اش منم
+        // برگشت‌خورده: مسئولش منم، یا بی‌مسئول و سازنده‌اش منم
         $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL
-                AND (t.assignee_id = ? OR " . \App\Models\GroupModel::memberSql($uid) . " OR (t.assignee_id IS NULL AND t.assignee_group_id IS NULL AND t.user_id = ?))
+                AND (t.assignee_id = ? OR (t.assignee_id IS NULL AND t.user_id = ?))
                 ORDER BY t.board_moved_at DESC, t.id DESC LIMIT " . max(1, $limit), [$uid, $uid]);
-        // منتظر تیک سرگروه (v5.12): تسک‌های گروهی «تحویل با سرگروه» که من سرگروهشان هستم و هنوز تحویل نشده‌اند
-        $headwait = DB::all($sel . " WHERE t.assignee_group_id IS NOT NULL AND g.head_id = ? AND t.is_completed = 0 AND t.blocked_at IS NULL
-                AND t.archived_at IS NULL AND t.board_status NOT IN ('review','done','rework') ORDER BY t.due_date IS NULL, t.due_date, t.id DESC LIMIT " . max(1, $limit), [$uid]);
-        return ['review' => $review, 'rework' => $rework, 'headwait' => $headwait];
+        return ['review' => $review, 'rework' => $rework];
     }
 
     /** انتقال کارت به ستون دیگر. */
@@ -511,9 +505,6 @@ final class BoardService
         if ($status === 'done' && $from !== 'review') {
             return self::res(false, 'تسک اول باید با تیک «انجام شد» به «بررسی سرپرست» برود؛ تکمیل فقط با تأیید در همان مرحله است.', 'REVIEW_REQUIRED', 409);
         }
-        if ($e = self::groupHeadError($t, $actor, $from, $status)) {
-            return $e;
-        }
         if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::cols($t))), true)) {
             return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::lbl($t, $from) . '» به «' . self::lbl($t, $status) . '» را ندارید.', 'FORBIDDEN', 403);
         }
@@ -522,30 +513,6 @@ final class BoardService
         }
         self::apply($t, $actor, $from, $status, $reason);
         return self::res(true, 'تسک به «' . self::lbl($t, $status) . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
-    }
-
-    /** برگشت برای اصلاح تسک گروهی (v5.12): فقط تیک این اعضا پاک و فقط به همین‌ها اعلان (null = همه) */
-    public static ?array $reworkOnly = null;
-
-    /**
-     * روند تحویل تسک گروهی (v5.13): گروهِ دارای سرگروه ← اعضا (جز سرگروه) تسک را به بررسی سرپرست / انجام‌شده نمی‌برند و
-     * تحویل با تیک سرگروه است؛ گروه بدون سرگروه ← تسک فقط وقتی جلو می‌رود که همه‌ی اعضا تیک زده باشند.
-     */
-    public static function groupHeadError(array $t, int $actor, string $from, string $to): ?array
-    {
-        if (empty($t['assignee_group_id']) || $from === 'review' || !in_array($to, ['review', 'done'], true)) {
-            return null;
-        }
-        $gid = (int) $t['assignee_group_id'];
-        $head = \App\Models\GroupModel::headOf($gid);
-        if ($head === 0) {
-            return \App\Models\GroupModel::allTicked((int) $t['id'], $gid) ? null
-                : self::res(false, 'این تسک گروهی سرگروه ندارد؛ وقتی همه‌ی اعضای گروه تیک «انجام شد» را بزنند خودکار برای بررسی می‌رود.', 'GROUP_ALL_REQUIRED', 409);
-        }
-        if (Access::isAssignee($t, $actor) && $actor !== $head) {
-            return self::res(false, 'این تسک گروهی با تأیید سرگروه تحویل می‌شود؛ تیک «انجام شد» شما ثبت می‌شود و سرگروه آن را تحویل می‌دهد.', 'GROUP_HEAD_REQUIRED', 409);
-        }
-        return null;
     }
 
     /**
@@ -568,29 +535,13 @@ final class BoardService
                    approved_by = CASE WHEN ? = 1 THEN ? ELSE NULL END WHERE id = ?',
             [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $actor, $done ? 1 : 0, $actor, $done ? 1 : 0, $actor, $id]);
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
-        // تسک گروهی که از بررسی/انجام‌شده برگشته (اصلاح، بازکردن، پس گرفتن تحویل): تیک‌های اعضا از نو
-        // برگشت برای اصلاح (v5.12): سرپرست انتخاب می‌کند تیک چه کسانی پاک شود (پیش‌فرض همه)؛ بقیه تیکشان می‌ماند
-        if (!empty($t['assignee_group_id']) && in_array($from, ['review', 'done', 'archived'], true) && !in_array($status, ['review', 'done'], true)) {
-            if ($status === 'rework' && self::$reworkOnly !== null) {
-                foreach (self::$reworkOnly as $u) {
-                    \App\Models\GroupModel::tick($id, (int) $u, false);
-                }
-                // سرگروه هم دوباره باید تحویل دهد
-                $hd = (int) (\App\Models\GroupModel::find((int) $t['assignee_group_id'])['head_id'] ?? 0);
-                if ($hd > 0) {
-                    \App\Models\GroupModel::tick($id, $hd, false);
-                }
-            } else {
-                \App\Models\GroupModel::clearTicks($id);
-            }
-        }
         if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {
             // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
             DB::insert('task_notes', ['task_id' => $id, 'user_id' => $actor,
                 'note' => '↩️ برگشت به «' . self::lbl($t, 'rework') . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
-            Notifier::taskReturned($t, $actor, $reason, $status === 'rework' ? self::$reworkOnly : null);
+            Notifier::taskReturned($t, $actor, $reason);
         }
     }
 
@@ -612,9 +563,6 @@ final class BoardService
             return self::res(false, 'فقط مسئول یا سازنده‌ی تسک (یا عضوی با دسترسی تکمیل) می‌تواند آن را برای بررسی بفرستد.', 'FORBIDDEN', 403);
         }
         $from = self::status($t);
-        if ($e = self::groupHeadError($t, $actor, $from, 'review')) {
-            return $e;
-        }
         if ($from === 'review') {
             return self::res(true, 'این تسک همین حالا منتظر تأیید سرپرست است.', '', 200, ['id' => $id, 'status' => 'review', 'is_completed' => false]);
         }

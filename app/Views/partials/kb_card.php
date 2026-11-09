@@ -16,13 +16,10 @@ $overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && $t['
                     <?php if ((int) $t['notes_count'] > 0): ?><span title="یادداشت"><i class="fa-regular fa-comment"></i> <?= e(fa_num($t['notes_count'])) ?></span><?php endif; ?>
                     <?php if ((int) $t['attachments_count'] > 0): ?><span title="پیوست"><i class="fa-solid fa-paperclip"></i> <?= e(fa_num($t['attachments_count'])) ?></span><?php endif; ?>
                 </div>
-                <?php if ($t['assignee_id'] || !empty($t['assignee_group_id'])): ?>
+                <?php if ($t['assignee_id']): ?>
                 <div class="kb-foot">
-                    <?php if ($t['assignee_id']): $an = full_name($t, 'assignee_'); ?>
+                    <?php $an = full_name($t, 'assignee_'); ?>
                         <span class="kb-who"><span class="avatar xs"><?php if ($t['assignee_avatar']): ?><img src="<?= e(avatar_url($t['assignee_avatar'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($an)) ?><?php endif; ?></span><span class="truncate"><?= e($an) ?></span></span>
-                    <?php else: // تسک گروهی (v5.10) ?>
-                        <span class="kb-grp" title="مسئول: گروه <?= e((string) $t['group_title']) ?>"><i class="fa-solid fa-people-group"></i> <?= e((string) $t['group_title']) ?></span>
-                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
             </article>

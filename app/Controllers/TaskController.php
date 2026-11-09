@@ -39,13 +39,6 @@ final class TaskController extends Controller
         $prio = in_array($r->query['prio'] ?? '', ['high', 'low'], true) ? (string) $r->query['prio'] : '';
         $proj = max(0, (int) ($r->query['project'] ?? 0));
         $label = max(0, (int) ($r->query['label'] ?? 0));   // فیلتر لیبل (از کارت لیبل در صفحه‌ی لیبل‌ها)
-        // فیلتر گروه (v5.10، از کارت گروه در «دپارتمان / گروه»): فقط گروه‌هایی که کاربر عضوشان است یا پروژه‌شان را تحلیل می‌کند
-        $grp = max(0, (int) ($r->query['group'] ?? 0));
-        $grpRow = $grp > 0 ? \App\Models\GroupModel::find($grp) : null;
-        if ($grpRow === null || !(\App\Models\GroupModel::isMember($grp, $uid) || Access::projectCan((int) $grpRow['project_id'], $uid, 'view_analytics'))) {
-            $grp = 0;
-            $grpRow = null;
-        }
         // «تسک‌های پروژه» (آمدن از کارت‌ها و عملکرد اعضای «تحلیل پروژه»): فقط با دسترسی مشاهده‌ی تحلیل همان پروژه
         $projScope = null;
         $assignee = 0;
@@ -66,7 +59,7 @@ final class TaskController extends Controller
         $completed = $statusQ === 'all' ? null : $done;
         // فیلتر سریع جریان کار: review = «منتظر تأیید من» (تسک‌هایی که می‌توانم تأیید کنم)، rework = «برگشت‌خورده برای اصلاح» (مسئولش منم)
         $flow = in_array($r->query['flow'] ?? '', ['review', 'rework'], true) ? (string) $r->query['flow'] : '';
-        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee, 'label' => $label, 'flow' => $flow, 'group' => $grp, 'group_title' => $grpRow['title'] ?? ''];
+        $filters = ['q' => $q, 'sort' => $sort, 'when' => $when, 'prio' => $prio, 'project' => $proj, 'assignee' => $assignee, 'label' => $label, 'flow' => $flow];
         $flowIds = $flow !== '' ? array_map(static fn($x) => (int) $x['id'], BoardService::waiting($uid, 500)[$flow]) : null;
         if ($flowIds !== null) {
             $filters['ids'] = $flowIds;
@@ -92,9 +85,6 @@ final class TaskController extends Controller
             'others_open' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL', [$uid, $uid]),
             'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
             // «در جریان» جدا از «منتظر تأیید»: کار تحویل‌داده‌شده دیگر کار مسئول نیست (v5.4)
-            // تسک گروهی که سهم من تیک خورده و منتظر بقیه‌ی گروه است (v5.12): جدا از «در جریان»
-            'mine_waitgroup' => (int) DB::value("SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id IS NOT NULL AND t.is_completed = 0 AND t.blocked_at IS NULL
-                AND t.board_status NOT IN ('review','done','rework') AND t.archived_at IS NULL AND EXISTS (SELECT 1 FROM task_group_ticks k WHERE k.task_id = t.id AND k.user_id = ?)", [$uid]),
             'mine_review' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . TaskModel::mine($uid) . " AND t.is_completed = 0 AND t.blocked_at IS NULL AND t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review'", [$uid]),
             'others_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid, $uid]),
         ];
@@ -124,20 +114,7 @@ final class TaskController extends Controller
             'shared' => $shared,
             'flowCounts' => $flowCounts,
             'blockedCount' => \App\Services\BlockService::list('task', $uid, 1)['total'],
-            // فیلتر «گروه» در کشوی فیلتر (v5.12): گروه‌های پروژه‌های من
-            'groupOptions' => self::groupOptions($uid),
         ], ['title' => 'تسک‌ها', 'page' => 'tasks']);
-    }
-
-    /** گروه‌های پروژه‌های کاربر برای فیلتر لیست: [id, title, project_title, blocked] */
-    private static function groupOptions(int $uid): array
-    {
-        try {
-            return DB::all("SELECT g.id, g.title, g.blocked_at, p.title AS project_title FROM project_groups g JOIN projects p ON p.id = g.project_id
-                WHERE p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title, g.title LIMIT 300", [$uid, $uid]);
-        } catch (\Throwable $e) {
-            return [];
-        }
     }
 
     /** گزینه‌های مسئول: خودم + همکاران + هم‌پروژه‌ای‌ها (فرم تسک در صفحه‌ی تسک‌ها و برد). */
@@ -189,8 +166,6 @@ final class TaskController extends Controller
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,
             'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null, 'project_title' => $t['project_title'],
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'assignee_name' => $t['assignee_id'] ? full_name($t, 'assignee_') : null,
-            // تسک گروهی (v5.10): گروه، سرگروه، «تأیید سرگروه» و اعضا با تیک «انجام دادم» هر کدام
-            'group' => self::groupDetail($t, $uid),
             'creator_id' => (int) $t['user_id'], 'creator_name' => full_name($t, 'creator_'),
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
@@ -200,35 +175,6 @@ final class TaskController extends Controller
             'is_blocked' => !empty($t['blocked_at']), 'blocked_fa' => !empty($t['blocked_at']) ? jdate((string) $t['blocked_at']) : null,
             'blocked_by_name' => !empty($t['blocked_by']) ? full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [(int) $t['blocked_by']]) ?? []) : null,
         ];
-    }
-
-    /** اطلاعات گروهِ مسئول تسک برای جزئیات (null = تسک فردی) */
-    private static function groupDetail(array $t, int $uid = 0): ?array
-    {
-        $gid = (int) ($t['assignee_group_id'] ?? 0);
-        $g = $gid > 0 ? \App\Models\GroupModel::find($gid) : null;
-        if ($g === null) {
-            return null;
-        }
-        $ticks = \App\Models\GroupModel::ticks((int) $t['id']);
-        // وظیفه‌ی شخصی هر عضو (v5.12)
-        $duties = array_column(DB::all('SELECT user_id, duty FROM task_group_duties WHERE task_id = ?', [(int) $t['id']]), 'duty', 'user_id');
-        $ids = \App\Models\GroupModel::memberIds($gid);
-        $rows = $ids ? DB::all('SELECT id, first_name, last_name, avatar FROM users WHERE id IN (' . DB::in($ids) . ')', $ids) : [];
-        $head = (int) $g['head_id'];
-        $hasHead = $head > 0 && in_array($head, array_map('intval', $ids), true);
-        $members = array_map(static fn($u) => [
-            'id' => Pid::of('users', (int) $u['id']), 'name' => full_name($u), 'avatar' => avatar_url($u['avatar']),
-            'is_head' => (int) $u['id'] === $head, 'ticked' => isset($ticks[(int) $u['id']]), 'ticked_fa' => isset($ticks[(int) $u['id']]) ? jdate((string) $ticks[(int) $u['id']]) : null,
-            'duty' => $duties[(int) $u['id']] ?? null, 'me' => (int) $u['id'] === $uid,
-            // وظیفه‌ی شخصی (v5.12.3): با سرگروه فقط سرگروه برای همه؛ بدون سرگروه هر عضو برای خودش
-            'can_duty' => $uid > 0 && empty($t['blocked_at']) && in_array($uid, array_map('intval', $ids), true) && ($hasHead ? $uid === $head : (int) $u['id'] === $uid),
-        ], $rows);
-        usort($members, static fn($a, $b) => ($b['is_head'] <=> $a['is_head']) ?: strcmp($a['name'], $b['name']));
-        return ['id' => Pid::of('project_groups', $gid), 'title' => $g['title'], 'head_approval' => $hasHead,
-            'has_head' => $hasHead, 'blocked' => $g['blocked_at'] !== null, 'members' => $members,
-            // اختیارات سرگروه (سرگروه / سازنده‌ی تسک / مدیر گروه‌ها): وظیفه‌ی شخصی و تیک اعضا
-            'can_lead' => $uid > 0 && \App\Services\GroupService::canLead($t, $uid), 'ticked' => count(array_intersect(array_map('intval', array_keys($ticks)), $ids)), 'count' => count($ids)];
     }
 
     public function show(string $id)
@@ -245,10 +191,6 @@ final class TaskController extends Controller
     /** تغییر وضعیت بورد از جزئیات تسک */
     public function status(string $id)
     {
-        // برگشت تسک گروهی برای اصلاح (v5.12): rework_members = اعضایی که تیکشان پاک و اعلان می‌گیرند (نبودن = همه)
-        if ($this->request->has('rework_present')) {
-            BoardService::$reworkOnly = array_values(array_filter(array_map('intval', $this->request->arr('rework_members')), static fn($v) => $v > 0));
-        }
         $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
         $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
         // «تأیید و بستن» (جزئیات / پیشخوان): پیام با دکمه‌ی «بازگردانی» چند دقیقه‌ای (v5.4)
@@ -288,9 +230,7 @@ final class TaskController extends Controller
         if ($pid <= 0) {
             $this->respond(false, 'برای ثبت تسک ابتدا یک پروژه بسازید یا عضو پروژه‌ای شوید.', $this->tasksUrl());
         }
-        // @گروه در ثبت سریع (v5.12): تحویل با سرگروه پیش‌فرض (اگر گروه سرگروه دارد)
-        $res = TaskService::create($uid, ['title' => $r->str('title', 300), 'project_id' => $pid, 'assignee_id' => $r->int('assignee_id') ?: $uid]
-            + ($r->int('assignee_group_id') !== 0 ? ['assignee_group_id' => $r->int('assignee_group_id')] : []), true);
+        $res = TaskService::create($uid, ['title' => $r->str('title', 300), 'project_id' => $pid, 'assignee_id' => $r->int('assignee_id') ?: $uid], true);
         if (!$res['ok']) {
             $this->respond(false, $res['message'], $this->tasksUrl());
         }

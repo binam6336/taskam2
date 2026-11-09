@@ -228,8 +228,6 @@ CREATE TABLE `tasks` (
   `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`      INT UNSIGNED NOT NULL               COMMENT 'سازنده',
   `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول انجام (NULL وقتی تسک به گروه داده شده)',
-  `assignee_group_id` INT UNSIGNED NULL DEFAULT NULL COMMENT 'گروه مسئول (v6.0؛ به‌جای assignee_id)',
-  `group_head_approval` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = تسک گروهی فقط با تیک سرگروه تحویل/تأیید می‌شود',
   `subject_id`   INT UNSIGNED NULL DEFAULT NULL,
   `project_id`   INT UNSIGNED NULL DEFAULT NULL,
   `title`        VARCHAR(255) NOT NULL,
@@ -259,7 +257,6 @@ CREATE TABLE `tasks` (
   UNIQUE KEY `uq_tasks_pid` (`pid`),
   UNIQUE KEY `uq_tasks_share_token` (`share_token`),
   KEY `idx_tasks_assignee` (`assignee_id`, `is_completed`),
-  KEY `idx_tasks_group` (`assignee_group_id`, `is_completed`),
   KEY `idx_tasks_creator` (`user_id`, `is_completed`),
   KEY `idx_tasks_project` (`project_id`),
   KEY `idx_tasks_subject` (`subject_id`),
@@ -270,57 +267,6 @@ CREATE TABLE `tasks` (
   CONSTRAINT `fk_tasks_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `users` (`id`)    ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_subject`  FOREIGN KEY (`subject_id`)  REFERENCES `subjects` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_project`  FOREIGN KEY (`project_id`)  REFERENCES `projects` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- دپارتمان / گروه (v6.0)
-CREATE TABLE `project_groups` (
-  `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `pid`         CHAR(12) NULL DEFAULT NULL            COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
-  `project_id`  INT UNSIGNED NOT NULL                 COMMENT 'پروژه‌ی گروه',
-  `title`       VARCHAR(80) NOT NULL                  COMMENT 'نام گروه / دپارتمان',
-  `description` VARCHAR(255) NULL DEFAULT NULL,
-  `head_id`     INT UNSIGNED NULL DEFAULT NULL        COMMENT 'سرگروه (اختیاری؛ باید عضو گروه باشد)',
-  `created_by`  INT UNSIGNED NULL DEFAULT NULL,
-  `blocked_at`  TIMESTAMP NULL DEFAULT NULL           COMMENT 'مسدودشده (به‌جای حذف؛ تسک جدید نمی‌گیرد)',
-  `blocked_by`  INT UNSIGNED NULL DEFAULT NULL,
-  `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_project_groups_pid` (`pid`),
-  UNIQUE KEY `uq_project_groups_title` (`project_id`, `title`),
-  CONSTRAINT `fk_pg_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_pg_head`    FOREIGN KEY (`head_id`)    REFERENCES `users` (`id`)    ON DELETE SET NULL,
-  CONSTRAINT `fk_pg_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)    ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `project_group_members` (
-  `group_id`   INT UNSIGNED NOT NULL,
-  `user_id`    INT UNSIGNED NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`group_id`, `user_id`),
-  KEY `idx_pgm_user` (`user_id`),
-  CONSTRAINT `fk_pgm_group` FOREIGN KEY (`group_id`) REFERENCES `project_groups` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_pgm_user`  FOREIGN KEY (`user_id`)  REFERENCES `users` (`id`)          ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `task_group_ticks` (
-  `task_id`    INT UNSIGNED NOT NULL,
-  `user_id`    INT UNSIGNED NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`task_id`, `user_id`),
-  CONSTRAINT `fk_tgt_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_tgt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `task_group_duties` (
-  `task_id`    INT UNSIGNED NOT NULL,
-  `user_id`    INT UNSIGNED NOT NULL                 COMMENT 'عضو گروه',
-  `duty`       VARCHAR(500) NOT NULL                 COMMENT 'وظیفه‌ی شخصی این عضو در همین تسک',
-  `set_by`     INT UNSIGNED NULL DEFAULT NULL        COMMENT 'سرگروه یا مدیر پروژه',
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`task_id`, `user_id`),
-  CONSTRAINT `fk_tgd_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_tgd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- تسک محرمانه (v6.1): کاربرانی که علاوه بر سازنده و مسئول، تسک محرمانه را می‌بینند (حداکثر ۳)
