@@ -167,6 +167,7 @@ final class TaskController extends Controller
             'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null, 'project_title' => $t['project_title'],
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'assignee_name' => $t['assignee_id'] ? full_name($t, 'assignee_') : null,
             'creator_id' => (int) $t['user_id'], 'creator_name' => full_name($t, 'creator_'),
+            'creator_avatar' => avatar_url($t['creator_avatar'] ?? null), 'assignee_avatar' => $t['assignee_id'] ? avatar_url($t['assignee_avatar'] ?? null) : null,
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
             'board' => BoardService::taskState($t, $uid),

@@ -2477,3 +2477,122 @@ html[data-mode="dark"] .stat .ico { color: var(--acc); }
 }
 body.page-chat .content, body.page-desk .content { padding-inline: 0; }
 @media print { body { background: #fff; } .app { margin: 0; box-shadow: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v7.2 — صفحه‌ی تسک‌ها، جزئیات تسک و فرم تسک جدید مطابق نمونه‌ها
+   ═══════════════════════════════════════════════════════════════════════ */
+/* سگمنت‌ها (تب‌ها) و چیپ‌ها */
+.tabs { background: var(--tint); border: 0; border-radius: 14px; padding: 4px; gap: 4px; }
+.tab { border-radius: 11px; color: var(--muted); font-weight: 600; }
+.tab.active { background: var(--surface-0); color: var(--text); font-weight: 700; box-shadow: 0 2px 8px rgba(var(--shade-rgb), .14); }
+.tab .badge-count { background: color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); }
+.tab.active .badge-count { background: var(--main); color: #fff; }
+.t-ctrl { border-radius: 22px; padding: 18px; background: var(--card-bg); }
+.t-chip.chip, .t-fgrp .chip { padding: .3rem .85rem; background: var(--surface-0); border-color: var(--border); font-weight: 600; }
+.t-chip.on { background: var(--tint); border-color: transparent; color: var(--main); }
+html[data-mode="dark"] .t-chip.on { color: var(--acc); }
+.t-chip .badge-count { background: var(--dark); color: #fff; }
+html[data-mode="dark"] .t-chip .badge-count { background: var(--main); }
+/* سرگروه‌ها */
+.t-gh { font-size: 15px; font-weight: 800; color: var(--text); padding: 10px 4px 6px; }
+.t-gh-cnt { background: var(--tint); color: var(--main); font-weight: 700; padding: 2px 12px; }
+html[data-mode="dark"] .t-gh-cnt { color: var(--acc); }
+.t-grp-body { gap: 10px; }
+/* ردیف تسک */
+.item { align-items: center; gap: 14px; padding: 14px 18px; border-radius: 18px; background: var(--card-bg); overflow: hidden; transition: box-shadow .2s, transform .2s, background .2s; }
+.item:hover { background: var(--surface-0); border-color: var(--border); box-shadow: 0 10px 26px -12px rgba(var(--shade-rgb), .35); transform: translateY(-1px); }
+.item::before { top: 0; bottom: 0; width: 5px; border-radius: 0; }
+.item.p-high::before { background: var(--danger); } .item.p-medium::before { background: var(--main); } .item.p-low::before { background: var(--acc); }
+.item .tick { width: 24px; height: 24px; border-radius: 8px; background: var(--surface-0); }
+.item-title { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+.item-meta { gap: 8px; font-size: 12px; }
+.item-meta > span:not(.badge) { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; background: var(--surface-3); color: var(--text); font-weight: 500; }
+.item-meta > span.prio-high { background: var(--danger-bg); color: var(--danger); font-weight: 700; }
+.item-meta i { margin: 0; }
+.item-meta .badge { padding: 3px 10px; font-size: 11.5px; }
+.item-acts .btn-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-3); border-color: var(--border); color: var(--muted); }
+.item-acts [data-edit-task] { background: var(--dark); border-color: var(--dark); color: #fff; }
+html[data-mode="dark"] .item-acts [data-edit-task] { background: var(--main); border-color: var(--main); }
+.item-acts .btn-danger { color: var(--danger); }
+@media (hover: hover) { .item-acts { opacity: .4; transition: opacity .2s; } .item:hover .item-acts, .item:focus-within .item-acts { opacity: 1; } }
+
+/* پنجره‌های تسک: سربرگ با آیکون گرادیان */
+.td-box, .tf-box { padding: 0; border-radius: 28px; background: var(--bg); }
+.td-head, .tf-head { border-radius: 27px 27px 0 0; }
+.tf-foot { border-radius: 0 0 27px 27px; }
+.td-box { max-width: 960px; }
+.td-box > .modal-body { padding: 0; }
+.td-head, .tf-head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.td-head { position: sticky; top: 0; z-index: 3; }
+.td-chip { width: 42px; height: 42px; flex: none; border-radius: 13px; display: grid; place-items: center; background: var(--nav-grad); color: #fff; font-size: 1.05rem; box-shadow: var(--glow); }
+.td-ttl { flex: 1; min-width: 0; }
+.td-ttl h3 { margin: 0; font-size: 1.2rem; font-weight: 800; word-break: break-word; line-height: 1.5; }
+.td-ttl small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+.td-tools { display: flex; gap: 8px; flex: none; }
+.td-tools .btn-icon, .tf-head .btn-icon { width: 38px; height: 38px; border-radius: 12px; background: var(--surface-0); border-color: var(--border); color: var(--muted); }
+.td-tools .btn-icon:hover, .tf-head .btn-icon:hover { color: var(--text); border-color: var(--border-2); }
+.td-grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; padding: 22px 24px; }
+.td-main > * + *, .td-side > * + * { margin-top: 16px; }
+.td-tags { margin: 0; }
+.td-tags .chip, .td-tags .badge { padding: .35rem .8rem; background: var(--surface-0); border: 1px solid var(--border); font-size: .8rem; }
+.td-tags .badge.board-st { background: var(--tint); border-color: transparent; }
+.td-pn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 18px; }
+.td-pn h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 800; }
+.td-pn h4 > i { color: var(--main); }
+html[data-mode="dark"] .td-pn h4 > i { color: var(--acc); }
+.td-pn h4 em { margin-inline-start: auto; font-style: normal; font-weight: 400; font-size: 11px; color: var(--muted); }
+.td-desc { font-size: 14px; line-height: 2.1; }
+.td-drop { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px dashed var(--border-2); border-radius: 16px; background: var(--surface-0); }
+.td-drop .file-pick-row { margin: 0; flex: none; }
+.td-pn #f-note textarea { min-height: 110px; border-radius: 16px; background: var(--surface-0); }
+.td-pn #f-note .file-pick-row .btn-icon { border-radius: 12px; }
+.td-empty { text-align: center; color: var(--muted); padding: 16px 0 4px; }
+.td-steps { display: flex; align-items: center; margin-bottom: 14px; }
+.td-stp i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--border-2); background: var(--surface-0); font-style: normal; font-size: 11px; color: var(--muted); }
+.td-stp.on i { background: var(--main); border-color: var(--main); color: #fff; }
+.td-ln { flex: 1; height: 2px; margin: 0 6px; background: var(--border); }
+.td-pr { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); }
+.td-pr b { color: var(--text); }
+.td-bar { height: 7px; border-radius: 9px; background: var(--tint); overflow: hidden; }
+.td-bar i { display: block; height: 100%; border-radius: 9px; background: var(--nav-grad); }
+.td-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.td-acts .btn { width: 100%; justify-content: center; padding: .6rem 1rem; font-size: .88rem; }
+.td-acts .badge { justify-content: center; padding: .5rem; }
+.td-kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+.td-kv:last-child { border-bottom: 0; }
+.td-kv span { color: var(--muted); }
+.td-kv b { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; text-align: left; }
+.td-hist { width: 100%; justify-content: center; }
+@media (max-width: 860px) {
+  .td-grid { grid-template-columns: 1fr; padding: 16px; }
+  .td-head, .tf-head { padding: 14px 16px; }
+  .td-tools { gap: 4px; } .td-tools .btn-icon { width: 34px; height: 34px; }
+  .td-chip { display: none; }
+  .td-head { flex-wrap: wrap; row-gap: 8px; }
+  .td-tools { order: 1; margin-inline-start: auto; }
+  .td-ttl { order: 2; flex-basis: 100%; }
+  .td-ttl h3 { font-size: 1.08rem; }
+}
+.tf-body .task-more { border-top: 0; padding-top: 0; }
+
+/* فرم تسک جدید */
+.tf-box { max-width: 640px; }
+.tf-body { padding: 20px 24px; }
+.tf-body .field > label { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; margin-bottom: 8px; }
+.tf-body .field > label > i { color: var(--main); font-size: .85rem; }
+html[data-mode="dark"] .tf-body .field > label > i { color: var(--acc); }
+.tf-body .req { color: var(--main); }
+.tf-body .input, .tf-body .rselect-btn, .tf-body .picker-btn { border-radius: 14px; background: var(--surface-0); }
+.tf-body .row { gap: 14px; }
+.tf-more { display: flex; align-items: center; gap: 12px; margin: 4px 0 16px; }
+.tf-more::before, .tf-more::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.tf-more .more-toggle { padding: 6px 14px; border-radius: 99px; background: var(--tint); color: var(--main); font-weight: 700; }
+html[data-mode="dark"] .tf-more .more-toggle { color: var(--acc); }
+.tf-more .more-toggle i { background: none; width: auto; height: auto; }
+.tf-drop { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 2px dashed var(--border-2); border-radius: 16px; background: var(--surface-0); color: var(--muted); }
+.tf-drop-ic { width: 34px; height: 34px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--tint); color: var(--main); }
+.tf-drop [data-file-names]:empty::before { content: attr(data-empty); }
+.tf-drop .file-pick { border-radius: 12px; background: var(--surface); }
+.tf-foot { justify-content: flex-start; padding: 16px 24px; background: var(--surface); }
+.tf-foot .btn { padding: .65rem 1.6rem; }
+@media (max-width: 560px) { .tf-body { padding: 16px; } .tf-head, .tf-foot { padding: 14px 16px; } }

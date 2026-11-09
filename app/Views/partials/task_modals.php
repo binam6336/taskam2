@@ -31,11 +31,11 @@ $this->scripts[] = 'tasks';
 ?>
 <!-- ایجاد / ویرایش -->
 <div class="modal" id="m-task" data-guard>
-    <div class="modal-box">
+    <div class="modal-box tf-box">
         <form method="post" action="<?= e(url('/tasks')) ?>" enctype="multipart/form-data" data-ajax id="f-task">
             <?= csrf_field() ?>
-            <div class="modal-head"><h3><i class="fa-solid fa-list-check"></i> <span id="task-modal-title">تسک جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
-            <div class="modal-body">
+            <div class="modal-head tf-head"><span class="td-chip" aria-hidden="true"><i class="fa-solid fa-list-check"></i></span><div class="td-ttl"><h3 id="task-modal-title">تسک جدید</h3><small>اطلاعات تسک را وارد کنید</small></div><button type="button" class="btn btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="modal-body tf-body">
                 <div class="field" data-tour="title"><label>عنوان <span class="req" aria-hidden="true">*</span></label><input class="input" name="title" maxlength="255" required placeholder="<?= e(ph('task_title')) ?>"></div>
                 <div class="field" data-tour="desc"><label>توضیحات</label><textarea class="input" name="description" rows="3" data-linkify placeholder="<?= e(ph('task_desc')) ?>"></textarea></div>
                 <?php if (!$projects): ?>
@@ -46,11 +46,11 @@ $this->scripts[] = 'tasks';
                     <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div>
                     </div>
                 </div>
-                <button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more"><i class="fa-solid fa-chevron-down"></i> گزینه‌های بیشتر</button>
+                <div class="tf-more"><button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more">گزینه‌های بیشتر <i class="fa-solid fa-chevron-down"></i></button></div>
                 <div class="task-more" id="task-more" hidden>
                 <div class="row">
-                    <div class="field" id="prio-cat" data-tour="priority"><label>اولویت</label><select class="input" name="priority"><option value="low">کم</option><option value="medium" selected>متوسط</option><option value="high">زیاد</option></select></div>
-                    <div class="field hidden" id="prio-pct" data-tour="priority"><label>اولویت <b class="prio-pct-val" id="prio-pct-val">۵۰٪</b></label>
+                    <div class="field" id="prio-cat" data-tour="priority"><label><i class="fa-regular fa-flag"></i> اولویت</label><select class="input" name="priority"><option value="low">کم</option><option value="medium" selected>متوسط</option><option value="high">زیاد</option></select></div>
+                    <div class="field hidden" id="prio-pct" data-tour="priority"><label><i class="fa-regular fa-flag"></i> اولویت <b class="prio-pct-val" id="prio-pct-val">۵۰٪</b></label>
                         <input type="range" class="prio-range" name="priority_percent" min="0" max="100" step="5" value="50" disabled aria-label="اولویت درصدی">
                         <div class="prio-scale"><span>کم</span><span>متوسط</span><span>زیاد</span></div></div>
                     <div class="field" data-tour="label"><label><i class="fa-solid fa-tag"></i> لیبل <span class="faint">(اختیاری)</span></label>
@@ -58,17 +58,17 @@ $this->scripts[] = 'tasks';
                             <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="<?= e(ph('task_label_new')) ?>" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
                 <div class="field" data-tour="due"><label><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</label><div data-jdue></div></div>
-                <div class="field" id="task-files-field"><label>پیوست‌ها <span class="faint">(حداکثر ۱۰ مگابایت برای هر فایل)</span></label>
-                    <div class="file-pick-row"><label class="btn btn-icon file-pick" data-tour="files" title="افزودن فایل" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label><span class="file-pick-names faint small" data-file-names></span></div></div>
+                <div class="field" id="task-files-field"><label><i class="fa-solid fa-paperclip"></i> پیوست‌ها <span class="faint">(حداکثر ۱۰ مگابایت برای هر فایل)</span></label>
+                    <div class="file-pick-row tf-drop"><span class="tf-drop-ic" aria-hidden="true"><i class="fa-solid fa-paperclip"></i></span><span class="file-pick-names small grow" data-file-names data-empty="فایل را انتخاب کنید (می‌توانید چند فایل بردارید)"></span><label class="btn btn-sm file-pick" data-tour="files" title="افزودن فایل" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i> انتخاب فایل<input type="file" name="attachments[]" multiple hidden></label></div></div>
                 </div>
             </div>
-            <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary" type="submit" data-tour="save"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></div>
+            <div class="modal-foot tf-foot"><button class="btn btn-primary" type="submit" data-tour="save"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button><button type="button" class="btn" data-close>انصراف</button></div>
         </form>
     </div>
 </div>
 
 <!-- جزئیات -->
-<div class="modal" id="m-detail"><div class="modal-box lg"><div class="modal-body" id="detail-body"><div class="center muted">در حال بارگذاری…</div></div></div></div>
+<div class="modal" id="m-detail"><div class="modal-box lg td-box"><div class="modal-body" id="detail-body"><div class="center muted">در حال بارگذاری…</div></div></div></div>
 
 <!-- تاریخچه‌ی تغییرات -->
 <div class="modal" id="m-history"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> تاریخچه‌ی تسک</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>

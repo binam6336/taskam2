@@ -317,7 +317,7 @@ final class BoardService
             $info = BoardConfig::info(isset($t['project_id']) ? (int) $t['project_id'] : null, $st);
             $why = 'این تسک مسدود شده است؛ تا مسدودی‌اش برداشته نشود وضعیتش عوض نمی‌شود.';
             return ['targets' => [], 'lock' => $why, 'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
-                'next' => null, 'next_label' => null, 'can_next' => false, 'lock_reason' => null];
+                'next' => null, 'next_label' => null, 'can_next' => false, 'lock_reason' => null] + self::stepOf(isset($t['project_id']) ? (int) $t['project_id'] : null, $st);
         }
         $pid = isset($t['project_id']) ? (int) $t['project_id'] : null;
         $cols = self::cols($t);
@@ -339,7 +339,19 @@ final class BoardService
             'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
             'next' => $next, 'next_label' => $next !== null ? BoardConfig::label($pid, $next) : null,
             'can_next' => $can, 'lock_reason' => $next !== null && !$can ? self::lockReason($t, $uid, $st, $next) : null,
-        ];
+        ] + self::stepOf($pid, $st);
+    }
+
+    /**
+     * جایگاه وضعیت در مسیر بورد پروژه برای نوار پیشرفت جزئیات تسک (v7.2): ستون‌ها به ترتیب، بدون «بازبینی مسئول» و «آرشیو».
+     * تسک برگشتی (rework) در مرحله‌ی صفر حساب می‌شود.
+     * @return array{step:int,steps:int}
+     */
+    public static function stepOf(?int $projectId, string $st): array
+    {
+        $flow = array_values(array_filter(BoardConfig::keys($projectId), static fn($k) => $k !== 'rework' && $k !== 'archived'));
+        $i = array_search($st, $flow, true);
+        return ['step' => $i === false ? 0 : $i + 1, 'steps' => count($flow)];
     }
 
     /**
