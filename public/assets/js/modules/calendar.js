@@ -70,7 +70,7 @@ document.addEventListener('tk:ready', () => {
       const iso = isoOf(y, m, d), list = byDay[iso] || [], open = list.filter((t) => !t.done).length;
       const heat = open >= 5 ? 'h3' : open >= 3 ? 'h2' : open ? 'h1' : '';
       const g = iso.split('-');
-      return `<div class="cal-day${cur ? '' : ' out'}${iso === todayIso ? ' today' : ''}${i % 7 === 6 ? ' fri' : ''}${iso < todayIso ? ' past' : ''}" role="gridcell" tabindex="0" data-day="${iso}" aria-label="${F(d)} ${J.MONTHS[m - 1]}${list.length ? '، ' + F(list.length) + ' تسک' : ''}">
+      return `<div class="cal-day${cur ? '' : ' out'}${iso === todayIso ? ' today' : ''}${i % 7 === 6 ? ' fri' : ''}${iso < todayIso ? ' past' : ''}" role="button" tabindex="0" data-day="${iso}" aria-label="${F(d)} ${J.MONTHS[m - 1]}${list.length ? '، ' + F(list.length) + ' تسک' : ''}">
         <div class="cal-day-head"><span class="cal-num">${F(d)}</span>${iso === todayIso ? '<span class="cal-today-tag">امروز</span>' : ''}<span class="cal-g">${F(+g[2])} ${GM[+g[1] - 1]}</span>
           ${list.length ? `<span class="cal-count ${heat}" title="${F(list.length)} تسک${open !== list.length ? '، ' + F(list.length - open) + ' انجام‌شده' : ''}">${F(list.length)}</span>` : ''}</div>
         <div class="cal-chips">${list.slice(0, 3).map(chip).join('')}${list.length > 3 ? `<div class="cal-more">+${F(list.length - 3)} تسک دیگر</div>` : ''}</div>
@@ -112,7 +112,7 @@ document.addEventListener('tk:ready', () => {
               : `<span class="badge p-${E(t.priority)}">${E(prioTxt(t))}</span>`}
             ${t.label ? `<span><i class="fa-solid fa-tag" data-css="color:${E(t.label_color || 'var(--muted)')}"></i> ${E(t.label)}</span>` : ''}
             ${t.project ? `<span><i class="fa-solid fa-diagram-project"></i> ${E(t.project)}</span>` : ''}
-            ${t.assignee ? `<span class="cal-who"><span class="avatar xs">${t.assignee_avatar ? `<img src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee))}</span>${E(t.assignee)}</span>` : ''}
+            ${t.assignee ? `<span class="cal-who"><span class="avatar xs">${t.assignee_avatar ? `<img loading="lazy" decoding="async" src="${E(t.assignee_avatar)}" alt="">` : E(TK.initial(t.assignee))}</span>${E(t.assignee)}</span>` : ''}
             ${t.overdue ? '<span class="cal-late-tag">عقب‌افتاده</span>' : t.hour_past ? '<span class="cal-late-tag">ساعت گذشته</span>' : ''}
           </div>
         </div>

@@ -9,7 +9,7 @@ $ppid = pid('projects', (int) $filters['project']);
 ?>
 <div class="kb-top">
     <div class="kb-proj-switch">
-        <span class="avatar sq"><?php if (!empty($project['profile_image'])): ?><img src="<?= e((string) project_image_url($project['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial((string) ($project['title'] ?? '؟'))) ?><?php endif; ?></span>
+        <span class="avatar sq"><?php if (!empty($project['profile_image'])): ?><img loading="lazy" decoding="async" src="<?= e((string) project_image_url($project['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial((string) ($project['title'] ?? '؟'))) ?><?php endif; ?></span>
         <label class="sr-only" for="kb-project">پروژه</label>
         <select class="input kb-project-sel" id="kb-project" data-kb-project aria-label="انتخاب پروژه">
             <?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" <?= (int) $p['id'] === (int) $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
@@ -58,9 +58,9 @@ $ppid = pid('projects', (int) $filters['project']);
     </section>
 <?php continue; endif; $s = $statuses[$key]; $cards = $columns[$key] ?? []; $ov = $over[$key] ?? []; ?>
     <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?><?= $cards ? '' : ' kb-collapsed' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
-        <header class="kb-col-head" title="<?= e($s['desc']) ?>">
+        <header class="kb-col-head" title="<?= e($s['label'] . ($s['desc'] !== '' ? ' — ' . $s['desc'] : '')) ?>">
             <i class="fa-solid <?= e($s['icon']) ?>"></i>
-            <div class="grow min0"><b class="truncate"><?= e($s['label']) ?></b><?php if ($s['en'] !== ''): ?><span><?= e($s['en']) ?></span><?php endif; ?></div>
+            <div class="grow min0"><b class="truncate"><?= e($s['label']) ?></b></div>
             <?php if ($ov): ?>
             <button type="button" class="kb-limit-btn" data-kb-limit aria-expanded="false" aria-label="بیشتر از سقف تعداد تسک"><i class="fa-solid fa-exclamation"></i></button>
             <div class="kb-limit-pop" role="tooltip" hidden>
@@ -85,7 +85,7 @@ $ppid = pid('projects', (int) $filters['project']);
 
 <!-- علت برگشت به بازبینی مسئول -->
 <div class="modal" id="m-kb-rework"><div class="modal-box sm"><form id="f-kb-rework">
-    <div class="modal-head"><h3><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشت به «<?= e($statuses['rework']['label']) ?>»</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><h3><i class="dc-483f44 fa-solid fa-rotate-left"></i> برگشت به «<?= e($statuses['rework']['label']) ?>»</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div class="field"><label for="kb-rework-reason">چه ایرادی دیدید که باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)</label>
         <textarea class="input" id="kb-rework-reason" name="reason" rows="3" maxlength="255" placeholder="<?= e(ph('board_rework')) ?>"></textarea></div></div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">برگرداندن برای اصلاح</button></div>

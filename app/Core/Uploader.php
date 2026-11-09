@@ -271,6 +271,58 @@ final class Uploader
      * ذخیره‌ی تصویر پروفایل/پروژه با پردازش مجدد GD (حذف متادیتا و payload های پنهان).
      * @return array{ok:bool,error?:string,name?:string}
      */
+/** بیشترین ضلع تصویر پروفایل و لوگوی پروژه (v7.3؛ در پنل حداکثر ۸۴px نمایش داده می‌شود، ۵۱۲ برای صفحه‌های رتینا کافی است) */
+    public const IMAGE_MAX_SIDE = 512;
+
+    /** کوچک کردن تصویر GD با حفظ نسبت (اگر بزرگ‌تر از $max باشد) */
+    private static function fit($src, int $max, bool $alpha)
+    {
+        $w = imagesx($src); $h = imagesy($src);
+        if ($w <= $max && $h <= $max) {
+            return $src;
+        }
+        $r = min($max / $w, $max / $h);
+        $nw = max(1, (int) round($w * $r)); $nh = max(1, (int) round($h * $r));
+        $dst = imagecreatetruecolor($nw, $nh);
+        if ($alpha) {
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 0, 0, 0, 127));
+        }
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+        return $dst;
+    }
+
+    /**
+     * تصویر پروفایل/پروژه‌ی قدیمیِ بزرگ (پیش از v7.3) را یک بار در جا کوچک می‌کند (هنگام اولین نمایش؛ FileController).
+     * فقط jpg/png/webp؛ GIF و فایل‌های کوچک دست نمی‌خورند. خطا = همان فایل قبلی.
+     */
+    public static function shrinkStored(string $path): void
+    {
+        if (!function_exists('imagecreatetruecolor') || @filesize($path) < 120 * 1024) {
+            return;
+        }
+        $info = @getimagesize($path);
+        if ($info === false || ($info[0] <= self::IMAGE_MAX_SIDE && $info[1] <= self::IMAGE_MAX_SIDE)) {
+            return;
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $src = $ext === 'jpg' ? @imagecreatefromjpeg($path) : ($ext === 'png' ? @imagecreatefrompng($path) : ($ext === 'webp' && function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false));
+        if (!$src) {
+            return;
+        }
+        $src = self::fit($src, self::IMAGE_MAX_SIDE, $ext !== 'jpg');
+        $tmp = $path . '.tmp';
+        $ok = $ext === 'jpg' ? @imagejpeg($src, $tmp, 86) : ($ext === 'png' ? @imagepng($src, $tmp, 8) : @imagewebp($src, $tmp, 86));
+        imagedestroy($src);
+        if ($ok && @filesize($tmp) > 0) {
+            @rename($tmp, $path);
+        } else {
+            @unlink($tmp);
+        }
+    }
+
     public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152): array
     {
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
@@ -306,6 +358,7 @@ final class Uploader
         if (!$src) {
             return ['ok' => false, 'error' => ErrorText::apply('خطا در پردازش تصویر.')];
         }
+        $src = self::fit($src, self::IMAGE_MAX_SIDE, $mime !== 'image/jpeg');   // v7.3: تصویر پروفایل/پروژه حداکثر ۵۱۲px
         $ext = $map[$mime];
         if ($ext === 'webp' && !function_exists('imagewebp')) {
             $ext = 'jpg';

@@ -24,7 +24,7 @@ document.addEventListener('tk:ready', () => {
     let att = '';
     if (m.attachment) {
       const url = TK.url('/files/chat_files/' + encodeURIComponent(m.attachment));
-      att = /^(png|jpe?g)$/i.test(m.attachment_type || '') ? `<button type="button" class="msg-img" data-view-img="${url}" data-name="${E(m.attachment_name || 'image')}" title="نمایش تصویر"><img src="${url}" alt="" loading="lazy"></button>` : `<a class="file-chip" href="${url}?dl=1"><i class="fa-solid fa-file"></i>${E(m.attachment_name || 'فایل')}</a>`;
+      att = /^(png|jpe?g)$/i.test(m.attachment_type || '') ? `<button type="button" class="msg-img" data-view-img="${url}" data-name="${E(m.attachment_name || 'image')}" title="نمایش تصویر"><img loading="lazy" decoding="async" src="${url}" alt="" loading="lazy"></button>` : `<a class="file-chip" href="${url}?dl=1"><i class="fa-solid fa-file"></i>${E(m.attachment_name || 'فایل')}</a>`;
     }
     const fwd = m.forwarded_from ? `<div class="msg-fwd"><i class="fa-solid fa-share"></i> بازارسال‌شده از ${E(m.forwarded_name || '')}</div>` : '';
     return fwd + att + (t.trim() ? `<div class="txt">${t.trim()}</div>` : '') + links.join('');
@@ -59,7 +59,7 @@ document.addEventListener('tk:ready', () => {
     const rows = [saved, ...contacts].filter((c) => !q || (c.first_name + ' ' + c.last_name + ' ' + c.mobile).toLowerCase().includes(q));
     el.contacts.innerHTML = rows.map((c) => {
       const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
-      return `<div class="contact ${cur && cur.user_id === c.user_id ? 'active' : ''}" data-uid="${c.user_id}"><span class="avatar">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}${!c.saved && !c.is_bot ? `<span class="dot ${c.online ? 'on' : ''}"></span>` : ''}</span>
+      return `<div class="contact ${cur && cur.user_id === c.user_id ? 'active' : ''}" data-uid="${c.user_id}" role="listitem" tabindex="0"><span class="avatar">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img loading="lazy" decoding="async" src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}${!c.saved && !c.is_bot ? `<span class="dot ${c.online ? 'on' : ''}"></span>` : ''}</span>
         <div class="grow"><div class="flex between"><b class="truncate">${E(nm)}</b><span class="xs faint" title="${E(c.last_msg_time || '')}">${timeList(c.last_msg_time)}</span></div>
         <div class="flex between gap-1"><span class="xs muted truncate">${c.is_blocked_by_me ? 'مسدود' : c.chat_request === 'received' ? '<span class="badge yellow">درخواست گفتگو</span>' : c.last_msg_preview ? (c.last_msg_mine ? 'شما: ' : '') + E(c.last_msg_preview) : c.is_bot ? 'ربات اطلاع‌رسانی' : ''}</span>${c.unread_count ? `<span class="badge-count">${TK.fa(c.unread_count)}</span>` : ''}</div></div></div>`;
     }).join('') || '<div class="empty small">مخاطبی یافت نشد.</div>';
@@ -109,7 +109,7 @@ document.addEventListener('tk:ready', () => {
     if (!c) return;
     cur = c; TK.state.chatUser = c.user_id; root.classList.add('in-conv'); el.empty.style.display = 'none'; el.conv.style.display = 'flex';
     const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile;
-    el.name.textContent = nm; el.avatar.innerHTML = c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm));
+    el.name.textContent = nm; el.avatar.innerHTML = c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.is_bot ? '<i class="fa-solid fa-robot"></i>' : c.avatar_url ? `<img loading="lazy" decoding="async" src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm));
     formState(c);
     history.replaceState(null, '', TK.url('/chat?user=' + uid));
     el.msgs.innerHTML = '<div class="chat-empty muted">در حال بارگذاری…</div>'; lastId = firstId = 0;
@@ -126,7 +126,7 @@ document.addEventListener('tk:ready', () => {
   const statusLine = async () => {
     if (!cur || cur.saved) { el.status.textContent = cur?.saved ? 'فقط برای شما قابل مشاهده است' : ''; return; }
     const r = await TK.get(API + 'user_status', { user_id: cur.user_id }); if (r.status !== 'success') return;
-    el.status.innerHTML = r.is_bot ? 'ربات اطلاع‌رسانی' : r.is_online ? '<span data-css="color:var(--g-400)">آنلاین</span>' : E(r.last_seen_text || '');
+    el.status.innerHTML = r.is_bot ? 'ربات اطلاع‌رسانی' : r.is_online ? '<span class="dc-961bcb">آنلاین</span>' : E(r.last_seen_text || '');
   };
 
   /* پیام جدید با شماره موبایل (دکمه‌ی مداد) */
@@ -182,20 +182,22 @@ document.addEventListener('tk:ready', () => {
 
   /* انتخاب مخاطب / بازگشت */
   el.contacts.addEventListener('click', (e) => { const c = e.target.closest('.contact'); if (c) open(c.dataset.uid); });
+  // صفحه‌کلید (UI-020): Enter/فاصله روی مخاطب = باز کردن گفتگو
+  el.contacts.addEventListener('keydown', (e) => { const c = e.target.closest?.('.contact'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(c.dataset.uid); } });
   TK.qs('#chat-back').addEventListener('click', () => { root.classList.remove('in-conv'); cur = null; TK.state.chatUser = null; drawContacts(); });
 
   /* جستجو */
   const searchAll = TK.debounce(async (q) => {
     filter = q; drawContacts(); if (q.trim().length < 2) return;
     const r = await TK.get(API + 'search', { q: q.trim(), scope: 'all', limit: 30 });
-    if (r.status === 'success' && r.results.length) { TK.qs('#results-body').innerHTML = r.results.map((m) => `<div class="item" data-css="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow"><b class="small">${E(m.from_name)}</b><div class="small muted truncate">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div></div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join(''); TK.modal.open('m-results'); }
+    if (r.status === 'success' && r.results.length) { TK.qs('#results-body').innerHTML = r.results.map((m) => `<div class="dc-b202c6 item" data-jump="${m.other_user_id}:${m.id}"><div class="grow"><b class="small">${E(m.from_name)}</b><div class="small muted truncate">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div></div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join(''); TK.modal.open('m-results'); }
   }, 450);
   TK.qs('#chat-search').addEventListener('input', (e) => searchAll(e.target.value));
   const searchConv = async (q) => {
     q = q.trim(); if (!cur) return;
     if (q.length < 2) return TK.toast('حداقل ۲ نویسه وارد کنید', 'warning');
     const r = await TK.get(API + 'search', { q, scope: 'conversation', user_id: cur.user_id });
-    TK.qs('#results-body').innerHTML = r.status === 'success' && r.results.length ? r.results.map((m) => `<div class="item" data-css="cursor:pointer" data-jump="${m.other_user_id}:${m.id}"><div class="grow small">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join('') : '<div class="empty small">نتیجه‌ای پیدا نشد.</div>';
+    TK.qs('#results-body').innerHTML = r.status === 'success' && r.results.length ? r.results.map((m) => `<div class="dc-b202c6 item" data-jump="${m.other_user_id}:${m.id}"><div class="grow small">${E((m.message || m.attachment_name || '').replace(/\[\[.*?\]\]/g, ''))}</div><span class="xs faint">${E(dayLabel(m.created_at))}</span></div>`).join('') : '<div class="empty small">نتیجه‌ای پیدا نشد.</div>';
     TK.modal.close('m-conv-search'); TK.modal.open('m-results');
   };
   TK.qs('#conv-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchConv(e.target.value); } });
@@ -276,7 +278,7 @@ document.addEventListener('tk:ready', () => {
     const q = (fwdSearch.value || '').trim().toLowerCase();
     const rows = [{ user_id: ME, first_name: 'پیام‌های ذخیره‌شده', last_name: '', saved: true }, ...contacts.filter((c) => !c.is_bot && !c.is_blocked_by_me && !c.has_blocked_me)]
       .filter((c) => !q || (c.first_name + ' ' + c.last_name + ' ' + (c.mobile || '')).toLowerCase().includes(q));
-    fwdList.innerHTML = rows.map((c) => { const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile; return `<button type="button" class="fwd-item" data-fwd-to="${c.user_id}"><span class="avatar sm">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.avatar_url ? `<img src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}</span><span class="grow truncate">${E(nm)}</span><i class="fa-solid fa-share faint"></i></button>`; }).join('') || '<div class="empty small">مخاطبی یافت نشد.</div>';
+    fwdList.innerHTML = rows.map((c) => { const nm = c.saved ? c.first_name : (c.first_name + ' ' + c.last_name).trim() || c.mobile; return `<button type="button" class="fwd-item" data-fwd-to="${c.user_id}"><span class="avatar sm">${c.saved ? '<i class="fa-regular fa-bookmark"></i>' : c.avatar_url ? `<img loading="lazy" decoding="async" src="${E(c.avatar_url)}" alt="">` : E(TK.initial(nm))}</span><span class="grow truncate">${E(nm)}</span><i class="fa-solid fa-share faint"></i></button>`; }).join('') || '<div class="empty small">مخاطبی یافت نشد.</div>';
   };
   const openForward = (m) => { fwdMsg = m; fwdSearch.value = ''; drawFwd(); TK.modal.open('m-forward'); setTimeout(() => fwdSearch.focus(), 50); };
   fwdSearch?.addEventListener('input', drawFwd);

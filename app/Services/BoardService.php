@@ -345,13 +345,14 @@ final class BoardService
     /**
      * جایگاه وضعیت در مسیر بورد پروژه برای نوار پیشرفت جزئیات تسک (v7.2): ستون‌ها به ترتیب، بدون «بازبینی مسئول» و «آرشیو».
      * تسک برگشتی (rework) در مرحله‌ی صفر حساب می‌شود.
-     * @return array{step:int,steps:int}
+     * @return array{step:int,steps:int,flow:string[]}
      */
     public static function stepOf(?int $projectId, string $st): array
     {
         $flow = array_values(array_filter(BoardConfig::keys($projectId), static fn($k) => $k !== 'rework' && $k !== 'archived'));
         $i = array_search($st, $flow, true);
-        return ['step' => $i === false ? 0 : $i + 1, 'steps' => count($flow)];
+        // نام هر مرحله برای title و متن صفحه‌خوان دایره‌های مراحل (UI-005)
+        return ['step' => $i === false ? 0 : $i + 1, 'steps' => count($flow), 'flow' => array_map(static fn($k) => BoardConfig::label($projectId, $k), $flow)];
     }
 
     /**

@@ -47,6 +47,9 @@ final class NoteModel
     }
 
     /** ذخیره‌ی پیوست‌ها؛ برمی‌گرداند [saved[], errors[]] */
+    /** سقف تعداد پیوست: هر ارسال، و مجموع پیوست‌های هر تسک (v7.3) */
+    public const MAX_FILES = 30;
+
     public static function storeAttachments(string $kind, int $parentId, int $uid, array $files): array
     {
         $table = $kind === 'task' ? 'task_attachments' : 'note_attachments';
@@ -54,7 +57,15 @@ final class NoteModel
         $type = $kind === 'task' ? 'task_attachments' : 'note_attachments';
         $saved = [];
         $errors = [];
-        foreach (array_slice($files, 0, 10) as $f) {
+        // v7.3: تا MAX_FILES فایل در هر ارسال؛ پیوست‌های خود تسک روی‌هم حداکثر MAX_FILES
+        $room = self::MAX_FILES;
+        if ($kind === 'task') {
+            $room = max(0, self::MAX_FILES - (int) DB::value('SELECT COUNT(*) FROM task_attachments WHERE task_id = ?', [$parentId]));
+        }
+        if (count($files) > $room) {
+            $errors[] = 'حداکثر ' . fa_num(self::MAX_FILES) . ' فایل برای هر تسک یا یادداشت پذیرفته می‌شود؛ ' . fa_num(count($files) - $room) . ' فایل اضافه ذخیره نشد.';
+        }
+        foreach (array_slice($files, 0, $room) as $f) {
             $r = Uploader::saveAttachment($f, $type, $kind . $uid, Uploader::ATTACH_TYPES, Uploader::ATTACH_MAX, $uid);
             if (!$r['ok']) {
                 $errors[] = $r['error'];

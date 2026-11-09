@@ -16,7 +16,7 @@ $me = (int) $currentUser['id'];
 </div>
 <?php // جستجو سمت سرور (همه‌ی صفحه‌ها) + تعداد در هر صفحه؛ با تغییر، صفحه از اول ?>
 <div class="page-head"><form method="get" class="flex gap-2 items-center wrap users-tools" id="users-tools">
-        <div class="search" data-css="min-width:280px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_users_search')) ?>" aria-label="جستجوی کاربران"></div>
+        <div class="dc-0ee125 search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_users_search')) ?>" aria-label="جستجوی کاربران"></div>
         <label class="flex items-center gap-1 small muted users-per">نمایش در هر صفحه
             <select class="input" name="per" data-autosubmit aria-label="تعداد کاربر در هر صفحه"><?php foreach ($perOptions as $n): ?><option value="<?= (int) $n ?>" <?= $n === $per ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select></label>
         <span class="small faint"><?= e(fa_num($total)) ?> کاربر<?= $q !== '' ? ' پیدا شد' : '' ?></span>
@@ -30,7 +30,7 @@ $me = (int) $currentUser['id'];
     <p class="xs faint mt-1">هر پنجره بعد از <?= e(fa_num(intdiv(\App\Core\Impersonation::idleSeconds(), 60))) ?> دقیقه بی‌فعالیتی یا <?= e(fa_num(intdiv(\App\Core\Impersonation::maxSeconds(), 3600))) ?> ساعت خودکار بسته می‌شود؛ با خروج از پنل مدیر هم همه بسته می‌شوند.</p>
 </div>
 <?php endif; ?>
-<div class="table-wrap" data-live="a-users"><table class="table" id="users-table"><thead><tr><th>کاربر</th><th>موبایل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead><tbody>
+<div class="table-wrap" data-live="a-users"><table class="table table-cards" id="users-table"><thead><tr><th>کاربر</th><th>موبایل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead><tbody>
 <?php foreach ($users as $u):
     $isAdmin = $u['role'] === 'admin'; $self = (int) $u['id'] === $me; $isSuperRow = (int) $u['id'] === $superId;
     $protected = $self || $isSuperRow || ($isAdmin && !$isSuper);
@@ -38,15 +38,15 @@ $me = (int) $currentUser['id'];
     $editData = ['first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $u['mobile'], 'email' => $u['email'], 'role' => $ar ?? 'user']; ?>
     <tr data-search="<?= e(mb_strtolower(full_name($u) . ' ' . $u['mobile'])) ?>">
         <td><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($u), 'src' => avatar_url($u['avatar']), 'size' => 'sm']); ?><div><div class="bold"><?= e(full_name($u)) ?></div><div class="xs muted"><?= e($u['email'] ?? '') ?></div></div></div></td>
-        <td class="ltr"><?= e($u['mobile']) ?></td>
-        <td><?php if ($ar !== null): ?><span class="badge <?= e($adminRoles[$ar]['tone']) ?>"><?= e($adminRoles[$ar]['label']) ?></span><?php else: ?><span class="badge">کاربر</span><?php endif; ?></td>
-        <td><span class="badge <?= e($stLbl[$u['status']][1]) ?>"><?= e($stLbl[$u['status']][0]) ?></span></td>
-        <td class="small muted"><?= $u['last_login_at'] ? e(time_ago($u['last_login_at'])) : '—' ?></td>
-        <td class="nowrap"><div class="flex gap-1">
+        <td class="ltr" data-label="موبایل"><?= e(fa_num((string) $u['mobile'])) ?></td>
+        <td data-label="نقش"><?php if ($ar !== null): ?><span class="badge <?= e($adminRoles[$ar]['tone']) ?>"><?= e($adminRoles[$ar]['label']) ?></span><?php else: ?><span class="badge">کاربر</span><?php endif; ?></td>
+        <td data-label="وضعیت"><span class="badge <?= e($stLbl[$u['status']][1]) ?>"><?= e($stLbl[$u['status']][0]) ?></span></td>
+        <td class="small muted" data-label="آخرین ورود"><?= $u['last_login_at'] ? e(time_ago($u['last_login_at'])) : '—' ?></td>
+        <td class="nowrap tc-acts"><div class="flex gap-1">
             <?php if ($can('toggle_status') && !$protected): ?>
                 <div class="st-btns" role="group" aria-label="تغییر وضعیت">
-                    <?php foreach ([['active', 'fa-check', 'ok', 'تأیید / فعال کردن'], ['deactivated', 'fa-xmark', 'off', 'غیرفعال کردن (رد)'], ['blocked', 'fa-ban', 'block', 'مسدود کردن']] as [$k, $ic, $tone, $tt]): $cur = $u['status'] === $k; ?>
-                    <button type="button" class="btn btn-xs btn-icon st-btn st-<?= e($tone) ?><?= $cur ? ' on' : '' ?>" <?= $cur ? 'disabled aria-pressed="true"' : 'aria-pressed="false" data-post="' . e(url('/admin/users/' . pid('users', $u) . '/status')) . '" data-data=\'' . e(json_encode(['status' => $k])) . '\' data-after="reload"' ?> title="<?= e($cur ? 'وضعیت فعلی: ' . $stLbl[$k][0] : $tt) ?>" aria-label="<?= e($tt) ?>"><i class="fa-solid <?= e($ic) ?>"></i></button>
+                    <?php foreach ([['active', 'fa-check', 'ok', 'تأیید / فعال کردن', 'فعال'], ['deactivated', 'fa-xmark', 'off', 'غیرفعال کردن (رد)', 'غیرفعال'], ['blocked', 'fa-ban', 'block', 'مسدود کردن', 'مسدود']] as [$k, $ic, $tone, $tt, $short]): $cur = $u['status'] === $k; ?>
+                    <button type="button" class="btn btn-xs st-btn st-<?= e($tone) ?><?= $cur ? ' on' : '' ?>" <?= $cur ? 'disabled aria-pressed="true"' : 'aria-pressed="false" data-post="' . e(url('/admin/users/' . pid('users', $u) . '/status')) . '" data-data=\'' . e(json_encode(['status' => $k])) . '\' data-after="reload"' ?> title="<?= e($cur ? 'وضعیت فعلی: ' . $stLbl[$k][0] : $tt) ?>" aria-label="<?= e($tt) ?>"><i class="fa-solid <?= e($ic) ?>" aria-hidden="true"></i> <span><?= e($short) ?></span></button>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -65,7 +65,7 @@ $me = (int) $currentUser['id'];
 <?php // جزئیات کاربر: پروژه‌ها (ورود به پنل ← تسک‌های پروژه)، تسک‌ها (پنجره‌ی فهرست ← ورود به پنل ← لینک تسک)، تاریخ ایجاد، آخرین بازدید ?>
 <?php $this->partial('admin_user_modals'); ?>
 <div class="modal" id="m-user"><div class="modal-box"><form method="post" action="<?= e(url('/admin/users')) ?>" data-ajax id="f-user"><?= csrf_field() ?>
-    <div class="modal-head"><h3><i class="fa-solid fa-user-gear"></i> <span id="user-modal-title">کاربر جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><h3><i class="fa-solid fa-user-gear"></i> <span id="user-modal-title">کاربر جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <div class="row"><div class="field"><label>نام *</label><input class="input" name="first_name" required maxlength="100"></div><div class="field"><label>نام خانوادگی</label><input class="input" name="last_name" maxlength="100"></div></div>
         <div class="row"><div class="field"><label>موبایل *</label><input class="input ltr" name="mobile" data-mobile required></div><div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email"></div></div>

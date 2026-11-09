@@ -1,9 +1,9 @@
 <div class="modal" id="tk-confirm">
     <div class="modal-box sm">
         <div class="modal-body center">
-            <i class="fa-solid fa-circle-question" data-css="font-size:2.2rem;color:var(--warn)"></i>
+            <i class="dc-0385c2 fa-solid fa-circle-question"></i>
             <p class="mt-1" data-msg></p>
-            <div class="flex gap-2 mt-2" data-css="justify-content:center">
+            <div class="dc-9b54a3 flex gap-2 mt-2">
                 <button type="button" class="btn btn-danger" data-ok>تأیید</button>
                 <button type="button" class="btn" data-cancel>انصراف</button>
             </div>

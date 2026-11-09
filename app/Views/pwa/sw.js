@@ -37,6 +37,21 @@ self.addEventListener('fetch', (e) => {
     })());
     return;
   }
+  // v7.3 سرعت: فایل‌های نسخه‌دار (?v=… یا نام هش‌دار) و تصویرهای پروفایل/پروژه (نام تصادفی و تغییرناپذیر)
+  // cache-first: بدون درخواست دوباره به شبکه؛ نسخه‌ی تازه آدرس تازه دارد
+  const immutable = (url.pathname.includes('/assets/') && (url.searchParams.has('v') || /\.[0-9a-f]{10}\.woff2$/.test(url.pathname)))
+    || /\/files\/(avatars|projects)\//.test(url.pathname);
+  if (immutable) {
+    e.respondWith((async () => {
+      const cache = await caches.open(STATIC);
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok && res.type === 'basic') cache.put(req, res.clone());
+      return res;
+    })());
+    return;
+  }
   if (url.pathname.includes('/assets/')) {
     // stale-while-revalidate: سریع از کش، در پس‌زمینه به‌روز
     e.respondWith((async () => {

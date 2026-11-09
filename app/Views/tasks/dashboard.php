@@ -96,7 +96,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <?php if (!$wCount): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
 
         <?php if ($w['review']): ?>
-        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-magnifying-glass" data-css="color:#a78bfa"></i> منتظر بررسی سرپرست</b></div>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="dc-5e4c34 fa-solid fa-magnifying-glass"></i> منتظر بررسی سرپرست</b></div>
             <div class="list"><?php foreach ($w['review'] as $t): ?>
                 <div class="item dash-wait-item dash-review-item">
                     <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
@@ -121,7 +121,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 
 
         <?php if ($w['rework']): ?>
-        <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-rotate-left" data-css="color:#fb923c"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
+        <div class="dash-sec"><div class="dash-sec-head"><b><i class="dc-483f44 fa-solid fa-rotate-left"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
             <div class="list"><?php foreach ($w['rework'] as $t): ?>
                 <a class="item dash-wait-item" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <span class="avatar sm sq dash-rework-ico"><i class="fa-solid fa-rotate-left"></i></span>
@@ -163,7 +163,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="fa-solid fa-envelope-open-text"></i> دعوت به پروژه</b></div>
             <div class="list"><?php foreach ($w['invites'] as $r): ?>
                 <div class="item">
-                    <span class="avatar sm sq"><?php if ($r['profile_image']): ?><img src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
+                    <span class="avatar sm sq"><?php if ($r['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
                     <div class="grow min0"><div class="small truncate">عضویت در <b>«<?= e($r['title']) ?>»</b></div><div class="xs faint">دعوت از <?= e(full_name($r)) ?> • <?= e(time_ago($r['created_at'])) ?></div></div>
                     <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"accept"}' data-after="reload">پذیرفتن</button><button class="btn btn-sm" data-post="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-data='{"action":"reject"}' data-after="reload">رد</button></div></div>
             <?php endforeach; ?></div></div>
@@ -217,7 +217,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
         <div id="ch-ratio"></div>
-        <?php if ($d['top_subject'] !== null): // فقط وقتی دست‌کم یک تسک لیبل دارد ?><div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="text-green" data-css="color:var(--g-300)"><?= e($d['top_subject']) ?></b> · <?= e(fa_num($d['top_subject_count'])) ?> تسک</div><?php endif; ?></div>
+        <?php if ($d['top_subject'] !== null): // فقط وقتی دست‌کم یک تسک لیبل دارد ?><div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="dc-13fd80 text-green"><?= e($d['top_subject']) ?></b> · <?= e(fa_num($d['top_subject_count'])) ?> تسک</div><?php endif; ?></div>
 </div>
 
 <div class="grid grid-3 mb-2">
@@ -237,7 +237,7 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 
 <div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-note-sticky"></i> یادداشت‌ها</h3><a class="btn btn-sm" href="<?= e(url('/notes')) ?>">مشاهده</a></div>
-        <div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">یادداشت</div></div></div>
+        <div class="center"><div class="dc-ab66dd num bold"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">یادداشت</div></div></div>
 </div>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $projects, 'assignees' => $assignees, 'shared' => null, 'context' => 'dashboard']); ?>

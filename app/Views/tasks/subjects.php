@@ -1,5 +1,5 @@
 <?php /** @var array $subjects */ ?>
-<div class="page-head"><h2><i class="fa-solid fa-tags" data-css="color:var(--g-400)"></i> لیبل‌ها</h2>
+<div class="page-head"><h2><i class="dc-961bcb fa-solid fa-tags"></i> لیبل‌ها</h2>
     <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'labels', 'count' => $blockedCount ?? 0, 'label' => 'لیبل‌های مسدودشده']); ?>
     <button class="btn btn-primary" data-modal="m-subject" id="btn-new-subject"><i class="fa-solid fa-plus"></i> لیبل جدید</button></div></div>
 <div data-live="subjects">
@@ -19,7 +19,7 @@
 </div>
 <div class="modal" id="m-subject"><div class="modal-box sm">
     <form method="post" action="<?= e(url('/labels')) ?>" data-ajax id="f-subject"><?= csrf_field() ?>
-        <div class="modal-head"><h3><i class="fa-solid fa-tag"></i> لیبل</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="modal-head"><h3><i class="fa-solid fa-tag"></i> لیبل</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
         <div class="modal-body">
             <div class="field"><label>عنوان *</label><input class="input" name="title" maxlength="150" required></div>
             <div class="field"><label>رنگ</label>

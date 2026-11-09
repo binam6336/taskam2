@@ -40,7 +40,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 </div>
 
 <div class="grid mb-2 an-row">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> ۱۴ روز اخیر</h3><span class="hint" data-css="margin:0">برای دیدن عدد، موس را روی نمودار ببرید</span></div><div class="chart" id="ch-trend"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> ۱۴ روز اخیر</h3><span class="dc-1386d5 hint">برای دیدن عدد، موس را روی نمودار ببرید</span></div><div class="chart" id="ch-trend"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> توزیع اولویت</h3></div><div id="ch-prio"></div>
         <p class="small muted center mt-2">میانگین زمان انجام: <b><?= e(duration_fa((float) $t['avg_hours'])) ?></b></p></div>
 </div>
@@ -67,7 +67,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 </div>
 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3></div>
-    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th>باز</th><th>عقب‌افتاده</th><th data-css="width:32%">پیشرفت سرعت</th></tr></thead><tbody>
+    <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>کل</th><th>انجام‌شده</th><th title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th>باز</th><th>عقب‌افتاده</th><th class="dc-f451bb">پیشرفت سرعت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; ?>
         <tr><td><a class="flex items-center gap-1 an-member-link" href="<?= e($tl(['status' => 'all', 'assignee' => pid('users', $m['id'])])) ?>" title="تسک‌های <?= e(full_name($m)) ?> در این پروژه"><?php $this->partial('avatar', ['name' => full_name($m), 'src' => avatar_url($m['avatar']), 'size' => 'sm']); ?><?= e(full_name($m)) ?></a></td>
             <td><?= e(fa_num($m['total'])) ?></td><td><?= e(fa_num($m['done'])) ?></td><td><?= (int) $m['waiting'] > 0 ? '<span class="badge purple">' . e(fa_num($m['waiting'])) . '</span>' : '—' ?></td><td><?= e(fa_num($m['open'])) ?></td>

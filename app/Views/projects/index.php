@@ -36,16 +36,16 @@ foreach ($boot as $bp) {
 $projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
-<div class="page-head"><h2><i class="fa-solid fa-diagram-project" data-css="color:var(--g-400)"></i> پروژه‌ها</h2>
+<div class="page-head"><h2><i class="dc-961bcb fa-solid fa-diagram-project"></i> پروژه‌ها</h2>
     <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'projects', 'count' => $blockedCount ?? 0, 'label' => 'پروژه‌های مسدودشده']); ?>
     <button class="btn btn-primary" id="btn-new-project"><i class="fa-solid fa-plus"></i> پروژه جدید</button></div></div>
 
 <div data-live="proj-body">
 <script type="application/json" id="proj-data"><?= json_html($projData) ?></script>
 <?php if ($requests): ?>
-<div class="card mb-2" data-css="border-color:rgba(251,191,36,.4)"><div class="card-head"><h3><i class="fa-solid fa-envelope-open-text" data-css="color:var(--warn)"></i> دعوت‌های عضویت</h3></div>
+<div class="dc-acca12 card mb-2"><div class="card-head"><h3><i class="dc-f95e73 fa-solid fa-envelope-open-text"></i> دعوت‌های عضویت</h3></div>
     <div class="list"><?php foreach ($requests as $r): ?>
-        <div class="item"><span class="avatar sq"><?php if ($r['profile_image']): ?><img src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
+        <div class="item"><span class="avatar sq"><?php if ($r['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($r['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial($r['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($r['title']) ?></div><div class="xs muted">دعوت از <?= e(full_name($r)) ?> • <?= e(time_ago($r['created_at'])) ?></div></div>
             <div class="item-actions">
                 <form method="post" action="<?= e(url('/projects/requests/' . pid('project_join_requests', $r) . '/respond')) ?>" data-ajax class="flex gap-1"><?= csrf_field() ?>
@@ -71,7 +71,7 @@ $this->scripts[] = 'projects';
                     <button type="button" class="text-danger" data-post="<?= e(url('/block/projects/' . pid('projects', $p))) ?>" data-confirm="پروژه‌ی «<?= e($p['title']) ?>» مسدود شود؟ از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد (تسک‌های فعلی‌اش می‌مانند). از «پروژه‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i> مسدود کردن پروژه</button>
                 <?php endif; ?>
                 </div></div>
-            <span class="avatar sq lg" data-css="width:56px;height:56px;font-size:1.3rem"><?php if ($p['profile_image']): ?><img src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
+            <span class="dc-2226f8 avatar sq lg"><?php if ($p['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
             <div class="grow"><div class="bold"><?= e($p['title']) ?></div>
                 <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
@@ -99,7 +99,7 @@ $this->scripts[] = 'projects';
 <!-- ایجاد / ویرایش -->
 <div class="modal" id="m-project"><div class="modal-box">
     <form method="post" action="<?= e(url('/projects')) ?>" enctype="multipart/form-data" data-ajax id="f-project"><?= csrf_field() ?>
-        <div class="modal-head"><h3><i class="fa-solid fa-diagram-project"></i> <span id="proj-title-h">پروژه جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="modal-head"><h3><i class="fa-solid fa-diagram-project"></i> <span id="proj-title-h">پروژه جدید</span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
         <div class="modal-body">
             <input type="hidden" name="members_present" value="1" id="members-present">
             <div class="field"><label>نام پروژه *</label><input class="input" name="project_title" maxlength="255" required></div>
@@ -109,18 +109,18 @@ $this->scripts[] = 'projects';
             <div class="field"><label>نوع اولویت تسک‌ها</label>
                 <div class="seg-radio"><?php foreach (\App\Services\Priority::TYPES as $pk => $pl): ?><label><input type="radio" name="priority_type" value="<?= e($pk) ?>" <?= $pk === 'category' ? 'checked' : '' ?>><span><i class="fa-solid <?= $pk === 'percent' ? 'fa-percent' : 'fa-layer-group' ?>"></i> <?= e($pl) ?></span></label><?php endforeach; ?></div>
                 <div class="hint">در حالت درصدی، اولویت هنگام ثبت/ویرایش با نوار انتخاب می‌شود (مضرب ۵٪). با تغییر به درصدی: کم = ۲۵٪، متوسط = ۵۰٪، زیاد = ۷۵٪.</div></div>
-            <div class="field" id="members-field"><label>اعضا (از همکاران شما)</label><div id="members-list" class="perm-grid" data-css="max-height:220px;overflow:auto"></div>
+            <div class="field" id="members-field"><label>اعضا (از همکاران شما)</label><div id="members-list" class="dc-b3014d perm-grid"></div>
                 <div class="hint">اگر کاربری تأیید دستی عضویت را فعال کرده باشد، برایش درخواست ارسال می‌شود.</div></div>
         </div>
         <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div>
     </form></div></div>
 
 <!-- مدیریت اعضا -->
-<div class="modal" id="m-members"><div class="modal-box lg"><div class="modal-head"><h3><i class="fa-solid fa-users"></i> <span id="mem-title"></span></h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+<div class="modal" id="m-members"><div class="modal-box lg"><div class="modal-head"><h3><i class="fa-solid fa-users"></i> <span id="mem-title"></span></h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><div id="mem-body"></div></div></div></div>
 <div class="modal" id="m-mdetail"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-id-badge"></i> دسترسی‌های <span id="md-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body" id="md-body"></div></div></div>
-<div class="modal" id="m-mperm"><div class="modal-box"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی‌های <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+<div class="modal" id="m-mperm"><div class="modal-box"><form id="f-mperm"><div class="modal-head"><h3><i class="fa-solid fa-key"></i> دسترسی‌های <span id="mp-name"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <div class="tabs perm-tabs" role="tablist" hidden>
             <button type="button" class="tab active" role="tab" data-ptab="role" aria-selected="true"><i class="fa-solid fa-id-badge"></i> نقش کاربر</button>
@@ -142,7 +142,7 @@ $this->scripts[] = 'projects';
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>
 <!-- سقف تعداد تسک عضو در ستون‌های برد -->
-<div class="modal" id="m-blimit"><div class="modal-box sm"><form id="f-blimit"><div class="modal-head"><h3><i class="fa-solid fa-gauge-high"></i> سقف تعداد تسک</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+<div class="modal" id="m-blimit"><div class="modal-box sm"><form id="f-blimit"><div class="modal-head"><h3><i class="fa-solid fa-gauge-high"></i> سقف تعداد تسک</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <p class="xs muted mb-1">حداکثر تسک‌هایی که <b id="bl-name"></b> (به‌عنوان مسئول) هم‌زمان در هر ستون برد این پروژه می‌تواند داشته باشد. اگر ستون پر باشد، کارت جدیدی به آن منتقل نمی‌شود.</p>
         <div class="tip mb-1"><i class="fa-solid fa-lightbulb"></i> اگر فیلد خالی باشد، برای آن وضعیت محدودیتی وجود ندارد.</div>

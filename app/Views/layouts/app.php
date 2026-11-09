@@ -31,7 +31,7 @@ $tbCols = array_slice($tbAll, 0, 4);
 <body class="<?= e($this->bodyClass) ?>" data-layout="app">
 <div class="app">
     <?php $sb = [
-        'home' => url('/dashboard'), 'title' => 'تسکام', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => $u['mobile'], 'user_sub_ltr' => true,
+        'home' => url('/dashboard'), 'title' => 'تسکام', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => fa_num((string) $u['mobile']), 'user_sub_ltr' => true,
         'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'desc' => [],   // توضیح‌ها داخل خود $menu (SidebarModel::nav)
     ];
     require __DIR__ . '/../partials/sidebar.php'; ?>
@@ -49,11 +49,11 @@ $tbCols = array_slice($tbAll, 0, 4);
             <h1><?= e($this->title) ?></h1>
             <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
             <div class="tb-team">
-                <?php if ($tbCols): ?><a class="tb-stack" href="<?= e(url('/colleagues')) ?>" aria-label="همکاران (<?= e(fa_num($tbColsN)) ?> نفر)" title="همکاران"><?php foreach ($tbCols as $c): $cn = full_name($c); ?><span class="avatar sm" title="<?= e($cn) ?>"><?php if (!empty($c['avatar'])): ?><img src="<?= e(avatar_url($c['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($cn)) ?><?php endif; ?></span><?php endforeach; ?><?php if ($tbColsN > count($tbCols)): ?><span class="avatar sm tb-more">+<?= e(fa_num($tbColsN - count($tbCols))) ?></span><?php endif; ?></a><?php endif; ?>
+                <?php if ($tbCols): ?><a class="tb-stack" href="<?= e(url('/colleagues')) ?>" aria-label="همکاران (<?= e(fa_num($tbColsN)) ?> نفر)" title="همکاران"><?php foreach ($tbCols as $c): $cn = full_name($c); ?><span class="avatar sm" title="<?= e($cn) ?>"><?php if (!empty($c['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($c['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($cn)) ?><?php endif; ?></span><?php endforeach; ?><?php if ($tbColsN > count($tbCols)): ?><span class="avatar sm tb-more">+<?= e(fa_num($tbColsN - count($tbCols))) ?></span><?php endif; ?></a><?php endif; ?>
                 <a class="btn btn-sm tb-invite" href="<?= e(url('/colleagues?add=1')) ?>" title="دعوت همکار"><span>دعوت</span> <i class="fa-solid fa-plus" aria-hidden="true"></i></a>
             </div>
             <button type="button" class="btn btn-ghost btn-icon" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell"></i></button>
-            <a class="btn btn-ghost btn-icon" href="<?= e(url('/chat')) ?>" title="گفتگو" data-css="position:relative"><i class="fa-regular fa-comments"></i><span class="badge-count zero" data-badge="chat" data-css="position:absolute;top:-2px;left:-2px">0</span></a>
+            <a class="btn btn-ghost btn-icon tb-chat" href="<?= e(url('/chat')) ?>" title="گفتگو" aria-label="گفتگو"><i class="fa-regular fa-comments"></i><span class="dc-d19037 badge-count zero" data-badge="chat">0</span></a>
         </header>
         <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>

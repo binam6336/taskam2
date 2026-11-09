@@ -184,7 +184,7 @@
     if (!m) {
       m = document.createElement('div');
       m.className = 'modal'; m.id = 'tk-info';
-      m.innerHTML = '<div class="modal-box sm"><div class="modal-body center"><div class="info-ico"><i class="fa-solid"></i></div><h3 class="mt-1" data-title></h3><p class="muted" data-msg data-css="line-height:1.9"></p><button type="button" class="btn btn-primary mt-1" data-close>متوجه شدم</button></div></div>';
+      m.innerHTML = '<div class="modal-box sm"><div class="modal-body center"><div class="info-ico"><i class="fa-solid"></i></div><h3 class="mt-1" data-title></h3><p class="dc-7b4ece muted" data-msg></p><button type="button" class="btn btn-primary mt-1" data-close>متوجه شدم</button></div></div>';
       document.body.appendChild(m);
     }
     m.querySelector('.info-ico i').className = 'fa-solid ' + icon;
@@ -206,17 +206,40 @@
     });
   };
   TK.resetForm = (form) => { form.reset(); TK.qsa('input[type=hidden]:not([name=_csrf]):not([data-keep])', form).forEach((i) => (i.value = '')); };
-  // انتخاب فایل با دکمه‌ی آیکونی (.file-pick): نام فایل‌های انتخاب‌شده کنار دکمه
+  // انتخاب فایل با دکمه‌ی آیکونی (.file-pick) — v7.3: هر انتخاب تازه به فایل‌های قبلی اضافه می‌شود (نه جایگزین)،
+  // هر فایل با × حذف می‌شود و سقف TK.MAX_FILES (۳۰) فایل است؛ فهرست کنار دکمه ([data-file-names]).
+  TK.MAX_FILES = 30;
+  const fileKey = (f) => f.name + '|' + f.size + '|' + f.lastModified;
+  const setFiles = (inp, list) => { const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f)); inp.files = dt.files; inp._acc = list; };
   const fileNames = (inp) => {
     const out = inp.closest('.file-pick-row')?.querySelector('[data-file-names]');
-    if (!out) return;
     const f = [...(inp.files || [])];
-    out.textContent = !f.length ? '' : f.length === 1 ? f[0].name : TK.fa(f.length) + ' فایل انتخاب شد';
-    out.title = f.map((x) => x.name).join('\n');
     inp.closest('.file-pick')?.classList.toggle('has-files', f.length > 0);
+    if (!out) return;
+    out.innerHTML = f.map((x, i) => `<span class="fp-chip" title="${TK.esc(x.name)}"><span class="fp-n">${TK.esc(x.name)}</span><button type="button" class="fp-rm" data-fp-rm="${i}" aria-label="حذف ${TK.esc(x.name)}">×</button></span>`).join('')
+      + (f.length > 1 ? `<span class="fp-cnt">${TK.fa(f.length)} فایل</span>` : '');
   };
-  TK.on('change', '.file-pick input[type=file]', (e, t) => fileNames(t));
-  document.addEventListener('reset', (e) => setTimeout(() => TK.qsa('.file-pick input[type=file]', e.target).forEach(fileNames)), true);
+  TK.on('change', '.file-pick input[type=file]', (e, t) => {
+    if (!t.hasAttribute('data-auto-upload') && typeof DataTransfer !== 'undefined') {
+      const seen = new Set((t._acc || []).map(fileKey));
+      let list = [...(t._acc || []), ...[...t.files].filter((f) => !seen.has(fileKey(f)))];
+      if (list.length > TK.MAX_FILES) { TK.toast(`حداکثر ${TK.fa(TK.MAX_FILES)} فایل را می‌توانید یک‌جا پیوست کنید.`, 'warning'); list = list.slice(0, TK.MAX_FILES); }
+      try { setFiles(t, list); } catch { /* مرورگر قدیمی: همان انتخاب آخر */ }
+    } else if (t.files.length > TK.MAX_FILES) {
+      TK.toast(`حداکثر ${TK.fa(TK.MAX_FILES)} فایل را می‌توانید یک‌جا پیوست کنید.`, 'warning');
+      try { setFiles(t, [...t.files].slice(0, TK.MAX_FILES)); } catch { /* */ }
+    }
+    fileNames(t);
+  });
+  TK.on('click', '[data-fp-rm]', (e, b) => {
+    e.preventDefault(); e.stopPropagation();
+    const inp = b.closest('.file-pick-row')?.querySelector('.file-pick input[type=file]');
+    if (!inp) return;
+    const list = [...inp.files]; list.splice(Number(b.dataset.fpRm), 1);
+    try { setFiles(inp, list); } catch { /* */ }
+    fileNames(inp);
+  });
+  document.addEventListener('reset', (e) => setTimeout(() => TK.qsa('.file-pick input[type=file]', e.target).forEach((i) => { i._acc = []; fileNames(i); })), true);
   TK.busy = (btn, on) => {
     if (!btn) return;
     if (on) { btn.dataset.html = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
@@ -248,7 +271,7 @@
     host.classList.add('rselect');
     host.innerHTML = `<input type="hidden" name="${TK.esc(name)}" value=""><button type="button" class="input rselect-btn"><span class="rselect-val"></span><i class="fa-solid fa-chevron-down xs faint"></i></button><div class="rselect-menu" role="listbox"></div>`;
     const inp = host.querySelector('input'), btn = host.querySelector('.rselect-btn'), val = host.querySelector('.rselect-val'), menu = host.querySelector('.rselect-menu');
-    const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
+    const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img loading="lazy" decoding="async" src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
     // گزینه‌ها: {value,label,img|icon} + اختیاری note (توضیح کوچک زیر نام)، disabled + hint (دلیل)، یا {group:'عنوان'} برای سرتیتر گروه
     // سرتیتر تاشو (v5.14): {group, fold:'کلید'} ← دکمه با فلش؛ گزینه‌های زیرش تا سرتیتر بعدی بسته‌اند مگر باز شود یا مقدار فعلی در آن باشد
     const open = new Set();
@@ -266,7 +289,7 @@
         }
         return `<div class="rselect-opt${o.disabled ? ' disabled' : ''}" role="option" data-v="${TK.esc(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}${sec && !open.has(sec) ? ' hidden' : ''}>${av(o)}<span class="truncate grow">${TK.esc(o.label)}${o.note ? `<small class="rselect-note">${TK.esc(o.note)}</small>` : ''}</span></div>`;
       }).join('')
-        : '<div class="faint small" data-css="padding:.6rem">موردی وجود ندارد</div>';
+        : '<div class="dc-daa164 faint small">موردی وجود ندارد</div>';
     };
     draw();
     const set = (v) => {
@@ -309,6 +332,7 @@
     rs.input.removeAttribute('name');
     rs.set(sel.value);
     rs.input.addEventListener('change', () => { sel.value = rs.get(); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+    sel.addEventListener('tk:sync', () => rs.set(sel.value));        // مقدار select با کد عوض شد (مثلاً «حذف همه»ی فیلترها)
   });
   document.addEventListener('tk:ready', () => TK.logoSelects());
   document.addEventListener('tk:live', () => TK.logoSelects());
@@ -590,11 +614,17 @@
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--g-500').trim() || '#4ade80';
   const C = [accent, '#60a5fa', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'];
   TK.leaveGuard = null;   // ماژول صفحه می‌تواند تابعی بگذارد که «تغییر ذخیره‌نشده هست؟» را برگرداند (با ترک صفحه خودکار برمی‌گردد)
+  // نام دسترس‌پذیر نمودار (UI-007 v7.3): عنوان کارت والد + خلاصه‌ی عددی، در aria-label و <title> خود SVG
+  const chartName = (el, label, summary) => {
+    const t = label || el.closest('.card')?.querySelector('h3, h4')?.textContent.trim() || 'نمودار';
+    const sm = summary && summary.length > 320 ? summary.slice(0, 320) + '…' : summary;
+    return TK.esc(sm ? `${t}: ${sm}` : t);
+  };
   TK.charts = {
     colors: C,
     /** نمودار خطی؛ مقدار null = بدون داده (خط قطع می‌شود). با هاور روی هر ستون، مقادیر آن نقطه نمایش داده می‌شود. */
     // connect: نقاط هر سری با خط به هم وصل شوند حتی اگر بینشان داده نباشد (مقایسه‌ی سرعت اعضا)
-    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '', connect = false }) {
+    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '', connect = false, label = '' }) {
       if (!el) return;
       // عرض viewBox = عرض واقعی نمودار تا متن‌ها با اندازه‌ی واقعی (نه کوچک‌شده) دیده شوند
       const W = Math.max(300, Math.round(el.clientWidth || 640)), H = height, p = { l: 38, r: 14, t: 14, b: 30 };
@@ -627,7 +657,7 @@
           if (v === null || v === undefined) return;
           g += solo ? `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="5.5" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`
             + `<text class="pt-name" x="${x(i)}" y="${Math.max(12, y(v) - 10)}" text-anchor="middle" data-css="fill:${c}">${TK.esc(s.name)}</text>`
-            : `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" data-css="fill:var(--bg)" stroke="${c}" stroke-width="2"/>`;
+            : `<circle class="dc-48fbbf pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3.2" stroke="${c}" stroke-width="2"/>`;
         });
         g += '</g>';
       });
@@ -635,7 +665,8 @@
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
       g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" data-css="display:none"/>`;
       labels.forEach((l, i) => { const x0 = Math.max(0, x(i) - bw / 2), x1 = Math.min(W, x(i) + bw / 2); g += `<rect class="hz" data-i="${i}" x="${x0}" y="0" width="${x1 - x0}" height="${H - p.b}" fill="transparent"/>`; });
-      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i data-css="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
+      const nm = chartName(el, label, series.map((s) => `${s.name} ${(s.data || []).map((v, i) => (labels[i] ? labels[i] + ' ' : '') + TK.fa(v ?? 0)).join('، ')}`).join(' — '));
+      el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${nm}"><title>${nm}</title>${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i data-css="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
       // هاور روی راهنما: بقیه‌ی سری‌ها کم‌رنگ شوند
       if (series.length > 1) TK.qsa('.legend [data-k]', el).forEach((lg) => {
         lg.addEventListener('mouseenter', () => TK.qsa('.sr', el).forEach((sr) => sr.classList.toggle('dim', sr.dataset.k !== lg.dataset.k)));
@@ -657,7 +688,7 @@
       svg.addEventListener('mouseleave', hide);
       svg.addEventListener('touchstart', (e) => { const z = e.target.closest('.hz, .pt'); if (z) show(+z.dataset.i); }, { passive: true });
     },
-    bars(el, { items, height = 220 }) {
+    bars(el, { items, height = 220, label = '' }) {
       if (!el) return;
       const W = Math.max(260, Math.round(el.clientWidth || 640)), H = height, p = { l: 10, r: 10, t: 22, b: 34 };
       const max = Math.max(1, ...items.map((i) => i.value));
@@ -669,21 +700,23 @@
         g += `<text class="bar-v" x="${x + w / 2}" y="${y - 7}" text-anchor="middle">${TK.fa(it.value)}</text>`;
         g += `<text x="${x + w / 2}" y="${H - 10}" text-anchor="middle">${TK.esc(String(it.label).slice(0, 14))}</text>`;
       });
-      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
+      const nm = chartName(el, label, items.map((it) => `${it.label} ${TK.fa(it.value)}`).join('، '));
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${nm}"><title>${nm}</title>${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
     },
-    donut(el, { items, center = '', showPct = false }) {
+    donut(el, { items, center = '', showPct = false, label = '' }) {
       if (!el) return;
       // رنگ فقط #hex یا var(--…) پذیرفته می‌شود (دفاع لایه‌ای در برابر تزریق در صفت style/stroke)
       const col = (c, i) => (/^#[0-9a-fA-F]{3,8}$|^var\(--[a-z0-9-]+\)$/.test(String(c || '')) ? c : C[i % C.length]);
       const total = items.reduce((s, i) => s + i.value, 0) || 1, R = 54, S = 18, CIRC = 2 * Math.PI * R;
-      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" data-css="stroke:var(--surface-3)" stroke-width="${S}"/>`;
+      let off = 0, g = `<circle cx="70" cy="70" r="${R}" fill="none" stroke-width="${S}" class="dc-33bdb4"/>`;
       items.forEach((it, i) => {
         const len = (it.value / total) * CIRC;
         if (it.value > 0) g += `<circle class="seg" data-i="${i}" cx="70" cy="70" r="${R}" fill="none" stroke="${col(it.color, i)}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;
         off += len;
       });
       const pct = (v) => Math.round((v / total) * 100);
-      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140">${g}</svg><div class="center-txt">${center}</div></div><div class="legend" data-css="justify-content:center">${items.map((it, i) => `<span><i data-css="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
+      const nm = chartName(el, label, items.map((it) => `${it.label} ${TK.fa(it.value)}`).join('، '));
+      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140" role="img" aria-label="${nm}"><title>${nm}</title>${g}</svg><div class="center-txt">${center}</div></div><div class="dc-9b54a3 legend">${items.map((it, i) => `<span><i data-css="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
       const ctr = el.querySelector('.center-txt'), base = ctr.innerHTML;
       TK.qsa('.seg', el).forEach((c) => {
         c.addEventListener('mouseenter', () => { const it = items[+c.dataset.i]; c.classList.add('on'); ctr.innerHTML = `<div><div class="donut-v">${TK.fa(it.value)}<small> (${TK.fa(pct(it.value))}٪)</small></div><div class="donut-l">${TK.esc(it.label)}</div></div>`; });
@@ -824,7 +857,7 @@
     const q = (TK.qs('#kb-pick-q', m).value || '').trim();
     const rows = (m._items || []).filter((p) => !q || p.title.includes(q));
     TK.qs('#kb-pick-list', m).innerHTML = rows.map((p) => `<a class="kb-pick-item" role="listitem" href="${TK.esc(p.url)}" data-kb-pick-go>
-        <span class="avatar sq">${p.image ? `<img src="${TK.esc(p.image)}" alt="">` : TK.esc(TK.initial(p.title))}</span>
+        <span class="avatar sq">${p.image ? `<img loading="lazy" decoding="async" src="${TK.esc(p.image)}" alt="">` : TK.esc(TK.initial(p.title))}</span>
         <span class="grow min0"><b class="truncate">${TK.esc(p.title)}</b><small class="muted"> · ${TK.fa(p.open)} تسک باز</small></span><i class="fa-solid fa-chevron-left faint" aria-hidden="true"></i></a>`).join('')
       || `<div class="empty small">${(m._items || []).length ? 'پروژه‌ای با این نام نیست.' : 'هنوز عضو هیچ پروژه‌ای نیستید.'}</div>`;
   };
@@ -1153,6 +1186,29 @@
   } else {
     TK.visit = (href) => { location.href = href; };
   }
+
+  /* ───── نشانه‌ی اسکرول افقی تب‌ها (UI-002 v7.3) ─────
+     ردیف‌های تب/چیپ که در موبایل جا نمی‌شوند: لبه‌ی محوشونده سمتی که هنوز ادامه دارد (sh-s / sh-e) و تب فعال در دید. */
+  const SH_SEL = '.tabs, .pf-nav, .t-chips, .t-fgrp';
+  const shPaint = (el) => {
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 2) { el.classList.remove('sh-s', 'sh-e'); return; }
+    const pos = Math.abs(el.scrollLeft);                      // RTL: صفر = لبه‌ی راست (شروع)
+    el.classList.toggle('sh-s', pos > 2);
+    el.classList.toggle('sh-e', pos < max - 2);
+  };
+  TK.scrollHints = () => TK.qsa(SH_SEL).forEach((el) => {
+    const act = el.querySelector('.active, .on, [aria-current="page"], [aria-selected="true"]');
+    if (act && el.scrollWidth > el.clientWidth) {
+      const er = el.getBoundingClientRect(), ar = act.getBoundingClientRect();
+      if (ar.left < er.left || ar.right > er.right) el.scrollLeft += ar.left < er.left ? ar.left - er.left - 12 : ar.right - er.right + 12;
+    }
+    shPaint(el);
+  });
+  document.addEventListener('scroll', (e) => { if (e.target.matches?.(SH_SEL)) shPaint(e.target); }, { capture: true, passive: true });
+  window.addEventListener('resize', () => TK.scrollHints(), { passive: true });
+  TK.afterSwap.push(TK.scrollHints);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', TK.scrollHints); else TK.scrollHints();
 
   /* ───── Page module loader ─────
      ماژول‌های صفحه بعد از app.js لود می‌شوند؛ پس رویداد باید بعد از اجرای همه‌ی اسکریپت‌ها (DOMContentLoaded) ارسال شود.

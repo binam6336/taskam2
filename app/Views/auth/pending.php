@@ -10,7 +10,7 @@ $this->boot['pendingPoll'] = $status === 'pending';
 $this->scripts[] = 'auth';
 ?>
 <div class="card center">
-    <div class="stat" data-css="justify-content:center;margin-bottom:1rem"><div class="ico <?= $color === 'red' ? 'danger' : 'warn' ?>" data-css="width:72px;height:72px;font-size:1.8rem"><i class="fa-solid <?= e($icon) ?>"></i></div></div>
+    <div class="dc-221668 stat"><div class="ico <?= $color === 'red' ? 'danger' : 'warn' ?>" data-css="width:72px;height:72px;font-size:1.8rem"><i class="fa-solid <?= e($icon) ?>"></i></div></div>
     <h2><?= e($title) ?></h2>
     <p class="muted"><?= e($text) ?></p>
     <form method="post" action="<?= e(url('/logout')) ?>" class="mt-2"><?= csrf_field() ?><button class="btn"><i class="fa-solid fa-right-from-bracket"></i> خروج</button></form>

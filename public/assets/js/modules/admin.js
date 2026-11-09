@@ -24,7 +24,7 @@ document.addEventListener('tk:ready', () => {
     const load = async () => {
       const r = await TK.get('/admin/impersonations'); if (!TK.ok(r)) return;
       ib.hidden = !r.items.length; TK.qs('#imp-open-n').textContent = TK.fa(r.items.length);
-      TK.qs('#imp-open-list').innerHTML = r.items.map((x) => `<div class="item"><span class="avatar sm">${x.avatar ? `<img src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
+      TK.qs('#imp-open-list').innerHTML = r.items.map((x) => `<div class="item"><span class="avatar sm">${x.avatar ? `<img loading="lazy" decoding="async" src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
         <div class="grow min0"><b>${E(x.name)}</b> <span class="ltr small muted">${E(x.mobile)}</span><div class="xs faint">شروع ${E(x.started_fa)} • آخرین فعالیت ${E(x.seen_fa)} • ${TK.fa(x.actions)} تغییر • پایان قطعی ${E(x.expires_fa)}</div></div>
         <button type="button" class="btn btn-sm" data-imp-end="${E(x.id)}"><i class="fa-solid fa-xmark"></i> بستن</button></div>`).join('');
     };

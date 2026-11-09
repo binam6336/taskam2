@@ -48,7 +48,7 @@ document.addEventListener('tk:ready', () => {
       return;
     }
     menu.innerHTML = ac.items.map((it, i) => `<div class="qk-opt${i === ac.idx ? ' active' : ''}" role="option" id="qk-o${i}" aria-selected="${i === ac.idx}" data-i="${i}">`
-      + (ac.type === '@' ? (`<span class="avatar xs">${it.avatar ? `<img src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>`) : '<i class="fa-solid fa-diagram-project"></i>')
+      + (ac.type === '@' ? (`<span class="avatar xs">${it.avatar ? `<img loading="lazy" decoding="async" src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>`) : '<i class="fa-solid fa-diagram-project"></i>')
       + `<span>${E(ac.type === '@' ? it.name : it.title)}${it.note ? ` <small class="faint">${E(it.note)}</small>` : ''}</span></div>`).join('');
     menu.hidden = false; inp.setAttribute('aria-expanded', 'true'); inp.setAttribute('aria-activedescendant', 'qk-o' + ac.idx);
   };

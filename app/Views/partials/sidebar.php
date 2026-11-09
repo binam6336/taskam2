@@ -56,7 +56,7 @@ $pops = [];
     </nav>
 
     <div class="sb-foot"><div class="sb-me">
-        <span class="avatar sm sb-av"><?php if (!empty($su['avatar'])): ?><img src="<?= e(avatar_url($su['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($suName)) ?><?php endif; ?></span>
+        <span class="avatar sm sb-av"><?php if (!empty($su['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($su['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($suName)) ?><?php endif; ?></span>
         <div class="sb-me-t"><b class="truncate"><?= e($suName) ?></b><small<?= !empty($sb['user_sub_ltr']) ? ' dir="ltr"' : '' ?>><?= e((string) $sb['user_sub']) ?></small></div>
         <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button type="submit" class="sb-icon-btn sb-out" aria-label="<?= e($sb['logout']) ?>"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></button></form>
     </div></div>

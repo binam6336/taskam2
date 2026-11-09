@@ -18,8 +18,8 @@ $titles = [
             <code class="ltr"><?= e($id) ?></code>
             <span class="badge yellow ct-badge">ویرایش‌شده</span>
         </div>
-        <div class="small muted mb-1"><?= e($t['label']) ?></div>
-        <textarea class="input" name="body" rows="3" maxlength="500" required data-default="<?= e($t['default']) ?>"><?= e($t['value']) ?></textarea>
+        <label class="small muted mb-1 d-block" for="ct-<?= e($id) ?>"><?= e($t['label']) ?></label>
+        <textarea class="input" id="ct-<?= e($id) ?>" name="body" rows="3" maxlength="500" required data-default="<?= e($t['default']) ?>"><?= e($t['value']) ?></textarea>
         <div class="ct-default xs faint mt-1">پیش‌فرض: <?= e($t['default']) ?></div>
         <div class="flex gap-1 mt-1">
             <button class="btn btn-primary btn-sm" type="submit"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button>

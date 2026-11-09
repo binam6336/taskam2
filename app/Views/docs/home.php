@@ -17,8 +17,8 @@ $sample = ['success' => true, 'status' => 'success', 'message' => 'پیام اخ
 </section>
 
 <h2 class="dx-h">نشانی پایه</h2>
-<div class="dx-url"><span class="dx-method m-get">BASE</span><code><?= e($baseUrl) ?></code><button class="btn btn-xs" data-copy="<?= e($baseUrl) ?>"><i class="fa-regular fa-copy"></i></button></div>
-<p class="muted mt-1">همه‌ی endpointها نسبت به این آدرس هستند؛ مثلاً <code><?= e($baseUrl) ?>/tasks/list</code>.</p>
+<div class="dx-url"><span class="dx-method m-get">BASE</span><code><?= e($baseUrl) ?></code><button class="btn btn-xs" aria-label="کپی نشانی" title="کپی نشانی" data-copy="<?= e($baseUrl) ?>"><i class="fa-regular fa-copy"></i></button></div>
+<p class="muted mt-1">همه‌ی endpointها نسبت به این آدرس هستند؛ مثلاً <code class="dx-inline-url" dir="ltr"><?= e($baseUrl) ?>/tasks/list</code>.</p>
 
 <h2 class="dx-h">شروع سریع</h2>
 <ol class="dx-steps">
@@ -32,8 +32,8 @@ $sample = ['success' => true, 'status' => 'success', 'message' => 'پیام اخ
 <div class="grid grid-auto">
     <?php foreach ($spec['groups'] as $g): ?>
     <a class="card hover dx-gcard" href="<?= e(url('/docs/' . $g['id'])) ?>">
-        <div class="flex items-center gap-2 mb-1"><span class="stat"><span class="ico" data-css="width:42px;height:42px"><i class="fa-solid <?= e($g['icon']) ?>"></i></span></span><b><?= e($g['title']) ?></b><span class="badge" data-css="margin-inline-start:auto"><?= e(fa_num(count($g['endpoints']))) ?> endpoint</span></div>
-        <p class="muted small" data-css="margin:0"><?= e($g['desc']) ?></p>
+        <div class="flex items-center gap-2 mb-1"><span class="stat"><span class="dc-1ccff4 ico"><i class="fa-solid <?= e($g['icon']) ?>"></i></span></span><b><?= e($g['title']) ?></b><span class="dc-4a7f84 badge"><?= e(fa_num(count($g['endpoints']))) ?> endpoint</span></div>
+        <p class="dc-1386d5 muted small"><?= e($g['desc']) ?></p>
     </a>
     <?php endforeach; ?>
 </div>

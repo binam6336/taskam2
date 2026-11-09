@@ -5,7 +5,7 @@ $this->boot['texts'] = $texts;
 $this->boot['noteColors'] = $colors;
 $this->scripts[] = 'texts'; ?>
 <div class="page-head">
-    <div class="search grow" data-css="max-width:420px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها"></div>
+    <div class="dc-ae18a0 search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها"></div>
     <button class="btn btn-primary" id="btn-new-text"><i class="fa-solid fa-plus"></i> یادداشت جدید</button>
 </div>
 <p class="muted small mb-2"><i class="fa-solid fa-circle-info"></i> یادداشت‌ها فقط برای خودتان است. با کشیدن کارت ترتیب را عوض کنید و با دایره‌های رنگی پایین هر یادداشت رنگش را تغییر دهید.</p>

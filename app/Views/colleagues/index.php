@@ -23,14 +23,14 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
         <div class="card hover" id="col-<?= e(pid('users', $c['user_id'])) ?>">
             <div class="flex items-center gap-2 mb-1">
                 <?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($c['avatar'])]); ?>
-                <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted ltr"><?= e($c['mobile']) ?></div></div>
+                <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted ltr"><?= e(fa_num((string) $c['mobile'])) ?></div></div>
                 <?php if ($c['is_blocked_by_me']): ?><span class="badge red">مسدود</span><?php elseif ($c['has_blocked_me']): ?><span class="badge yellow">شما را مسدود کرده</span><?php endif; ?>
             </div>
             <div class="flex gap-1 wrap">
                 <a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . pid('users', $c['user_id'])) ?>" title="گفتگو" aria-label="گفتگو با <?= e(full_name($c)) ?>"><i class="fa-regular fa-comment"></i></a>
                 <?php if (!$c['is_blocked_by_me'] && !$c['has_blocked_me']): ?><button class="btn btn-sm" data-add-to-project="<?= e(pid('users', $c['user_id'])) ?>" data-name="<?= e($nm) ?>" title="عضو کردن این همکار در پروژه‌های شما"><i class="fa-solid fa-diagram-project"></i> افزودن به پروژه</button><?php endif; ?>
-                <?php if (!$c['is_blocked_by_me']): ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
-                <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف"><i class="fa-solid fa-user-minus"></i></button>
+                <?php if (!$c['is_blocked_by_me']): ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود" aria-label="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
+                <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف" aria-label="حذف"><i class="fa-solid fa-user-minus"></i></button>
             </div>
         </div>
         <?php endforeach; ?></div><?php endif; ?>
@@ -39,7 +39,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
     <h3 class="mb-1">دریافتی</h3>
     <?php if (!$incoming): ?><div class="card empty"><i class="fa-regular fa-envelope-open"></i><p>درخواست جدیدی ندارید.</p></div><?php else: ?><div class="list mb-3">
         <?php foreach ($incoming as $r): $nm = full_name($r); ?><div class="item"><?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($r['avatar'])]); ?>
-            <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted"><span class="ltr"><?= e($r['mobile']) ?></span> • <?= e(time_ago($r['created_at'])) ?></div></div>
+            <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted"><span class="ltr"><?= e(fa_num((string) $r['mobile'])) ?></span> • <?= e(time_ago($r['created_at'])) ?></div></div>
             <div class="item-actions"><button class="btn btn-sm btn-primary" data-post="<?= e(url('/colleagues/requests/' . pid('colleague_requests', $r) . '/accept')) ?>">پذیرفتن</button><button class="btn btn-sm btn-danger" data-post="<?= e(url('/colleagues/requests/' . pid('colleague_requests', $r) . '/reject')) ?>">رد</button></div></div><?php endforeach; ?></div><?php endif; ?>
     <h3 class="mb-1">ارسالی (در انتظار تأیید)</h3>
     <?php if (!$outgoing): ?><p class="muted">درخواست ارسالی در انتظاری ندارید.</p><?php else: ?><div class="list">
@@ -53,7 +53,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
         <div class="card hover" id="fol-<?= $fid ?>">
             <div class="flex items-center gap-2 mb-1">
                 <?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($f['avatar'])]); ?>
-                <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted ltr"><?= e($f['mobile']) ?></div></div>
+                <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted ltr"><?= e(fa_num((string) $f['mobile'])) ?></div></div>
             </div>
             <div class="flex gap-1 wrap mb-1">
                 <?php if ($f['mutual']): ?><span class="badge green"><i class="fa-solid fa-arrow-right-arrow-left"></i> همکار دوطرفه</span><?php else: ?><span class="badge">فقط او شما را همکار کرده</span><?php endif; ?>
@@ -68,7 +68,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
                 <?php endif; ?>
                 <button class="btn btn-sm" data-post="<?= e(url('/colleagues/followers/' . $fid . '/remove')) ?>" data-confirm="از لیست همکاران «<?= e($nm) ?>» خارج می‌شوید؟ دیگر نمی‌تواند به شما تسک واگذار کند یا شما را به پروژه‌اش اضافه کند (عضویت‌ها و تسک‌های فعلی تغییری نمی‌کنند)." data-after="reload" title="خارج شدن از لیست همکاران او"><i class="fa-solid fa-right-from-bracket"></i> خروج از لیستش</button>
                 <?php if ($f['is_blocked_by_me']): ?><button class="btn btn-sm" data-post="<?= e(url('/colleagues/' . $fid . '/unblock')) ?>" data-after="reload">رفع مسدودی</button>
-                <?php else: ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . $fid . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" data-after="reload" title="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
+                <?php else: ?><button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . $fid . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" data-after="reload" title="مسدود" aria-label="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?></div><?php endif; ?>
@@ -81,7 +81,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 <?php endif; ?>
 </div>
 
-<div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+<div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('colleague_mobile')) ?>" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>
 
 <div class="modal" id="m-add-proj"><div class="modal-box"><div class="modal-head"><h3><i class="fa-solid fa-diagram-project"></i> افزودن <span id="ap-name"></span> به پروژه</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>

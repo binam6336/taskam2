@@ -13,7 +13,7 @@ document.addEventListener('tk:ready', () => {
     else if (u.has_pending_request) act = '<span class="badge yellow">درخواست ارسال شده</span>';
     else if (!u.accepts_requests) act = '<span class="badge yellow">درخواست همکاری نمی‌پذیرد</span>';
     else act = `<button class="btn btn-primary btn-sm" data-add="${u.id}"><i class="fa-solid fa-plus"></i> افزودن</button>`;
-    res.innerHTML = `<div class="item"><span class="avatar">${u.avatar_url ? `<img src="${E(u.avatar_url)}" alt="">` : E(TK.initial(u.name))}</span><div class="grow"><b>${E(u.name)}</b><div class="xs muted ltr">${E(u.mobile)}</div></div>${act}</div>`;
+    res.innerHTML = `<div class="item"><span class="avatar">${u.avatar_url ? `<img loading="lazy" decoding="async" src="${E(u.avatar_url)}" alt="">` : E(TK.initial(u.name))}</span><div class="grow"><b>${E(u.name)}</b><div class="xs muted ltr">${E(u.mobile)}</div></div>${act}</div>`;
   });
   res?.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-add]'); if (!b) return;
@@ -31,7 +31,7 @@ document.addEventListener('tk:ready', () => {
         : p.pending.includes(apUser) ? '<span class="badge yellow">در انتظار تأیید</span>'
         : p.full ? '<span class="badge red">ظرفیت تکمیل</span>'
         : `<button type="button" class="btn btn-sm btn-primary" data-ap-add="${p.id}"><i class="fa-solid fa-user-plus"></i> عضو کن</button>`;
-      return `<div class="item"><span class="avatar sm sq">${p.image ? `<img src="${E(p.image)}" alt="">` : E(TK.initial(p.title))}</span><div class="grow bold">${E(p.title)}</div>${st}</div>`;
+      return `<div class="item"><span class="avatar sm sq">${p.image ? `<img loading="lazy" decoding="async" src="${E(p.image)}" alt="">` : E(TK.initial(p.title))}</span><div class="grow bold">${E(p.title)}</div>${st}</div>`;
     }).join('') || '<div class="empty small"><i class="fa-solid fa-diagram-project"></i><p>پروژه‌ای ندارید که در آن اجازه‌ی افزودن عضو داشته باشید.</p></div>';
   };
   TK.on('click', '[data-add-to-project]', (e, b) => {

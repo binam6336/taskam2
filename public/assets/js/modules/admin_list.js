@@ -8,7 +8,7 @@ document.addEventListener('tk:ready', () => {
   const info = TK.qs('#ap-info'), part = TK.qs('#ap-part');
   let pid = 0, cur = { kind: '', page: 1, per: PER[0] }, proj = null;
 
-  const av = (name, src) => `<span class="avatar sm">${src ? `<img src="${E(src)}" alt="">` : E(TK.initial(name))}</span>`;
+  const av = (name, src) => `<span class="avatar sm">${src ? `<img loading="lazy" decoding="async" src="${E(src)}" alt="">` : E(TK.initial(name))}</span>`;
   const pager = (d) => {
     if (d.pages <= 1 && d.total <= PER[0]) return '';
     const btn = (p, label, on = false, dis = false) => `<button type="button" class="btn btn-xs${on ? ' btn-primary' : ''}" data-ap-page="${p}"${dis ? ' disabled' : ''}>${label}</button>`;
@@ -118,7 +118,7 @@ function usersPart(E, F, PER) {
     const projects = r.projects.length ? r.projects.map((p) => `<button type="button" class="ud-proj" data-ud-proj="${E(p.to)}" title="ورود به پنل کاربر و فهرست تسک‌های این پروژه">
         <span class="avatar sm sq"><i class="fa-solid fa-diagram-project"></i></span><span class="grow min0"><b class="truncate">${E(p.title)}</b><span class="xs muted">${E(p.role)} • ${F(p.members)} عضو • ${F(p.my_tasks)} تسک او${p.blocked ? ' • مسدود' : ''}</span></span>
         <i class="fa-solid fa-arrow-left faint"></i></button>`).join('') : '<div class="muted small">عضو هیچ پروژه‌ای نیست.</div>';
-    body.innerHTML = `<div class="flex items-center gap-2 mb-2"><span class="avatar lg">${u.avatar ? `<img src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>
+    body.innerHTML = `<div class="flex items-center gap-2 mb-2"><span class="avatar lg">${u.avatar ? `<img loading="lazy" decoding="async" src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>
         <div><b>${E(u.name)}</b><div class="xs muted ltr">${E(u.mobile)}${u.email ? ' • ' + E(u.email) : ''}</div><span class="badge mt-1">${E(u.role)}</span></div></div>
       <div class="grid ap-cards mb-2">
         <div class="card flat ap-card"><div class="xs muted">پروژه‌ها</div><div class="ap-num">${F(r.projects.length)}</div></div>

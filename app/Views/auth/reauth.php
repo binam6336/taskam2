@@ -1,7 +1,7 @@
 <?php /** @var array $u */ $this->scripts[] = 'auth'; ?>
 <div class="card">
     <div class="center">
-        <div class="stat" data-css="justify-content:center;margin-bottom:1rem"><div class="ico warn" data-css="width:64px;height:64px;font-size:1.6rem"><i class="fa-solid fa-wifi"></i></div></div>
+        <div class="dc-221668 stat"><div class="dc-d89f7e ico warn"><i class="fa-solid fa-wifi"></i></div></div>
         <h2>شبکه‌ی اینترنت شما عوض شده است</h2>
         <p class="muted">برای امنیت حساب، <b><?= e((string) $u['first_name']) ?></b> عزیز (<span class="ltr"><?= e(mask_mobile((string) $u['mobile'])) ?></span>)، رمز عبور خود را دوباره وارد کنید تا از همان جایی که بودید ادامه دهید.</p>
     </div>

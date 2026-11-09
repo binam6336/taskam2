@@ -18,7 +18,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
     <div class="tabs"><?php foreach ($filters as $k => $l): ?><a class="tab <?= $status === $k ? 'active' : '' ?>" href="<?= e($qs(['status' => $k === 'all' ? null : $k, 'page' => null])) ?>"><?= e($l) ?></a><?php endforeach; ?></div>
     <form method="get" class="flex gap-2 items-center wrap" id="users-tools">
         <?php if ($status !== 'all'): ?><input type="hidden" name="status" value="<?= e($status) ?>"><?php endif; ?>
-        <div class="search" data-css="min-width:260px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_list_search')) ?>" aria-label="جستجو"></div>
+        <div class="dc-6686b3 search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_list_search')) ?>" aria-label="جستجو"></div>
         <label class="flex items-center gap-1 small muted users-per">نمایش در هر صفحه
             <select class="input" name="per" data-autosubmit aria-label="تعداد در هر صفحه"><?php foreach ($perOptions as $n): ?><option value="<?= (int) $n ?>" <?= $n === $per ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select></label>
     </form>
@@ -42,7 +42,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
         <td class="small"><?= e(fa_num((int) $x['done'])) ?> انجام‌شده از <?= e(fa_num((int) $x['tasks'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : '<span class="badge green">فعال</span>' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php else: ?>
-    <tr><td class="bold"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small ltr"><?= e(mask_mobile($x['mobile'])) ?></td><td class="small"><?= e($x['store'] ?: '—') ?></td>
+    <tr><td class="bold"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small ltr"><?= e(fa_num(mask_mobile($x['mobile']))) ?></td><td class="small"><?= e($x['store'] ?: '—') ?></td>
         <td class="small"><?= e($name($x['a_first'], $x['a_last'])) ?></td><td class="small muted"><?= e($name($x['c_first'], $x['c_last'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : ((int) $x['status'] === 1 ? '<span class="badge green">انجام‌شده</span>' : '<span class="badge yellow">جدید</span>') ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php endif; ?>

@@ -22,7 +22,7 @@ document.addEventListener('tk:ready', () => {
   q?.addEventListener('input', () => {
     const t = q.value.trim().toLowerCase(); if (!t) return hide();
     const hits = idx.filter((x) => (x.t + ' ' + x.p + ' ' + x.g + ' ' + x.m).toLowerCase().includes(t)).slice(0, 12);
-    box.innerHTML = hits.length ? hits.map((x) => `<a href="${E(x.u)}"><span class="dx-method m-${x.m.toLowerCase()}" data-css="padding:.1rem .5rem;font-size:.65rem">${x.m}</span><span class="truncate grow">${E(x.t)}</span><code class="xs ltr">${E(x.p)}</code></a>`).join('') : '<div class="faint small" data-css="padding:.7rem">نتیجه‌ای پیدا نشد.</div>';
+    box.innerHTML = hits.length ? hits.map((x) => `<a href="${E(x.u)}"><span class="dc-fe732f dx-method m-${x.m.toLowerCase()}">${x.m}</span><span class="truncate grow">${E(x.t)}</span><code class="xs ltr">${E(x.p)}</code></a>`).join('') : '<div class="dc-a482db faint small">نتیجه‌ای پیدا نشد.</div>';
     box.hidden = false;
   });
   q?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const a = box.querySelector('a'); if (a) location.href = a.href; } if (e.key === 'Escape') { hide(); q.blur(); } });

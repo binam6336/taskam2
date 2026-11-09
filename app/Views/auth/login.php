@@ -10,7 +10,7 @@
     <form method="post" action="<?= e(url('/login')) ?>" id="form-login" class="<?= $isReg ? 'hidden' : '' ?>" autocomplete="on">
         <?= csrf_field() ?>
         <div class="field"><label for="l-mobile">شماره موبایل</label>
-            <input class="input ltr" id="l-mobile" name="mobile" data-mobile inputmode="numeric" autocomplete="username" placeholder="<?= e(ph('login_mobile')) ?>" value="<?= e($regMobile ?? old('mobile')) ?>" required <?= $regMobile ? '' : 'autofocus' ?>></div>
+            <input class="input ltr" id="l-mobile" name="mobile" data-mobile inputmode="numeric" autocomplete="username" placeholder="<?= e(ph('login_mobile')) ?>" value="<?= e($regMobile ?? (old('_form') !== 'register' ? old('mobile') : '')) ?>" required <?= $regMobile ? '' : 'autofocus' ?>></div>
         <div class="field"><label for="l-pass">رمز عبور</label>
             <input class="input ltr" id="l-pass" type="password" name="password" autocomplete="current-password" required <?= $regMobile ? 'autofocus' : '' ?>></div>
         <?php if (\App\Core\Captcha::enabled()): ?><input type="hidden" name="captcha" data-captcha-value><?php endif; ?>
@@ -24,7 +24,7 @@
             <div class="field"><label for="r-first">نام <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-first" name="first_name" value="<?= e(old('first_name')) ?>" maxlength="100" required></div>
             <div class="field"><label for="r-last">نام خانوادگی <span class="faint">(اختیاری)</span></label><input class="input" id="r-last" name="last_name" value="<?= e(old('last_name')) ?>" maxlength="100"></div>
         </div>
-        <div class="field"><label for="r-mobile">شماره موبایل <span class="req" aria-hidden="true">*</span></label><input class="input ltr" id="r-mobile" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('register_mobile')) ?>" value="<?= e(old('mobile')) ?>" required></div>
+        <div class="field"><label for="r-mobile">شماره موبایل <span class="req" aria-hidden="true">*</span></label><input class="input ltr" id="r-mobile" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('register_mobile')) ?>" value="<?= e(old('_form') === 'register' ? old('mobile') : '') ?>" required></div>
         <div class="field"><label for="r-email">ایمیل <span class="faint">(اختیاری)</span></label><input class="input ltr" id="r-email" type="email" name="email" value="<?= e(old('email')) ?>" maxlength="150"></div>
         <div class="field"><label for="r-pass">رمز عبور <span class="req" aria-hidden="true">*</span></label><input class="input ltr" type="password" name="password" id="r-pass" autocomplete="new-password" minlength="8" required>
             <div class="pw-meter"><i id="pw-bar"></i></div><div class="hint">حداقل ۸ نویسه، شامل حرف و عدد.</div></div>
@@ -40,7 +40,7 @@
     <p class="hint mb-1">برای ورود، حروف و اعداد تصویر را وارد کنید.</p>
     <div class="captcha-box">
         <div class="captcha-row"><button type="button" class="btn btn-icon" data-captcha-refresh title="کد جدید" aria-label="نمایش کد امنیتی جدید"><i class="fa-solid fa-rotate"></i></button>
-            <img class="captcha-img" alt="کد امنیتی" width="170" height="52" data-captcha-img></div>
+            <img loading="lazy" decoding="async" class="captcha-img" alt="کد امنیتی" width="170" height="52" data-captcha-img></div>
         <div class="captcha-row"><input class="input ltr captcha-input" id="l-captcha" data-captcha aria-label="کد امنیتی" maxlength="<?= \App\Core\Captcha::LENGTH ?>" lang="en" inputmode="latin" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="<?= e(ph('login_captcha')) ?>">
             <button type="button" class="btn btn-primary" data-captcha-ok>تأیید</button></div>
     </div>

@@ -23,8 +23,8 @@ $tabs = [
         <section class="pf-pane" id="pf-profile" data-pf-pane="profile" aria-labelledby="pf-h-profile">
             <h2 class="pf-h" id="pf-h-profile"><i class="fa-solid fa-user"></i> پروفایل</h2>
 <div class="card mb-2"><div class="profile-head">
-    <label class="avatar lg av-pick" id="av-preview" for="av-file" title="انتخاب تصویر پروفایل"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></label>
-    <div class="grow"><h2 data-css="margin:0"><?= e($name) ?></h2><div class="muted ltr" data-css="text-align:right"><?= e($u['mobile']) ?></div>
+    <label class="avatar lg av-pick" id="av-preview" for="av-file" title="انتخاب تصویر پروفایل"><?php if ($u['avatar']): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></label>
+    <div class="grow"><h2 class="dc-1386d5"><?= e($name) ?></h2><div class="dc-f6e3d7 muted ltr"><?= e(fa_num((string) $u['mobile'])) ?></div>
         <div class="flex gap-1 mt-1 wrap"><span class="badge green"><?= $u['role'] === 'admin' ? 'مدیر' : 'کاربر' ?></span><span class="chip"><i class="fa-solid fa-list-check"></i> <?= e(fa_num($stats['tasks'])) ?> تسک</span><span class="chip"><i class="fa-solid fa-users"></i> <?= e(fa_num($stats['colleagues'])) ?> همکار</span><span class="chip"><i class="fa-solid fa-diagram-project"></i> <?= e(fa_num($stats['projects'])) ?> پروژه</span></div></div>
     <?php // انتخاب تصویر با آیکون (یا کلیک روی خود آواتار)؛ بعد از انتخاب، خودکار بارگذاری می‌شود ?>
     <form method="post" action="<?= e(url('/profile/avatar')) ?>" enctype="multipart/form-data" data-ajax class="flex gap-1 wrap items-center" id="f-avatar"><?= csrf_field() ?>
@@ -51,7 +51,7 @@ $tabs = [
         </section>
         <section class="pf-pane" id="pf-appearance" data-pf-pane="appearance" aria-labelledby="pf-h-appearance" hidden>
             <h2 class="pf-h" id="pf-h-appearance"><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h2>
-<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" data-css="margin:0">تم فقط روی همین دستگاه و مرورگر ذخیره می‌شود؛ هر دستگاه می‌تواند تم خودش را داشته باشد.</span></div>
+<div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="dc-1386d5 hint">تم فقط روی همین دستگاه و مرورگر ذخیره می‌شود؛ هر دستگاه می‌تواند تم خودش را داشته باشد.</span></div>
     <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-modes="<?= e(json_html(array_map(static fn($t) => $t['mode'], themes()))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
         <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
         <?php $cur = user_theme($u); foreach (themes() as $key => $th): [$pBg, $pSide, $pCard, $pAcc] = $th['preview']; ?>
@@ -59,7 +59,7 @@ $tabs = [
                 <span class="theme-card">
                     <span class="theme-prev" data-css="background:<?= e($pBg) ?>" aria-hidden="true">
                         <span class="tp-main"><span class="tp-bar" data-css="background:<?= e($pAcc) ?>;width:55%"></span><span class="tp-cards"><i data-css="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i><i data-css="background:<?= e($pCard) ?>;box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)"></i></span></span>
-                        <span class="tp-side" data-css="background:<?= e($pSide) ?>"><i data-css="background:<?= e($pAcc) ?>"></i><i data-css="background:rgba(127,127,127,.35)"></i><i data-css="background:rgba(127,127,127,.35)"></i></span>
+                        <span class="tp-side" data-css="background:<?= e($pSide) ?>"><i data-css="background:<?= e($pAcc) ?>"></i><i class="dc-6effa2"></i><i class="dc-6effa2"></i></span>
                     </span>
                     <span class="theme-meta"><span><b><?= e($th['title']) ?></b><br><span><?= e($th['desc']) ?></span></span><span class="theme-check"><i class="fa-solid fa-check"></i></span></span>
                 </span></label>
@@ -94,10 +94,10 @@ $tabs = [
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> امنیت تسک‌ها</h3></div>
         <form method="post" action="<?= e(url('/profile/task-security')) ?>" data-ajax data-keep-open data-autosave data-after="none"><?= csrf_field() ?>
             <div class="field"><label for="task-link-access">دسترسی به مشاهده‌ی تسک از طریق لینک برای</label>
-                <div class="flex items-center gap-1 wrap"><select class="input" id="task-link-access" name="task_link_access" data-css="max-width:240px">
+                <div class="flex items-center gap-1 wrap"><select class="dc-dd76ed input" id="task-link-access" name="task_link_access">
                     <?php foreach (\App\Services\TaskService::LINK_ACCESS as $k => [$label]): ?><option value="<?= e($k) ?>" <?= ($u['task_link_access'] ?? 'members') === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                 </select><span class="muted">فعال است.</span></div></div>
-            <ul class="hint mb-2" data-css="padding-inline-start:1.1rem;line-height:2">
+            <ul class="dc-3ecf14 hint mb-2">
                 <?php foreach (\App\Services\TaskService::LINK_ACCESS as [$label, $desc]): ?><li><b><?= e($label) ?>:</b> <?= e($desc) ?></li><?php endforeach; ?>
             </ul>
             <p class="hint mb-2">سازنده، مسئول و همکارانی که به تسک‌هایتان دسترسی داده‌اید همیشه تسک را می‌بینند. اگر کسی بدون دسترسی لینک را باز کند، پیام خطا می‌گیرد و به صفحه‌ی تسک‌های خودش برمی‌گردد.</p>

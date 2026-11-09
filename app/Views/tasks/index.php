@@ -13,7 +13,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
     <?php if ($projScope): ?>
     <div class="t-proj-head">
         <a class="small muted" href="<?= e(url('/projects/' . $projScope['id'] . '/analytics')) ?>"><i class="fa-solid fa-arrow-right"></i> تحلیل پروژه</a>
-        <h2><i class="fa-solid fa-diagram-project" data-css="color:var(--g-400)"></i> تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?>
+        <h2><i class="dc-961bcb fa-solid fa-diagram-project"></i> تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?>
             <?php if ($filters['when'] === 'overdue'): ?> <span class="badge red">عقب‌افتاده</span><?php endif; ?></h2>
     </div>
     <?php else: ?>
@@ -22,7 +22,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <a class="tab <?= $scope === 'others' ? 'active' : '' ?>" href="<?= e($tabUrl('others', $status)) ?>"><i class="fa-solid fa-share-nodes"></i> واگذارشده به دیگران <span class="badge-count"><?= e(fa_num($counts['others_open'])) ?></span></a>
     </div>
     <?php endif; ?>
-    <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> تسک جدید</button>
+    <button type="button" class="btn btn-primary" id="btn-new-task" aria-label="تسک جدید"><i class="fa-solid fa-plus" aria-hidden="true"></i> <span class="btn-t">تسک جدید</span></button>
 </div>
 
 <div class="t-ctrl-row t-ctrl-search">
@@ -31,7 +31,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <?php foreach (['when', 'prio', 'project', 'assignee', 'label', 'flow'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'smart' ? 1 : 0); ?>
-        <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days"></i> تقویم</a>
+        <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها" aria-label="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> <span class="btn-t">تقویم</span></a>
         <button type="button" class="btn btn-icon t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر" aria-label="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter"></i><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
         <!-- سایدبار مخفی مرتب‌سازی و فیلتر (سمت چپ) -->
         <div class="t-drawer-back" data-drawer-close hidden></div>
@@ -55,7 +55,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
                         <option value="">همه‌ی پروژه‌ها</option><?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" data-img="<?= e((string) project_image_url($p['profile_image'] ?? null)) ?>" <?= $filters['project'] === (int) $p['id'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?></select></div>
                 </div>
             </div>
-            <div class="t-drawer-foot"><button type="button" class="btn btn-primary grow" data-f-apply><i class="fa-solid fa-check"></i> اعمال</button><?php if ($sCount): ?><button type="button" class="btn" data-f-clear><i class="fa-solid fa-rotate-left"></i> حذف همه</button><?php endif; ?></div>
+            <div class="t-drawer-foot"><span class="xs faint grow" data-f-note>تغییرها همان لحظه اعمال می‌شوند.</span><button type="button" class="btn" data-f-clear<?= $sCount ? '' : ' hidden' ?>><i class="fa-solid fa-rotate-left"></i> حذف همه</button></div>
         </aside>
     </form>
 </div>
@@ -87,7 +87,7 @@ $chips = [
 <span class="t-fgrp-lbl">فیلتر سریع:</span>
 <div class="t-chips" data-live="t-chips">
     <?php foreach ($chips as [$k, $v, $ic, $lbl, $n]): $on = $filters[$k] === $v; if ($k === 'flow' && !$n && !$on) continue; ?>
-    <a class="chip t-chip<?= $on ? ' on' : '' ?>" href="<?= e($chipUrl([$k => $on ? '' : $v] + ($k === 'flow' ? ['when' => ''] : ['flow' => '']))) ?>" aria-pressed="<?= $on ? 'true' : 'false' ?>"><i class="<?= e($ic) ?>"></i> <?= e($lbl) ?><?php if ($n): ?> <span class="badge-count"><?= e(fa_num($n)) ?></span><?php endif; ?><?php if ($on): ?> <i class="fa-solid fa-xmark xs"></i><?php endif; ?></a>
+    <a class="chip t-chip<?= $on ? ' on' : '' ?>" href="<?= e($chipUrl([$k => $on ? '' : $v] + ($k === 'flow' ? ['when' => ''] : ['flow' => '']))) ?>" <?= $on ? 'aria-current="true"' : '' ?>><i class="<?= e($ic) ?>"></i> <?= e($lbl) ?><?php if ($n): ?> <span class="badge-count"><?= e(fa_num($n)) ?></span><?php endif; ?><?php if ($on): ?> <i class="fa-solid fa-xmark xs"></i><?php endif; ?></a>
     <?php endforeach; ?>
 </div>
 <?php $this->partial('blocked_button', ['kind' => 'tasks', 'count' => $blockedCount ?? 0, 'label' => 'تسک‌های مسدودشده', 'text' => 'مسدودشده']); ?>

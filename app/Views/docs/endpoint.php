@@ -50,7 +50,7 @@ $typeFa = ['integer' => 'int', 'string' => 'str', 'boolean' => 'bool', 'array' =
         </div>
 
         <aside class="dx-code">
-            <div class="dx-url"><span class="dx-method m-<?= strtolower($ep['method']) ?>"><?= e($ep['method']) ?></span><code title="<?= e($shownUrl) ?>"><?= e($shownUrl) ?></code><button class="btn btn-xs" data-copy="<?= e($shownUrl) ?>"><i class="fa-regular fa-copy"></i></button></div>
+            <div class="dx-url"><span class="dx-method m-<?= strtolower($ep['method']) ?>"><?= e($ep['method']) ?></span><code title="<?= e($shownUrl) ?>"><?= e($shownUrl) ?></code><button class="btn btn-xs" aria-label="کپی نشانی" title="کپی نشانی" data-copy="<?= e($shownUrl) ?>"><i class="fa-regular fa-copy"></i></button></div>
 
             <?php if ($isPost): ?>
                 <h3 class="dx-h3">نمونه جیسون جهت ارسال</h3>

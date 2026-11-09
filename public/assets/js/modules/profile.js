@@ -39,7 +39,7 @@ document.addEventListener('tk:ready', () => {
   // تصویر پروفایل: پیش‌نمایش و بارگذاری خودکار بعد از انتخاب (بدون دکمه‌ی جدا)
   TK.qs('#av-file')?.addEventListener('change', (e) => {
     const f = e.target.files[0]; if (!f) return;
-    const url = URL.createObjectURL(f); TK.qs('#av-preview').innerHTML = `<img src="${url}" alt="">`;
+    const url = URL.createObjectURL(f); TK.qs('#av-preview').innerHTML = `<img loading="lazy" decoding="async" src="${url}" alt="">`;
     TK.qs('#f-avatar').requestSubmit();
   });
 

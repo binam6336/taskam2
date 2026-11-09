@@ -21,14 +21,14 @@ $card = static fn(string $ico, string $cls, $num, string $lbl, ?string $href = n
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> رمزگذاری پیام‌های چت</h3>
     <span class="badge <?= $chatSec['configured'] ? 'green' : 'yellow' ?>"><?= $chatSec['configured'] ? 'فعال (AES-256-GCM)' : 'غیرفعال' ?></span></div>
     <div class="grid grid-3 mb-1">
-        <div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($chatSec['total'])) ?></div><div class="xs muted">کل پیام‌ها</div></div>
-        <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:var(--g-400)"><?= e(fa_num($chatSec['enc'])) ?></div><div class="xs muted">رمزشده</div></div>
+        <div class="center"><div class="dc-ab66dd num bold"><?= e(fa_num($chatSec['total'])) ?></div><div class="xs muted">کل پیام‌ها</div></div>
+        <div class="center"><div class="dc-1ce200 num bold"><?= e(fa_num($chatSec['enc'])) ?></div><div class="xs muted">رمزشده</div></div>
         <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:<?= $chatSec['plain'] ? 'var(--warn)' : 'var(--g-400)' ?>"><?= e(fa_num($chatSec['plain'])) ?></div><div class="xs muted">متن‌ساده (رمزگذاری‌نشده)</div></div>
     </div>
     <?php if (!$chatSec['configured']): ?><p class="small muted">در <code>.env</code> مقدار <code>ENCODE_PASSWORD</code> را (حداقل ۱۲ نویسه) بگذارید تا پیام‌های جدید رمزگذاری شوند.</p>
     <?php elseif ($chatSec['plain'] > 0 && $chatSec['isSuper']): ?><button class="btn btn-primary btn-sm" data-post="<?= e(url('/admin/chat/encrypt')) ?>" data-confirm="پیام‌های متن‌ساده‌ی موجود با رمز فعلی رمزگذاری شوند؟ (قبلش از دیتابیس بکاپ بگیرید)" data-danger="0"><i class="fa-solid fa-lock"></i> رمزگذاری پیام‌های قبلی</button>
     <?php elseif ($chatSec['plain'] > 0): ?><p class="small muted">فقط مدیر کل می‌تواند پیام‌های قبلی را رمزگذاری کند.</p>
-    <?php else: ?><p class="small" data-css="color:var(--g-300)"><i class="fa-solid fa-circle-check"></i> همه‌ی پیام‌ها رمزگذاری شده‌اند.</p><?php endif; ?></div>
+    <?php else: ?><p class="dc-13fd80 small"><i class="fa-solid fa-circle-check"></i> همه‌ی پیام‌ها رمزگذاری شده‌اند.</p><?php endif; ?></div>
 
 <div class="card"><div class="card-head"><h3><i class="fa-solid fa-shield-halved"></i> رویدادهای امنیتی اخیر</h3></div>
 <div class="table-wrap"><table class="table"><thead><tr><th>زمان</th><th>کاربر</th><th>رویداد</th><th>IP</th></tr></thead><tbody>

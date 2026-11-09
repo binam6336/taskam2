@@ -322,7 +322,7 @@ function themes(): array
 }
 
 /** تم پیش‌فرض و نام کوکی تم (v7.0: تم روی هر دستگاه جدا، در کوکی؛ دیگر در دیتابیس ذخیره نمی‌شود) */
-const THEME_DEFAULT = 'green-dark';
+const THEME_DEFAULT = 'green-light';       // v7.3: دستگاه بدون کوکی (و ثبت‌نام تازه) = سبز روشن
 const THEME_COOKIE = 'tk_theme';
 
 /** کلید معتبر تم؛ کلیدهای قدیمی (dark / sage) به معادل تازه‌شان */
@@ -345,13 +345,10 @@ function theme_attrs(?array $u = null): string
     return 'data-theme="' . e($t) . '" data-mode="' . e(theme_mode($t)) . '"';
 }
 
-/** تم این دستگاه از کوکی؛ اگر این دستگاه هنوز تمی انتخاب نکرده، تم قدیمی حساب (users.theme، منسوخ) فقط برای خواندن */
+/** تم این دستگاه از کوکی؛ بدون کوکی = THEME_DEFAULT (سبز روشن). users.theme از v7.3 اصلاً خوانده نمی‌شود. */
 function user_theme(?array $u = null): string
 {
-    if (isset($_COOKIE[THEME_COOKIE])) {
-        return theme_key((string) $_COOKIE[THEME_COOKIE]);
-    }
-    return theme_key(isset($u['theme']) ? (string) $u['theme'] : null);
+    return theme_key(isset($_COOKIE[THEME_COOKIE]) ? (string) $_COOKIE[THEME_COOKIE] : null);
 }
 
 /** متن placeholder یک فیلد (قابل ویرایش در «محتوا ← Placeholder» پنل ادمین؛ config/placeholder_texts.php) */

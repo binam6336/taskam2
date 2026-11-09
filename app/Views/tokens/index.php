@@ -2,10 +2,10 @@
 /** @var array $tokens @var ?string $newToken @var int $max */
 $base = rtrim(full_url('api/v1'), '/');
 ?>
-<div class="page-head"><h2><i class="fa-solid fa-key" data-css="color:var(--g-400)"></i> توکن‌های API</h2><div class="flex gap-1 wrap"><a class="btn" href="<?= e(url('/docs/authentication')) ?>"><i class="fa-solid fa-key"></i> نحوه ارسال توکن</a><a class="btn btn-primary" href="<?= e(url('/docs')) ?>"><i class="fa-solid fa-book"></i> مستندات API</a></div></div>
+<div class="page-head"><h2><i class="dc-961bcb fa-solid fa-key"></i> توکن‌های API</h2><div class="flex gap-1 wrap"><a class="btn" href="<?= e(url('/docs/authentication')) ?>"><i class="fa-solid fa-key"></i> نحوه ارسال توکن</a><a class="btn btn-primary" href="<?= e(url('/docs')) ?>"><i class="fa-solid fa-book"></i> مستندات API</a></div></div>
 
 <?php if ($newToken): ?>
-<div class="alert success" data-css="flex-direction:column;align-items:stretch">
+<div class="dc-21c7e0 alert success">
     <b><i class="fa-solid fa-circle-check"></i> توکن جدید ساخته شد — همین حالا کپی کنید، دیگر نمایش داده نمی‌شود.</b>
     <?php $meCurl = 'curl -H "Authorization: Bearer ' . $newToken . '" ' . $base . '/me'; ?>
     <div class="codebox tok-box"><pre id="new-token"><?= e($newToken) ?></pre><button class="btn btn-xs copy" data-copy="<?= e($newToken) ?>"><i class="fa-regular fa-copy"></i> کپی</button></div>

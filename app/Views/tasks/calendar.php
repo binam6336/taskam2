@@ -2,7 +2,7 @@
 /** تقویم تسک‌ها. @var array $subjects @var array $projects @var array $assignees */
 $this->scripts[] = 'calendar';
 ?>
-<div class="page-head"><h2><i class="fa-regular fa-calendar-days" data-css="color:var(--g-400)"></i> تقویم تسک‌ها</h2>
+<div class="page-head"><h2><i class="dc-961bcb fa-regular fa-calendar-days"></i> تقویم تسک‌ها</h2>
     <div class="flex gap-1">
         <a class="btn" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-list-check"></i> لیست تسک‌ها</a>
         <button type="button" class="btn btn-primary" data-cal-new><i class="fa-solid fa-plus"></i> تسک جدید</button>
@@ -28,7 +28,7 @@ $this->scripts[] = 'calendar';
     </div>
     <div class="cal-stats" id="cal-stats"></div>
     <div class="cal-week" aria-hidden="true"><span>شنبه</span><span>یکشنبه</span><span>دوشنبه</span><span>سه‌شنبه</span><span>چهارشنبه</span><span>پنجشنبه</span><span>جمعه</span></div>
-    <div class="cal-grid" id="cal-grid" role="grid"></div>
+    <div class="cal-grid" id="cal-grid" role="group" aria-label="روزهای ماه"></div>
     <p class="cal-hint xs faint"><i class="fa-solid fa-hand-pointer"></i> روی هر روز بزنید تا تسک‌هایش را ببینید و زمان‌بندی‌شان را عوض کنید؛ روی دسکتاپ می‌توانید تسک را بکشید و روی روز دیگری رها کنید.</p>
 </section>
 

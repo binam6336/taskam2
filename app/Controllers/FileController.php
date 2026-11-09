@@ -23,6 +23,23 @@ final class FileController extends Controller
         if (!$this->allowed($type, basename($name), $uid)) {
             $this->abort(403, 'دسترسی به این فایل مجاز نیست.', 'FORBIDDEN');
         }
+        // v7.3 سرعت: نشست زودتر آزاد می‌شود تا تصویرها و درخواست‌های هم‌زمان پشت قفل نشست نمانند
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+        $img = $type === 'avatars' || $type === 'projects';
+        if ($img) {
+            Uploader::shrinkStored($path);                 // تصویر قدیمیِ بزرگ ← یک بار ۵۱۲px
+        }
+        // نام فایل‌ها تصادفی و تغییرناپذیرند (فایل تازه = نام تازه) ← کش طولانی + ETag/304
+        $mtime = (int) @filemtime($path);
+        $etag = '"' . substr(sha1(basename($path) . '|' . $mtime . '|' . (int) @filesize($path)), 0, 20) . '"';
+        if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+            header('Cache-Control: private, max-age=' . ($img ? '31536000, immutable' : '86400'));
+            header('ETag: ' . $etag);
+            http_response_code(304);
+            exit;
+        }
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $inline = isset(Uploader::SERVE_MIME[$ext]);
         $mime = Uploader::SERVE_MIME[$ext] ?? 'application/octet-stream';
@@ -35,7 +52,9 @@ final class FileController extends Controller
         header('X-Content-Type-Options: nosniff');
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox");
         header('Content-Length: ' . (string) filesize($path));
-        header('Cache-Control: private, max-age=86400');
+        header('Cache-Control: private, max-age=' . ($img ? '31536000, immutable' : '86400'));
+        header('ETag: ' . $etag);
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
         header('Content-Disposition: ' . ($inline && !isset($this->request->query['dl']) ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($orig));
         readfile($path);
         exit;
