@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '039';
+    public const VERSION = '040';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -85,14 +85,24 @@ final class Schema
         // 023
         ['users', 'board_order', 'ADD COLUMN `board_order` VARCHAR(255) NULL DEFAULT NULL AFTER `tour`', null],
         ['texts', 'color', "ADD COLUMN `color` VARCHAR(12) NOT NULL DEFAULT 'yellow' AFTER `content`", null],   // ۰۳۹: رنگ یادداشت
+        // ۰۴۰ بورد اختصاصی هر پروژه و تسک محرمانه
+        ['projects', 'board_config', 'ADD COLUMN `board_config` TEXT NULL DEFAULT NULL AFTER `priority_type`', null],
+        ['tasks', 'is_confidential', 'ADD COLUMN `is_confidential` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_quick`', null],
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */
     private const ENUMS = [
         // 008
         ['support_tickets', 'status', 'in_progress', "MODIFY `status` ENUM('open','in_progress','answered','closed') NOT NULL DEFAULT 'open'"],
-        // 021
-        ['tasks', 'board_status', 'rework', "MODIFY `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog'"],
+        // 021 (مقدار rework) از v6.1 با تبدیل ستون به VARCHAR در TYPES جایگزین شد
+    ];
+
+    /**
+     * تغییر نوع ستون (v6.1): [جدول، ستون، پیشوند نوع مطلوب، DDL]؛ اگر نوع فعلی با این پیشوند شروع نشود اعمال می‌شود.
+     * tasks.board_status: ستون‌های بورد هر پروژه قابل تعریف‌اند (BoardConfig)، پس ENUM ← VARCHAR.
+     */
+    private const TYPES = [
+        ['tasks', 'board_status', 'varchar', "MODIFY `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog'"],
     ];
 
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
@@ -106,6 +116,7 @@ final class Schema
         ['031', '031_sample_projects.sql'],
         ['037', '037_group_delivery_flow.sql'],
         ['038', '038_drop_call_requests.sql'],
+        ['040', '040_project_boards.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
@@ -124,6 +135,7 @@ final class Schema
         ['project_group_members', '035_project_groups.sql'],
         ['task_group_ticks', '035_project_groups.sql'],
         ['task_group_duties', '036_group_block_duties.sql'],
+        ['task_viewers', '040_project_boards.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */
@@ -220,6 +232,19 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('ستون ' . $table . '.' . $col, $e);
+                }
+            }
+            foreach (self::TYPES as [$table, $col, $prefix, $ddl]) {
+                $type = strtolower((string) DB::value('SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col]));
+                if ($type === '' || strpos($type, $prefix) === 0) {
+                    continue;
+                }
+                try {
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ نوع ' . $table . '.' . $col . ' به ' . $prefix . ' تغییر کرد');
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('تغییر نوع ' . $table . '.' . $col, $e);
                 }
             }
             foreach (self::ENUMS as [$table, $col, $value, $ddl]) {

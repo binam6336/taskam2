@@ -43,7 +43,7 @@ final class GroupService
         if (in_array(Access::memberRole($row), ['admin', 'unit_manager', 'supervisor'], true)) {
             return true;
         }
-        return in_array('complete', Access::projectTaskPerms($projectId, $uid), true) && in_array('to_done', Access::projectBoardPerms($projectId, $uid), true);
+        return in_array('complete', Access::projectTaskPerms($projectId, $uid), true);      // دسترسی تأیید (v6.1: تأیید = «تکمیل تسک»)
     }
 
     /** دیدن گروه‌های پروژه: هر عضو پروژه */

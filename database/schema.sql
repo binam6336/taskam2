@@ -133,6 +133,7 @@ CREATE TABLE `projects` (
   `description`   TEXT NULL DEFAULT NULL,
   `max_members`   SMALLINT UNSIGNED NOT NULL DEFAULT 10,
   `priority_type` ENUM('category','percent') NOT NULL DEFAULT 'category' COMMENT 'نحوه‌ی ثبت/نمایش اولویت تسک‌ها',
+  `board_config` TEXT NULL DEFAULT NULL COMMENT 'ستون‌های بورد اختصاصی پروژه (JSON؛ NULL = بورد پیش‌فرض)',
   `profile_image` VARCHAR(255) NULL DEFAULT NULL,
   `status`        TINYINT(1) NOT NULL DEFAULT 1      COMMENT '1=فعال 0=غیرفعال',
   `is_sample`     TINYINT(1) NOT NULL DEFAULT 0      COMMENT '1 = پروژه‌ی نمونه‌ی خودکار ثبت‌نام (در پنل مدیر شمرده نمی‌شود)',
@@ -237,7 +238,8 @@ CREATE TABLE `tasks` (
   `priority_percent` TINYINT UNSIGNED NULL DEFAULT NULL COMMENT '۰ تا ۱۰۰، مضرب ۵',
   `is_completed` TINYINT(1) NOT NULL DEFAULT 0,
   `is_quick`     TINYINT(1) NOT NULL DEFAULT 0       COMMENT '1 = با «ثبت سریع» ساخته شده و هنوز وضعیتش در بورد تغییر نکرده',
-  `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog' COMMENT 'وضعیت در برد تیمی (تسک جدید: backlog؛ blocked از v4.0 استفاده نمی‌شود)',
+  `is_confidential` TINYINT(1) NOT NULL DEFAULT 0    COMMENT '1 = محرمانه: فقط سازنده، مسئول و task_viewers',
+  `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog' COMMENT 'کلید ستون بورد پروژه (BoardConfig)؛ rework/review/done ثابت؛ تسک جدید = ستون شروع پروژه',
   `blocked_reason` VARCHAR(255) NULL DEFAULT NULL,
   `board_moved_at` TIMESTAMP NULL DEFAULT NULL,
   `archived_at`  TIMESTAMP NULL DEFAULT NULL          COMMENT 'زمان انتقال به آرشیو برد',
@@ -319,6 +321,18 @@ CREATE TABLE `task_group_duties` (
   PRIMARY KEY (`task_id`, `user_id`),
   CONSTRAINT `fk_tgd_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_tgd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- تسک محرمانه (v6.1): کاربرانی که علاوه بر سازنده و مسئول، تسک محرمانه را می‌بینند (حداکثر ۳)
+CREATE TABLE `task_viewers` (
+  `task_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL,
+  `added_by`   INT UNSIGNED NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`task_id`, `user_id`),
+  KEY `idx_task_viewers_user` (`user_id`),
+  CONSTRAINT `fk_task_viewers_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_task_viewers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_notes` (

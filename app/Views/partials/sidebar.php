@@ -42,7 +42,7 @@ $pops = [];
 <?php elseif (isset($item['soon'])): ?>
             <li><span class="sb-it is-soon" aria-disabled="true"><span class="sb-ic"><i class="fa-solid <?= e($item['icon']) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($item['label']) ?> <small class="soon-chip">به‌زودی</small></span></span></li>
 <?php elseif (!isset($item['group'])): [$key, $path, $icon, $label] = $item; $on = $active === $key; ?>
-            <li><a class="sb-it<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?>><span class="sb-ic"><i class="fa-solid <?= e($icon) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($label) ?></span><?= $badge($key) ?></a></li>
+            <li><a class="sb-it<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?><?= $key === 'board' ? ' data-board-pick' : '' ?>><span class="sb-ic"><i class="fa-solid <?= e($icon) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($label) ?></span><?= $badge($key) ?></a></li>
 <?php else:
     $keys = array_column(array_filter($item['items'], static fn($c) => isset($c[0])), 0);
     $sumKeys = array_values(array_filter($keys, static fn($k) => array_key_exists($k, $badges)));
@@ -79,7 +79,7 @@ $pops = [];
             <?php elseif (isset($c['soon'])): ?>
             <li><span class="sb-pop-a is-soon" aria-disabled="true"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small>به‌زودی<?= ($c['desc'] ?? '') !== '' ? ' · ' . e($c['desc']) : '' ?></small></span></span></li>
             <?php else: [$key, $path, $icon, $label] = $c; $on = $active === $key; $cd = $c['desc'] ?? ($desc[$key] ?? ''); ?>
-            <li><a class="sb-pop-a<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?>><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($icon) ?>"></i></span><span class="sb-pop-t"><b><?= e($label) ?><?php if ($on): ?> <em class="sb-pop-now">صفحه فعلی</em><?php endif; ?></b><?php if ($cd !== ''): ?><small><?= e($cd) ?></small><?php endif; ?></span><?= $badge($key) ?><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
+            <li><a class="sb-pop-a<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?><?= $key === 'board' ? ' data-board-pick' : '' ?>><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($icon) ?>"></i></span><span class="sb-pop-t"><b><?= e($label) ?><?php if ($on): ?> <em class="sb-pop-now">صفحه فعلی</em><?php endif; ?></b><?php if ($cd !== ''): ?><small><?= e($cd) ?></small><?php endif; ?></span><?= $badge($key) ?><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
             <?php endif; ?>
         <?php endforeach; ?>
         </ul>

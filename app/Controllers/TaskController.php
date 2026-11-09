@@ -195,6 +195,7 @@ final class TaskController extends Controller
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
             'board' => BoardService::taskState($t, $uid),
+            'confidential' => TaskService::confidentialInfo($t, $uid),          // تسک محرمانه (v6.1)
             // مسدود کردن به‌جای حذف: تسک مسدود فقط‌خواندنی است و از پنجره‌ی «مسدودشده‌ها»ی صفحه‌ی تسک‌ها برمی‌گردد
             'is_blocked' => !empty($t['blocked_at']), 'blocked_fa' => !empty($t['blocked_at']) ? jdate((string) $t['blocked_at']) : null,
             'blocked_by_name' => !empty($t['blocked_by']) ? full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [(int) $t['blocked_by']]) ?? []) : null,
@@ -342,6 +343,14 @@ final class TaskController extends Controller
         // board_status (v5.13.1): کلید status پاسخ JSON با «success» پر می‌شود؛ وضعیت تازه‌ی تسک جدا برای به‌روزرسانی فوری تیک
         $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) + (isset($d['status']) ? ['board_status' => $d['status']] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
+    }
+
+    /** تسک محرمانه (v6.1): on=1|0 و viewers[] (شناسه‌ی عمومی کاربران، حداکثر ۳) */
+    public function confidential(string $task)
+    {
+        $viewers = array_map(static fn($v) => (int) \App\Core\Pid::id('users', (string) $v), $this->request->arr('viewers'));
+        $res = TaskService::setConfidential($this->uid(), (int) $task, (string) $this->request->input('on', '0') === '1', $viewers);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
     }
 
     /** «بازگردانی» بعد از تکمیل مستقیم یا تأیید (v5.4) */

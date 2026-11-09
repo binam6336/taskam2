@@ -13,7 +13,7 @@ return [
         'group:tasks' => 'برنامه‌ریزی و پیگیری کارها',
         'tasks' => 'لیست تسک‌های من و تیم',
         'calendar' => 'نمای تقویمی سررسیدها',
-        'board' => 'نمای کانبان پروژه‌ها',
+        'board' => 'بورد اختصاصی هر پروژه',
         'subjects' => 'دسته‌بندی و رنگ‌بندی تسک‌ها',
         'texts' => 'یادداشت‌های رنگی شخصی',
         'group:team' => 'همکاران، پروژه‌ها و گفتگو',
@@ -55,7 +55,7 @@ return [
         ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
             ['t' => 'page', 'page' => 'tasks', 'label' => 'تسک‌ها'],
             ['t' => 'page', 'page' => 'calendar', 'label' => 'تقویم'],
-            ['t' => 'page', 'page' => 'board', 'label' => 'بورد پروژه', 'soon' => true],
+            ['t' => 'page', 'page' => 'board', 'label' => 'بورد پروژه'],
             ['t' => 'page', 'page' => 'texts', 'label' => 'یادداشت‌ها'],
             ['t' => 'page', 'page' => 'subjects', 'label' => 'لیبل‌ها'],
         ]],

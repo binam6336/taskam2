@@ -140,7 +140,17 @@ final class TaskHistory
             }
         }
         $who = static fn($uid) => $uid && isset($users[$uid]) ? $users[$uid] : null;
-        $labels = array_map(static fn($s) => $s['label'], BoardService::STATUSES) + ['archived' => 'آرشیو'];
+        // نام ستون‌ها از بورد همان پروژه (v6.1؛ ستون حذف‌شده با نام پیش‌فرض یا کلید)
+        $bpid = isset($t['project_id']) ? (int) $t['project_id'] : null;
+        $labels = new class ($bpid) implements \ArrayAccess {
+            private ?int $p;
+            public function __construct(?int $p) { $this->p = $p; }
+            public function offsetExists($k): bool { return $k !== ''; }
+            #[\ReturnTypeWillChange]
+            public function offsetGet($k) { return $k === '' ? '' : BoardConfig::label($this->p, (string) $k); }
+            public function offsetSet($k, $v): void {}
+            public function offsetUnset($k): void {}
+        };
         return array_map(static function (array $i) use ($who, $labels) {
             $d = $i['data'];
             if ($i['type'] === 'assignee') {

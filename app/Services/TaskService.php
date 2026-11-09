@@ -590,6 +590,60 @@ final class TaskService
         return array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])], $rows);
     }
 
+    /**
+     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک روشن/خاموشش می‌کند و تا Access::CONFIDENTIAL_MAX نفر از اعضای پروژه را
+     * به‌عنوان بیننده انتخاب می‌کند. سازنده و مسئول (یا اعضای گروه مسئول) همیشه می‌بینند؛ بقیه حتی با لینک یا جستجو نه.
+     */
+    public static function setConfidential(int $actor, int $taskId, bool $on, array $viewers): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if ((int) $t['user_id'] !== $actor) {
+            return self::err('فقط سازنده‌ی تسک می‌تواند آن را محرمانه کند یا بیننده‌هایش را تعیین کند.', 'FORBIDDEN', 403);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        $viewers = array_values(array_unique(array_filter(array_map('intval', $viewers), static fn($v) => $v > 0 && $v !== (int) $t['user_id'] && $v !== (int) ($t['assignee_id'] ?? 0))));
+        if (!$on) {
+            $viewers = [];
+        }
+        if (count($viewers) > Access::CONFIDENTIAL_MAX) {
+            return self::err('حداکثر ' . fa_num(Access::CONFIDENTIAL_MAX) . ' نفر را می‌توانید برای دیدن تسک محرمانه انتخاب کنید.', 'TOO_MANY_VIEWERS');
+        }
+        foreach ($viewers as $v) {
+            if ($t['project_id'] !== null ? !Access::isProjectMember((int) $t['project_id'], $v) : !Access::isColleague($actor, $v)) {
+                return self::err('بیننده‌های تسک محرمانه باید عضو همین پروژه باشند.', 'VIEWER_INVALID');
+            }
+        }
+        DB::transaction(static function () use ($taskId, $on, $viewers, $actor): void {
+            DB::run('UPDATE tasks SET is_confidential = ? WHERE id = ?', [$on ? 1 : 0, $taskId]);
+            DB::run('DELETE FROM task_viewers WHERE task_id = ?', [$taskId]);
+            foreach ($viewers as $v) {
+                DB::run('INSERT INTO task_viewers (task_id, user_id, added_by) VALUES (?, ?, ?)', [$taskId, $v, $actor]);
+            }
+        });
+        TaskHistory::log($taskId, $actor, $on ? 'confidential_on' : 'confidential_off', ['count' => count($viewers)]);
+        return self::res(true, $on ? 'تسک محرمانه شد؛ فقط شما، مسئول' . ($viewers ? ' و ' . fa_num(count($viewers)) . ' نفر انتخاب‌شده' : '') . ' آن را می‌بینید.' : 'تسک از حالت محرمانه خارج شد.', '', 200, ['is_confidential' => $on]);
+    }
+
+    /** اطلاعات «محرمانه» برای جزئیات تسک */
+    public static function confidentialInfo(array $t, int $uid): array
+    {
+        $isCreator = (int) $t['user_id'] === $uid;
+        $ids = array_map('intval', DB::column('SELECT user_id FROM task_viewers WHERE task_id = ?', [(int) $t['id']]));
+        $people = static fn(array $rows) => array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', (int) $u['id']), 'name' => $u['name'], 'avatar' => $u['avatar']], $rows);
+        $viewers = $ids ? array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])],
+            DB::all('SELECT id, first_name, last_name, avatar FROM users WHERE id IN (' . DB::in($ids) . ')', $ids)) : [];
+        $cand = $isCreator && $t['project_id'] !== null
+            ? array_values(array_filter(self::mentionable((int) $t['project_id'], $uid), static fn($u) => (int) $u['id'] !== (int) ($t['assignee_id'] ?? 0)))
+            : [];
+        return ['on' => !empty($t['is_confidential']), 'can_edit' => $isCreator && empty($t['blocked_at']), 'max' => Access::CONFIDENTIAL_MAX,
+            'viewers' => $people($viewers), 'candidates' => $people($cand)];
+    }
+
     /** گزینه‌های «امنیت تسک‌ها» در پروفایل: [عنوان، توضیح] */
     public const LINK_ACCESS = [
         'members'    => ['اعضای پروژه', 'اعضای پروژه‌ی همان تسک (پیش‌فرض)'],

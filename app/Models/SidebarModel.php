@@ -324,7 +324,8 @@ final class SidebarModel
                 return ['link' => $i['url'], 'icon' => self::LINK_ICON, 'label' => $i['label'], 'desc' => $d($i)];
             }
             [$path, $icon] = $pages[$i['page']];
-            return !empty($i['soon']) ? ['soon' => true, 'icon' => $icon, 'label' => $i['label'], 'desc' => $d($i)] : [$i['page'], $path, $icon, $i['label'], 'desc' => $d($i)];
+            // بورد از v6.1 آماده است: «به‌زودی» چیدمان‌های ذخیره‌شده‌ی قدیمی برایش نادیده گرفته می‌شود
+            return !empty($i['soon']) && $i['page'] !== 'board' ? ['soon' => true, 'icon' => $icon, 'label' => $i['label'], 'desc' => $d($i)] : [$i['page'], $path, $icon, $i['label'], 'desc' => $d($i)];
         };
         $out = [];
         foreach (self::current() as $i) {

@@ -14,9 +14,13 @@ foreach ($projects as $p) {
             'board_perms' => \App\Services\Access::decode($m['board_permissions'] ?? null, array_keys($boardPermDefs)),
             'board_view' => \App\Core\Pid::many('users', \App\Services\Access::ids($m['board_view_users'] ?? null)),
             'board_view_all' => \App\Services\Access::viewAll($m['board_view_users'] ?? null),
-            'board_limits' => (object) \App\Services\BoardService::decodeLimits($m['board_limits'] ?? null),
-            'role' => (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m),
+            'board_limits' => (object) \App\Services\BoardService::decodeLimits($m['board_limits'] ?? null, \App\Services\BoardConfig::limited((int) $p['id'])),
+            'role' => ($mr = (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m)),
+            'role_limit' => \App\Services\Access::ROLES[$mr]['limit'] ?? null,     // سقف پیش‌فرض نقش (v6.1)
         ], $p['members']),
+        // ستون‌های دارای سقف در بورد همین پروژه (v6.1: هر پروژه بورد خودش را دارد)
+        'limit_defs' => array_map(static fn($k) => ['label' => \App\Services\BoardConfig::label((int) $p['id'], $k), 'icon' => \App\Services\BoardConfig::info((int) $p['id'], $k)['icon']],
+            array_combine(\App\Services\BoardConfig::limited((int) $p['id']), \App\Services\BoardConfig::limited((int) $p['id']))),
     ];
 }
 // نقش‌ها برای تب «نقش کاربر»: پکیج هر نقش [task, project, board, viewAll]
@@ -26,8 +30,8 @@ foreach ($roles as $rk => $r) {
 }
 // وضعیت‌هایی که سقف تعداد تسک دارند (پاپ‌آپ «سقف تعداد تسک» در تب برد)
 $limitDefs = [];
-foreach (\App\Services\BoardService::LIMITED as $st) {
-    $limitDefs[$st] = \App\Services\BoardService::STATUSES[$st];
+foreach ($boot as $bp) {
+    $limitDefs += $bp['limit_defs'];          // اجتماع ستون‌های دارای سقف همه‌ی پروژه‌ها (برای خلاصه‌ی سقف اعضا)
 }
 $projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';

@@ -801,6 +801,37 @@
     if (el && url) { el.style.cursor = 'pointer'; el.addEventListener('click', go); }
   };
 
+  /* ───── بورد (v6.1): منوی «بورد» اول پروژه را می‌پرسد (هر پروژه بورد خودش را دارد) ───── */
+  TK.on('click', '[data-board-pick]', async (e, a) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;   // تب جدید: صفحه‌ی انتخاب پروژه
+    e.preventDefault();
+    let m = document.getElementById('m-board-pick');
+    if (!m) {
+      m = document.createElement('div'); m.className = 'modal kb-pick-modal'; m.id = 'm-board-pick';
+      m.innerHTML = `<div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-table-columns"></i> بورد کدام پروژه؟</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="modal-body"><div class="search mb-1"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="kb-pick-q" placeholder="جستجوی پروژه…" autocomplete="off" aria-label="جستجوی پروژه"></div><div class="list" id="kb-pick-list" role="list"></div></div></div>`;
+      document.body.appendChild(m);
+      TK.qs('#kb-pick-q', m).addEventListener('input', () => drawPick(m));
+    }
+    TK.qs('.sb-pop.open, dialog[open]')?.close?.();
+    TK.qs('#kb-pick-q', m).value = '';
+    TK.qs('#kb-pick-list', m).innerHTML = '<div class="empty small"><span class="spin"></span></div>';
+    TK.modal.open(m.id);
+    const r = await TK.get('/board/projects');
+    m._items = TK.ok(r) ? r.projects : [];
+    if (m._items.length === 1) { TK.modal.close(m.id); TK.visit(m._items[0].url); return; }
+    drawPick(m); setTimeout(() => TK.qs('#kb-pick-q', m)?.focus(), 50);
+  });
+  const drawPick = (m) => {
+    const q = (TK.qs('#kb-pick-q', m).value || '').trim();
+    const rows = (m._items || []).filter((p) => !q || p.title.includes(q));
+    TK.qs('#kb-pick-list', m).innerHTML = rows.map((p) => `<a class="kb-pick-item" role="listitem" href="${TK.esc(p.url)}" data-kb-pick-go>
+        <span class="avatar sq">${p.image ? `<img src="${TK.esc(p.image)}" alt="">` : TK.esc(TK.initial(p.title))}</span>
+        <span class="grow min0"><b class="truncate">${TK.esc(p.title)}</b><small class="muted"> · ${TK.fa(p.open)} تسک باز</small></span><i class="fa-solid fa-chevron-left faint" aria-hidden="true"></i></a>`).join('')
+      || `<div class="empty small">${(m._items || []).length ? 'پروژه‌ای با این نام نیست.' : 'هنوز عضو هیچ پروژه‌ای نیستید.'}</div>`;
+  };
+  TK.on('click', '[data-kb-pick-go]', () => TK.modal.close('m-board-pick'));
+
   TK.live = {
     sig: null, busy: false, skip: false, ctl: null, seq: 0,
     has: () => !!TK.qs('[data-live]'),

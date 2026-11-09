@@ -186,8 +186,11 @@ document.addEventListener('tk:ready', () => {
   const blSummary = () => { TK.qs('#bl-summary').textContent = limitText(limits) || 'بدون محدودیت'; };
   TK.on('click', '#bl-open', () => {
     TK.qs('#bl-name').textContent = TK.qs('#mp-name').textContent;
-    TK.qs('#bl-fields').innerHTML = Object.entries(data().limitDefs).map(([k, d]) => `<div class="field bl-row"><label for="bl-${k}"><i class="fa-solid ${E(d.icon)}"></i> ${E(d.label)}</label>
-      <input class="input ltr" type="number" id="bl-${k}" name="${k}" min="0" max="999" step="1" inputmode="numeric" placeholder="${E(TK.ph('project_limit', 'بدون محدودیت'))}" value="${limits[k] ?? ''}"></div>`).join('');
+    // ستون‌های بورد همین پروژه؛ خالی = پیش‌فرض نقش (عضو ۱۰، سرپرست ۲۰، بالاتر نامحدود)
+    const pp = data().list[target.pid] || {}, mm = (pp.members || []).find((x) => String(x.id) === String(target.uid)) || {};
+    const ph = mm.role_limit ? 'پیش‌فرض نقش: ' + TK.fa(mm.role_limit) : TK.ph('project_limit', 'بدون محدودیت');
+    TK.qs('#bl-fields').innerHTML = Object.entries(pp.limit_defs || {}).map(([k, d]) => `<div class="field bl-row"><label for="bl-${k}"><i class="fa-solid ${E(d.icon)}"></i> ${E(d.label)}</label>
+      <input class="input ltr" type="number" id="bl-${k}" name="${k}" min="0" max="999" step="1" inputmode="numeric" placeholder="${E(ph)}" value="${limits[k] ?? ''}"></div>`).join('') || '<p class="muted small">بورد این پروژه ستونی با سقف ندارد.</p>';
     TK.modal.open('m-blimit');
   });
   TK.qs('#f-blimit').addEventListener('submit', (e) => {

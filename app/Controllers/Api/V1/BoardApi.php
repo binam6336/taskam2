@@ -26,18 +26,23 @@ final class BoardApi extends ApiController
     {
         $r = $this->request;
         $pid = (int) ($r->query['project_id'] ?? $r->input('project_id', 0));
-        if ($pid !== 0 && !in_array($pid, array_map(static fn($p) => (int) $p['id'], BoardService::projects($this->uid)), true)) {
+        // از v6.1 هر پروژه بورد خودش را دارد: پروژه الزامی است
+        if ($pid === 0) {
+            $this->err('پارامتر project_id الزامی است (هر پروژه بورد خودش را دارد).', 400, 'PROJECT_REQUIRED');
+        }
+        if (!in_array($pid, array_map(static fn($p) => (int) $p['id'], BoardService::projects($this->uid)), true)) {
             $this->err('پروژه یافت نشد یا عضو آن نیستید.', 404, 'PROJECT_NOT_FOUND');
         }
         $mine = $r->query['mine'] ?? $r->input('mine', 0);
         return ['project' => $pid, 'mine' => in_array((string) $mine, ['1', 'true'], true), 'q' => trim(mb_substr((string) ($r->query['q'] ?? $r->input('q', '')), 0, 100))];
     }
 
-    private static function statuses(): array
+    /** ستون‌های بورد همان پروژه (v6.1) به ترتیب؛ fixed = ماهیت ثابت (rework/review/done) */
+    private static function statuses(int $projectId): array
     {
         $out = [];
-        foreach (BoardService::STATUSES as $k => $s) {
-            $out[] = ['key' => $k, 'label' => $s['label'], 'en' => $s['en']];
+        foreach (\App\Services\BoardConfig::statuses($projectId) as $k => $s) {
+            $out[] = ['key' => $k, 'label' => $s['label'], 'en' => $s['en'], 'icon' => $s['icon'], 'color' => $s['tone'], 'fixed' => $s['fixed']];
         }
         $out[] = ['key' => 'archived', 'label' => 'آرشیو', 'en' => 'Archived'];
         return $out;
@@ -52,9 +57,8 @@ final class BoardApi extends ApiController
         foreach ($cols as $k => $cards) {
             $columns[$k] = array_map([self::class, 'card'], $cards);
         }
-        $raw = \App\Core\DB::value('SELECT board_order FROM users WHERE id = ?', [$this->uid]);
-        $this->ok(['filters' => ['project_id' => $f['project'] ?: null, 'mine' => $f['mine'], 'q' => $f['q']], 'statuses' => self::statuses(),
-            'column_order' => BoardService::order($raw !== null ? (string) $raw : null),
+        $this->ok(['filters' => ['project_id' => $f['project'], 'mine' => $f['mine'], 'q' => $f['q']], 'statuses' => self::statuses($f['project']),
+            'start_status' => \App\Services\BoardConfig::start($f['project']),
             'columns' => $columns, 'archivable' => $archivable, 'archive_total' => $archive['total']]);
     }
 
@@ -74,14 +78,6 @@ final class BoardApi extends ApiController
             $t = TaskModel::find($id, $this->uid);
             return $t ? self::card($t) : ['id' => pid('tasks', $id)];
         });
-    }
-
-    /** ترتیب ستون‌های برد برای همین کاربر (همان چیدمان پنل)؛ order خالی یا reset=1 = پیش‌فرض */
-    public function order()
-    {
-        $raw = $this->request->input('order', []);
-        $keys = $this->request->input('reset') ? [] : (is_array($raw) ? $raw : array_filter(explode(',', (string) $raw)));
-        $this->fromService(BoardService::saveOrder($this->uid, $keys));
     }
 
     public function archiveDone()

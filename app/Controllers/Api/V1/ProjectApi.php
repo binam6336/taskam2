@@ -79,7 +79,7 @@ final class ProjectApi extends ApiController
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),
                 'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)),
                 'board_view_user_ids' => $isCreator || Access::viewAll($m['board_view_users'] ?? null) ? null : Access::ids($m['board_view_users'] ?? null),
-                'board_limits' => (object) ($isCreator ? [] : BoardService::decodeLimits($m['board_limits'] ?? null)),
+                'board_limits' => (object) ($isCreator ? [] : BoardService::decodeLimits($m['board_limits'] ?? null, \App\Services\BoardConfig::limited($id))),
                 'role' => $isCreator ? 'creator' : Access::memberRole($m), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
@@ -228,7 +228,7 @@ final class ProjectApi extends ApiController
         }
         $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
         $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : ($in['view_user_ids'] === 'all' ? 'all' : [])) : null;
-        if (array_key_exists('board_limits', $in) && ($limErr = ProjectService::cleanBoardLimits(is_array($in['board_limits']) ? $in['board_limits'] : [])[1])) {
+        if (array_key_exists('board_limits', $in) && ($limErr = ProjectService::cleanBoardLimits(is_array($in['board_limits']) ? $in['board_limits'] : [], $id)[1])) {
             $this->err($limErr, 400, 'INVALID_LIMITS');                 // سقف نامعتبر → هیچ چیز ذخیره نمی‌شود
         }
         [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms, $view);

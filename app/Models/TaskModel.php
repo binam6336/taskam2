@@ -62,6 +62,14 @@ final class TaskModel
         'subject'  => 'لیبل',
     ];
 
+    /** شرط SQL دیدن تسک محرمانه برای $uid (عدد مستقیم در SQL؛ بدون پارامتر) */
+    public static function confidentialSql(int $uid, string $t = 't'): string
+    {
+        $u = (int) $uid;
+        return "($t.is_confidential = 0 OR $t.user_id = $u OR $t.assignee_id = $u OR " . \App\Models\GroupModel::memberSql($u, $t)
+            . " OR EXISTS (SELECT 1 FROM task_viewers tv WHERE tv.task_id = $t.id AND tv.user_id = $u))";
+    }
+
     /**
      * شرط WHERE مشترک فهرست و فیلترها.
      * scope: mine | others | project (همه‌ی تسک‌های یک پروژه؛ از «تحلیل پروژه»، شناسه در $projectId)
@@ -70,7 +78,8 @@ final class TaskModel
     private static function scopeWhere(int $uid, string $scope, ?bool $completed, int $projectId = 0): array
     {
         if ($scope === 'project') {
-            $where = 't.project_id = ?';
+            // تسک محرمانه (v6.1) فقط برای سازنده، مسئول/اعضای گروه مسئول و بیننده‌های انتخابی
+            $where = 't.project_id = ? AND ' . self::confidentialSql($uid);
             $params = [$projectId];
         } elseif ($scope === 'mine') {
             $where = self::mine($uid);
@@ -235,8 +244,8 @@ final class TaskModel
 
     public static function create(array $d): int
     {
-        // تسک جدید در بورد پروژه از «برنامه‌ریزی‌نشده» (Backlog) شروع می‌شود
-        $d += ['board_status' => 'backlog', 'board_moved_at' => date('Y-m-d H:i:s')];
+        // تسک جدید در «وضعیت اول بعد از ایجاد تسک» بورد همان پروژه (v6.1؛ پیش‌فرض «برنامه‌ریزی‌نشده»)
+        $d += ['board_status' => \App\Services\BoardConfig::start(isset($d['project_id']) ? (int) $d['project_id'] : null), 'board_moved_at' => date('Y-m-d H:i:s')];
         $id = DB::insert('tasks', $d);
         self::ensureShareToken($id);
         return $id;
@@ -267,10 +276,12 @@ final class TaskModel
 
     public static function toggle(int $id): array
     {
-        $done = (int) DB::value('SELECT is_completed FROM tasks WHERE id = ?', [$id]) === 1;
-        // وضعیت بورد پروژه همگام می‌ماند: تکمیل = done، بازگشت = todo
+        $row = DB::one('SELECT is_completed, project_id FROM tasks WHERE id = ?', [$id]) ?? ['is_completed' => 0, 'project_id' => null];
+        $done = (int) $row['is_completed'] === 1;
+        // وضعیت بورد همگام می‌ماند: تکمیل = done، بازگشت = ستون شروع بورد پروژه
         if ($done) {
-            DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = 'todo', board_moved_at = NOW(), archived_at = NULL WHERE id = ?", [$id]);
+            DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = ?, board_moved_at = NOW(), archived_at = NULL WHERE id = ?",
+                [\App\Services\BoardConfig::start($row['project_id'] !== null ? (int) $row['project_id'] : null), $id]);
         } else {
             DB::run("UPDATE tasks SET is_completed = 1, completed_at = NOW(), board_status = 'done', blocked_reason = NULL, board_moved_at = NOW() WHERE id = ?", [$id]);
         }

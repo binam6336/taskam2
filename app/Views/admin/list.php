@@ -6,7 +6,6 @@
 $this->scripts[] = 'admin';   // جستجوی خودکار (#users-tools)
 $this->scripts[] = 'admin_list';   // پنجره‌ی جزئیات پروژه (اعضا و تسک‌ها با صفحه‌بندی)
 $this->boot['adminList'] = ['per' => $perOptions];
-$st = \App\Services\BoardService::STATUSES;
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $base = '/admin/list/' . $kind;
 $qs = static fn(array $x) => url($base) . '?' . http_build_query(array_filter($x + ['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null, 'status' => $status !== 'all' ? $status : null], static fn($v) => $v !== null && $v !== ''));
@@ -32,7 +31,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
 </tr></thead><tbody>
 <?php foreach ($rows as $x): ?>
 <?php if ($kind === 'tasks'):
-    $s = $x['blocked_at'] ? ['label' => 'مسدود', 'tone' => 'danger', 'icon' => 'fa-ban'] : ($x['archived_at'] ? ['label' => 'آرشیو', 'tone' => 'muted', 'icon' => 'fa-box-archive'] : ($st[$x['board_status']] ?? ['label' => $x['is_completed'] ? 'انجام‌شده' : 'باز', 'tone' => 'muted', 'icon' => 'fa-circle']));
+    $s = $x['blocked_at'] ? ['label' => 'مسدود', 'tone' => 'danger', 'icon' => 'fa-ban'] : ($x['archived_at'] ? ['label' => 'آرشیو', 'tone' => 'muted', 'icon' => 'fa-box-archive'] : (!empty($x['project_id']) ? \App\Services\BoardConfig::info((int) $x['project_id'], (string) $x['board_status']) : ['label' => $x['is_completed'] ? 'انجام‌شده' : 'باز', 'tone' => 'muted', 'icon' => 'fa-circle']));
     $late = !$x['is_completed'] && $x['due_date'] && $x['due_date'] < date('Y-m-d'); ?>
     <tr><td class="bold"><?= e($x['title']) ?></td><td class="small"><?= e($x['project_title'] ?? '—') ?></td><td class="small"><?= e($name($x['a_first'], $x['a_last'])) ?></td><td class="small muted"><?= e($name($x['c_first'], $x['c_last'])) ?></td>
         <td><span class="badge board-st tone-<?= e($s['tone']) ?>"><i class="fa-solid <?= e($s['icon']) ?>"></i> <?= e($s['label']) ?></span></td>

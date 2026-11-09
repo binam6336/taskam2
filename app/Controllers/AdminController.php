@@ -291,12 +291,12 @@ final class AdminController extends Controller
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [$uid]);
         $pages = max(1, (int) ceil($total / $per));
         $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
-        $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, t.share_token, p.title AS project_title
+        $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.project_id, t.archived_at, t.blocked_at, t.due_date, t.created_at, t.share_token, p.title AS project_title
             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id WHERE t.assignee_id = ? ORDER BY t.is_completed, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$uid, $per, ($page - 1) * $per]);
-        $stl = \App\Services\BoardService::STATUSES;
+        $stl = static fn(array $x): array => \App\Services\BoardConfig::info($x['project_id'] !== null ? (int) $x['project_id'] : null, (string) $x['board_status']);
         $items = array_map(static fn($x) => ['title' => $x['title'], 'project' => $x['project_title'] ?? '—',
-            'status' => $x['blocked_at'] ? 'مسدود' : ($x['archived_at'] ? 'آرشیو' : ($stl[$x['board_status']]['label'] ?? ($x['is_completed'] ? 'انجام‌شده' : 'باز'))),
-            'tone' => $x['blocked_at'] ? 'danger' : ($x['archived_at'] ? 'muted' : ($stl[$x['board_status']]['tone'] ?? 'muted')),
+            'status' => $x['blocked_at'] ? 'مسدود' : ($x['archived_at'] ? 'آرشیو' : ($x['project_id'] !== null ? $stl($x)['label'] : ($x['is_completed'] ? 'انجام‌شده' : 'باز'))),
+            'tone' => $x['blocked_at'] ? 'danger' : ($x['archived_at'] ? 'muted' : $stl($x)['tone']),
             'priority' => $x['priority_percent'] !== null ? fa_num((int) $x['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$x['priority']],
             'due_fa' => $x['due_date'] ? jdate($x['due_date'] . ' 00:00:00', false) : '—', 'late' => !$x['is_completed'] && $x['due_date'] && $x['due_date'] < date('Y-m-d'),
             'created_fa' => jdate((string) $x['created_at']),
@@ -447,6 +447,32 @@ final class AdminController extends Controller
             ['title' => 'تور آموزشی', 'page' => 'admin-content-tour'], 'admin');
     }
 
+    /** محتوا ← بورد (v6.1): بورد پیش‌فرض پروژه‌هایی که بورد اختصاصی ندارند */
+    public function contentBoard()
+    {
+        $this->need('edit_content');
+        $this->view('admin/content_board', ['custom' => \App\Services\BoardConfig::templateIsCustom(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'بورد پیش‌فرض', 'page' => 'admin-content-board'], 'admin');
+    }
+
+    public function contentBoardData()
+    {
+        $this->need('edit_content');
+        $this->ok('', \App\Services\BoardConfig::editorData(\App\Services\BoardConfig::template()));
+    }
+
+    public function contentBoardSave()
+    {
+        $this->need('edit_content');
+        $cfg = json_decode((string) $this->request->input('config', ''), true);
+        $reset = (string) $this->request->input('reset', '') === '1';
+        if (!$reset && !is_array($cfg)) {
+            $this->respond(false, 'داده‌ی بورد نامعتبر است.', '/admin/content/board');
+        }
+        [$ok, $msg] = \App\Services\BoardConfig::saveTemplate($this->uid(), is_array($cfg) ? $cfg : [], $reset);
+        $this->respond($ok, $msg, '/admin/content/board');
+    }
+
     public function contentTourSave(string $id)
     {
         $this->need('edit_content');
@@ -549,7 +575,7 @@ final class AdminController extends Controller
                 $w[] = $qs;
                 $p = array_merge($p, $qp);
             }
-            $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
+            $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.project_id, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
                     p.title AS project_title, ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
             $order = 't.created_at DESC, t.id DESC';
         } elseif ($kind === 'projects') {
@@ -633,10 +659,10 @@ final class AdminController extends Controller
             $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
             $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, ua.first_name, ua.last_name
                 FROM tasks t LEFT JOIN users ua ON ua.id = t.assignee_id WHERE t.project_id = ? ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$pid, $per, ($page - 1) * $per]);
-            $stl = \App\Services\BoardService::STATUSES;
+            $stl = static fn(array $t): array => \App\Services\BoardConfig::info($pid, (string) $t['board_status']);
             $items = array_map(static fn($t) => ['title' => $t['title'], 'assignee' => $t['first_name'] !== null ? full_name($t) : '—',
-                'status' => $t['blocked_at'] ? 'مسدود' : ($t['archived_at'] ? 'آرشیو' : ($stl[$t['board_status']]['label'] ?? '')),
-                'tone' => $t['blocked_at'] ? 'danger' : ($t['archived_at'] ? 'muted' : ($stl[$t['board_status']]['tone'] ?? 'muted')),
+                'status' => $t['blocked_at'] ? 'مسدود' : ($t['archived_at'] ? 'آرشیو' : $stl($t)['label']),
+                'tone' => $t['blocked_at'] ? 'danger' : ($t['archived_at'] ? 'muted' : $stl($t)['tone']),
                 'priority' => $t['priority_percent'] !== null ? fa_num((int) $t['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$t['priority']],
                 'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) : '—', 'late' => !$t['is_completed'] && $t['due_date'] && $t['due_date'] < date('Y-m-d'),
                 'created_fa' => jdate((string) $t['created_at'])], $rows);

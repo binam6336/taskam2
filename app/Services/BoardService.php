@@ -8,15 +8,16 @@ use App\Models\TaskModel;
 
 /**
  * بورد پروژه (کانبان).
- * هر تسک یک وضعیت کانبان دارد؛ «done» با is_completed همگام است.
- * دیدن کارت‌ها: تسک‌های خود کاربر + تسک‌های اعضایی که در «مشاهده‌ی تسک‌های» برایش انتخاب شده (Access::canBoardView).
- * جابه‌جایی با «دسترسی بورد پروژه» هر پروژه است (Access::BOARD_PERMS، جدا از دسترسی تسک؛ پیش‌فرض بسته).
- * هر جابه‌جایی فقط یک مرحله جلو/عقب است، مگر با «جابه‌جایی آزاد».
+ * از v6.1 هر پروژه بورد خودش را دارد (ستون‌ها، نام، آیکون، رنگ و ستون شروع در BoardConfig)؛ ستون‌های rework / review / done
+ * ماهیت ثابت دارند. «done» با is_completed همگام است.
+ * دیدن کارت‌ها: Access::canBoardView (پیش‌فرض نقش‌ها: همه‌ی تسک‌های پروژه)؛ جستجو در بورد روی همه‌ی تسک‌های پروژه است.
+ * جابه‌جایی: مجوز یک‌گزینه‌ای «تغییر وضعیت» (آزاد بین ستون‌ها) + «تکمیل تسک» برای تأیید/برگشت/بازکردن (Access::boardTargets).
  * آرشیو: تسک انجام‌شده با archived_at؛ ستون جدا بعد از «انجام‌شده». فقط نمایش برد را مرتب می‌کند و روی خود تسک
  * (انجام‌شدن، لیست‌ها، گزارش‌ها) اثری ندارد؛ پس هر کسی که کارت را در برد می‌بیند می‌تواند آرشیو/بازگردانی کند.
  */
 final class BoardService
 {
+    /** چیدمان کارخانه (سازگاری؛ نام ستون‌های واقعی هر پروژه از BoardConfig::statuses) */
     public const STATUSES = [
         'rework'      => ['label' => 'بازبینی مسئول', 'en' => 'Rework', 'icon' => 'fa-rotate-left', 'tone' => 'orange', 'desc' => 'سرپرست ایرادی دیده و تسک برای اصلاح به مسئول برگشته'],
         'backlog'     => ['label' => 'برنامه‌ریزی‌نشده', 'en' => 'Backlog', 'icon' => 'fa-inbox', 'tone' => 'muted', 'desc' => 'ثبت شده ولی هنوز برای انجام انتخاب نشده'],
@@ -26,55 +27,47 @@ final class BoardService
         'done'        => ['label' => 'انجام‌شده', 'en' => 'Done', 'icon' => 'fa-circle-check', 'tone' => 'ok', 'desc' => 'تکمیل شده و معیارهای اتمام برآورده شده'],
     ];
 
-    /**
-     * ترتیب پیش‌فرض ستون‌ها (همان ترتیب STATUSES + آرشیو). هر کاربر می‌تواند ترتیب خودش را بچیند (users.board_order).
-     */
-    public const DEFAULT_ORDER = ['rework', 'backlog', 'todo', 'in_progress', 'review', 'done', 'archived'];
-
-    /** ترتیب ستون‌های کاربر: کلیدهای نامعتبر حذف و ستون‌های جاافتاده (مثلاً وضعیت تازه) در جای پیش‌فرضشان اضافه می‌شوند */
-    public static function order(?string $raw): array
+    /** ستون‌های بورد پروژه‌ی تسک (کلید => اطلاعات) */
+    private static function cols(array $t): array
     {
-        $want = array_values(array_unique(array_intersect(array_map('trim', explode(',', (string) $raw)), self::DEFAULT_ORDER)));
-        if (!$want) {
-            return self::DEFAULT_ORDER;
-        }
-        foreach (self::DEFAULT_ORDER as $i => $k) {
-            if (!in_array($k, $want, true)) {
-                // بعد از ستونی که در پیش‌فرض قبل از آن است
-                $prev = $i > 0 ? array_search(self::DEFAULT_ORDER[$i - 1], $want, true) : -1;
-                array_splice($want, $prev === false ? count($want) : $prev + 1, 0, [$k]);
-            }
-        }
-        return $want;
+        return BoardConfig::statuses(isset($t['project_id']) ? (int) $t['project_id'] : null);
     }
 
-    /** ذخیره‌ی ترتیب ستون‌ها برای کاربر؛ ترتیب خالی یا برابر پیش‌فرض = NULL (بازگشت به پیش‌فرض) */
-    public static function saveOrder(int $uid, array $keys): array
+    private static function lbl(array $t, string $key): string
     {
-        $keys = array_values(array_diff(array_map('strval', $keys), ['blocked']));   // ستون حذف‌شده‌ی v4.0 (سازگاری با کلاینت‌های قدیمی)
-        if ($keys && (count($keys) !== count(self::DEFAULT_ORDER) || array_diff(self::DEFAULT_ORDER, $keys))) {
-            return self::res(false, 'ترتیب ستون‌ها نامعتبر است.', 'ORDER_INVALID', 422);
-        }
-        $value = $keys && $keys !== self::DEFAULT_ORDER ? implode(',', $keys) : null;
-        DB::run('UPDATE users SET board_order = ? WHERE id = ?', [$value, $uid]);
-        return self::res(true, $value === null ? 'ترتیب ستون‌ها به حالت پیش‌فرض برگشت.' : 'ترتیب ستون‌ها ذخیره شد.', '', 200, ['order' => self::order($value), 'is_default' => $value === null]);
+        return BoardConfig::label(isset($t['project_id']) ? (int) $t['project_id'] : null, $key);
     }
 
-    /** وضعیت‌هایی که برای هر عضو سقف تعداد تسک دارند (برنامه‌ریزی‌نشده، انجام‌شده و آرشیو سقف ندارند) */
-    public const LIMITED = ['todo', 'in_progress', 'review', 'rework'];
     public const MAX_LIMIT = 999;
 
-    /** project_members.board_limits → [status => n]؛ فقط وضعیت‌های LIMITED و اعداد ۰ تا MAX_LIMIT */
-    public static function decodeLimits(?string $raw): array
+    /** project_members.board_limits → [status => n]؛ فقط کلیدهای $keys (پیش‌فرض: هر کلید ستون معتبر) و اعداد ۰ تا MAX_LIMIT */
+    public static function decodeLimits(?string $raw, ?array $keys = null): array
     {
         $a = json_decode((string) $raw, true);
         $out = [];
-        foreach (self::LIMITED as $s) {
-            if (is_array($a) && isset($a[$s]) && is_numeric($a[$s])) {
-                $out[$s] = max(0, min(self::MAX_LIMIT, (int) $a[$s]));
+        if (!is_array($a)) {
+            return $out;
+        }
+        foreach ($a as $s => $v) {
+            if (is_string($s) && preg_match('/^[a-z][a-z0-9_]{1,23}$/', $s) && ($keys === null || in_array($s, $keys, true)) && is_numeric($v)) {
+                $out[$s] = max(0, min(self::MAX_LIMIT, (int) $v));
             }
         }
         return $out;
+    }
+
+    /**
+     * سقف مؤثر یک نفر در یک ستون: مقدار تعیین‌شده برای او (project_members.board_limits) یا پیش‌فرض نقشش
+     * (عضو ۱۰، سرپرست ۲۰، مدیر واحد و مدیر کل و سازنده‌ی پروژه نامحدود). null = نامحدود.
+     */
+    public static function limitFor(int $projectId, int $uid, string $status): ?int
+    {
+        if (!in_array($status, BoardConfig::limited($projectId), true)) {
+            return null;
+        }
+        $raw = DB::value('SELECT board_limits FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        $own = self::decodeLimits(is_string($raw) ? $raw : null);
+        return array_key_exists($status, $own) ? $own[$status] : Access::roleLimit($projectId, $uid);
     }
 
     /**
@@ -83,11 +76,11 @@ final class BoardService
      */
     private static function limitError(array $t, string $status): ?string
     {
-        if (!in_array($status, self::LIMITED, true) || empty($t['project_id'])) {
+        if (empty($t['project_id'])) {
             return null;
         }
         $owner = (int) ($t['assignee_id'] ?: $t['user_id']);
-        $limit = self::decodeLimits(DB::value('SELECT board_limits FROM project_members WHERE project_id = ? AND user_id = ?', [(int) $t['project_id'], $owner]))[$status] ?? null;
+        $limit = self::limitFor((int) $t['project_id'], $owner, $status);
         if ($limit === null) {
             return null;
         }
@@ -97,33 +90,34 @@ final class BoardService
             return null;
         }
         $name = full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [$owner]) ?? []);
-        return 'سقف ستون «' . self::STATUSES[$status]['label'] . '» برای ' . $name . ' پر است (حداکثر ' . fa_num($limit) . ' تسک).';
+        return 'سقف ستون «' . self::lbl($t, $status) . '» برای ' . $name . ' پر است (حداکثر ' . fa_num($limit) . ' تسک).';
     }
 
     /**
-     * ستون‌هایی که تسک‌های خود کاربر در آن‌ها از سقفش بیشتر است (مثلاً سقف بعداً از ۱۰ به ۵ کم شده و ۷ تسک دارد).
-     * فقط پروژه‌ی فیلترشده یا همه‌ی پروژه‌های کاربر. خروجی: status => [[project, count, limit], ...]
+     * ستون‌هایی که تسک‌های خود کاربر در آن‌ها از سقفش بیشتر است (مثلاً سقف بعداً از ۲۰ به ۱۰ کم شده و ۱۲ تسک دارد).
+     * خروجی: status => [[project, count, limit], ...]
      */
     public static function overLimits(int $uid, int $projectId = 0): array
     {
-        $sql = 'SELECT pm.project_id, pm.board_limits, p.title FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.user_id = ? AND pm.board_limits IS NOT NULL AND p.blocked_at IS NULL';
-        $params = [$uid];
+        $sql = 'SELECT p.id, p.title FROM projects p WHERE p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?))';
+        $params = [$uid, $uid];
         if ($projectId > 0) {
-            $sql .= ' AND pm.project_id = ?';
+            $sql .= ' AND p.id = ?';
             $params[] = $projectId;
         }
         $out = [];
         foreach (DB::all($sql, $params) as $m) {
-            $limits = self::decodeLimits($m['board_limits']);
-            if (!$limits) {
-                continue;
-            }
+            $pid = (int) $m['id'];
             $counts = [];
-            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL AND blocked_at IS NULL GROUP BY board_status', [(int) $m['project_id'], $uid]) as $r) {
+            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL AND blocked_at IS NULL GROUP BY board_status', [$pid, $uid]) as $r) {
                 $counts[$r['s']] = (int) $r['n'];
             }
-            foreach ($limits as $st => $limit) {
-                if (($counts[$st] ?? 0) > $limit) {
+            foreach (BoardConfig::limited($pid) as $st) {
+                if (($counts[$st] ?? 0) === 0) {
+                    continue;
+                }
+                $limit = self::limitFor($pid, $uid, $st);
+                if ($limit !== null && $counts[$st] > $limit) {
                     $out[$st][] = ['project' => (string) $m['title'], 'count' => $counts[$st], 'limit' => $limit];
                 }
             }
@@ -131,8 +125,6 @@ final class BoardService
         return $out;
     }
 
-    /** مرحله‌ی بعدی هر وضعیت (دکمه‌ی «انتقال به …» در جزئیات تسک) */
-    public const NEXT = ['backlog' => 'todo', 'todo' => 'in_progress', 'in_progress' => 'review', 'review' => 'done', 'rework' => 'backlog'];
 
     /** حداکثر کارت‌های ستون «انجام‌شده» (جدیدترین‌ها) تا برد شلوغ نشود */
     private const DONE_LIMIT = 30;
@@ -193,11 +185,25 @@ final class BoardService
         if ($st === 'archived') {
             return self::canArchive($t, $uid) ? ['done'] : [];
         }
-        $out = Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES));
+        $out = Access::boardTargets($t, $uid, $st, array_keys(self::cols($t)));
         if ($st === 'done' && self::canArchive($t, $uid)) {
             $out[] = 'archived';
         }
         return $out;
+    }
+
+    /**
+     * کارت در برد دیده شود؟ بدون جستجو: Access::canBoardView؛ با جستجو (v6.1): همه‌ی تسک‌های پروژه برای هر عضو آن،
+     * به‌جز تسک محرمانه‌ای که کاربر جزو بیننده‌هایش نیست.
+     */
+    private static function visible(array $t, int $uid, array $f): bool
+    {
+        if (\App\Core\Search::tokens((string) ($f['q'] ?? '')) && !empty($t['project_id'])) {
+            static $member = [];
+            $pid = (int) $t['project_id'];
+            return Access::canSeeConfidential($t, $uid) && ($member[$pid . ':' . $uid] ??= Access::isProjectMember($pid, $uid));
+        }
+        return Access::canBoardView($t, $uid);
     }
 
     /** آرشیو کردن / برگرداندن از آرشیو: فقط مخصوص برد است، پس هر کسی که کارت را در برد می‌بیند */
@@ -222,10 +228,10 @@ final class BoardService
             $rows = array_merge($rows, TaskModel::board('t.id = ? AND t.archived_at IS NULL', [$uid, $focus]));
         }
 
-        $cols = array_fill_keys(array_keys(self::STATUSES), []);
+        $cols = array_fill_keys(BoardConfig::keys((int) ($f['project'] ?? 0)), []);
         $archivable = 0;
         foreach ($rows as $t) {
-            if (!Access::canBoardView($t, $uid)) {
+            if (!self::visible($t, $uid, $f)) {
                 continue;
             }
             $st = self::status($t);
@@ -251,7 +257,7 @@ final class BoardService
         $cards = [];
         $focus = (int) ($f['focus'] ?? 0);
         foreach (TaskModel::archived($where, $params) as $t) {
-            if (!Access::canBoardView($t, $uid)) {
+            if (!self::visible($t, $uid, $f)) {
                 continue;
             }
             $total++;
@@ -295,7 +301,12 @@ final class BoardService
         if (!empty($t['archived_at'])) {
             return 'archived';
         }
-        return isset(self::STATUSES[$t['board_status'] ?? '']) ? $t['board_status'] : ((int) $t['is_completed'] === 1 ? 'done' : 'todo');
+        // کلیدی که در بورد پروژه نیست (ستون حذف‌شده، تسک قدیمی) = ستون شروع همان پروژه
+        $pid = isset($t['project_id']) ? (int) $t['project_id'] : null;
+        if ((int) ($t['is_completed'] ?? 0) === 1) {
+            return 'done';
+        }
+        return BoardConfig::has($pid, (string) ($t['board_status'] ?? '')) ? (string) $t['board_status'] : BoardConfig::start($pid);
     }
 
     /** وضعیت بورد تسک برای جزئیات: وضعیت فعلی، مرحله‌ی بعد، اجازه‌ی انتقال یا دلیل قفل بودن */
@@ -303,28 +314,30 @@ final class BoardService
     {
         $st = self::status($t);
         if (!empty($t['blocked_at'])) {
-            $info = self::STATUSES[$st] ?? ['label' => 'آرشیو', 'icon' => 'fa-box-archive', 'tone' => 'muted'];
+            $info = BoardConfig::info(isset($t['project_id']) ? (int) $t['project_id'] : null, $st);
             $why = 'این تسک مسدود شده است؛ تا مسدودی‌اش برداشته نشود وضعیتش عوض نمی‌شود.';
             return ['targets' => [], 'lock' => $why, 'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
                 'next' => null, 'next_label' => null, 'can_next' => false, 'lock_reason' => null];
         }
-        $info = self::STATUSES[$st] ?? ['label' => 'آرشیو', 'icon' => 'fa-box-archive', 'tone' => 'muted'];
-        $next = self::NEXT[$st] ?? null;
-        $can = $next !== null && in_array($next, Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)), true)
+        $pid = isset($t['project_id']) ? (int) $t['project_id'] : null;
+        $cols = self::cols($t);
+        $info = BoardConfig::info($pid, $st);
+        $next = BoardConfig::next($pid, $st);
+        $can = $next !== null && in_array($next, Access::boardTargets($t, $uid, $st, array_keys($cols)), true)
             && ($next !== 'done' || Access::canTask($t, $uid, 'complete'));
         // مقصدهای مجاز برای پنجره‌ی تغییر وضعیت (انجام‌شده فقط با مجوز تکمیل)
         $targets = [];
         if ($st !== 'archived') {
-            foreach (Access::boardTargets($t, $uid, $st, array_keys(self::STATUSES)) as $k) {
+            foreach (Access::boardTargets($t, $uid, $st, array_keys($cols)) as $k) {
                 if ($k !== 'done' || Access::canTask($t, $uid, 'complete')) {
-                    $targets[] = ['key' => $k, 'label' => self::STATUSES[$k]['label'], 'icon' => self::STATUSES[$k]['icon'], 'tone' => self::STATUSES[$k]['tone']];
+                    $targets[] = ['key' => $k, 'label' => $cols[$k]['label'], 'icon' => $cols[$k]['icon'], 'tone' => $cols[$k]['tone']];
                 }
             }
         }
         return [
             'targets' => $targets, 'lock' => $targets ? null : self::lockReason($t, $uid, $st),
             'status' => $st, 'label' => $info['label'], 'icon' => $info['icon'], 'tone' => $info['tone'],
-            'next' => $next, 'next_label' => $next !== null ? self::STATUSES[$next]['label'] : null,
+            'next' => $next, 'next_label' => $next !== null ? BoardConfig::label($pid, $next) : null,
             'can_next' => $can, 'lock_reason' => $next !== null && !$can ? self::lockReason($t, $uid, $st, $next) : null,
         ];
     }
@@ -346,18 +359,24 @@ final class BoardService
         }
         [$ptitle, $owner] = $owners[$pid];
         $ask = $owner !== '' ? ' برای گرفتن دسترسی با مدیر پروژه (' . $owner . ') هماهنگ کنید.' : '';
-        $from = self::STATUSES[$st]['label'] ?? 'آرشیو';
+        $from = self::lbl($t, $st);
         if ($to === 'done' && !Access::canTask($t, $uid, 'complete')) {
             return 'دسترسی «تکمیل تسک» در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
         }
-        if (Access::boardPerms($t, $uid) === []) {
-            return 'در پروژه‌ی «' . $ptitle . '» هیچ دسترسی جابه‌جایی کارت در بورد به شما داده نشده است؛ فقط می‌توانید کارت را ببینید.' . $ask;
+        $complete = Access::canTask($t, $uid, 'complete');
+        if ($st === 'done' && !$complete) {
+            return 'بازکردن تسک انجام‌شده دسترسی «تکمیل تسک» می‌خواهد که در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
         }
-        if ($to !== null && isset(self::STATUSES[$to])) {
-            $perm = Access::BOARD_PERMS[Access::boardMovePerm($st, $to)]['label'] ?? '';
-            return 'برای انتقال از «' . $from . '» به «' . self::STATUSES[$to]['label'] . '» دسترسی «' . $perm . '» لازم است که در پروژه‌ی «' . $ptitle . '» به شما داده نشده است.' . $ask;
+        if ($to === 'rework' && !$complete) {
+            return 'برگرداندن تسک برای اصلاح کار سرپرست است (دسترسی «تکمیل تسک» در پروژه‌ی «' . $ptitle . '»).' . $ask;
         }
-        return 'دسترسی‌های بورد شما در پروژه‌ی «' . $ptitle . '» اجازه‌ی جابه‌جایی کارت از مرحله‌ی «' . $from . '» را نمی‌دهد.' . $ask;
+        if ($to === 'done' && $st !== 'review') {
+            return 'تسک اول باید با تیک «انجام شد» به «' . self::lbl($t, 'review') . '» برود؛ تکمیل فقط با تأیید در همان مرحله است.';
+        }
+        if (!in_array('change_status', Access::boardPerms($t, $uid), true)) {
+            return 'دسترسی «' . Access::BOARD_PERMS['change_status']['label'] . '» در پروژه‌ی «' . $ptitle . '» به شما داده نشده است؛ فقط می‌توانید کارت را ببینید.' . $ask;
+        }
+        return 'جابه‌جایی کارت از «' . $from . '»' . ($to !== null ? ' به «' . self::lbl($t, $to) . '»' : '') . ' برای شما ممکن نیست.' . $ask;
     }
 
     /** تغییر وضعیت بورد از جزئیات تسک (پنجره‌ی کوچک روی نشان وضعیت)؛ همان قواعد بورد، بدون نیاز به دیدن کارت در بورد */
@@ -384,7 +403,7 @@ final class BoardService
         if ($from !== '' && $from !== $st) {
             return self::res(false, 'وضعیت این تسک در این فاصله تغییر کرده است؛ جزئیات را دوباره باز کنید.', 'STATUS_CHANGED', 409);
         }
-        $next = self::NEXT[$st] ?? null;
+        $next = BoardConfig::next(isset($t['project_id']) ? (int) $t['project_id'] : null, $st);
         if ($next === null) {
             return self::res(false, 'این تسک مرحله‌ی بعدی در بورد ندارد.', 'NO_NEXT', 422);
         }
@@ -459,12 +478,12 @@ final class BoardService
     /** $fromTask: از تیک «انجام شد» در لیست تسک‌ها (دیدن تسک قبلاً با مجوز view بررسی شده؛ دیدن کارت در برد لازم نیست) */
     public static function move(int $actor, int $id, string $status, string $reason = '', bool $fromTask = false): array
     {
-        if (!isset(self::STATUSES[$status]) && $status !== 'archived') {
-            return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
-        }
         $t = TaskModel::raw($id);
-        if ($t === null || (!$fromTask && !Access::canBoardView($t, $actor))) {
+        if ($t === null || (!$fromTask && !Access::canBoardView($t, $actor)) || !Access::canSeeConfidential($t, $actor)) {
             return self::res(false, 'تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!isset(self::cols($t)[$status]) && $status !== 'archived') {
+            return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
         }
         if (!empty($t['blocked_at'])) {
             return self::res(false, 'این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
@@ -483,7 +502,7 @@ final class BoardService
             return self::res(true, $status === 'archived' ? 'تسک به آرشیو منتقل شد.' : 'تسک از آرشیو به «انجام‌شده» برگشت.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => true]);
         }
         if ($from === $status) {
-            return self::res(true, 'تسک همین حالا در «' . self::STATUSES[$status]['label'] . '» است.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+            return self::res(true, 'تسک همین حالا در «' . self::lbl($t, $status) . '» است.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
         }
         if ($status === 'done' && !Access::canTask($t, $actor, 'complete')) {
             return self::res(false, 'شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
@@ -495,14 +514,14 @@ final class BoardService
         if ($e = self::groupHeadError($t, $actor, $from, $status)) {
             return $e;
         }
-        if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::STATUSES)), true)) {
-            return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::STATUSES[$from]['label'] . '» به «' . self::STATUSES[$status]['label'] . '» را ندارید.', 'FORBIDDEN', 403);
+        if (!in_array($status, Access::boardTargets($t, $actor, $from, array_keys(self::cols($t))), true)) {
+            return self::res(false, 'اجازه‌ی انتقال این تسک از «' . self::lbl($t, $from) . '» به «' . self::lbl($t, $status) . '» را ندارید.', 'FORBIDDEN', 403);
         }
         if ($err = self::limitError($t, $status)) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
         self::apply($t, $actor, $from, $status, $reason);
-        return self::res(true, 'تسک به «' . self::STATUSES[$status]['label'] . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
+        return self::res(true, 'تسک به «' . self::lbl($t, $status) . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
     }
 
     /** برگشت برای اصلاح تسک گروهی (v5.12): فقط تیک این اعضا پاک و فقط به همین‌ها اعلان (null = همه) */
@@ -570,7 +589,7 @@ final class BoardService
         } elseif ($status === 'rework') {
             // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
             DB::insert('task_notes', ['task_id' => $id, 'user_id' => $actor,
-                'note' => '↩️ برگشت به «' . self::STATUSES['rework']['label'] . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
+                'note' => '↩️ برگشت به «' . self::lbl($t, 'rework') . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
             Notifier::taskReturned($t, $actor, $reason, $status === 'rework' ? self::$reworkOnly : null);
         }
     }
@@ -611,7 +630,7 @@ final class BoardService
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
         self::apply($t, $actor, $from, 'review');
-        return self::res(true, 'تسک انجام شد و برای «' . self::STATUSES['review']['label'] . '» ارسال شد.', '', 200, ['id' => $id, 'status' => 'review', 'from' => $from, 'is_completed' => false]);
+        return self::res(true, 'تسک انجام شد و برای «' . self::lbl($t, 'review') . '» ارسال شد.', '', 200, ['id' => $id, 'status' => 'review', 'from' => $from, 'is_completed' => false]);
     }
 
     /** چند دقیقه بعد از «انجام شد»/«تأیید» هنوز دکمه‌ی «بازگردانی» کار می‌کند */
@@ -633,11 +652,11 @@ final class BoardService
         }
         $last = DB::value("SELECT data FROM task_events WHERE task_id = ? AND type = 'board' ORDER BY id DESC LIMIT 1", [$id]);
         $prev = json_decode((string) $last, true)['from'] ?? 'review';
-        if (!isset(self::STATUSES[$prev]) || in_array($prev, ['done', 'archived'], true)) {
+        if (!isset(self::cols($t)[$prev]) || in_array($prev, ['done', 'archived'], true)) {
             $prev = 'review';
         }
         self::apply($t, $actor, 'done', $prev);
-        return self::res(true, 'تکمیل تسک برگشت؛ تسک به «' . self::STATUSES[$prev]['label'] . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
+        return self::res(true, 'تکمیل تسک برگشت؛ تسک به «' . self::lbl($t, $prev) . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
     }
 
     /** پس گرفتن تحویل (دکمه‌ی «بازگردانی» بعد از تیک): فقط همان کسی که تحویل داده، تا وقتی هنوز تأیید نشده؛ برمی‌گردد به وضعیت قبل از تحویل */
@@ -651,11 +670,11 @@ final class BoardService
             return self::res(false, 'این تسک دیگر قابل بازگرداندن نیست (تأیید یا جابه‌جا شده است).', 'CANNOT_WITHDRAW', 409);
         }
         $last = DB::value("SELECT data FROM task_events WHERE task_id = ? AND type = 'board' ORDER BY id DESC LIMIT 1", [$id]);
-        $prev = json_decode((string) $last, true)['from'] ?? 'in_progress';
-        if (!isset(self::STATUSES[$prev]) || in_array($prev, ['review', 'done'], true)) {
-            $prev = 'in_progress';
+        $prev = json_decode((string) $last, true)['from'] ?? '';
+        if (!isset(self::cols($t)[$prev]) || in_array($prev, ['review', 'done'], true)) {
+            $prev = BoardConfig::start(isset($t['project_id']) ? (int) $t['project_id'] : null);
         }
         self::apply($t, $actor, 'review', $prev);
-        return self::res(true, 'تحویل پس گرفته شد؛ تسک به «' . self::STATUSES[$prev]['label'] . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
+        return self::res(true, 'تحویل پس گرفته شد؛ تسک به «' . self::lbl($t, $prev) . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
     }
 }

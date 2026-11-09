@@ -435,7 +435,8 @@ document.addEventListener('tk:ready', () => {
     return qe('priority', c.edit_meta, prioBadge(t), 'اولویت') + stChip + (lbl ? qe('label', c.edit_meta, lbl, 'لیبل') : '')
       + (prj ? qe('project', c.change_project, prj, 'پروژه') : '') + (due ? qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید') : '')
       // ساخته‌شده با «ثبت سریع»؛ با اولین تغییر وضعیت در بورد حذف می‌شود
-      + (t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : '');
+      + (t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : '')
+      + (t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : '');
   };
 
   let qePop = null;
@@ -533,8 +534,10 @@ document.addEventListener('tk:ready', () => {
       ? `<button type="button" data-detail-unblock${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>`
       : `<button type="button" class="text-danger" data-detail-block${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-ban"></i> مسدود کردن</button>`;
     const hint = t.can.block ? '' : '<div class="xs faint dd-hint">دسترسی «مسدود کردن تسک» در این پروژه به شما داده نشده است.</div>';
+    // تسک محرمانه (v6.1): فقط سازنده‌ی تسک
+    const secret = t.confidential?.can_edit ? `<button type="button" data-detail-secret><i class="fa-solid fa-user-secret"></i> ${t.confidential.on ? 'محرمانه (ویرایش بیننده‌ها)' : 'محرمانه'}</button>` : '';
     return `<div class="dropdown detail-more"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-more title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-      <div class="dropdown-menu" role="menu">${item}${hint}</div></div>`;
+      <div class="dropdown-menu" role="menu">${secret}${item}${hint}</div></div>`;
   };
   const render = (t) => {
     qeClose();
@@ -590,6 +593,8 @@ document.addEventListener('tk:ready', () => {
     group_untick: ['fa-user-xmark', 'warn', (i) => `${who(i.actor)} علامت انجام‌شده‌ی خودش را برداشت.`],
     group_tick_by: ['fa-user-check', 'ok', (i) => `${who(i.actor)} تیک ${who(i.data.user_user)} را زد.`],
     group_untick_by: ['fa-user-xmark', 'warn', (i) => `${who(i.actor)} تیک ${who(i.data.user_user)} را برداشت.`],
+    confidential_on: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را محرمانه کرد${i.data.count ? ' (' + TK.fa(i.data.count) + ' بیننده‌ی انتخابی)' : ''}`],
+    confidential_off: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را از حالت محرمانه خارج کرد`],
     group_duty: ['fa-clipboard-list', 'info', (i) => `${who(i.actor)} برای ${who(i.data.user_user)} وظیفه‌ی شخصی گذاشت:`, (i) => `<div class="hist-box">${E(i.data.duty || '')}</div>`],
     group_member_removed: ['fa-user-minus', 'warn', (i) => `${who(i.actor)} ${E((i.data.names || []).join('، '))} را از گروه ${q(i.data.group)} بیرون برد.`],
     title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
@@ -706,6 +711,41 @@ document.addEventListener('tk:ready', () => {
     if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
+    if (b.hasAttribute('data-detail-secret')) {
+      b.closest('.dropdown')?.classList.remove('open');
+      const r0 = await TK.get('/tasks/' + currentId); if (!TK.ok(r0)) return;
+      const c = r0.task.confidential;
+      let m = TK.qs('#m-secret');
+      if (!m) {
+        m = document.createElement('div'); m.className = 'modal'; m.id = 'm-secret';
+        m.innerHTML = `<div class="modal-box sm"><form id="f-secret"><div class="modal-head"><h3><i class="fa-solid fa-user-secret"></i> تسک محرمانه</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+          <div class="modal-body"><label class="check mb-1"><input type="checkbox" name="on" value="1" id="secret-on"><div><b>این تسک محرمانه باشد</b><span>فقط شما، مسئول تسک و کسانی که پایین انتخاب می‌کنید آن را می‌بینند؛ بقیه — حتی مدیر پروژه — نه در فهرست و بورد، نه در جستجو و نه با لینک.</span></div></label>
+            <div id="secret-people"><div class="small bold mb-1" id="secret-count"></div><div class="list secret-list" id="secret-list"></div></div></div>
+          <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></div></form></div>`;
+        document.body.appendChild(m);
+        const sync = () => {
+          const on = TK.qs('#secret-on', m).checked, picked = TK.qsa('#secret-list input:checked', m).length;
+          TK.qs('#secret-people', m).classList.toggle('dim', !on);
+          TK.qsa('#secret-list input', m).forEach((i) => { i.disabled = !on || (!i.checked && picked >= m._max); });
+          TK.qs('#secret-count', m).textContent = `بیننده‌های انتخابی: ${TK.fa(picked)} از ${TK.fa(m._max)} نفر`;
+        };
+        m.addEventListener('change', sync); m._sync = sync;
+        TK.qs('#f-secret', m).addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          const on = TK.qs('#secret-on', m).checked;
+          const r = await TK.post('/tasks/' + m._task + '/confidential', { on: on ? 1 : 0, viewers: TK.qsa('#secret-list input:checked', m).map((i) => i.value) });
+          TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
+          if (TK.ok(r)) { TK.modal.close('m-secret'); Promise.all([refresh(), TK.reload()]); }
+        });
+      }
+      m._task = currentId; m._max = c.max;
+      const sel = new Set(c.viewers.map((v) => String(v.id)));
+      TK.qs('#secret-on', m).checked = c.on;
+      TK.qs('#secret-list', m).innerHTML = c.candidates.map((u) => `<label class="check secret-item"><input type="checkbox" value="${E(u.id)}" ${sel.has(String(u.id)) ? 'checked' : ''}>
+          <span class="avatar sm">${u.avatar ? `<img src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span><div><b>${E(u.name)}</b></div></label>`).join('') || '<div class="faint small">عضو دیگری در این پروژه نیست.</div>';
+      m._sync(); TK.modal.open('m-secret');
+      return;
+    }
     if (b.hasAttribute('data-detail-block') || b.hasAttribute('data-detail-unblock')) {
       const on = b.hasAttribute('data-detail-block');
       b.closest('.dropdown')?.classList.remove('open');

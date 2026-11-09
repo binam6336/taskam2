@@ -88,7 +88,7 @@ final class ProjectController extends Controller
     public function memberBoardPermissions(string $id, string $userId)
     {
         $limits = $this->request->input('limits') !== null ? json_decode((string) $this->request->input('limits'), true) : null;
-        if ($limits !== null && ($err = ProjectService::cleanBoardLimits(is_array($limits) ? $limits : [])[1])) {
+        if ($limits !== null && ($err = ProjectService::cleanBoardLimits(is_array($limits) ? $limits : [], (int) $id)[1])) {
             $this->respond(false, $err, '/projects');                 // سقف نامعتبر → هیچ چیز ذخیره نمی‌شود
         }
         [$ok, $msg] = ProjectService::setBoardPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')),

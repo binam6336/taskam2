@@ -23,7 +23,7 @@ final class AdminLog
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
         'support_messages' => ['پیام تیکت', null], 'texts' => ['یادداشت', 'title'], 'users' => ['پروفایل کاربر', null],
-        'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null], 'task_group_duties' => ['وظیفه‌ی شخصی عضو گروه', 'duty'],
+        'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null], 'task_group_duties' => ['وظیفه‌ی شخصی عضو گروه', 'duty'], 'task_viewers' => ['بیننده‌ی تسک محرمانه', null],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */
@@ -300,7 +300,7 @@ final class AdminLog
         'first_name' => 'نام', 'last_name' => 'نام خانوادگی', 'mobile' => 'موبایل', 'email' => 'ایمیل', 'store' => 'فروشگاه', 'website' => 'وب‌سایت', 'status' => 'وضعیت',
         'max_members' => 'سقف اعضا', 'priority_type' => 'نوع اولویت', 'profile_image' => 'تصویر پروژه', 'permissions' => 'دسترسی‌های پروژه', 'task_permissions' => 'دسترسی تسک‌ها',
         'board_permissions' => 'دسترسی بورد', 'board_view_users' => 'مشاهده‌ی تسک‌های اعضا', 'board_limits' => 'سقف تعداد تسک ستون‌ها', 'user_id' => 'کاربر', 'colleague_user_id' => 'همکار',
-        'theme' => 'تم ظاهری', 'tour' => 'تور آموزشی', 'board_order' => 'ترتیب ستون‌های بورد', 'file_name' => 'نام فایل', 'file_size' => 'حجم فایل', 'file_ext' => 'نوع فایل',
+        'theme' => 'تم ظاهری', 'tour' => 'تور آموزشی', 'board_order' => 'ترتیب ستون‌های بورد (منسوخ)', 'board_config' => 'ستون‌های بورد پروژه', 'is_confidential' => 'محرمانه', 'file_name' => 'نام فایل', 'file_size' => 'حجم فایل', 'file_ext' => 'نوع فایل',
         'content' => 'متن', 'sort_order' => 'ترتیب', 'subject' => 'موضوع', 'task_id' => 'تسک', 'note_id' => 'یادداشت', 'invited_by' => 'دعوت‌کننده', 'requester_id' => 'درخواست‌دهنده',
         'target_id' => 'گیرنده', 'sender_id' => 'فرستنده', 'receiver_id' => 'گیرنده', 'blocked_user_id' => 'کاربر مسدودشده', 'blocker_user_id' => 'مسدودکننده',
         'is_edited' => 'ویرایش‌شده', 'edited_at' => 'زمان ویرایش', 'is_read' => 'خوانده‌شده', 'read_at' => 'زمان خواندن', 'forwarded_from' => 'بازارسال از', 'responded_at' => 'زمان پاسخ',
@@ -440,7 +440,7 @@ final class AdminLog
             case 'task_id':
                 return (string) (DB::value('SELECT title FROM tasks WHERE id = ?', [(int) $v]) ?? 'تسک حذف‌شده');
             case 'board_status':
-                return \App\Services\BoardService::STATUSES[$v]['label'] ?? (string) $v;
+                return \App\Services\BoardConfig::label(null, (string) $v);   // نام از بورد پیش‌فرض یا کلید
             case 'priority':
                 return ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$v] ?? (string) $v;
             case 'priority_type':

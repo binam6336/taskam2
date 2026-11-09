@@ -312,16 +312,16 @@ final class ProjectService
     }
 
     /** اعتبارسنجی سقف‌ها (قبل از ذخیره‌ی هر چیز دیگری صدا زده شود): [سقف‌های تمیز، خطا یا null] */
-    public static function cleanBoardLimits(array $limits): array
+    public static function cleanBoardLimits(array $limits, int $projectId = 0): array
     {
         $clean = [];
-        foreach (BoardService::LIMITED as $st) {
+        foreach (BoardConfig::limited($projectId ?: null) as $st) {
             $v = $limits[$st] ?? null;
             if ($v === null || $v === '') {
                 continue;
             }
             if (!is_numeric($v) || (int) $v != $v || (int) $v < 0 || (int) $v > BoardService::MAX_LIMIT) {
-                return [[], 'سقف «' . BoardService::STATUSES[$st]['label'] . '» باید عددی بین ۰ تا ' . fa_num(BoardService::MAX_LIMIT) . ' باشد.'];
+                return [[], 'سقف «' . BoardConfig::label($projectId ?: null, $st) . '» باید عددی بین ۰ تا ' . fa_num(BoardService::MAX_LIMIT) . ' باشد.'];
             }
             $clean[$st] = (int) $v;
         }
@@ -350,7 +350,7 @@ final class ProjectService
         if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
             return [false, 'کاربر عضو پروژه نیست.'];
         }
-        [$clean, $err] = self::cleanBoardLimits($limits);
+        [$clean, $err] = self::cleanBoardLimits($limits, $projectId);
         if ($err !== null) {
             return [false, $err];
         }

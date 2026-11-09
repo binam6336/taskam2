@@ -92,7 +92,9 @@ $router->group(['panel'], function ($r) {
     $r->post('/board/tasks/{task}/move', [BoardController::class, 'move']);
     $r->get('/board/archive', [BoardController::class, 'archive']);
     $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
-    $r->post('/board/order', [BoardController::class, 'order']);
+    $r->get('/board/projects', [BoardController::class, 'projects']);
+    $r->get('/board/settings', [BoardController::class, 'settings']);
+    $r->post('/board/settings', [BoardController::class, 'saveSettings']);
 
     // موضوعات
     $r->get('/labels', [SubjectController::class, 'index']);
@@ -132,6 +134,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/groups/{group}/unblock', [GroupController::class, 'unblock']);
     $r->post('/groups/{group}/impact', [GroupController::class, 'impact']);
     $r->post('/tasks/{task}/group-duty', [GroupController::class, 'duty']);
+    $r->post('/tasks/{task}/confidential', [TaskController::class, 'confidential']);
     $r->post('/tasks/{task}/group-tick', [GroupController::class, 'memberTick']);
 
     // پروژه‌ها
@@ -242,6 +245,9 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);
     $r->get('/admin/content/tour', [AdminController::class, 'contentTour']);
+    $r->get('/admin/content/board', [AdminController::class, 'contentBoard']);
+    $r->get('/admin/content/board/data', [AdminController::class, 'contentBoardData']);
+    $r->post('/admin/content/board', [AdminController::class, 'contentBoardSave']);
     $r->post('/admin/content/tour/{id}', [AdminController::class, 'contentTourSave']);
     $r->get('/admin/content/placeholders', [AdminController::class, 'contentPlaceholders']);
     $r->post('/admin/content/placeholders/{id}', [AdminController::class, 'contentPlaceholderSave']);
@@ -298,7 +304,6 @@ $router->group(['api'], function ($r) {
     $r->get('/board/list', [BoardApi::class, 'list']);
     $r->get('/board/archive', [BoardApi::class, 'archive']);
     $r->post('/board/move', [BoardApi::class, 'move']);
-    $r->post('/board/order', [BoardApi::class, 'order']);
     $r->post('/board/archive-done', [BoardApi::class, 'archiveDone']);
 
     $r->get('/projects/list', [ProjectApi::class, 'list']);

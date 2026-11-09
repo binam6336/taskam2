@@ -2241,3 +2241,112 @@ html[data-theme="sage"] .note-btn { color: #4b5243; }
 .note-sw:has(input:checked) i { opacity: 1; }
 .note-sw:has(input:focus-visible) { outline: 2px solid var(--g-500); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .note-card, .note-dot { transition: none; } .note-card:hover { transform: none; } }
+
+/* ───── بورد اختصاصی هر پروژه (v6.1) ───── */
+/* پالت رنگ ستون‌ها (BoardConfig::TONES) برای ستون، نشان وضعیت و ویرایشگر */
+.tone-muted { --tone: var(--muted); } .tone-info { --tone: var(--info); } .tone-teal { --tone: #2dd4bf; } .tone-ok { --tone: var(--g-500); }
+.tone-warn { --tone: var(--warn); } .tone-orange { --tone: #fb923c; } .tone-red { --tone: #f87171; } .tone-pink { --tone: #f472b6; } .tone-purple { --tone: #a78bfa; }
+html[data-theme="sage"] .tone-teal { --tone: #0f9488; } html[data-theme="sage"] .tone-pink { --tone: #db2777; } html[data-theme="sage"] .tone-red { --tone: #dc2626; }
+html[data-theme="sage"] .tone-orange { --tone: #ea580c; } html[data-theme="sage"] .tone-purple { --tone: #7c3aed; }
+.kb-col.tone-teal, .badge.board-st.tone-teal { --tone: #2dd4bf; } .kb-col.tone-red, .badge.board-st.tone-red { --tone: #f87171; }
+.kb-col.tone-pink, .badge.board-st.tone-pink { --tone: #f472b6; } .kb-col.tone-muted, .badge.board-st.tone-muted { --tone: var(--muted); }
+html[data-theme="sage"] .kb-col.tone-teal, html[data-theme="sage"] .badge.board-st.tone-teal { --tone: #0f9488; }
+html[data-theme="sage"] .kb-col.tone-red, html[data-theme="sage"] .badge.board-st.tone-red { --tone: #dc2626; }
+html[data-theme="sage"] .kb-col.tone-pink, html[data-theme="sage"] .badge.board-st.tone-pink { --tone: #db2777; }
+
+/* نوار بالای بورد: پروژه، جستجو، فقط من، تنظیمات، تسک جدید */
+.kb-top { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-bottom: .9rem; }
+.kb-proj-switch { display: flex; align-items: center; gap: .55rem; flex: 0 1 300px; min-width: 200px; }
+.kb-proj-switch .avatar { width: 40px; height: 40px; flex: none; }
+.kb-project-sel { font-weight: 700; font-size: .95rem; }
+.kb-top .kb-filters { flex: 1 1 320px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.kb-top .kb-q { flex: 1 1 220px; min-width: 0; }
+.kb-top-acts { display: flex; gap: .5rem; margin-inline-start: auto; }
+.kb-top-acts .btn-icon { width: 42px; height: 42px; }
+.kb-search-note { margin: -.35rem 0 .7rem; }
+@media (max-width: 640px) {
+  .kb-proj-switch { flex: 1 1 100%; }
+  .kb-top-acts { margin-inline-start: 0; flex: 1 1 100%; justify-content: flex-end; }
+}
+
+/* خوانایی بورد: ستون پهن‌تر، فاصله و حاشیه‌ی بیشتر، متن بزرگ‌تر */
+.kb-board { --kb-col: 292px; gap: 1rem; padding-bottom: .8rem; cursor: grab; }
+.kb-board.kb-panning { cursor: grabbing; }
+.kb-col { border-radius: 14px; }
+.kb-col-head { padding: .85rem 1rem; gap: .65rem; }
+.kb-col-head b { font-size: .95rem; }
+.kb-list { gap: .7rem; padding: .75rem; }
+.kb-card { padding: .75rem .85rem .7rem; border-radius: 12px; cursor: auto; user-select: text; }
+.kb-board.kb-panning .kb-card { user-select: none; }
+.kb-card-top { gap: .5rem; align-items: flex-start; }
+.kb-title { font-size: .93rem; line-height: 1.75; font-weight: 700; }
+.kb-meta { margin-top: .55rem; gap: .4rem .8rem; font-size: .78rem; }
+.kb-foot { margin-top: .6rem; padding-top: .5rem; border-top: 1px dashed var(--border); }
+.kb-who { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; font-size: .78rem; color: var(--muted); }
+.kb-who .avatar { flex: none; }
+/* دکمه‌ی جابه‌جایی: فقط با کشیدن همین آیکون وضعیت عوض می‌شود (کلیک = منوی انتقال) */
+.kb-handle { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin-top: -1px; padding: 0; border: 1px solid var(--border-2); border-radius: 9px;
+  background: var(--surface-2); color: var(--muted); cursor: grab; font-size: .8rem; transition: background .15s, color .15s, border-color .15s; }
+.kb-handle:hover { color: var(--g-300); border-color: rgba(var(--accent-rgb), .55); background: rgba(var(--accent-rgb), .1); }
+.kb-handle:active { cursor: grabbing; }
+.kb-handle:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
+.kb-handle.kb-lock { cursor: help; color: var(--warn); }
+.kb-card.kb-secret { border-inline-start-color: #a78bfa; }
+.kb-secret-ic { color: #a78bfa; font-size: .8rem; }
+.kb-empty-board { margin-bottom: 1rem; }
+html[data-theme="sage"] .kb-handle { background: #fff; }
+
+/* انتخاب پروژه برای بورد */
+.kb-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .8rem; }
+.kb-pick { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; text-decoration: none; color: var(--text); }
+.kb-pick .avatar { width: 42px; height: 42px; flex: none; }
+.kb-pick b { display: block; } .kb-pick small { display: block; }
+.kb-pick:hover { border-color: rgba(var(--accent-rgb), .5); }
+.kb-pick-modal .list { max-height: min(60vh, 520px); overflow: auto; }
+.kb-pick-item { display: flex; align-items: center; gap: .7rem; padding: .6rem .7rem; border-radius: 10px; color: var(--text); text-decoration: none; }
+.kb-pick-item:hover, .kb-pick-item:focus-visible { background: var(--surface-2); outline: none; }
+.kb-pick-item .avatar { width: 36px; height: 36px; flex: none; }
+
+/* ویرایشگر ستون‌های بورد (تنظیمات بورد پروژه / محتوا ← بورد) */
+.bs-intro { margin: 0 0 .8rem; line-height: 1.9; }
+.bs-cols { --tone: var(--muted); list-style: none; margin: 0 0 .7rem; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+.bs-row { display: flex; align-items: center; gap: .55rem; padding: .5rem .6rem; border: 1px solid var(--border); border-inline-start: 4px solid var(--tone); border-radius: 12px; background: var(--surface); }
+.bs-row.fixed { background: color-mix(in srgb, var(--tone) 6%, var(--surface)); }
+.bs-row.dragging { opacity: .4; } .bs-row.over { outline: 2px dashed rgba(var(--accent-rgb), .6); outline-offset: 2px; }
+.bs-row.removed { border-style: dashed; border-inline-start-color: var(--danger); background: var(--danger-bg); color: var(--muted); flex-wrap: wrap; }
+.bs-row.removed .bs-target { width: auto; min-width: 180px; margin-top: .3rem; display: block; }
+.bs-rm-ic { color: var(--danger); }
+.bs-grip { flex: none; width: 26px; height: 32px; padding: 0; border: 0; background: none; color: var(--faint); cursor: grab; border-radius: 7px; }
+.bs-grip:hover { color: var(--text); background: var(--surface-2); }
+.bs-pick-wrap { position: relative; flex: none; }
+.bs-icon-btn { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent); border-radius: 10px;
+  background: color-mix(in srgb, var(--tone) 14%, transparent); color: var(--tone); cursor: pointer; font-size: 1rem; }
+.bs-icon-btn:focus-visible, .bs-grip:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
+.bs-label { font-weight: 700; }
+.bs-role { margin-top: .25rem; font-size: .72rem; color: var(--muted); line-height: 1.7; }
+.bs-count { flex: none; font-size: .72rem; }
+.bs-move { display: flex; flex-direction: column; flex: none; }
+.bs-del-ph { width: 30px; flex: none; }
+.bs-del:hover { color: var(--danger); }
+.bs-pop { position: absolute; top: calc(100% + 6px); inset-inline-start: 0; z-index: 40; width: 268px; padding: .6rem; border: 1px solid var(--border-2); border-radius: 12px;
+  background: var(--surface-2); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .6); }
+.bs-pop-h { margin: .1rem 0 .35rem; font-size: .72rem; color: var(--muted); font-weight: 700; }
+.bs-icons { display: grid; grid-template-columns: repeat(6, 1fr); gap: .3rem; margin-bottom: .55rem; }
+.bs-icons button, .bs-tones button { display: grid; place-items: center; height: 34px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.bs-icons button:hover, .bs-tones button:hover { border-color: var(--border-2); }
+.bs-icons button.on, .bs-tones button.on { border-color: var(--g-500); background: rgba(var(--accent-rgb), .14); }
+.bs-icons button:focus-visible, .bs-tones button:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
+.bs-tones { display: grid; grid-template-columns: repeat(9, 1fr); gap: .25rem; }
+.bs-tone { width: 16px; height: 16px; border-radius: 50%; background: var(--tone); }
+.bs-add { margin-bottom: 1rem; border-style: dashed; }
+.bs-start-field select { max-width: 320px; }
+.bs-foot { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--border); }
+.bs-loading { padding: 1.2rem; text-align: center; color: var(--muted); list-style: none; }
+@media (max-width: 560px) { .bs-move { display: none; } .bs-count { display: none; } }
+.bs-rules { margin: .4rem 0 0; padding-inline-start: 1.2rem; line-height: 2; }
+/* تسک محرمانه (v6.1) */
+.secret-badge { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(167, 139, 250, .16); color: #a78bfa; font-size: .8rem; }
+html[data-theme="sage"] .secret-badge { color: #7c3aed; }
+.secret-list { max-height: 300px; overflow: auto; }
+.secret-item { align-items: center; }
+#secret-people.dim { opacity: .5; }
