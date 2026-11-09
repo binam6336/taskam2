@@ -1,6 +1,6 @@
 <?php
 /**
- * فهرست فقط‌خواندنی مدیر (از کارت‌های «تحلیل سیستم»): تسک‌ها، پروژه‌ها، درخواست‌های تماس — صفحه‌بندی، جستجو و فیلتر وضعیت.
+ * فهرست فقط‌خواندنی مدیر (از کارت‌های «تحلیل سیستم»): تسک‌ها، پروژه‌ها — صفحه‌بندی، جستجو و فیلتر وضعیت.
  * @var string $kind @var array $rows @var int $total @var int $pg @var int $pages @var int $per @var array $perOptions @var string $q @var string $status @var array $filters @var string $heading @var string $icon
  */
 $this->scripts[] = 'admin';   // جستجوی خودکار (#users-tools)

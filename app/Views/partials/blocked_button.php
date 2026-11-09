@@ -1,6 +1,6 @@
 <?php
 /** دکمه‌ی «مسدودشده‌ها» (آیکون مسدود) که پنجره‌ی فهرست مسدودشده‌ها را باز می‌کند (modules/blocked.js، partials/blocked_modal.php).
- * @var string $kind tasks|projects|labels|calls @var int $count @var string $label
+ * @var string $kind tasks|projects|labels @var int $count @var string $label
  * @var string|null $text اگر داده شود: چیپ متنی (آیکون + متن + شمارنده داخل متن) به‌جای دکمه‌ی فقط‌آیکون — صفحه‌ی تسک‌ها (v5.7) */
 $text = $text ?? null;
 ?>

@@ -517,7 +517,6 @@ final class AdminController extends Controller
     private const LISTS = [
         'tasks' => ['همه‌ی تسک‌ها', 'fa-list-check'],
         'projects' => ['همه‌ی پروژه‌ها', 'fa-diagram-project'],
-        'calls' => ['همه‌ی درخواست‌های تماس', 'fa-phone-volume'],
     ];
 
     /** GET /admin/list/{kind}: فهرست صفحه‌بندی‌شده با جستجو و فیلتر وضعیت (کلیک روی کارت‌های پیشخوان مدیر) */
@@ -537,7 +536,6 @@ final class AdminController extends Controller
         $filters = [
             'tasks' => ['all' => 'همه', 'open' => 'باز', 'review' => 'منتظر تأیید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
             'projects' => ['all' => 'همه', 'active' => 'فعال', 'blocked' => 'مسدود'],
-            'calls' => ['all' => 'همه', 'new' => 'جدید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
         ][$kind];
         $st = isset($filters[$r['status'] ?? '']) ? (string) $r['status'] : 'all';
         $w = [];
@@ -568,16 +566,6 @@ final class AdminController extends Controller
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks,
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL AND t.is_completed = 1) AS done $base";
             $order = 'p.created_at DESC, p.id DESC';
-        } else {
-            $base = 'FROM call_requests c LEFT JOIN users ua ON ua.id = c.assignee_id LEFT JOIN users uc ON uc.id = c.user_id';
-            $w[] = ['all' => '1', 'new' => 'c.status = 0 AND c.blocked_at IS NULL', 'done' => 'c.status = 1 AND c.blocked_at IS NULL', 'blocked' => 'c.blocked_at IS NOT NULL'][$st];
-            if ($q !== '') {
-                $w[] = "(CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR c.store LIKE ? OR c.mobile LIKE ?)";
-                array_push($p, $like, $like, $like);
-            }
-            $sel = "SELECT c.id, c.first_name, c.last_name, c.mobile, c.store, c.status, c.blocked_at, c.created_at, c.completed_at,
-                    ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
-            $order = 'c.created_at DESC, c.id DESC';
         }
         $where = ' WHERE ' . implode(' AND ', $w);
         $total = (int) DB::value('SELECT COUNT(*) ' . $base . $where, $p);
@@ -662,7 +650,6 @@ final class AdminController extends Controller
         $stats = [
             'users' => UserModel::counts(),
             'tasks' => ['total' => $c('SELECT COUNT(*) FROM tasks'), 'done' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 1'), 'open' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 0'), 'high' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'high'"), 'medium' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'medium'"), 'low' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'low'")],
-            'calls' => ['total' => $c('SELECT COUNT(*) FROM call_requests'), 'new' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 0'), 'done' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 1')],
             'misc' => ['notes' => $c('SELECT COUNT(*) FROM task_notes'), 'texts' => $c('SELECT COUNT(*) FROM texts'), 'projects' => $c('SELECT COUNT(*) FROM projects WHERE is_sample = 0'), 'members' => $c('SELECT COUNT(*) FROM project_members'), 'messages' => $c('SELECT COUNT(*) FROM chat_messages'), 'tokens' => $c('SELECT COUNT(*) FROM api_tokens WHERE is_active = 1'), 'support_open' => $c("SELECT COUNT(*) FROM support_tickets WHERE status <> 'closed'")],
         ];
         $days = [];

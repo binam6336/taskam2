@@ -8,7 +8,6 @@ final class DocsHelper
 {
     private const NOT_FOUND = [
         'tasks'      => ['TASK_NOT_FOUND', 'تسک یافت نشد.'],
-        'calls'      => ['CALL_NOT_FOUND', 'درخواست یافت نشد.'],
         'texts'      => ['TEXT_NOT_FOUND', 'متن یافت نشد.'],
         'colleagues' => ['COLLEAGUE_NOT_FOUND', 'همکار یافت نشد.'],
         'projects'   => ['PROJECT_NOT_FOUND', 'پروژه یافت نشد یا دسترسی ندارید.'],
@@ -197,7 +196,7 @@ final class DocsHelper
         } elseif ($needsId) {
             $out[] = ['400', $env('پارامتر id الزامی است.', 'INVALID_ID')];
         }
-        if ($ep['method'] === 'POST' && in_array($group, ['tasks', 'calls', 'projects', 'colleagues'], true)) {
+        if ($ep['method'] === 'POST' && in_array($group, ['tasks', 'projects', 'colleagues'], true)) {
             $out[] = ['403', $env('اجازه‌ی انجام این عملیات را ندارید.', 'FORBIDDEN')];
         }
         return $out;

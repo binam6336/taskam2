@@ -1,7 +1,7 @@
 <?php
 /** @var array $d @var array $me @var array $focus @var array $waiting @var array $subjects @var array $projects @var array $assignees */
 $s = $d['stats'];
-$this->boot['d'] = ['stats' => $s, 'trend' => $d['trend'], 'calls' => $d['calls'], 'prio_open' => $d['prio_open']];
+$this->boot['d'] = ['stats' => $s, 'trend' => $d['trend'], 'prio_open' => $d['prio_open']];
 $this->scripts[] = 'dashboard';
 $time = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['a']) : '—';
 $nToday = $focus['today_count'];
@@ -240,22 +240,17 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
             <?php // «باز از کل»؛ هر ردیف به فهرست فیلترشده‌ی خودش می‌رود ?>
             <a class="flex between dash-flow-row" href="<?= e(url('/tasks?scope=others&status=open')) ?>" title="تسک‌های باز واگذارشده به دیگران"><span class="muted">ساخته‌شده توسط من برای دیگران</span><b><?= e(fa_num($d['by_me_open'])) ?> باز <span class="faint xs">از <?= e(fa_num($d['by_me'])) ?></span></b></a>
             <a class="flex between dash-flow-row" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="وظایف باز من"><span class="muted">واگذارشده به من از دیگران</span><b><?= e(fa_num($d['to_me_open'])) ?> باز <span class="faint xs">از <?= e(fa_num($d['to_me'])) ?></span></b></a>
-            <a class="flex between dash-flow-row" href="<?= e(url('/texts')) ?>"><span class="muted">متن‌های آماده</span><b><?= e(fa_num($d['texts'])) ?></b></a>
+            <a class="flex between dash-flow-row" href="<?= e(url('/notes')) ?>"><span class="muted">یادداشت‌ها</span><b><?= e(fa_num($d['texts'])) ?></b></a>
         </div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> میانگین زمان انجام</h3></div>
         <div class="list">
             <div class="flex between"><span class="muted"><i class="fa-solid fa-list-check"></i> تسک</span><b><?= e($time($d['task_time'])) ?></b></div>
-            <div class="flex between"><span class="muted"><i class="fa-solid fa-phone-volume"></i> تماس</span><b><?= e($time($d['call_time'])) ?></b></div>
         </div></div>
 </div>
 
-<div class="grid grid-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-phone-volume"></i> درخواست‌های تماس</h3><a class="btn btn-sm" href="<?= e(url('/calls')) ?>">مشاهده</a></div>
-        <div class="grid grid-3"><div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['calls']['total'])) ?></div><div class="xs muted">کل</div></div>
-            <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:var(--warn)"><?= e(fa_num($d['calls']['new'])) ?></div><div class="xs muted">جدید</div></div>
-            <div class="center"><div class="num bold" data-css="font-size:1.4rem;color:var(--g-400)"><?= e(fa_num($d['calls']['done'])) ?></div><div class="xs muted">انجام‌شده</div></div></div></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-message"></i> متن‌های آماده</h3><a class="btn btn-sm" href="<?= e(url('/texts')) ?>">مشاهده</a></div>
-        <div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">متن ذخیره‌شده</div></div></div>
+<div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-note-sticky"></i> یادداشت‌ها</h3><a class="btn btn-sm" href="<?= e(url('/notes')) ?>">مشاهده</a></div>
+        <div class="center"><div class="num bold" data-css="font-size:1.4rem"><?= e(fa_num($d['texts'])) ?></div><div class="xs muted">یادداشت</div></div></div>
 </div>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $projects, 'assignees' => $assignees, 'shared' => null, 'context' => 'dashboard']); ?>

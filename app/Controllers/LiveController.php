@@ -136,9 +136,6 @@ final class LiveController extends Controller
                     WHERE user_id = ? OR " . \App\Models\TaskModel::mine($uid, 'tasks') . " OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.user_id, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
                 break;
-            case 'calls':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, status, assignee_id, first_name, last_name, mobile, email, store, website, description, blocked_at))), 0) h FROM call_requests WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
-                break;
             case 'colleagues':
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', c.id, c.permissions, u.first_name, u.last_name, u.status))), 0) h FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ?", [$uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(id), 0) s FROM colleague_requests WHERE (target_id = ? OR requester_id = ?) AND status = 'pending'", [$uid, $uid]);

@@ -93,20 +93,6 @@ final class Notifier
         self::sendFrom($actorId, $mentionedId, $msg);
     }
 
-    public static function callAssigned(array $call, int $actorId): void
-    {
-        $assignee = (int) ($call['assignee_id'] ?? 0);
-        if ($assignee <= 0 || $assignee === $actorId || empty($call['share_token'])) {
-            return;
-        }
-        $actor = UserModel::find($actorId);
-        $lines = ['📞 درخواست تماس جدیدی برای شما ثبت شد', '', 'نام: ' . trim($call['first_name'] . ' ' . $call['last_name']), 'موبایل: ' . $call['mobile']];
-        if (!empty($call['store'])) {
-            $lines[] = 'فروشگاه: ' . $call['store'];
-        }
-        $lines[] = 'ثبت‌کننده: ' . ($actor ? full_name($actor) : 'کاربر');
-        self::sendFrom($actorId, $assignee, implode("\n", $lines) . "\n\n[[call:" . $call['share_token'] . ']]');
-    }
     /** پیوند اشتراکی تسک برای پیام ربات */
     private static function token(array $task): string
     {

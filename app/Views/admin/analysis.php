@@ -1,6 +1,6 @@
 <?php
 /** @var array $stats @var array $days @var array $topUsers @var array $topProjects @var array $topSubjects @var array $audit @var array $chatSec */
-$u = $stats['users']; $t = $stats['tasks']; $c = $stats['calls']; $m = $stats['misc'];
+$u = $stats['users']; $t = $stats['tasks']; $m = $stats['misc'];
 $this->boot['an'] = ['days' => $days, 'tasks' => $t, 'subjects' => $topSubjects];
 $this->scripts[] = 'admin';
 // کارت با $href قابل کلیک است و فهرست همان مورد را باز می‌کند (کاربران، چت، متن‌های آماده و توکن فهرست جدا ندارند)
@@ -8,8 +8,8 @@ $card = static fn(string $ico, string $cls, $num, string $lbl, ?string $href = n
     . '<div class="ico ' . $cls . '"><i class="fa-solid ' . $ico . '"></i></div><div><div class="num">' . e(fa_num($num)) . '</div><div class="lbl">' . e($lbl) . '</div></div>' . ($href ? '</a>' : '</div>');
 ?>
 <div class="grid grid-4 mb-2">
-    <?= $card('fa-users', '', $u['total'], 'کاربران') ?><?= $card('fa-list-check', 'info', $t['total'], 'تسک‌ها', '/admin/list/tasks') ?><?= $card('fa-headset', 'warn', $m['support_open'], 'تیکت پشتیبانی باز', '/admin/support') ?><?= $card('fa-phone-volume', '', $c['total'], 'درخواست تماس', '/admin/list/calls') ?>
-    <?= $card('fa-diagram-project', '', $m['projects'], 'پروژه‌ها', '/admin/list/projects') ?><?= $card('fa-comments', 'info', $m['messages'], 'پیام‌های چت') ?><?= $card('fa-message', '', $m['texts'], 'متن‌های آماده') ?><?= $card('fa-key', 'warn', $m['tokens'], 'توکن فعال') ?>
+    <?= $card('fa-users', '', $u['total'], 'کاربران') ?><?= $card('fa-list-check', 'info', $t['total'], 'تسک‌ها', '/admin/list/tasks') ?><?= $card('fa-headset', 'warn', $m['support_open'], 'تیکت پشتیبانی باز', '/admin/support') ?>
+    <?= $card('fa-diagram-project', '', $m['projects'], 'پروژه‌ها', '/admin/list/projects') ?><?= $card('fa-comments', 'info', $m['messages'], 'پیام‌های چت') ?><?= $card('fa-note-sticky', '', $m['texts'], 'یادداشت‌ها') ?><?= $card('fa-key', 'warn', $m['tokens'], 'توکن فعال') ?>
 </div>
 <div class="grid grid-wide mb-2"><div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> فعالیت ۱۴ روز اخیر</h3></div><div class="chart" id="ch-days"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> وضعیت تسک‌ها</h3></div><div id="ch-tasks"></div></div></div>

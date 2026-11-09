@@ -436,8 +436,6 @@ final class TaskModel
             'top_subject' => $top ? $top['title'] : null, 'top_subject_count' => $top ? (int) $top['cnt'] : 0,
             'prio_open' => array_map('intval', $prioOpen + ['high' => 0, 'medium' => 0, 'low' => 0]),
             'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
-            'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1 AND blocked_at IS NULL', [$uid, $uid]),
-            'calls' => CallModel::stats($uid),
             'texts' => (int) DB::value('SELECT COUNT(*) FROM texts WHERE user_id = ?', [$uid]),
             'trend' => $trend,
         ];

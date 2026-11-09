@@ -12,7 +12,6 @@ use App\Core\DB;
  *  - سازنده‌ی تسک و سازنده‌ی پروژه‌ی آن: همه‌ی دسترسی‌ها
  *  - عضو پروژه: فقط دسترسی‌هایی که در همان پروژه برایش فعال شده (project_members.task_permissions؛ پیش‌فرض هیچ)
  *  - مسئول تسک: مشاهده (+ دسترسی‌های عضویتش در پروژه)
- * درخواست تماس: سازنده همه‌چیز؛ مسئول مشاهده/تکمیل.
  */
 final class Access
 {
@@ -152,19 +151,6 @@ final class Access
         }
         $grp = \App\Models\GroupModel::find($g);
         return $grp !== null && (int) $grp['head_id'] === $uid && \App\Models\GroupModel::isMember($g, $uid);
-    }
-
-    /** آیا $uid می‌تواند عملِ $action را روی درخواست تماس انجام دهد؟ */
-    public static function can(array $row, int $uid, string $action): bool
-    {
-        // درخواست مسدودشده فقط دیده می‌شود (ثبت‌کننده می‌تواند مسدودی‌اش را بردارد)
-        if (!empty($row['blocked_at']) && !in_array($action, ['view', 'block'], true)) {
-            return false;
-        }
-        if ((int) $row['user_id'] === $uid) {
-            return true;
-        }
-        return (int) ($row['assignee_id'] ?? 0) === $uid && in_array($action, ['view', 'complete', 'notes'], true);
     }
 
     /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو، اعضایی که تسک‌هایشان را در برد می‌بیند] — با کش درون درخواست */

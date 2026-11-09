@@ -5,8 +5,20 @@ namespace App\Models;
 
 use App\Core\DB;
 
+/**
+ * یادداشت‌های شخصی (v6.0؛ قبلاً «متن‌های آماده»): کارت‌های رنگی مثل یادداشت چسبان با ترتیب دستی. جدول texts همان است.
+ */
 final class TextModel
 {
+    /** رنگ‌های پس‌زمینه‌ی یادداشت (کلید => نام)؛ رنگ واقعی برای هر تم در app.css (.note-c-*) */
+    public const COLORS = ['yellow' => 'زرد', 'green' => 'سبز', 'blue' => 'آبی', 'red' => 'قرمز', 'purple' => 'بنفش'];
+    public const DEFAULT_COLOR = 'yellow';
+
+    public static function color(?string $c): string
+    {
+        return isset(self::COLORS[(string) $c]) ? (string) $c : self::DEFAULT_COLOR;
+    }
+
     public static function forUser(int $uid, string $search = ''): array
     {
         if ($search !== '') {
@@ -21,11 +33,11 @@ final class TextModel
         return DB::one('SELECT * FROM texts WHERE id = ? AND user_id = ?', [$id, $uid]);
     }
 
-    public static function create(int $uid, string $title, string $content): array
+    public static function create(int $uid, string $title, string $content, string $color = self::DEFAULT_COLOR): array
     {
         $id = bin2hex(random_bytes(6)) . '_' . bin2hex(random_bytes(4));
         $min = (int) DB::value('SELECT COALESCE(MIN(sort_order), 0) FROM texts WHERE user_id = ?', [$uid]);
-        DB::insert('texts', ['id' => $id, 'user_id' => $uid, 'title' => $title, 'content' => $content, 'sort_order' => $min - 1]);
+        DB::insert('texts', ['id' => $id, 'user_id' => $uid, 'title' => $title, 'content' => $content, 'color' => self::color($color), 'sort_order' => $min - 1]);
         return self::owned($id, $uid) ?? [];
     }
 

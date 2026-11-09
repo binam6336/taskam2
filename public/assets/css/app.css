@@ -2200,3 +2200,44 @@ html[data-theme="sage"] .stat .ico.purple { background: rgba(124, 92, 220, .14);
 .apk-t { margin: 0 0 .2rem; font-size: 1.02rem; }
 .apk-p { margin: 0 0 .15rem; }
 @media (max-width: 560px) { .apk-card .btn { width: 100%; justify-content: center; } }
+/* ───── یادداشت‌ها: یادداشت چسبان رنگی (v6.0) ─────
+   رنگ پایه‌ی هر یادداشت (--nc) با سطح کارت ترکیب می‌شود تا در تم تیره و روشن هم خوانا بماند */
+.note-c-yellow { --nc: #f2c14e; }
+.note-c-green  { --nc: #3fbf7f; }
+.note-c-blue   { --nc: #5b9cf5; }
+.note-c-red    { --nc: #f06a6a; }
+.note-c-purple { --nc: #a78bfa; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; align-items: start; }
+.note-card { position: relative; display: flex; flex-direction: column; min-height: 170px; padding: .8rem .9rem .6rem; border-radius: 4px 4px 16px 4px;
+  background: color-mix(in srgb, var(--nc) 20%, var(--surface)); border: 1px solid color-mix(in srgb, var(--nc) 38%, transparent);
+  border-top: 5px solid var(--nc); box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .55); transition: transform .15s, box-shadow .15s; color: var(--text); }
+.note-card:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -12px rgba(0, 0, 0, .6); }
+.note-card.dragging { opacity: .45; }
+.note-card.drag-over { outline: 2px dashed var(--nc); outline-offset: 3px; }
+.note-head { display: flex; align-items: flex-start; gap: .4rem; margin-bottom: .4rem; }
+.note-grip { cursor: grab; color: color-mix(in srgb, var(--nc) 70%, var(--muted)); padding-top: .2rem; font-size: .8rem; }
+.note-title { flex: 1; min-width: 0; margin: 0; font-size: .95rem; font-weight: 800; line-height: 1.6; overflow-wrap: anywhere; }
+.note-acts { display: flex; gap: .1rem; opacity: .55; transition: opacity .15s; }
+.note-card:hover .note-acts, .note-card:focus-within .note-acts { opacity: 1; }
+.note-btn { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.note-btn:hover { background: color-mix(in srgb, var(--nc) 25%, transparent); color: var(--text); }
+.note-btn.danger:hover { color: var(--danger); }
+.note-btn:focus-visible, .note-dot:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
+.note-body { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; line-height: 1.9; max-height: 260px; overflow: auto; cursor: text; }
+.note-foot { display: flex; align-items: center; justify-content: space-between; margin-top: .55rem; padding-top: .45rem; border-top: 1px dashed color-mix(in srgb, var(--nc) 40%, transparent); }
+.note-dots { display: flex; gap: .35rem; }
+.note-dot { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--nc) 55%, var(--surface)); background: var(--nc); cursor: pointer; opacity: .75; transition: transform .12s, opacity .12s; }
+.note-dot:hover { opacity: 1; transform: scale(1.15); }
+.note-dot.on { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--nc); }
+html[data-theme="sage"] .note-card { background: color-mix(in srgb, var(--nc) 30%, #fff); border-color: color-mix(in srgb, var(--nc) 55%, transparent); box-shadow: 0 6px 14px -10px rgba(40, 50, 30, .35); }
+html[data-theme="sage"] .note-btn { color: #4b5243; }
+.note-colors { border: 0; padding: 0; margin: 0; }
+.note-colors legend { margin-bottom: .35rem; font-size: .85rem; font-weight: 600; }
+.note-swatches { display: flex; gap: .6rem; flex-wrap: wrap; }
+.note-sw { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--nc); cursor: pointer; color: #1b1b1b; }
+.note-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.note-sw i { opacity: 0; font-size: .8rem; }
+.note-sw:has(input:checked) { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--nc); }
+.note-sw:has(input:checked) i { opacity: 1; }
+.note-sw:has(input:focus-visible) { outline: 2px solid var(--g-500); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .note-card, .note-dot { transition: none; } .note-card:hover { transform: none; } }

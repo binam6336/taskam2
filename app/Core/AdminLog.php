@@ -16,13 +16,13 @@ final class AdminLog
 {
     /** جدول ← [نام فارسی، ستون عنوان] */
     public const TRACK = [
-        'tasks' => ['تسک', 'title'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'], 'call_requests' => ['درخواست تماس', null],
+        'tasks' => ['تسک', 'title'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'],
         'task_notes' => ['یادداشت تسک', null], 'task_attachments' => ['پیوست تسک', 'file_name'], 'note_attachments' => ['پیوست یادداشت', 'file_name'],
         'project_members' => ['عضویت پروژه', null], 'project_join_requests' => ['دعوت به پروژه', null], 'project_blocks' => ['مسدودی دعوت پروژه', null],
         'project_leave_history' => ['خروج از پروژه', null], 'colleagues' => ['همکار', null], 'colleague_requests' => ['درخواست همکاری', null],
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
-        'support_messages' => ['پیام تیکت', null], 'texts' => ['متن آماده', 'title'], 'users' => ['پروفایل کاربر', null],
+        'support_messages' => ['پیام تیکت', null], 'texts' => ['یادداشت', 'title'], 'users' => ['پروفایل کاربر', null],
         'project_groups' => ['گروه / دپارتمان', 'title'], 'project_group_members' => ['عضویت گروه', null], 'task_group_ticks' => ['تیک عضو گروه روی تسک', null], 'task_group_duties' => ['وظیفه‌ی شخصی عضو گروه', 'duty'],
     ];
 
@@ -246,8 +246,6 @@ final class AdminLog
             return (string) $r[$col];
         }
         switch ($table) {
-            case 'call_requests':
-                return trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
             case 'task_notes':
                 return (string) DB::value('SELECT title FROM tasks WHERE id = ?', [(int) ($r['task_id'] ?? 0)]);
             case 'project_members':

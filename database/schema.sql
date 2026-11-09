@@ -509,40 +509,14 @@ CREATE TABLE `chat_history_clears` (
   CONSTRAINT `fk_chc_other` FOREIGN KEY (`other_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ─────────────────────────────  تماس / متن‌های آماده  ─────────────────────────────
-
-CREATE TABLE `call_requests` (
-  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
-  `user_id`      INT UNSIGNED NOT NULL               COMMENT 'ثبت‌کننده',
-  `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول پیگیری',
-  `first_name`   VARCHAR(150) NOT NULL,
-  `last_name`    VARCHAR(150) NOT NULL,
-  `mobile`       VARCHAR(20) NOT NULL,
-  `email`        VARCHAR(150) NULL DEFAULT NULL,
-  `store`        VARCHAR(255) NULL DEFAULT NULL,
-  `website`      VARCHAR(255) NULL DEFAULT NULL,
-  `description`  TEXT NULL DEFAULT NULL,
-  `status`       TINYINT(1) NOT NULL DEFAULT 0       COMMENT '0=جدید 1=انجام‌شده',
-  `share_token`  VARCHAR(64) NULL DEFAULT NULL,
-  `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `completed_at` TIMESTAMP NULL DEFAULT NULL,
-  `blocked_at`   TIMESTAMP NULL DEFAULT NULL         COMMENT 'درخواست مسدودشده (به‌جای حذف)',
-  `blocked_by`   INT UNSIGNED NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_call_requests_pid` (`pid`),
-  UNIQUE KEY `uq_calls_share_token` (`share_token`),
-  KEY `idx_calls_user` (`user_id`, `status`),
-  KEY `idx_calls_assignee` (`assignee_id`, `status`),
-  CONSTRAINT `fk_calls_user`     FOREIGN KEY (`user_id`)     REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_calls_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ─────────────────────────────  یادداشت‌ها (متن‌های آماده‌ی قدیمی)  ─────────────────────────────
 
 CREATE TABLE `texts` (
   `id`         VARCHAR(50) NOT NULL                  COMMENT '<hex>_<hex> — برای سازگاری با API نسخه‌ی ۱ رشته است',
   `user_id`    INT UNSIGNED NOT NULL,
   `title`      VARCHAR(255) NOT NULL,
   `content`    TEXT NOT NULL,
+  `color`      VARCHAR(12) NOT NULL DEFAULT 'yellow'  COMMENT 'رنگ یادداشت: yellow|green|blue|red|purple',
   `sort_order` INT NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

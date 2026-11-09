@@ -13,7 +13,9 @@ document.addEventListener('tk:ready', () => {
   /* لینک‌های [[task:..]] و [[call:..]] */
   const body = (m) => {
     let t = E(m.message || ''); const links = [];
-    t = t.replace(/\[\[(task|call):([a-f0-9]{16,64})\]\]/gi, (_, k, tok) => { links.push(`<a class="btn btn-sm btn-primary msg-link" href="${TK.url(k === 'task' ? '/tasks?task=' + tok : '/calls?call=' + tok)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${k === 'task' ? 'مشاهده‌ی تسک' : 'مشاهده‌ی درخواست'}</a>`); return ''; });
+    // [[call:…]] قدیمی (درخواست تماس از v6.0 حذف شد) بدون دکمه پاک می‌شود
+    t = t.replace(/\[\[call:[a-f0-9]{16,64}\]\]/gi, '');
+    t = t.replace(/\[\[task:([a-f0-9]{16,64})\]\]/gi, (_, tok) => { links.push(`<a class="btn btn-sm btn-primary msg-link" href="${TK.url('/tasks?task=' + tok)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> مشاهده‌ی تسک</a>`); return ''; });
     // آدرس‌های http/https قابل کلیک (روی متن escape‌شده؛ علامت‌های پایان جمله جزو لینک نیستند)
     t = t.replace(/https?:\/\/[^\s<"']+/gi, (u) => {
       const tail = (u.match(/[.,!?؛،:)\]]+$/) || [''])[0], href = tail ? u.slice(0, -tail.length) : u;

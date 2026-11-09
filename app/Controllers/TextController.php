@@ -7,12 +7,18 @@ use App\Core\Controller;
 use App\Core\DB;
 use App\Models\TextModel;
 
-/** متن‌های آماده (snippets) با مرتب‌سازی دستی. */
+/** یادداشت‌های شخصی (v6.0، قبلاً «متن‌های آماده»): یادداشت چسبان رنگی با مرتب‌سازی دستی. */
 final class TextController extends Controller
 {
     public function index()
     {
-        $this->view('texts/index', ['texts' => TextModel::forUser($this->uid())], ['title' => 'متن‌های آماده', 'page' => 'texts']);
+        $this->view('texts/index', ['texts' => TextModel::forUser($this->uid())], ['title' => 'یادداشت‌ها', 'page' => 'texts']);
+    }
+
+    /** آدرس قدیمی /texts ← /notes */
+    public function legacy()
+    {
+        $this->redirect('/notes');
     }
 
     public function data()
@@ -25,39 +31,43 @@ final class TextController extends Controller
     {
         $title = $this->request->str('title', 255);
         $content = $this->request->str('content', 20000);
-        if ($title === '' || $content === '') {
-            $this->json(['success' => false, 'error' => 'عنوان و متن نمی‌توانند خالی باشند'], 422);
+        if ($content === '') {
+            $this->json(['success' => false, 'error' => 'متن یادداشت نمی‌تواند خالی باشد'], 422);
         }
         if ($lim = \App\Services\Limits::create('text', $this->uid())) {
             $this->json(['success' => false, 'error' => $lim, 'message' => $lim], 429);
         }
-        $row = TextModel::create($this->uid(), $title, $content);
-        $this->json(['success' => true, 'data' => $row, 'message' => 'متن با موفقیت افزوده شد']);
+        $row = TextModel::create($this->uid(), $title, $content, $this->request->str('color', 12));
+        $this->json(['success' => true, 'data' => $row, 'message' => 'یادداشت ذخیره شد']);
     }
 
     public function update(string $id)
     {
         $uid = $this->uid();
-        $title = $this->request->str('title', 255);
-        $content = $this->request->str('content', 20000);
-        if ($title === '' || $content === '') {
-            $this->json(['success' => false, 'error' => 'عنوان و متن الزامی هستند'], 422);
+        $old = TextModel::owned($id, $uid);
+        if ($old === null) {
+            $this->json(['success' => false, 'error' => 'یادداشت مورد نظر یافت نشد'], 404);
         }
-        if (TextModel::owned($id, $uid) === null) {
-            $this->json(['success' => false, 'error' => 'متن مورد نظر یافت نشد'], 404);
+        // فقط رنگ (کلیک روی رنگ‌های کارت) یا متن کامل
+        $only = $this->request->input('content', null) === null;
+        $title = $only ? (string) $old['title'] : $this->request->str('title', 255);
+        $content = $only ? (string) $old['content'] : $this->request->str('content', 20000);
+        if ($content === '') {
+            $this->json(['success' => false, 'error' => 'متن یادداشت نمی‌تواند خالی باشد'], 422);
         }
-        DB::update('texts', ['title' => $title, 'content' => $content], 'id = ? AND user_id = ?', [$id, $uid]);
-        $this->json(['success' => true, 'data' => TextModel::owned($id, $uid), 'message' => 'متن با موفقیت ویرایش شد']);
+        $color = $this->request->input('color', null) === null ? (string) $old['color'] : TextModel::color($this->request->str('color', 12));
+        DB::update('texts', ['title' => $title, 'content' => $content, 'color' => $color], 'id = ? AND user_id = ?', [$id, $uid]);
+        $this->json(['success' => true, 'data' => TextModel::owned($id, $uid), 'message' => $only ? 'رنگ یادداشت عوض شد' : 'یادداشت ذخیره شد']);
     }
 
     public function destroy(string $id)
     {
         $uid = $this->uid();
         if (TextModel::owned($id, $uid) === null) {
-            $this->json(['success' => false, 'error' => 'متن مورد نظر یافت نشد'], 404);
+            $this->json(['success' => false, 'error' => 'یادداشت مورد نظر یافت نشد'], 404);
         }
         DB::run('DELETE FROM texts WHERE id = ? AND user_id = ?', [$id, $uid]);
-        $this->json(['success' => true, 'message' => 'متن با موفقیت حذف شد']);
+        $this->json(['success' => true, 'message' => 'یادداشت حذف شد']);
     }
 
     public function reorder()

@@ -7,14 +7,14 @@ use App\Core\ApiController;
 use App\Services\BlockService;
 
 /**
- * مسدود کردن به‌جای حذف (v4.0): تسک، پروژه، لیبل و درخواست تماس حذف نمی‌شوند، مسدود می‌شوند.
+ * مسدود کردن به‌جای حذف (v4.0): تسک، پروژه و لیبل حذف نمی‌شوند، مسدود می‌شوند.
  * هر منبع سه آدرس دارد: …/block و …/unblock (با id) و فهرست مسدودشده‌ها (GET).
  * پروژه: /projects/block-project، /projects/unblock-project، /projects/blocked-projects
  * (آدرس /projects/block از قبل برای «مسدود کردن دعوت‌های یک پروژه» است).
  */
 final class BlockApi extends ApiController
 {
-    private const TABLES = ['task' => 'tasks', 'project' => 'projects', 'label' => 'subjects', 'call' => 'call_requests'];
+    private const TABLES = ['task' => 'tasks', 'project' => 'projects', 'label' => 'subjects'];
 
     private function doSet(string $kind, bool $on)
     {
@@ -40,7 +40,4 @@ final class BlockApi extends ApiController
     public function labelBlock() { $this->doSet('label', true); }
     public function labelUnblock() { $this->doSet('label', false); }
     public function labelList() { $this->doList('label'); }
-    public function callBlock() { $this->doSet('call', true); }
-    public function callUnblock() { $this->doSet('call', false); }
-    public function callList() { $this->doList('call'); }
 }

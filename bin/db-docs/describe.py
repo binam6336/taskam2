@@ -16,7 +16,7 @@ GROUPS = [
     ('پروژه‌ها', ['projects', 'project_members', 'project_groups', 'project_group_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
     ('تسک‌ها', ['subjects', 'tasks', 'task_group_ticks', 'task_group_duties', 'task_notes', 'task_events', 'task_mentions', 'task_attachments', 'note_attachments']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
-    ('درخواست تماس، متن آماده و پشتیبانی', ['call_requests', 'texts', 'support_tickets', 'support_messages']),
+    ('یادداشت‌ها و پشتیبانی', ['texts', 'support_tickets', 'support_messages']),
 ]
 
 TABLES = {
@@ -413,7 +413,7 @@ TABLES = {
     'desc': 'فهرست همکاران هر کاربر (یک‌طرفه: user_id همکار colleague_user_id را دارد). همکاری «تأییدشده» یعنی طرف مقابل درخواست را پذیرفته یا خودش هم این کاربر را همکار کرده.',
     'flow': [
         'افزودن همیشه با درخواست (colleague_requests)؛ پذیرش ← ردیف ساخته می‌شود. استثنا: اگر طرف قبلاً با رضایت این کاربر را همکار کرده باشد.',
-        'همکار تأییدشده: گفتگو آزاد، دعوت به پروژه، واگذاری درخواست تماس، دیدن موبایل کامل.',
+        'همکار تأییدشده: گفتگو آزاد، دعوت به پروژه، دیدن موبایل کامل.',
         'هر کاربر می‌تواند از لیست دیگران خارج شود (تب «کاربرانی که مرا همکار کرده‌اند»).',
     ],
     'cols': {'user_id': 'صاحب لیست (کسی که همکار را اضافه کرده).', 'colleague_user_id': 'همکار.', 'permissions': 'منسوخ از v3.0 (دسترسی تسک‌ها در project_members است)؛ فقط برای سازگاری.'},
@@ -480,22 +480,12 @@ TABLES = {
     'cols': {'user_id': 'کسی که تاریخچه را پاک کرده.', 'other_user_id': 'طرف گفتگو (برای پیام‌های ذخیره‌شده = خود کاربر).', 'cleared_upto_id': 'پیام‌های با شناسه‌ی کوچک‌تر یا مساوی برای این کاربر پنهان‌اند.', 'cleared_at': 'زمان آخرین پاک کردن.'},
 },
 # ───────────────────────── تماس، متن، پشتیبانی ─────────────────────────
-'call_requests': {
-    'title': 'درخواست‌های تماس',
-    'desc': 'مشتری/مخاطبی که باید با او تماس گرفته شود؛ قابل واگذاری به همکار.',
-    'flow': ['ثبت (مسئول: خود کاربر یا همکار تأییدشده، بدون مسدودی) ← status = 0 (جدید) ← انجام ← 1 و completed_at. اعلان ربات برای مسئول.', 'حذف نمی‌شود (v4.0)؛ ثبت‌کننده مسدودش می‌کند ← blocked_at: از فهرست و آمار کنار می‌رود و ویرایش/تکمیل نمی‌پذیرد (CALL_BLOCKED)؛ رفع مسدودی از «درخواست‌های مسدودشده».'],
-    'cols': {
-        'user_id': 'ثبت‌کننده.', 'assignee_id': 'مسئول پیگیری.', 'first_name': 'نام مخاطب.', 'last_name': 'نام خانوادگی مخاطب.',
-        'mobile': 'موبایل مخاطب.', 'email': 'ایمیل مخاطب.', 'store': 'نام فروشگاه/کسب‌وکار.', 'website': 'وب‌سایت.',
-        'description': 'توضیحات.', 'status': '۰ = جدید، ۱ = انجام‌شده.', 'share_token': 'توکن لینک اشتراکی (calls?call=…).', 'completed_at': 'زمان انجام.',
-        'blocked_at': 'زمان مسدود شدن (به‌جای حذف)؛ NULL = فعال.', 'blocked_by': 'کاربری که مسدود کرده (ثبت‌کننده).',
-    },
-},
 'texts': {
-    'title': 'متن‌های آماده',
-    'desc': 'متن‌های پرتکرار کاربر برای کپی سریع (سقف ۵۰۰ متن).',
-    'flow': ['ساخت/ویرایش/حذف و مرتب‌سازی با کشیدن (sort_order).'],
-    'cols': {'id': 'شناسه‌ی رشته‌ای <hex>_<hex> (برای سازگاری با API نسخه‌ی ۱).', 'user_id': 'صاحب متن.', 'title': 'عنوان.', 'content': 'متن (حداکثر ۲۰۰۰۰ نویسه).', 'sort_order': 'ترتیب نمایش (کوچک‌تر = بالاتر؛ متن جدید اول).'},
+    'title': 'یادداشت‌ها (متن‌های آماده‌ی قدیمی)',
+    'desc': 'یادداشت‌های شخصی کاربر به شکل یادداشت چسبان رنگی (v6.0؛ تا v5 «متن‌های آماده» بود). فقط خود کاربر می‌بیند (سقف ۵۰۰).',
+    'flow': ['ساخت/ویرایش/حذف از «وظایف ← یادداشت‌ها» (/notes) یا API (/texts/*)؛ متن الزامی، عنوان اختیاری.', 'رنگ از دایره‌های رنگی روی کارت یا در پنجره‌ی ویرایش عوض می‌شود (فقط رنگ = ارسال بدون content).', 'مرتب‌سازی با کشیدن کارت (sort_order).'],
+    'cols': {'id': 'شناسه‌ی رشته‌ای <hex>_<hex> (برای سازگاری با API نسخه‌ی ۱).', 'user_id': 'صاحب یادداشت.', 'title': 'عنوان (اختیاری؛ رشته‌ی خالی = بدون عنوان).', 'content': 'متن (حداکثر ۲۰۰۰۰ نویسه).',
+             'color': 'رنگ پس‌زمینه: yellow | green | blue | red | purple (TextModel::COLORS؛ پیش‌فرض yellow). رنگ واقعی هر کلید برای تم تیره و روشن در app.css است.', 'sort_order': 'ترتیب نمایش (کوچک‌تر = بالاتر؛ یادداشت جدید اول).'},
 },
 'support_tickets': {
     'title': 'تیکت‌های پشتیبانی',
@@ -516,7 +506,7 @@ TABLES = {
 }
 
 # شناسه‌ی عمومی (v5.0): ستون pid در همه‌ی جدول‌هایی که شناسه‌شان بیرون دیده می‌شود (فهرست: App\Core\Pid::TABLES)
-for _t in ['users', 'projects', 'tasks', 'task_notes', 'task_attachments', 'note_attachments', 'subjects', 'call_requests', 'support_tickets',
+for _t in ['users', 'projects', 'tasks', 'task_notes', 'task_attachments', 'note_attachments', 'subjects', 'support_tickets',
            'support_messages', 'chat_messages', 'api_tokens', 'project_join_requests', 'colleague_requests', 'project_members', 'colleagues', 'chat_requests', 'impersonations']:
     TABLES[_t]['cols'].setdefault('pid', COMMON['pid'])
 TABLES['users']['flow'].append('شناسه‌ی عمومی (v5.0): هیچ شناسه‌ی عددی (id) کاربر، پروژه، تسک، یادداشت، لیبل، تیکت، پیام، توکن و … بیرون از سرور نمی‌رود؛ همه‌جا ستون pid (رشته‌ی تصادفی ۱۲ نویسه‌ای) به‌کار می‌رود و کلیدهای خارجی داخل دیتابیس همان id عددی می‌مانند.')

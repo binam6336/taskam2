@@ -1,4 +1,4 @@
-/* میز تیکت پشتیبانی: کادر ارسال (پیوست، Ctrl+Enter، پیش‌نویس)، متن‌های آماده، به‌روزرسانی زنده */
+/* میز تیکت پشتیبانی: کادر ارسال (پیوست، Ctrl+Enter، پیش‌نویس)، یادداشت‌ها، به‌روزرسانی زنده */
 (() => {
   'use strict';
   const desk = TK.qs('#desk');
@@ -103,7 +103,7 @@
     setTimeout(() => TK.qs('#desk-refresh i')?.classList.remove('fa-spin'), 300);
   });
 
-  /* ───── پاپ‌آپ‌ها: متن‌های آماده و راهنما ───── */
+  /* ───── پاپ‌آپ‌ها: یادداشت‌ها (پاسخ آماده) و راهنما ───── */
   const pops = { 'desk-texts-btn': '#desk-texts', 'desk-help-btn': '#desk-help' };
   const closePops = () => Object.values(pops).forEach((s) => { const p = TK.qs(s); if (p) p.hidden = true; });
   const texts = (TK.boot().support || {}).texts || [];
@@ -114,7 +114,7 @@
     const rows = texts.filter((t) => !k || t.title.includes(k) || t.content.includes(k));
     list.innerHTML = rows.length
       ? rows.map((t) => `<button type="button" class="desk-pop-item" data-i="${texts.indexOf(t)}"><b>${TK.esc(t.title)}</b><small>${TK.esc(t.content.slice(0, 90))}</small></button>`).join('')
-      : `<div class="faint small" data-css="padding:.5rem">${texts.length ? 'موردی پیدا نشد.' : 'هنوز متن آماده‌ای نساخته‌اید.'}</div>`;
+      : `<div class="faint small" data-css="padding:.5rem">${texts.length ? 'موردی پیدا نشد.' : 'هنوز یادداشتی نساخته‌اید.'}</div>`;
   };
   document.addEventListener('click', (e) => {
     const b = e.target.closest('#desk-texts-btn, #desk-help-btn');

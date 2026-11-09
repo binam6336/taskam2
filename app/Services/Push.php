@@ -263,7 +263,7 @@ final class Push
         }
         $link = null;
         if (preg_match('/\[\[(task|call):([a-f0-9]{16,64})\]\]/i', $text, $m)) {
-            $link = $m[1] === 'task' ? 'tasks?task=' . $m[2] : 'calls?call=' . $m[2];
+            $link = $m[1] === 'task' ? 'tasks?task=' . $m[2] : null;      // درخواست تماس از v6.0 حذف شد
         }
         $clean = trim((string) preg_replace('/\[\[(?:task|call):[a-f0-9]+\]\]/i', '', $text));
         if ($senderIsBot) {

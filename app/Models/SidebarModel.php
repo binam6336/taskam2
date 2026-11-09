@@ -80,7 +80,7 @@ final class SidebarModel
     public static function saveOptions(array $o, int $uid): void
     {
         DB::run('INSERT INTO content_texts (`key`, body, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body), updated_by = VALUES(updated_by)',
-            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc']), 'known_pages' => array_keys(self::pages())]), $uid]);
+            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc']), 'known_pages' => array_merge(array_keys(self::pages()), array_map(static fn($p) => 'moved:' . $p, array_keys(self::MOVED_PAGES)))]), $uid]);
     }
 
     /** صفحه‌های قابل انتخاب: کلید => [مسیر، آیکون، نام پیش‌فرض] */
@@ -118,9 +118,66 @@ final class SidebarModel
      */
     private const NEW_PAGES = ['groups' => 'projects'];
 
+    /**
+     * صفحه‌هایی که در نسخه‌ی جدید جایشان عوض شده (v6.0: «متن‌های آماده» ← «یادداشت‌ها» زیر «بورد» در گروه وظایف):
+     * در چیدمان ذخیره‌شده‌ی قدیمی جابه‌جا می‌شوند تا ادمین دوباره ذخیره کند (نشانه‌ی moved:<صفحه> در known_pages).
+     * [گروه مقصد، بعد از صفحه، نام‌های قدیمی که با نام جدید عوض می‌شوند]
+     */
+    private const MOVED_PAGES = ['texts' => ['tasks', 'board', ['متن‌های آماده', 'متن آماده']]];
+
+    private static function withMoves(array $menu, ?array $known): array
+    {
+        foreach (self::MOVED_PAGES as $page => [$gid, $after, $oldLabels]) {
+            if ((is_array($known) && in_array('moved:' . $page, $known, true)) || !isset(self::pages()[$page])) {
+                continue;
+            }
+            $item = null;
+            foreach ($menu as $gi => $g) {
+                if (($g['t'] ?? '') === 'page' && $g['page'] === $page) {
+                    $item = $g;
+                    unset($menu[$gi]);
+                } elseif (($g['t'] ?? '') === 'group') {
+                    foreach ($g['items'] as $ii => $c) {
+                        if (($c['t'] ?? '') === 'page' && $c['page'] === $page) {
+                            $item = $c;
+                            unset($menu[$gi]['items'][$ii]);
+                        }
+                    }
+                    $menu[$gi]['items'] = array_values($menu[$gi]['items']);
+                }
+            }
+            $item = $item ?? ['t' => 'page', 'page' => $page, 'label' => self::pages()[$page][2]];
+            if (in_array($item['label'] ?? '', $oldLabels, true)) {
+                $item['label'] = self::pages()[$page][2];
+                unset($item['desc']);
+            }
+            $put = false;
+            foreach ($menu as $gi => $g) {
+                if (($g['t'] ?? '') !== 'group' || ($g['id'] ?? '') !== $gid) {
+                    continue;
+                }
+                $at = count($g['items']);
+                foreach ($g['items'] as $ii => $c) {
+                    if (($c['t'] ?? '') === 'page' && $c['page'] === $after) {
+                        $at = $ii + 1;
+                    }
+                }
+                array_splice($menu[$gi]['items'], $at, 0, [$item]);
+                $put = true;
+                break;
+            }
+            if (!$put) {
+                $menu[] = $item;
+            }
+        }
+        // گروهی که بعد از حذف صفحه‌ها (مثل «درخواست تماس» در v6.0) خالی مانده نمایش داده نمی‌شود
+        return array_values(array_filter($menu, static fn($g) => ($g['t'] ?? '') !== 'group' || !empty($g['items'])));
+    }
+
     private static function withNewPages(array $menu): array
     {
         $known = self::options()['known_pages'] ?? null;
+        $menu = self::withMoves($menu, $known);
         $has = static function (array $items, string $page) use (&$has): bool {
             foreach ($items as $i) {
                 if (($i['t'] ?? '') === 'page' && $i['page'] === $page) {

@@ -8,7 +8,6 @@ use App\Controllers\BlockController;
 use App\Controllers\BoardController;
 use App\Controllers\Api\V1\BlockApi;
 use App\Controllers\Api\V1\BoardApi;
-use App\Controllers\Api\V1\CallApi;
 use App\Controllers\Api\V1\ColleagueApi;
 use App\Controllers\Api\V1\MetaApi;
 use App\Controllers\Api\V1\LabelApi;
@@ -17,7 +16,6 @@ use App\Controllers\Api\V1\TaskApi;
 use App\Controllers\Api\V1\TextApi;
 use App\Controllers\AuthController;
 use App\Controllers\CalendarController;
-use App\Controllers\CallController;
 use App\Controllers\GroupController;
 use App\Controllers\ChatController;
 use App\Controllers\ColleagueController;
@@ -69,7 +67,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
     $r->get('/tasks/quick-options', [TaskController::class, 'quickOptions']);
-    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل، درخواست تماس) + پنجره‌ی «مسدودشده‌ها»
+    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل) + پنجره‌ی «مسدودشده‌ها»
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
@@ -103,20 +101,15 @@ $router->group(['panel'], function ($r) {
     $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
-    // متن‌های آماده
-    $r->get('/texts', [TextController::class, 'index']);
-    $r->get('/texts/data', [TextController::class, 'data']);
-    $r->post('/texts', [TextController::class, 'store']);
-    $r->post('/texts/reorder', [TextController::class, 'reorder']);
-    $r->post('/texts/{id}/update', [TextController::class, 'update']);
-    $r->post('/texts/{id}/delete', [TextController::class, 'destroy']);
+    // یادداشت‌ها (v6.0؛ قبلاً «متن‌های آماده» در /texts)
+    $r->get('/notes', [TextController::class, 'index']);
+    $r->get('/texts', [TextController::class, 'legacy']);
+    $r->get('/notes/data', [TextController::class, 'data']);
+    $r->post('/notes', [TextController::class, 'store']);
+    $r->post('/notes/reorder', [TextController::class, 'reorder']);
+    $r->post('/notes/item/{id}/update', [TextController::class, 'update']);
+    $r->post('/notes/item/{id}/delete', [TextController::class, 'destroy']);
 
-    // درخواست‌های تماس
-    $r->get('/calls', [CallController::class, 'index']);
-    $r->post('/calls', [CallController::class, 'store']);
-    $r->post('/calls/{call}/update', [CallController::class, 'update']);
-    $r->post('/calls/{call}/complete', [CallController::class, 'complete']);
-    $r->get('/calls/{call}/share', [CallController::class, 'share']);
 
     // همکاران
     $r->get('/colleagues', [ColleagueController::class, 'index']);
@@ -273,15 +266,6 @@ $router->group(['api'], function ($r) {
     $r->post('/tasks/block', [BlockApi::class, 'taskBlock']);
     $r->post('/tasks/unblock', [BlockApi::class, 'taskUnblock']);
 
-    $r->get('/calls/list', [CallApi::class, 'list']);
-    $r->get('/calls/show', [CallApi::class, 'show']);
-    $r->get('/calls/stats', [CallApi::class, 'stats']);
-    $r->post('/calls/create', [CallApi::class, 'create']);
-    $r->post('/calls/update', [CallApi::class, 'update']);
-    $r->post('/calls/status', [CallApi::class, 'status']);
-    $r->get('/calls/blocked', [BlockApi::class, 'callList']);
-    $r->post('/calls/block', [BlockApi::class, 'callBlock']);
-    $r->post('/calls/unblock', [BlockApi::class, 'callUnblock']);
 
 
     $r->get('/texts/list', [TextApi::class, 'list']);

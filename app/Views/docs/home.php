@@ -8,7 +8,7 @@ $sample = ['success' => true, 'status' => 'success', 'message' => 'پیام اخ
 ?>
 <section class="dx-hero">
     <h1>مستندات <span>Taskam API</span></h1>
-    <p>REST API ساده و امن برای مدیریت تسک‌ها، درخواست‌های تماس، متن‌های آماده، همکاران و پروژه‌ها. با یک توکن Bearer در چند دقیقه شروع کنید.</p>
+    <p>REST API ساده و امن برای مدیریت تسک‌ها، یادداشت‌ها، همکاران و پروژه‌ها. با یک توکن Bearer در چند دقیقه شروع کنید.</p>
     <div class="flex gap-2 wrap">
         <a class="btn btn-primary" href="<?= e(url('/docs/authentication')) ?>"><i class="fa-solid fa-key"></i> نحوه دریافت و ارسال توکن</a>
         <a class="btn" href="<?= e(url('/docs/tasks/list')) ?>"><i class="fa-solid fa-play"></i> اولین endpoint</a>

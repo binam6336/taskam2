@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '037';
+    public const VERSION = '039';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -27,7 +27,6 @@ final class Schema
         ['task_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_task_attachments_pid` (`pid`)", null],
         ['note_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_note_attachments_pid` (`pid`)", null],
         ['subjects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_subjects_pid` (`pid`)", null],
-        ['call_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_call_requests_pid` (`pid`)", null],
         ['support_tickets', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_tickets_pid` (`pid`)", null],
         ['support_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_messages_pid` (`pid`)", null],
         ['chat_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_messages_pid` (`pid`)", null],
@@ -49,7 +48,6 @@ final class Schema
         ['tasks', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `archived_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`, ADD KEY `idx_tasks_blocked` (`blocked_at`)", null],
         ['projects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `status`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         ['subjects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `color`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
-        ['call_requests', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `completed_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         // 026
         ['tasks', 'is_quick', "ADD COLUMN `is_quick` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_completed`", null],
         // 025
@@ -86,6 +84,7 @@ final class Schema
         ['api_tokens', 'scope', "ADD COLUMN `scope` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `token_prefix`", null],
         // 023
         ['users', 'board_order', 'ADD COLUMN `board_order` VARCHAR(255) NULL DEFAULT NULL AFTER `tour`', null],
+        ['texts', 'color', "ADD COLUMN `color` VARCHAR(12) NOT NULL DEFAULT 'yellow' AFTER `content`", null],   // ۰۳۹: رنگ یادداشت
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */
@@ -106,6 +105,7 @@ final class Schema
         ['030', '030_user_last_active.sql'],
         ['031', '031_sample_projects.sql'],
         ['037', '037_group_delivery_flow.sql'],
+        ['038', '038_drop_call_requests.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
@@ -249,7 +249,8 @@ final class Schema
                 }
                 $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
                 try {
-                    foreach (preg_match_all('/^(UPDATE|INSERT|DELETE)\b.*?;/ms', $sql, $m) ? $m[0] : [] as $q) {
+                    // داده: UPDATE/INSERT/DELETE؛ حذف قابلیت (v6.0): فقط DROP TABLE IF EXISTS
+                    foreach (preg_match_all('/^(UPDATE|INSERT|DELETE|DROP TABLE IF EXISTS)\b.*?;/ms', $sql, $m) ? $m[0] : [] as $q) {
                         DB::run(rtrim($q, ';'));
                     }
                     @file_put_contents($dflag, date('c'));

@@ -4,18 +4,16 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\DB;
-use App\Models\CallModel;
 use App\Models\TaskModel;
 
 /**
- * «مسدود کردن» به‌جای حذف (v4.0): کاربر تسک، پروژه، لیبل و درخواست تماس را حذف نمی‌کند، مسدود می‌کند.
+ * «مسدود کردن» به‌جای حذف (v4.0): کاربر تسک، پروژه و لیبل را حذف نمی‌کند، مسدود می‌کند.
  * ردیف در دیتابیس می‌ماند (blocked_at, blocked_by)، از همه‌ی فهرست‌ها، شمارنده‌ها، بورد، تقویم و انتخاب‌گرها کنار می‌رود
  * و فقط در پنجره‌ی «مسدودشده‌ها»ی همان صفحه دیده می‌شود؛ «رفع مسدودی» همه‌چیز را مثل قبل برمی‌گرداند.
  *  - task: مجوز «مسدود کردن تسک» (Access::TASK_PERMS block؛ سازنده‌ی تسک/پروژه همیشه). تسک مسدود فقط‌خواندنی است.
  *  - project: فقط سازنده‌ی پروژه. پروژه‌ی مسدود از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد؛ تسک‌های قبلی‌اش می‌مانند.
  *  - label: صاحب لیبل. لیبل مسدود برای تسک تازه انتخاب نمی‌شود؛ تسک‌هایی که دارندش همچنان نشانش می‌دهند.
- *  - call: ثبت‌کننده‌ی درخواست تماس (Access::can).
- * فقط «متن‌های آماده» همچنان حذف می‌شوند.
+ * فقط «یادداشت‌ها» (متن‌های آماده‌ی قدیمی) همچنان حذف می‌شوند.
  */
 final class BlockService
 {
@@ -24,7 +22,6 @@ final class BlockService
         'task'    => ['tasks', 'تسک', 'تسک مسدود شد.', 'مسدودی تسک برداشته شد.', 'تسک یافت نشد.', 'TASK_NOT_FOUND'],
         'project' => ['projects', 'پروژه', 'پروژه مسدود شد.', 'مسدودی پروژه برداشته شد.', 'پروژه یافت نشد.', 'PROJECT_NOT_FOUND'],
         'label'   => ['subjects', 'لیبل', 'لیبل مسدود شد.', 'مسدودی لیبل برداشته شد.', 'لیبل یافت نشد.', 'SUBJECT_NOT_FOUND'],
-        'call'    => ['call_requests', 'درخواست تماس', 'درخواست تماس مسدود شد.', 'مسدودی درخواست تماس برداشته شد.', 'درخواست یافت نشد.', 'CALL_NOT_FOUND'],
     ];
 
     private static function res(bool $ok, string $msg = '', string $code = '', int $http = 200, $data = null): array
@@ -53,9 +50,6 @@ final class BlockService
                 $r = DB::one('SELECT * FROM subjects WHERE id = ?', [$id]);
                 $own = $r !== null && (int) $r['user_id'] === $uid;
                 return [$r, $own, $own];
-            case 'call':
-                $r = CallModel::find($id);
-                return [$r, $r !== null && Access::can($r, $uid, 'view'), $r !== null && Access::can($r, $uid, 'block')];
         }
         return [null, false, false];
     }
@@ -128,13 +122,6 @@ final class BlockService
                 foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = x.id AND t.blocked_at IS NULL) AS n
                         FROM subjects x $who WHERE x.blocked_at IS NOT NULL AND x.user_id = ? ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid]) as $r) {
                     $out[] = ['id' => pid('subjects', $r), 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['n']) . ' تسک', 'color' => (string) $r['color'], 'can_unblock' => true] + self::meta($r);
-                }
-                break;
-            case 'call':
-                foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl FROM call_requests x $who
-                        WHERE x.blocked_at IS NOT NULL AND (x.user_id = ? OR x.assignee_id = ?) ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid, $uid]) as $r) {
-                    $out[] = ['id' => pid('call_requests', $r), 'title' => trim($r['first_name'] . ' ' . $r['last_name']), 'sub' => (string) ($r['store'] ?: $r['mobile']),
-                        'can_unblock' => Access::can($r, $uid, 'block')] + self::meta($r);
                 }
                 break;
         }

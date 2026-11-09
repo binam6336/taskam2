@@ -178,14 +178,14 @@ $badgeHtml = static function (array $t) use ($admin): string {
         <div class="desk-pop" id="desk-texts" hidden>
             <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input input-sm" id="desk-texts-q" placeholder="<?= e(ph('support_texts')) ?>" autocomplete="off"></div>
             <div class="desk-pop-list" id="desk-texts-list"></div>
-            <a class="xs" href="<?= e(url('/texts')) ?>"><i class="fa-solid fa-gear"></i> مدیریت متن‌های آماده</a>
+            <a class="xs" href="<?= e(url('/notes')) ?>"><i class="fa-solid fa-gear"></i> مدیریت یادداشت‌ها</a>
         </div>
         <div class="desk-pop" id="desk-help" hidden>
             <b class="small">راهنما</b>
             <ul class="small muted">
                 <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>: ارسال پیام</li>
                 <li><i class="fa-solid fa-paperclip"></i> پیوست: تصویر، PDF، ورد، اکسل، ZIP (حداکثر ۱۰ مگابایت)</li>
-                <li><i class="fa-solid fa-keyboard"></i> درج سریع از «متن‌های آماده»</li>
+                <li><i class="fa-solid fa-keyboard"></i> درج سریع از «یادداشت‌ها»</li>
                 <?php if ($admin): ?><li><i class="fa-regular fa-square-check"></i> «در حال انجام»: به کاربر نشان می‌دهد تیکت در دست بررسی است</li><?php endif; ?>
                 <li>گفتگو هر چند ثانیه خودکار به‌روز می‌شود.</li>
             </ul>
