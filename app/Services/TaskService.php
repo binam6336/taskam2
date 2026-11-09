@@ -408,7 +408,8 @@ final class TaskService
         $token = TaskModel::ensureShareToken($taskId);
         $t['share_token'] = $token;
         // منشن: فقط اعضای پروژه‌ی همین تسک
-        $allowed = $t['project_id'] ? array_column(self::mentionable((int) $t['project_id'], $actor), 'id') : [];
+        // تسک محرمانه: فقط کسانی منشن می‌شوند (و اعلان می‌گیرند) که تسک را می‌بینند
+        $allowed = $t['project_id'] ? array_column(array_filter(self::mentionable((int) $t['project_id'], $actor), static fn($u) => Access::canSeeConfidential($t, (int) $u['id'])), 'id') : [];
         $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
         foreach ($mentioned as $uid) {
             DB::insert('task_mentions', ['task_id' => $taskId, 'note_id' => $nid, 'user_id' => $uid, 'actor_id' => $actor]);
@@ -545,6 +546,10 @@ final class TaskService
     /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ بر اساس تنظیم «امنیت تسک‌ها»ی سازنده‌ی تسک. */
     public static function canViewShared(array $task, int $uid): bool
     {
+        // تسک محرمانه (v6.1) با لینک هم فقط برای سازنده، مسئول و بیننده‌های انتخابی باز می‌شود، هر تنظیمی که لینک داشته باشد
+        if (!Access::canSeeConfidential($task, $uid)) {
+            return false;
+        }
         if (Access::canTask($task, $uid, 'view')) {
             return true;      // سازنده، مدیر پروژه، مسئول، عضو دارای دسترسی
         }
@@ -564,9 +569,12 @@ final class TaskService
 
     /** مجوزهای مؤثر کاربر روی تسک (برای UI). */
     /** همان mentionable برای خروجی (شناسه‌ی عمومی) */
-    public static function mentionablePublic(int $projectId, int $exceptUid): array
+    public static function mentionablePublic(int $projectId, int $exceptUid, ?array $task = null): array
     {
         $rows = self::mentionable($projectId, $exceptUid);
+        if ($task !== null && !empty($task['is_confidential'])) {
+            $rows = array_values(array_filter($rows, static fn($u) => Access::canSeeConfidential($task, (int) $u['id'])));
+        }
         \App\Core\Pid::prime('users', array_column($rows, 'id'));
         return array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', $u['id'])] + $u, $rows);
     }

@@ -160,7 +160,7 @@ final class TaskController extends Controller
             'id' => Pid::row('tasks', $t), 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
             'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,
             'priority_type' => $t['project_priority_type'] ?? 'category',
-            'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid) : [],
+            'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid, $t) : [],
             'is_completed' => (int) $t['is_completed'] === 1, 'is_quick' => (int) ($t['is_quick'] ?? 0) === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,

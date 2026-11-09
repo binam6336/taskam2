@@ -151,7 +151,7 @@ final class ProjectController extends Controller
         }
         $people = array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u)], TaskAnalytics::people((int) $id));
         $this->view('projects/analytics', [
-            'project' => $p, 'a' => ProjectModel::analytics((int) $id), 'k' => TaskAnalytics::project((int) $id), 'people' => $people,
+            'project' => $p, 'a' => ProjectModel::analytics((int) $id, $uid), 'k' => TaskAnalytics::project((int) $id), 'people' => $people,
             'speed' => TaskAnalytics::speedSeries((int) $id, array_slice(array_column($people, 'id'), 0, 5), '1m', 'score'),
         ], ['title' => 'تحلیل پروژه', 'page' => 'projects']);
     }
