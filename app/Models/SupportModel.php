@@ -55,14 +55,9 @@ final class SupportModel
         $q = trim($q);
         if ($q !== '') {
             $id = (int) \App\Core\Pid::id('support_tickets', ltrim($q, '#'));   // جستجو با شماره‌ی تیکت = شناسه‌ی عمومی
-            $l = DB::like($q);
-            $or = ['st.subject LIKE ?'];
-            $p[] = $l;
-            if ($uid === null) {
-                $or[] = "CONCAT_WS(' ', u.first_name, u.last_name) LIKE ?";
-                $or[] = 'u.mobile LIKE ?';
-                array_push($p, $l, $l);
-            }
+            [$qs, $qp] = \App\Core\Search::sql($uid === null ? ['st.subject', "CONCAT_WS(' ', u.first_name, u.last_name)", 'u.mobile'] : ['st.subject'], $q);
+            $or = [$qs];
+            $p = array_merge($p, $qp);
             if ($id > 0) {
                 $or[] = 'st.id = ?';
                 $p[] = $id;

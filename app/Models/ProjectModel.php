@@ -19,8 +19,9 @@ final class ProjectModel
         $w = '(p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) AND p.blocked_at IS NULL';   // مسدودشده‌ها فقط در «پروژه‌های مسدودشده»
         $p = [$uid, $uid];
         if ($q !== '') {
-            $w .= ' AND p.title LIKE ?';
-            $p[] = DB::like($q);
+            [$qs, $qp] = \App\Core\Search::sql(['p.title'], $q);         // v5.14: یکسان‌سازی + هر کلمه
+            $w .= ' AND ' . $qs;
+            $p = array_merge($p, $qp);
         }
         if ($role === 'creator') {
             $w .= ' AND p.user_id = ?';

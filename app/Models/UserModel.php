@@ -66,9 +66,9 @@ final class UserModel
         $w = 'is_bot = 0';
         $p = [];
         if ($q !== '') {
-            $w .= " AND (CONCAT(first_name, ' ', last_name) LIKE ? OR mobile LIKE ? OR email LIKE ?)";
-            $l = DB::like($q);
-            array_push($p, $l, $l, $l);
+            [$qs, $qp] = \App\Core\Search::sql(["CONCAT(first_name, ' ', last_name)", 'mobile', 'email'], $q);
+            $w .= ' AND ' . $qs;
+            $p = array_merge($p, $qp);
         }
         $total = (int) DB::value("SELECT COUNT(*) FROM users WHERE $w", $p);
         $rows = DB::all("SELECT id, mobile, first_name, last_name, email, avatar, role, status, admin_permissions, admin_role, last_seen, last_login_at, created_at

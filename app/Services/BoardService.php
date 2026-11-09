@@ -161,9 +161,17 @@ final class BoardService
             $where .= ' AND ' . TaskModel::mine($uid);
             $params[] = $uid;
         }
-        if (($f['q'] ?? '') !== '') {
-            $where .= ' AND t.title LIKE ?';
-            $params[] = '%' . addcslashes((string) $f['q'], '%_\\') . '%';
+        if (\App\Core\Search::tokens((string) ($f['q'] ?? ''))) {
+            [$qs, $qp] = \App\Core\Search::sql(['t.title', 't.description'], (string) $f['q']);
+            $wp = array_slice($params, 1);                 // پارامتر اول مال select بیرونی (بیننده) است
+            if ((int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND ' . $qs, array_merge($wp, $qp)) === 0
+                && ($fz = \App\Core\Search::fuzzyIds(DB::all('SELECT t.id, t.title FROM tasks t WHERE ' . $where . ' ORDER BY t.id DESC LIMIT ' . \App\Core\Search::FUZZY_SCAN, $wp), (string) $f['q'], ['title']))) {
+                $where .= ' AND t.id IN (' . DB::in($fz) . ')';
+                $params = array_merge($params, $fz);
+            } else {
+                $where .= ' AND ' . $qs;
+                $params = array_merge($params, $qp);
+            }
         }
         return [$where, $params];
     }

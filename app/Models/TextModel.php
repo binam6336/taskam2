@@ -10,8 +10,8 @@ final class TextModel
     public static function forUser(int $uid, string $search = ''): array
     {
         if ($search !== '') {
-            $l = DB::like($search);
-            return DB::all('SELECT * FROM texts WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY sort_order ASC, created_at DESC', [$uid, $l, $l]);
+            [$qs, $qp] = \App\Core\Search::sql(['title', 'content'], $search);
+            return DB::all('SELECT * FROM texts WHERE user_id = ? AND ' . $qs . ' ORDER BY sort_order ASC, created_at DESC', array_merge([$uid], $qp));
         }
         return DB::all('SELECT * FROM texts WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC', [$uid]);
     }

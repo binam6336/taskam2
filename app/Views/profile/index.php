@@ -3,6 +3,25 @@
 $name = full_name($u);
 $this->scripts[] = 'profile';
 ?>
+<?php
+// صفحه‌ی پروفایل دسته‌بندی‌شده (v5.14): فهرست بخش‌ها کنار صفحه (روی موبایل بالای صفحه) و یک بخش در هر لحظه
+$tabs = [
+    'profile'    => ['fa-user', 'پروفایل', 'تصویر پروفایل و خلاصه‌ی حساب'],
+    'personal'   => ['fa-id-card', 'اطلاعات شخصی', 'اطلاعات حساب و رمز عبور'],
+    'appearance' => ['fa-palette', 'تنظیمات ظاهری', 'تم پنل'],
+    'security'   => ['fa-shield-halved', 'امنیت', 'نشست‌های فعال، حریم خصوصی و امنیت تسک‌ها'],
+];
+?>
+<div class="pf-layout">
+    <nav class="pf-nav" aria-label="بخش‌های پروفایل">
+        <?php foreach ($tabs as $k => [$ic, $t, $d]): ?>
+        <a href="#<?= e($k) ?>" class="pf-tab" data-pf-tab="<?= e($k) ?>" aria-controls="pf-<?= e($k) ?>" title="<?= e($d) ?>"><i class="fa-solid <?= e($ic) ?>" aria-hidden="true"></i><span><?= e($t) ?></span></a>
+        <?php if ($k === 'personal'): ?><span class="pf-sep" aria-hidden="true"></span><?php endif; ?>
+        <?php endforeach; ?>
+    </nav>
+    <div class="pf-panes">
+        <section class="pf-pane" id="pf-profile" data-pf-pane="profile" aria-labelledby="pf-h-profile">
+            <h2 class="pf-h" id="pf-h-profile"><i class="fa-solid fa-user"></i> پروفایل</h2>
 <div class="card mb-2"><div class="profile-head">
     <label class="avatar lg av-pick" id="av-preview" for="av-file" title="انتخاب تصویر پروفایل"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></label>
     <div class="grow"><h2 data-css="margin:0"><?= e($name) ?></h2><div class="muted ltr" data-css="text-align:right"><?= e($u['mobile']) ?></div>
@@ -12,7 +31,26 @@ $this->scripts[] = 'profile';
         <label class="btn btn-sm file-pick av-pick-btn" title="انتخاب تصویر پروفایل" aria-label="انتخاب تصویر پروفایل"><i class="fa-solid fa-camera"></i> تصویر پروفایل<input type="file" name="avatar" accept="image/*" id="av-file" hidden></label>
         <?php if ($u['avatar']): ?><button type="button" class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/avatar/delete')) ?>" data-confirm="تصویر حذف شود؟">حذف</button><?php endif; ?></form>
 </div></div>
-
+        </section>
+        <section class="pf-pane" id="pf-personal" data-pf-pane="personal" aria-labelledby="pf-h-personal" hidden>
+            <h2 class="pf-h" id="pf-h-personal"><i class="fa-solid fa-id-card"></i> اطلاعات شخصی</h2>
+<div class="grid grid-2">
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-id-card"></i> اطلاعات حساب</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>
+        <form method="post" action="<?= e(url('/profile/info')) ?>" data-ajax data-keep-open data-dirty><?= csrf_field() ?>
+            <div class="row"><div class="field"><label>نام</label><input class="input" name="first_name" value="<?= e($u['first_name']) ?>" maxlength="100" required></div><div class="field"><label>نام خانوادگی</label><input class="input" name="last_name" value="<?= e($u['last_name']) ?>" maxlength="100"></div></div>
+            <div class="field"><label for="pf-mobile">شماره موبایل <i class="fa-solid fa-lock faint xs" title="غیرقابل ویرایش" aria-hidden="true"></i></label><input class="input ltr" id="pf-mobile" value="<?= e($u['mobile']) ?>" disabled aria-describedby="pf-mobile-hint"><div class="hint" id="pf-mobile-hint">برای تغییر شماره با مدیر تماس بگیرید.</div></div>
+            <div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email" value="<?= e($u['email'] ?? '') ?>" maxlength="150"></div>
+            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></form></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> تغییر رمز عبور</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>
+        <form method="post" action="<?= e(url('/profile/password')) ?>" data-ajax data-dirty><?= csrf_field() ?>
+            <div class="field"><label>رمز فعلی</label><input class="input ltr" type="password" name="current_password" autocomplete="current-password" required></div>
+            <div class="field"><label>رمز جدید</label><input class="input ltr" type="password" name="new_password" autocomplete="new-password" minlength="8" data-pw-meter required><div class="hint">حداقل ۸ نویسه شامل حرف و عدد. بعد از تغییر، سایر دستگاه‌ها خارج می‌شوند.</div></div>
+            <div class="field"><label>تکرار رمز جدید</label><input class="input ltr" type="password" name="confirm_password" autocomplete="new-password" data-pw-match="new_password" required></div>
+            <button class="btn btn-primary"><i class="fa-solid fa-key"></i> تغییر رمز</button></form></div>
+</div>
+        </section>
+        <section class="pf-pane" id="pf-appearance" data-pf-pane="appearance" aria-labelledby="pf-h-appearance" hidden>
+            <h2 class="pf-h" id="pf-h-appearance"><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h2>
 <div class="card mb-2" id="appearance"><div class="card-head"><h3><i class="fa-solid fa-palette"></i> تنظیمات ظاهری</h3><span class="hint" data-css="margin:0">تم در حساب شما ذخیره می‌شود و روی همه‌ی دستگاه‌ها یکسان است.</span></div>
     <form method="post" action="<?= e(url('/profile/appearance')) ?>" id="f-theme" data-favicons="<?= e(json_html(array_combine(array_keys(themes()), array_map('favicon_uri', array_keys(themes()))))) ?>" data-icon-base="<?= e(url('assets/img/apple-touch-icon')) ?>"><?= csrf_field() ?>
         <div class="theme-grid" role="radiogroup" aria-label="تم ظاهری">
@@ -29,22 +67,9 @@ $this->scripts[] = 'profile';
         </div>
     </form>
 </div>
-
-<div class="grid grid-2 mb-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-id-card"></i> اطلاعات حساب</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>
-        <form method="post" action="<?= e(url('/profile/info')) ?>" data-ajax data-keep-open data-dirty><?= csrf_field() ?>
-            <div class="row"><div class="field"><label>نام</label><input class="input" name="first_name" value="<?= e($u['first_name']) ?>" maxlength="100" required></div><div class="field"><label>نام خانوادگی</label><input class="input" name="last_name" value="<?= e($u['last_name']) ?>" maxlength="100"></div></div>
-            <div class="field"><label for="pf-mobile">شماره موبایل <i class="fa-solid fa-lock faint xs" title="غیرقابل ویرایش" aria-hidden="true"></i></label><input class="input ltr" id="pf-mobile" value="<?= e($u['mobile']) ?>" disabled aria-describedby="pf-mobile-hint"><div class="hint" id="pf-mobile-hint">برای تغییر شماره با مدیر تماس بگیرید.</div></div>
-            <div class="field"><label>ایمیل</label><input class="input ltr" type="email" name="email" value="<?= e($u['email'] ?? '') ?>" maxlength="150"></div>
-            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></form></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> تغییر رمز عبور</h3><span class="dirty-tag" hidden>تغییرات ذخیره نشده</span></div>
-        <form method="post" action="<?= e(url('/profile/password')) ?>" data-ajax data-dirty><?= csrf_field() ?>
-            <div class="field"><label>رمز فعلی</label><input class="input ltr" type="password" name="current_password" autocomplete="current-password" required></div>
-            <div class="field"><label>رمز جدید</label><input class="input ltr" type="password" name="new_password" autocomplete="new-password" minlength="8" data-pw-meter required><div class="hint">حداقل ۸ نویسه شامل حرف و عدد. بعد از تغییر، سایر دستگاه‌ها خارج می‌شوند.</div></div>
-            <div class="field"><label>تکرار رمز جدید</label><input class="input ltr" type="password" name="confirm_password" autocomplete="new-password" data-pw-match="new_password" required></div>
-            <button class="btn btn-primary"><i class="fa-solid fa-key"></i> تغییر رمز</button></form></div>
-</div>
-
+        </section>
+        <section class="pf-pane" id="pf-security" data-pf-pane="security" aria-labelledby="pf-h-security" hidden>
+            <h2 class="pf-h" id="pf-h-security"><i class="fa-solid fa-shield-halved"></i> امنیت</h2>
 <?php if ($sessions !== null): $others = count(array_filter($sessions, static fn($s) => !$s['current'])); ?>
 <div class="card mb-2" id="sessions"><div class="card-head"><h3><i class="fa-solid fa-desktop"></i> نشست‌های فعال</h3>
     <?php if ($others > 0): ?><button class="btn btn-sm btn-danger" data-post="<?= e(url('/profile/sessions/revoke-others')) ?>" data-confirm="همه‌ی دستگاه‌های دیگر (<?= e(fa_num($others)) ?> دستگاه) از حساب شما خارج شوند؟" data-after="reload"><i class="fa-solid fa-right-from-bracket"></i> خروج همه‌ی دستگاه‌های دیگر</button><?php endif; ?></div>
@@ -60,7 +85,6 @@ $this->scripts[] = 'profile';
     </div>
 </div>
 <?php endif; ?>
-
 <div class="grid grid-2">
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-user-shield"></i> حریم خصوصی</h3></div>
         <form method="post" action="<?= e(url('/profile/privacy')) ?>" data-ajax data-keep-open data-autosave data-after="none"><?= csrf_field() ?>
@@ -78,4 +102,7 @@ $this->scripts[] = 'profile';
             </ul>
             <p class="hint mb-2">سازنده، مسئول و همکارانی که به تسک‌هایتان دسترسی داده‌اید همیشه تسک را می‌بینند. اگر کسی بدون دسترسی لینک را باز کند، پیام خطا می‌گیرد و به صفحه‌ی تسک‌های خودش برمی‌گردد.</p>
             <p class="hint autosave-hint"><i class="fa-solid fa-cloud-arrow-up"></i> تغییرات خودکار ذخیره می‌شود.</p></form></div>
+</div>
+        </section>
+    </div>
 </div>

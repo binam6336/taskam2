@@ -212,6 +212,8 @@ $router->group(['auth'], function ($r) {
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
     $r->get('/install', [PwaController::class, 'install']);
+    $r->get('/install/android/check', [PwaController::class, 'apkCheck']);
+    $r->get('/install/android', [PwaController::class, 'apk']);
     $r->get('/push/key', [PwaController::class, 'pushKey']);
     $r->post('/push/subscribe', [PwaController::class, 'subscribe']);
     $r->post('/push/unsubscribe', [PwaController::class, 'unsubscribe']);

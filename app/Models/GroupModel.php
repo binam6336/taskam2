@@ -94,8 +94,9 @@ final class GroupModel
         $params = $projectIds;
         $where = 'g.project_id IN (' . DB::in($projectIds) . ')';
         if ($q !== '') {
-            $where .= ' AND g.title LIKE ?';
-            $params[] = DB::like($q);
+            [$qs, $qp] = \App\Core\Search::sql(['g.title'], $q);
+            $where .= ' AND ' . $qs;
+            $params = array_merge($params, $qp);
         }
         $rows = DB::all("SELECT g.*, p.title AS project_title, p.profile_image AS project_image,
                 (SELECT COUNT(*) FROM tasks t WHERE t.assignee_group_id = g.id AND t.is_completed = 0 AND t.blocked_at IS NULL) open_tasks,

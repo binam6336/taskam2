@@ -52,3 +52,18 @@ document.addEventListener('tk:ready', () => {
   act('#push-test', async () => { const r = await TK.post('/push/test'); TK.toast(r.message, TK.ok(r) ? 'success' : 'warning', 6000); });
   act('#push-disable', async () => { const r = await TK.pwa.disablePush(); TK.toast(r.msg, 'info'); });
 });
+
+// نرم‌افزار اندروید (v5.14): پیش از دانلود وجود فایل روی سرور بررسی می‌شود؛ نبود فایل = پیام خطا به‌جای صفحه‌ی خالی
+document.addEventListener('tk:ready', () => {
+  const a = TK.qs('#apk-dl'); if (!a) return;
+  a.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (a.dataset.busy) return;
+    a.dataset.busy = '1'; TK.busy(a, true);
+    const r = await TK.get('/install/android/check');
+    TK.busy(a, false); delete a.dataset.busy;
+    if (!TK.ok(r)) { TK.toast('خطا در دریافت نرم‌افزار، لطفاً بعداً تلاش کنید.', 'error'); return; }
+    const l = document.createElement('a'); l.href = a.href; l.download = 'taskam.apk'; l.setAttribute('data-no-nav', ''); document.body.appendChild(l); l.click(); l.remove();
+    TK.toast('دریافت فایل شروع شد (' + (r.size_fa || r.data?.size_fa || '') + ').', 'success');
+  });
+});

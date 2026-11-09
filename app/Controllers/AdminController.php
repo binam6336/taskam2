@@ -547,8 +547,9 @@ final class AdminController extends Controller
             $base = 'FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users ua ON ua.id = t.assignee_id LEFT JOIN users uc ON uc.id = t.user_id';
             $w[] = ['all' => '1', 'open' => 't.is_completed = 0 AND t.blocked_at IS NULL', 'review' => "t.board_status = 'review' AND t.is_completed = 0 AND t.blocked_at IS NULL", 'done' => 't.is_completed = 1 AND t.blocked_at IS NULL', 'blocked' => 't.blocked_at IS NOT NULL'][$st];
             if ($q !== '') {
-                $w[] = "(t.title LIKE ? OR p.title LIKE ? OR CONCAT(ua.first_name, ' ', ua.last_name) LIKE ?)";
-                array_push($p, $like, $like, $like);
+                [$qs, $qp] = \App\Core\Search::sql(['t.title', 'p.title', "CONCAT(ua.first_name, ' ', ua.last_name)"], $q);
+                $w[] = $qs;
+                $p = array_merge($p, $qp);
             }
             $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
                     p.title AS project_title, ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
@@ -558,8 +559,9 @@ final class AdminController extends Controller
             $w[] = 'p.is_sample = 0';                        // پروژه‌های نمونه‌ی خودکار ثبت‌نام شمرده نمی‌شوند
             $w[] = ['all' => '1', 'active' => 'p.blocked_at IS NULL', 'blocked' => 'p.blocked_at IS NOT NULL'][$st];
             if ($q !== '') {
-                $w[] = "(p.title LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
-                array_push($p, $like, $like);
+                [$qs, $qp] = \App\Core\Search::sql(['p.title', "CONCAT(u.first_name, ' ', u.last_name)"], $q);
+                $w[] = $qs;
+                $p = array_merge($p, $qp);
             }
             $sel = "SELECT p.id, p.title, p.priority_type, p.blocked_at, p.created_at, p.max_members, u.first_name, u.last_name,
                     (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 AS members,

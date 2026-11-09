@@ -82,6 +82,46 @@ final class PwaController extends Controller
         $this->view('pwa/offline', [], ['title' => 'آفلاین'], null);
     }
 
+    /** فایل نرم‌افزار اندروید (v5.14): کنار برنامه، بیرون از پوشه‌ی عمومی؛ آپلود دستی روی سرور */
+    public const APK_FILE = 'app/taskam.apk';
+
+    private static function apkPath(): ?string
+    {
+        $f = STORAGE_PATH . '/' . self::APK_FILE;
+        return is_file($f) && is_readable($f) && filesize($f) > 0 ? $f : null;
+    }
+
+    public function apkCheck()
+    {
+        $f = self::apkPath();
+        if ($f === null) {
+            $this->fail('خطا در دریافت نرم‌افزار، لطفاً بعداً تلاش کنید.', 404);
+        }
+        $this->ok('', ['size' => filesize($f), 'size_fa' => fa_num(round(filesize($f) / 1048576, 1)) . ' مگابایت', 'updated' => jdate(date('Y-m-d H:i:s', (int) filemtime($f)))]);
+    }
+
+    public function apk()
+    {
+        $f = self::apkPath();
+        if ($f === null) {
+            \App\Core\Session::flash('error', 'خطا در دریافت نرم‌افزار، لطفاً بعداً تلاش کنید.');
+            $this->redirect('/install');
+        }
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();          // دانلود طولانی جلوی بقیه‌ی درخواست‌های کاربر را نگیرد
+        }
+        header('Content-Type: application/vnd.android.package-archive');
+        header('Content-Disposition: attachment; filename="taskam.apk"');
+        header('Content-Length: ' . filesize($f));
+        header('Cache-Control: private, max-age=300');
+        header('X-Content-Type-Options: nosniff');
+        readfile($f);
+        exit;
+    }
+
     public function install()
     {
         $u = $this->user();
@@ -90,6 +130,7 @@ final class PwaController extends Controller
             'pushReady' => Push::enabled(),
             'checks' => Push::diagnose(),
             'devices' => Push::count((int) $u['id']),
+            'apk' => ($a = self::apkPath()) !== null ? ['size' => fa_num(round(filesize($a) / 1048576, 1)) . ' مگابایت', 'updated' => jdate(date('Y-m-d H:i:s', (int) filemtime($a)))] : null,
             'https' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') || in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'], true) || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1:') || str_starts_with((string) ($_SERVER['HTTP_HOST'] ?? ''), 'localhost:'),
         ], ['title' => 'نصب نرم‌افزار', 'page' => $admin ? 'admin-install' : 'install'], $admin ? 'admin' : 'app');
     }

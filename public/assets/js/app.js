@@ -252,15 +252,30 @@
     const inp = host.querySelector('input'), btn = host.querySelector('.rselect-btn'), val = host.querySelector('.rselect-val'), menu = host.querySelector('.rselect-menu');
     const av = (o) => `<span class="avatar sm ${square ? 'sq' : ''}">${o.img ? `<img src="${TK.esc(o.img)}" alt="" loading="lazy">` : o.icon ? `<i class="fa-solid ${TK.esc(o.icon)}"></i>` : TK.esc(TK.initial(o.label))}</span>`;
     // گزینه‌ها: {value,label,img|icon} + اختیاری note (توضیح کوچک زیر نام)، disabled + hint (دلیل)، یا {group:'عنوان'} برای سرتیتر گروه
+    // سرتیتر تاشو (v5.14): {group, fold:'کلید'} ← دکمه با فلش؛ گزینه‌های زیرش تا سرتیتر بعدی بسته‌اند مگر باز شود یا مقدار فعلی در آن باشد
+    const open = new Set();
+    const secOf = (v) => { let s = null; for (const o of options) { if (o.group !== undefined) s = o.fold || null; else if (String(o.value) === String(v)) return s; } return null; };
     const draw = () => {
-      menu.innerHTML = options.length ? options.map((o) => (o.group !== undefined ? `<div class="rselect-group">${TK.esc(o.group)}</div>`
-        : `<div class="rselect-opt${o.disabled ? ' disabled' : ''}" role="option" data-v="${TK.esc(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}>${av(o)}<span class="truncate grow">${TK.esc(o.label)}${o.note ? `<small class="rselect-note">${TK.esc(o.note)}</small>` : ''}</span></div>`)).join('')
+      let sec = null, cur = null;
+      const cnt = {};
+      options.forEach((x) => { if (x.group !== undefined) cur = x.fold || null; else if (cur) cnt[cur] = (cnt[cur] || 0) + 1; });
+      menu.innerHTML = options.length ? options.map((o) => {
+        if (o.group !== undefined) {
+          sec = o.fold || null;
+          if (!sec) return `<div class="rselect-group">${TK.esc(o.group)}</div>`;
+          const on = open.has(sec), n = cnt[sec] || 0;
+          return `<button type="button" class="rselect-group rselect-fold" data-fold="${TK.esc(sec)}" aria-expanded="${on}"><span class="grow">${TK.esc(o.group)} <span class="faint">(${TK.fa(n)})</span></span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>`;
+        }
+        return `<div class="rselect-opt${o.disabled ? ' disabled' : ''}" role="option" data-v="${TK.esc(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}${sec && !open.has(sec) ? ' hidden' : ''}>${av(o)}<span class="truncate grow">${TK.esc(o.label)}${o.note ? `<small class="rselect-note">${TK.esc(o.note)}</small>` : ''}</span></div>`;
+      }).join('')
         : '<div class="faint small" data-css="padding:.6rem">موردی وجود ندارد</div>';
     };
     draw();
     const set = (v) => {
       v = v === null || v === undefined ? '' : String(v);
       inp.value = v;
+      const sv = v ? secOf(v) : null;
+      if (sv && !open.has(sv)) { open.add(sv); draw(); }
       const o = options.find((x) => x.group === undefined && String(x.value) === v);
       val.innerHTML = o ? `${av(o)}<span class="truncate">${TK.esc(o.label)}</span>` : `<span class="faint">${TK.esc(placeholder)}</span>`;
       TK.qsa('.rselect-opt', menu).forEach((el) => el.classList.toggle('active', el.dataset.v === v));
@@ -270,6 +285,8 @@
       // نزدیک پایین صفحه/کشو: منو رو به بالا باز شود
       if (host.classList.contains('open')) { const r = btn.getBoundingClientRect(), box = host.closest('.t-drawer, .modal-box')?.getBoundingClientRect(), bottom = Math.min(innerHeight, box ? box.bottom - 70 : innerHeight); host.classList.toggle('up', bottom - r.bottom < Math.min(250, menu.scrollHeight + 10) && r.top > bottom - r.bottom); } });
     menu.addEventListener('click', (e) => {
+      const f = e.target.closest('[data-fold]');
+      if (f) { e.stopPropagation(); const k = f.dataset.fold; open.has(k) ? open.delete(k) : open.add(k); draw(); TK.qsa('.rselect-opt', menu).forEach((el) => el.classList.toggle('active', el.dataset.v === inp.value)); return; }
       const o = e.target.closest('.rselect-opt'); if (!o) return;
       if (o.classList.contains('disabled')) { const d = options.find((x) => String(x.value) === o.dataset.v); if (d?.hint) TK.info(d.hint, { title: d.label, icon: 'fa-lock' }); return; }
       set(o.dataset.v); host.classList.remove('open'); inp.dispatchEvent(new Event('change', { bubbles: true }));
@@ -277,7 +294,7 @@
     document.addEventListener('click', (e) => { if (!host.contains(e.target)) host.classList.remove('open'); });
     set('');
     return { input: inp, host, set, get: () => inp.value, option: (v) => options.find((x) => x.group === undefined && String(x.value) === String(v)) || null,
-      setOptions(list) { const cur = inp.value; options = list; draw(); set(options.some((x) => x.group === undefined && String(x.value) === cur && !x.disabled) ? cur : ''); },
+      setOptions(list) { const cur = inp.value; options = list; open.clear(); draw(); set(options.some((x) => x.group === undefined && String(x.value) === cur && !x.disabled) ? cur : ''); },
       disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; }, invalid() { host.classList.add('invalid'); } };
   };
 
@@ -1057,6 +1074,7 @@
     document.body.replaceChildren(...[...doc.body.childNodes].map((n) => document.adoptNode(n)), ...keep);
 
     if (push) history.pushState({ tk: 1 }, '', res.url && !res.redirected ? url : url);
+    TK.pagePath = location.pathname + location.search;      // صفحه‌ی بارشده (برای نادیده گرفتن popstateِ فقط-hash)
     window.scrollTo(0, scroll);
 
     pageScope.on = true;
@@ -1069,6 +1087,7 @@
   };
 
   if (document.body?.dataset.layout) {
+    TK.pagePath = location.pathname + location.search;
     history.scrollRestoration = 'manual';
     if (!history.state?.tk) history.replaceState({ ...(history.state || {}), tk: 1 }, '');
     TK.on('click', 'a[href]', async (e, a) => {
@@ -1094,7 +1113,11 @@
     });
     document.addEventListener('mouseout', (e) => { if (e.target.closest?.('a[href]')) clearTimeout(hoverT); });
     document.addEventListener('touchstart', (e) => { const a = e.target.closest?.('a[href]'); if (linkOk(a)) prefetch(navUrl(a.href).toString()); }, { passive: true });
-    window.addEventListener('popstate', (e) => TK.visit(location.href, { push: false, scroll: e.state?.tkScroll || 0 }));
+    // فقط تغییر hash (مثلاً بخش‌های پروفایل) صفحه را دوباره نمی‌گیرد؛ قبلاً popstate ← visit ← location.href ← popstate حلقه می‌شد (v5.14)
+    window.addEventListener('popstate', (e) => {
+      if (location.pathname + location.search === TK.pagePath) return;
+      TK.visit(location.href, { push: false, scroll: e.state?.tkScroll || 0 });
+    });
     // بارگذاری معمولی (لینک‌های خارج از ناوبری نرم، فرم‌های POST) هم نوار پیشرفت دارد
     window.addEventListener('beforeunload', () => TK.progress.start());
     window.addEventListener('pageshow', (e) => { if (e.persisted) TK.progress.done(); });

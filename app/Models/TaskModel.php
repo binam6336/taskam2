@@ -125,12 +125,7 @@ final class TaskModel
             $where .= ' AND t.assignee_group_id = ?';
             $params[] = (int) $f['group'];
         }
-        $q = (string) ($f['q'] ?? '');
-        if ($q !== '') {
-            $where .= ' AND (t.title LIKE ? OR t.description LIKE ?)';
-            $params[] = DB::like($q);
-            $params[] = DB::like($q);
-        }
+        $q = (string) ($f['q'] ?? '');                 // جستجو پایین‌تر، بعد از بقیه‌ی فیلترها (برای غلط تایپی)
         $when = (string) ($f['when'] ?? '');
         if ($when === 'overdue') {
             $where .= ' AND t.is_completed = 0 AND ' . self::OVERDUE;
@@ -154,6 +149,19 @@ final class TaskModel
         if (!empty($f['label'])) {
             $where .= ' AND t.subject_id = ?';
             $params[] = (int) $f['label'];
+        }
+        // جستجو (v5.14): هر کلمه در عنوان یا توضیحات؛ اگر هیچ نتیجه‌ای نبود، با تحمل غلط تایپی در عنوان
+        if (\App\Core\Search::tokens($q)) {
+            [$qs, $qp] = \App\Core\Search::sql(['t.title', 't.description'], $q);
+            $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND ' . $qs, array_merge($params, $qp));
+            $fz = $total === 0 ? \App\Core\Search::fuzzyIds(DB::all('SELECT t.id, t.title FROM tasks t WHERE ' . $where . ' ORDER BY t.id DESC LIMIT ' . \App\Core\Search::FUZZY_SCAN, $params), $q, ['title']) : [];
+            if ($fz) {
+                $where .= ' AND t.id IN (' . DB::in($fz) . ')';
+                $params = array_merge($params, $fz);
+            } else {
+                $where .= ' AND ' . $qs;
+                $params = array_merge($params, $qp);
+            }
         }
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where, $params);
         switch ($f['sort'] ?? 'created') {

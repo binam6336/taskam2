@@ -1,4 +1,4 @@
-<?php /** @var bool $pushReady @var int $devices @var bool $https @var array $checks */ $this->scripts[] = 'install'; $this->boot['install'] = ['pushReady' => $pushReady, 'devices' => $devices, 'https' => $https]; ?>
+<?php /** @var array|null $apk @var bool $pushReady @var int $devices @var bool $https @var array $checks */ $this->scripts[] = 'install'; $this->boot['install'] = ['pushReady' => $pushReady, 'devices' => $devices, 'https' => $https]; ?>
 <div class="pwa-hero card mb-2">
     <div class="pwa-logo"><?= logo_svg() ?></div>
     <div class="grow">
@@ -10,6 +10,16 @@
         </div>
         <?php if (!$https): ?><div class="alert warning mt-2"><i class="fa-solid fa-triangle-exclamation"></i><div>نصب و اعلان‌ها فقط روی <b>HTTPS</b> کار می‌کنند. سایت را با https باز کنید.</div></div><?php endif; ?>
     </div>
+</div>
+
+<div class="card mb-2 apk-card" id="android-app">
+    <span class="apk-ico" aria-hidden="true"><i class="fa-brands fa-android"></i></span>
+    <div class="grow min0">
+        <h3 class="apk-t">نرم‌افزار اندروید</h3>
+        <p class="small muted apk-p">فایل نصبی (APK) تسکام برای گوشی‌های اندرویدی.<?php if (!empty($apk)): ?> حجم: <?= e($apk['size']) ?> · به‌روزرسانی: <?= e($apk['updated']) ?><?php endif; ?></p>
+        <p class="xs faint apk-p">اگر گوشی اجازه‌ی نصب نداد: تنظیمات ← امنیت ← «نصب از منابع ناشناس» را برای مرورگر فعال کنید.</p>
+    </div>
+    <a class="btn btn-primary" id="apk-dl" href="<?= e(url('/install/android')) ?>" data-no-nav download><i class="fa-solid fa-download"></i> دریافت APK</a>
 </div>
 
 <div class="grid grid-2 mb-2">

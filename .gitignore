@@ -8,3 +8,6 @@ storage/uploads/*/*
 storage/vapid.json
 *.zip
 __pycache__/
+
+storage/app/*
+!storage/app/.gitkeep

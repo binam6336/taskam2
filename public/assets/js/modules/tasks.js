@@ -59,9 +59,9 @@ document.addEventListener('tk:ready', () => {
       : !p.can_assign ? 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' : '';
     const memOpts = mem.map((a) => (a.value === cfg.me || p.can_assign ? a : { ...a, disabled: true, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }));
     // دپارتمان / گروه (v5.10): مثل یک مسئول انتخاب می‌شود؛ مقدار «g:<شناسه>» و هنگام ارسال در assignee_group_id می‌رود.
-    // v5.12: گروه‌ها بالای فهرست (در پروژه‌های پرعضو زیر اعضا گم می‌شدند)
+    // v5.12: گروه‌ها بالای فهرست (در پروژه‌های پرعضو زیر اعضا گم می‌شدند)؛ v5.14: زیر سرتیتر تاشو (پیش‌فرض بسته)
     const grps = (cfg.groups || {})[String(p.id)] || [];
-    const out = grps.length ? [{ group: 'گروه‌های این پروژه' }, ...grps.map((g) => ({ value: 'g:' + g.id, label: 'گروه ' + g.title, icon: 'fa-people-group', note: TK.fa(g.count) + ' عضو' + (g.head ? ' · سرگروه: ' + g.head : ''), hasHead: g.has_head, head: g.head,
+    const out = grps.length ? [{ group: 'گروه‌های این پروژه', fold: 'groups' }, ...grps.map((g) => ({ value: 'g:' + g.id, label: 'گروه ' + g.title, icon: 'fa-people-group', note: TK.fa(g.count) + ' عضو' + (g.head ? ' · سرگروه: ' + g.head : ''), hasHead: g.has_head, head: g.head,
       disabled: !p.can_assign, hint: 'نقش شما در این پروژه «بدون دسترسی» است؛ فقط برای خودتان تسک می‌سازید.' }))] : [];
     out.push({ group: 'اعضای این پروژه' }, ...memOpts);
     if (others.length) out.push({ group: 'همکاران غیرعضو' }, ...others.map((a) => ({ ...a, note: why ? 'عضو پروژه نیست' : 'افزودن به پروژه و واگذاری', addTo: p.id, disabled: !!why, hint: why })));

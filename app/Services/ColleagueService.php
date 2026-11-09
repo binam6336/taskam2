@@ -12,9 +12,9 @@ final class ColleagueService
         $w = "c.user_id = ? AND u.status = 'active'";
         $p = [$uid];
         if ($q !== '') {
-            $w .= ' AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.mobile LIKE ?)';
-            $l = DB::like($q);
-            array_push($p, $l, $l, $l);
+            [$qs, $qp] = \App\Core\Search::sql(["CONCAT(u.first_name, ' ', u.last_name)", 'u.mobile'], $q);
+            $w .= ' AND ' . $qs;
+            $p = array_merge($p, $qp);
         }
         $rows = DB::all("SELECT c.id AS row_id, c.permissions, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me,

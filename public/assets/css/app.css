@@ -1861,6 +1861,13 @@ rect.lg-inner { fill: var(--logo-inner, #111c16); }
 }
 @media (max-width: 860px) { .kb-board > .kb-col.kb-collapsed { min-height: 160px; } .kb-board > .kb-col:not(.kb-collapsed) { flex: 0 0 var(--kb-col); } }
 .rselect-group { padding: .45rem .6rem .2rem; font-size: .72rem; font-weight: 700; color: var(--muted); }
+/* سرتیتر تاشو (v5.14: «گروه‌های این پروژه» در انتخاب مسئول) */
+.rselect-opt[hidden] { display: none !important; }
+.rselect-fold { display: flex; align-items: center; gap: .4rem; width: 100%; margin: .15rem 0; padding: .5rem .6rem; border: 1px dashed var(--border-2); border-radius: 9px; background: var(--surface-2); text-align: start; cursor: pointer; font-family: inherit; }
+.rselect-fold:hover { border-color: var(--g-400); color: var(--text); }
+.rselect-fold i { transition: transform .15s; font-size: .7rem; }
+.rselect-fold[aria-expanded="true"] i { transform: rotate(180deg); }
+.rselect-fold:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
 .rselect-opt.disabled { opacity: .5; cursor: not-allowed; }
 .rselect-note { display: block; font-size: .7rem; color: var(--g-300); }
 .rselect-opt.disabled .rselect-note { color: var(--muted); }
@@ -2167,3 +2174,29 @@ html[data-theme="sage"] .stat .ico.purple { background: rgba(124, 92, 220, .14);
 .tg-rw input { accent-color: var(--g-600); }
 .grp-card.is-blocked { opacity: .72; border-style: dashed; }
 .grp-new-task { align-self: flex-start; }
+
+/* ───── پروفایل دسته‌بندی‌شده (v5.14) ───── */
+.pf-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.pf-nav { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .15rem; padding: .5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.pf-tab { display: flex; align-items: center; gap: .7rem; padding: .62rem .75rem; border-radius: 10px; color: var(--muted); font-weight: 600; font-size: .92rem; text-decoration: none; transition: background .15s, color .15s; }
+.pf-tab i { width: 1.1rem; text-align: center; opacity: .85; }
+.pf-tab:hover { background: var(--surface-2); color: var(--text); }
+.pf-tab.active { background: rgba(var(--accent-rgb), .14); color: var(--g-600); }
+.pf-tab:focus-visible { outline: 2px solid var(--g-500); outline-offset: 1px; }
+.pf-sep { height: 1px; margin: .35rem .5rem; background: var(--border); }
+.pf-h { display: flex; align-items: center; gap: .55rem; margin: 0 0 1rem; font-size: 1.15rem; }
+.pf-h:focus { outline: none; }
+.pf-pane[hidden] { display: none; }
+@media (max-width: 760px) {
+  .pf-layout { grid-template-columns: 1fr; gap: .75rem; }
+  .pf-nav { position: static; flex-direction: row; overflow-x: auto; scrollbar-width: none; padding: .35rem; }
+  .pf-nav::-webkit-scrollbar { display: none; }
+  .pf-tab { flex: none; padding: .5rem .7rem; font-size: .85rem; }
+  .pf-sep { width: 1px; height: auto; margin: .3rem .1rem; }
+}
+/* ───── نرم‌افزار اندروید در صفحه‌ی نصب (v5.14) ───── */
+.apk-card { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.apk-ico { display: grid; place-items: center; width: 52px; height: 52px; flex: none; border-radius: 14px; background: rgba(61, 220, 132, .14); color: #3ddc84; font-size: 1.7rem; }
+.apk-t { margin: 0 0 .2rem; font-size: 1.02rem; }
+.apk-p { margin: 0 0 .15rem; }
+@media (max-width: 560px) { .apk-card .btn { width: 100%; justify-content: center; } }
