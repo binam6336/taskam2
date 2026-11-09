@@ -52,6 +52,7 @@ $badgeAs = ['admin-support' => 'support'];
         <header class="topbar">
             <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>
+            <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
         </header>
         <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>

@@ -1,5 +1,7 @@
 document.addEventListener('tk:ready', () => {
   const E = TK.esc, res = TK.qs('#search-result');
+  // «دعوت» نوار بالا: /colleagues?add=1 پنجره‌ی افزودن همکار را باز می‌کند
+  if (new URLSearchParams(location.search).get('add') === '1' && TK.qs('#m-add-col')) { TK.modal.open('m-add-col'); history.replaceState(history.state, '', location.pathname); }
   TK.qs('#f-search')?.addEventListener('submit', async (e) => {
     e.preventDefault(); res.innerHTML = '<div class="muted center">در حال جستجو…</div>';
     const r = await TK.get('/colleagues/search', { mobile: e.target.mobile.value });

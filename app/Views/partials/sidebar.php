@@ -1,6 +1,7 @@
 <?php
 /**
- * سایدبار مشترک پنل کاربر و ادمین (v5.8): برند + جمع کردن (rail)، جستجو/پالت (Ctrl+K)، منوی ساده با پاپ‌آپ زیرمنو، کارت کاربر و خروج.
+ * سایدبار مشترک پنل کاربر و ادمین (v5.8، ظاهر کارتی v7.1): برند + جمع کردن (rail)، منوی ساده با پاپ‌آپ زیرمنو، کارت کاربر و خروج.
+ * دکمه‌ی جستجو/پالت (Ctrl+K) از v7.1 در نوار بالاست (partials/topbar_search.php)؛ خود پالت همین‌جاست.
  * رفتار در app.js (بخش «سایدبار v5.8»)، کلاس sb-rail روی <html> را assets/js/rail.js پیش از رندر می‌گذارد.
  * @var array  $menu    آیتم‌ها: [key, path, icon, label] | ['group' => id, 'icon', 'label', 'items' => [...]] | ['soon' => true, …] | ['link' => url, …]
  * @var string $active  کلید صفحه‌ی فعلی
@@ -29,10 +30,6 @@ $pops = [];
         <button type="button" class="sb-icon-btn sb-rail-btn" aria-pressed="false" aria-label="جمع کردن منو"><i class="fa-solid fa-angles-right" aria-hidden="true"></i></button>
     </div>
 
-    <div class="sb-tools">
-        <button type="button" class="sb-search" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" aria-label="جستجو و پرش سریع"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>جستجو و پرش سریع…</span></button>
-    </div>
-
     <nav class="sb-nav" aria-label="منوی اصلی">
         <ul class="sb-list">
             <span class="sb-hl" aria-hidden="true"></span>
@@ -56,7 +53,6 @@ $pops = [];
 <?php endif; ?>
 <?php endforeach; ?>
         </ul>
-        <p class="sb-hint"><kbd dir="ltr" class="sb-kbd">Ctrl K</kbd> میانبر جستجو</p>
     </nav>
 
     <div class="sb-foot"><div class="sb-me">

@@ -20,6 +20,10 @@ if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
 }
 $this->scripts[] = 'quicktask';                       // «ثبت سریع تسک» (دکمه‌ی صاعقه، همه‌ی صفحه‌ها)
 $this->scripts[] = 'blocked';                         // پنجره‌ی «مسدودشده‌ها» (مسدود کردن به‌جای حذف)
+// نوار بالا (v7.1): چهار همکار اخیر (همکاری تأییدشده، مسدودنشده) + «دعوت»
+$tbAll = array_values(array_filter(\App\Services\ColleagueService::listFor((int) $u['id'], '', 30), static fn($c) => $c['approved'] && !$c['is_blocked_by_me'] && !$c['has_blocked_me']));
+$tbColsN = count($tbAll);
+$tbCols = array_slice($tbAll, 0, 4);
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
@@ -43,7 +47,11 @@ $this->scripts[] = 'blocked';                         // پنجره‌ی «مس�
         <header class="topbar">
             <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>
-            <div class="grow"></div>
+            <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
+            <div class="tb-team">
+                <?php if ($tbCols): ?><a class="tb-stack" href="<?= e(url('/colleagues')) ?>" aria-label="همکاران (<?= e(fa_num($tbColsN)) ?> نفر)" title="همکاران"><?php foreach ($tbCols as $c): $cn = full_name($c); ?><span class="avatar sm" title="<?= e($cn) ?>"><?php if (!empty($c['avatar'])): ?><img src="<?= e(avatar_url($c['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($cn)) ?><?php endif; ?></span><?php endforeach; ?><?php if ($tbColsN > count($tbCols)): ?><span class="avatar sm tb-more">+<?= e(fa_num($tbColsN - count($tbCols))) ?></span><?php endif; ?></a><?php endif; ?>
+                <a class="btn btn-sm tb-invite" href="<?= e(url('/colleagues?add=1')) ?>" title="دعوت همکار"><span>دعوت</span> <i class="fa-solid fa-plus" aria-hidden="true"></i></a>
+            </div>
             <button type="button" class="btn btn-ghost btn-icon" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell"></i></button>
             <a class="btn btn-ghost btn-icon" href="<?= e(url('/chat')) ?>" title="گفتگو" data-css="position:relative"><i class="fa-regular fa-comments"></i><span class="badge-count zero" data-badge="chat" data-css="position:absolute;top:-2px;left:-2px">0</span></a>
         </header>
