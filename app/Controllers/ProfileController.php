@@ -141,7 +141,7 @@ final class ProfileController extends Controller
         $this->respond(true, 'تنظیمات حریم خصوصی ذخیره شد.', '/profile');
     }
 
-    /** «تنظیمات ظاهری» (v7.0): تم فقط روی همین دستگاه، در کوکی tk_theme (یک سال)؛ در دیتابیس ذخیره نمی‌شود. */
+    /** «تنظیمات ظاهری» (v7.0): تم فقط روی همین دستگاه، در کوکی kx_theme (تا v7.5: tk_theme) (یک سال)؛ در دیتابیس ذخیره نمی‌شود. */
     public function appearance()
     {
         $theme = $this->request->str('theme', 20);

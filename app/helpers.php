@@ -356,8 +356,9 @@ function themes(): array
 }
 
 /** تم پیش‌فرض و نام کوکی تم (v7.0: تم روی هر دستگاه جدا، در کوکی؛ دیگر در دیتابیس ذخیره نمی‌شود) */
-const THEME_DEFAULT = 'green-light';       // v7.3: دستگاه بدون کوکی (و ثبت‌نام تازه) = سبز روشن
-const THEME_COOKIE = 'tk_theme';
+const THEME_DEFAULT = 'violet-light';      // v7.6: تم پیش‌فرض همه = Midnight Violet روشن (رنگ برند کارلیکس)
+// v7.6: نام تازه‌ی کوکی تا همه‌ی دستگاه‌ها یک بار با تم پیش‌فرض شروع کنند (کوکی قبلی tk_theme دیگر خوانده نمی‌شود)
+const THEME_COOKIE = 'kx_theme';
 
 /** کلید معتبر تم؛ کلیدهای قدیمی (dark / sage) به معادل تازه‌شان */
 function theme_key(?string $t): string
@@ -379,7 +380,7 @@ function theme_attrs(?array $u = null): string
     return 'data-theme="' . e($t) . '" data-mode="' . e(theme_mode($t)) . '"';
 }
 
-/** تم این دستگاه از کوکی؛ بدون کوکی = THEME_DEFAULT (سبز روشن). users.theme از v7.3 اصلاً خوانده نمی‌شود. */
+/** تم این دستگاه از کوکی؛ بدون کوکی = THEME_DEFAULT (بنفش روشن). users.theme از v7.3 اصلاً خوانده نمی‌شود. */
 function user_theme(?array $u = null): string
 {
     return theme_key(isset($_COOKIE[THEME_COOKIE]) ? (string) $_COOKIE[THEME_COOKIE] : null);

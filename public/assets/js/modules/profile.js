@@ -21,7 +21,7 @@ document.addEventListener('tk:ready', () => {
     show(location.hash.slice(1));
   }
 
-  /* تنظیمات ظاهری (v7.0): تم بلافاصله اعمال و در کوکی همین دستگاه (tk_theme) ذخیره می‌شود */
+  /* تنظیمات ظاهری (v7.0): تم بلافاصله اعمال و در کوکی همین دستگاه (kx_theme) ذخیره می‌شود */
   const tf = TK.qs('#f-theme');
   tf?.addEventListener('change', async (e) => {
     if (e.target.name !== 'theme') return;
