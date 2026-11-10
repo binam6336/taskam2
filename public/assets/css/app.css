@@ -2770,31 +2770,18 @@ html.bulk-on .item[id^="task-"] .tick, html.bulk-on .item-actions, html.bulk-on 
 .bulk-fails ul { margin: .4rem 0 0; padding-inline-start: 1.1rem; }
 .bulk-fails li small { display: block; color: var(--muted); }
 
-/* ═══ v7.8: پوسته‌ی بورد کانبان شبیه Jira — ستون‌های خاکستری روشن، سرستون کوچک با تعداد، کارت‌های سفید تخت با سایه‌ی ظریف،
-   برچسب‌های رنگی و آواتار مسئول در انتهای کارت. فقط ظاهر؛ دکمه‌ی جابه‌جایی و همه‌ی گزینه‌ها همان است. ═══ */
-.kb-board { --kb-col-bg: color-mix(in srgb, var(--text) 4%, var(--surface)); --kb-card-bg: var(--surface); --kb-card-sh: 0 1px 1px rgba(9, 30, 66, .22), 0 0 1px rgba(9, 30, 66, .28); gap: 10px; }
-html[data-mode="dark"] .kb-board { --kb-col-bg: color-mix(in srgb, #fff 3%, var(--surface-0, var(--bg))); --kb-card-bg: color-mix(in srgb, #fff 6%, var(--surface)); --kb-card-sh: 0 1px 2px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .05); }
-.kb-board .kb-col { background: var(--kb-col-bg); border: 0; border-radius: 8px; box-shadow: none; }
-.kb-board .kb-col.kb-over { background: color-mix(in srgb, var(--tone) 10%, var(--kb-col-bg)); box-shadow: inset 0 0 0 2px var(--tone); }
-.kb-board .kb-col-head { border-bottom: 0; padding: .7rem .8rem .35rem; gap: .45rem; }
-.kb-board .kb-col-head > i { font-size: .78rem; opacity: .85; }
-.kb-board .kb-col-head b { font-size: .74rem; font-weight: 700; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+/* ═══ v7.8.1: چهارچوب بورد کانبان شبیه Jira — فقط اندازه‌ها و چیدمان (عرض و ارتفاع ستون‌ها، فاصله‌ها، کارت‌های جمع‌وجور،
+   سرستون یک‌خطی، آواتار مسئول ته کارت)؛ رنگ‌ها، حاشیه‌ها و سایه‌ها همان ظاهر قبلی بورد است. ═══ */
+.kb-board { gap: 10px; }
+.kb-board .kb-col { min-height: calc(100vh - var(--topbar-h) - 230px); }
+.kb-board .kb-col-head { padding: .6rem .75rem; gap: .45rem; }
 .kb-board .kb-col-head span:not(.kb-count) { display: none; }
-.kb-board .kb-count { min-width: 0; height: auto; padding: 0; background: none; border: 0; color: var(--muted); font-size: .74rem; font-weight: 600; }
-.kb-board .kb-col[data-col="done"] .kb-col-head b::after { content: " ✓"; color: #22a06b; }
-.kb-board .kb-list { gap: 6px; padding: .35rem .5rem .6rem; }
-.kb-board .kb-card { background: var(--kb-card-bg); border: 0; border-radius: 6px; box-shadow: var(--kb-card-sh); padding: .7rem .75rem .6rem; transition: background .12s, box-shadow .12s; }
-.kb-board .kb-card:hover { background: color-mix(in srgb, var(--text) 3%, var(--kb-card-bg)); border-color: transparent; }
-.kb-board .kb-card.p-high, .kb-board .kb-card.p-medium, .kb-board .kb-card.p-low { border-inline-start: 0; }
-.kb-board .kb-title { font-weight: 500; font-size: .875rem; line-height: 1.55; }
-.kb-board .kb-title:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-.kb-board .kb-meta { gap: .3rem .45rem; margin-top: .55rem; font-size: .72rem; }
-.kb-board .kb-meta > span:not(.badge) { padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--text) 6%, transparent); }
-.kb-board .kb-meta .badge { border-radius: 4px; font-size: .68rem; font-weight: 700; padding: 1px 6px; text-transform: uppercase; }
-.kb-board .kb-meta .prio-high { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
-.kb-board .kb-foot { justify-content: flex-end; margin-top: .45rem; }
+.kb-board .kb-list { gap: 6px; padding: .45rem; }
+.kb-board .kb-card { padding: .6rem .7rem .55rem; }
+.kb-board .kb-title { font-size: .875rem; line-height: 1.55; }
+.kb-board .kb-meta { gap: .3rem .5rem; margin-top: .5rem; }
+.kb-board .kb-foot { justify-content: flex-end; margin-top: .4rem; }
 .kb-board .kb-who .truncate { display: none; }
 .kb-board .kb-who .avatar.xs { width: 24px; height: 24px; font-size: .68rem; }
-.kb-board .kb-handle { width: 26px; height: 26px; border-radius: 4px; background: transparent; border: 0; color: var(--faint); }
-.kb-board .kb-handle:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
-.kb-board .kb-col.kb-collapsed .kb-col-head { padding-bottom: .7rem; }
+.kb-board .kb-handle { width: 26px; height: 26px; }
+@media (max-width: 760px) { .kb-board .kb-col { min-height: 220px; } }
