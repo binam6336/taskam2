@@ -55,9 +55,19 @@
       Object.entries(data).forEach(([k, v]) => (Array.isArray(v) ? v.forEach((x) => fd.append(k + '[]', x)) : v !== undefined && v !== null && fd.append(k, v)));
       opt.body = fd;
     }
+    const full = url.startsWith('http') || url.startsWith(TK.base + '/') ? url : TK.url(url);
+    // v7.8: درخواستی که فایل دارد با XHR فرستاده می‌شود تا پنجره‌ی پیشرفت آپلود (درصد + لغو) نمایش داده شود
+    const files = opt.body instanceof FormData ? [...opt.body.values()].filter((v) => v instanceof File && v.size > 0) : [];
     let res;
-    try { res = await fetch(url.startsWith('http') || url.startsWith(TK.base + '/') ? url : TK.url(url), opt); }
-    catch { return { status: 'error', message: 'ارتباط با سرور برقرار نشد.' }; }
+    if (files.length) {
+      const up = await TK.upload(full, opt, files);
+      if (up.aborted) return { status: 'error', message: 'آپلود لغو شد.', aborted: true };
+      if (up.error) return { status: 'error', message: 'ارتباط با سرور برقرار نشد.' };
+      res = up;
+    } else {
+      try { res = await fetch(full, opt); }
+      catch { return { status: 'error', message: 'ارتباط با سرور برقرار نشد.' }; }
+    }
     let json = null;
     try { json = await res.json(); } catch { json = { status: 'error', message: 'پاسخ نامعتبر از سرور (' + res.status + ')' }; }
     if (res.status === 419) { TK.toast(json.message || 'نشست منقضی شد؛ صفحه رفرش می‌شود.', 'warning'); setTimeout(() => location.reload(), 1400); }
@@ -67,6 +77,36 @@
     json._http = res.status;
     return json;
   };
+  /** آپلود با پنجره‌ی پیشرفت (درصد، حجم، دکمه‌ی لغو)؛ خروجی شبیه Response: {status, json()} یا {aborted} / {error} */
+  TK.upload = (url, opt, files) => new Promise((resolve) => {
+    const total = files.reduce((n, f) => n + f.size, 0);
+    const mb = (b) => TK.fa((b / 1048576).toFixed(b < 10485760 ? 1 : 0)) + ' مگابایت';
+    const box = document.createElement('div');
+    box.className = 'up-pop'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'false'); box.setAttribute('aria-labelledby', 'up-pop-t');
+    box.innerHTML = `<div class="up-pop-in"><div class="up-pop-h"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i><b id="up-pop-t">در حال آپلود ${files.length > 1 ? TK.fa(files.length) + ' فایل' : 'فایل'}</b><span class="up-pop-pc" aria-live="polite">۰٪</span></div>
+      <div class="up-pop-name">${TK.esc(files.length > 1 ? files.map((f) => f.name).slice(0, 3).join('، ') + (files.length > 3 ? ' و …' : '') : files[0].name)}</div>
+      <div class="up-pop-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+      <div class="up-pop-f"><span class="up-pop-sz">۰ از ${mb(total)}</span><button type="button" class="btn btn-sm up-pop-x"><i class="fa-solid fa-xmark" aria-hidden="true"></i> لغو آپلود</button></div></div>`;
+    document.body.appendChild(box);
+    const bar = box.querySelector('.up-pop-bar'), fill = bar.firstElementChild, pc = box.querySelector('.up-pop-pc'), sz = box.querySelector('.up-pop-sz');
+    const done = (v) => { box.classList.add('out'); setTimeout(() => box.remove(), 220); resolve(v); };
+    const xhr = new XMLHttpRequest();
+    xhr.open(opt.method || 'POST', url, true);
+    Object.entries(opt.headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const p = Math.min(100, Math.round((e.loaded / e.total) * 100));
+      fill.style.width = p + '%'; bar.setAttribute('aria-valuenow', String(p)); pc.textContent = TK.fa(p) + '٪';
+      sz.textContent = mb(Math.min(total, (e.loaded / e.total) * total)) + ' از ' + mb(total);
+      if (p >= 100) { box.querySelector('#up-pop-t').textContent = 'در حال ذخیره…'; box.querySelector('.up-pop-x').disabled = true; }
+    };
+    xhr.onload = () => done({ status: xhr.status, json: async () => JSON.parse(xhr.responseText) });
+    xhr.onerror = () => done({ error: true });
+    xhr.onabort = () => done({ aborted: true });
+    box.querySelector('.up-pop-x').addEventListener('click', () => xhr.abort());
+    xhr.send(opt.body);
+  });
   TK.get = (url, params = {}) => { const q = new URLSearchParams(params).toString(); return TK.http(url + (q ? (url.includes('?') ? '&' : '?') + q : '')); };
   TK.post = (url, data) => TK.http(url, { method: 'POST', data });
   TK.ok = (r) => r && (r.status === 'success' || r.success === true);
@@ -470,10 +510,19 @@
       const i = b.querySelector('i'); if (i) { i.classList.toggle('fa-angles-right', !on); i.classList.toggle('fa-angles-left', on); }
     });
   }
+  // v7.8: جمع/باز شدن نرم: اول نوشته‌ها محو می‌شوند، بعد عرض سایدبار و فاصله‌ی محتوا با انیمیشن عوض می‌شود، در آخر نوشته‌ها پدیدار می‌شوند
+  let sbAnimT = 0;
   const sbRailToggle = () => {
-    const on = !document.documentElement.classList.contains('sb-rail');
-    document.documentElement.classList.toggle('sb-rail', on); sbStore.set('tk.sb.rail', on ? '1' : '0');
-    sbPopClose(false); sbTipHide(); sbRailSync();
+    const html = document.documentElement, on = !html.classList.contains('sb-rail');
+    sbStore.set('tk.sb.rail', on ? '1' : '0'); sbPopClose(false); sbTipHide();
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || sbMobile.matches) { html.classList.toggle('sb-rail', on); sbRailSync(); return; }
+    clearTimeout(sbAnimT);
+    html.classList.add('sb-anim', 'sb-fade');
+    sbAnimT = setTimeout(() => {
+      html.classList.toggle('sb-rail', on); sbRailSync();
+      sbAnimT = setTimeout(() => { html.classList.remove('sb-fade'); sbAnimT = setTimeout(() => html.classList.remove('sb-anim'), 200); }, 280);
+    }, on ? 140 : 0);
   };
   TK.on('click', '.sb-rail-btn', sbRailToggle);
   // tooltip در حالت rail

@@ -31,6 +31,7 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         <?php foreach (['when', 'prio', 'project', 'assignee', 'label', 'flow'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
         <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'smart' ? 1 : 0); ?>
+        <button type="button" class="btn t-bulk-btn" data-bulk-toggle aria-pressed="false" title="انتخاب چند تسک و تغییر هم‌زمان" aria-label="تغییر گروهی"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="btn-t">تغییر گروهی</span></button>
         <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها" aria-label="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> <span class="btn-t">تقویم</span></a>
         <button type="button" class="btn btn-icon t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر" aria-label="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter"></i><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
         <!-- سایدبار مخفی مرتب‌سازی و فیلتر (سمت چپ) -->
@@ -166,3 +167,4 @@ $chips = [
 </div>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $projects, 'assignees' => $assignees, 'shared' => $shared]); ?>
+<?php $this->partial('bulk_edit'); ?>

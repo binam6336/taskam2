@@ -121,9 +121,9 @@ $badgeHtml = static function (array $t) use ($admin): string {
                 <?php if ($admin && !$closed): $ip = $ticket['status'] === 'in_progress'; ?>
                     <button type="button" class="btn btn-sm desk-check <?= $ip ? 'on' : '' ?>" data-post="<?= e(url($base . '/' . $tid . '/status')) ?>" data-data='{"status":"<?= $ip ? 'open' : 'in_progress' ?>"}' aria-pressed="<?= $ip ? 'true' : 'false' ?>" title="علامت «در حال انجام» برای این تیکت"><i class="fa-<?= $ip ? 'solid fa-square-check' : 'regular fa-square' ?>"></i> <span class="hide-sm">در حال انجام</span></button>
                 <?php endif; ?>
-                <?php if ($closed): ?>
+                <?php if ($closed && $admin): // v7.8: تیکت بسته را فقط پنل مدیریت دوباره باز می‌کند ?>
                     <button type="button" class="btn btn-sm desk-reopen" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($admin ? $base . '/' . $tid . '/status' : $base . '/' . $tid . '/reopen')) ?>" <?= $admin ? 'data-data=\'{"status":"open"}\'' : '' ?>><i class="fa-solid fa-lock-open"></i> <span class="hide-sm">باز کردن تیکت</span></button>
-                <?php else: ?>
+                <?php elseif (!$closed): ?>
                     <button type="button" class="btn btn-sm desk-close" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($admin ? $base . '/' . $tid . '/status' : $base . '/' . $tid . '/close')) ?>" <?= $admin ? 'data-data=\'{"status":"closed"}\'' : '' ?> data-confirm="تیکت بسته شود؟" data-danger="0" data-ok="بستن تیکت"><i class="fa-solid fa-lock"></i> <span class="hide-sm">بستن تیکت</span></button>
                 <?php endif; ?>
                 <?php if ($canWrite): ?><button type="button" class="btn btn-icon btn-sm" id="desk-texts-btn" aria-haspopup="true" title="پاسخ‌های آماده (متن‌های آماده)" aria-label="پاسخ‌های آماده (متن‌های آماده)"><i class="fa-solid fa-keyboard"></i></button><?php endif; ?>
@@ -171,8 +171,13 @@ $badgeHtml = static function (array $t) use ($admin): string {
             </div>
         </form>
         <?php else: ?>
+        <?php if ($admin): ?>
         <div class="desk-locked"><span><i class="fa-solid fa-lock"></i> این تیکت بسته شده است. برای ادامه‌ی گفتگو آن را دوباره باز کنید.</span>
-            <button type="button" class="btn btn-primary btn-sm" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($base . '/' . $tid . '/reopen')) ?>"><i class="fa-solid fa-lock-open"></i> باز کردن تیکت</button></div>
+            <button type="button" class="btn btn-primary btn-sm" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($base . '/' . $tid . '/status')) ?>" data-data='{"status":"open"}'><i class="fa-solid fa-lock-open"></i> باز کردن تیکت</button></div>
+        <?php else: ?>
+        <div class="desk-locked"><span><i class="fa-solid fa-lock"></i> این تیکت بسته شده است و دیگر پیامی نمی‌پذیرد. اگر هنوز مشکلی دارید، یک تیکت جدید ثبت کنید.</span>
+            <button type="button" class="btn btn-primary btn-sm" data-modal="m-support"><i class="fa-solid fa-plus"></i> تیکت جدید</button></div>
+        <?php endif; ?>
         <?php endif; ?>
 
         <div class="desk-pop" id="desk-texts" hidden>

@@ -201,4 +201,80 @@ final class DocsHelper
         }
         return $out;
     }
+
+    /** نوع OpenAPI پارامتر: شناسه‌ها از v5.0 رشته‌اند (شناسه‌ی عمومی ۱۲ نویسه‌ای) */
+    private static function oaType(array $p): array
+    {
+        $n = $p['name'];
+        if ($n === 'id' || str_ends_with($n, '_id')) {
+            return ['type' => 'string', 'example' => 'k7m2x9qa4rtd'];
+        }
+        if ($p['type'] === 'array') {
+            return ['type' => 'array', 'items' => ['type' => in_array($n, ['members', 'user_ids', 'view_users', 'ids'], true) ? 'string' : 'string']];
+        }
+        $t = ['integer' => 'integer', 'boolean' => 'boolean', 'number' => 'number'][$p['type']] ?? 'string';
+        $o = ['type' => $t];
+        $ex = self::sampleValue($p);
+        if (!is_array($ex)) {
+            $o['example'] = $ex;
+        }
+        return $o;
+    }
+
+    /**
+     * سند OpenAPI 3.0 از config/api_spec.php (+ توضیح فیلدها از api_fields.php) برای «تست API» (Swagger، v7.8).
+     * همان منبع صفحه‌های /docs؛ هر تغییر API فقط در api_spec.php لازم است.
+     */
+    public static function openapi(array $spec, array $fields, string $baseUrl): array
+    {
+        $paths = [];
+        $tags = [];
+        foreach ($spec['groups'] as $g) {
+            $tags[] = ['name' => $g['title'], 'description' => $g['desc'] ?? ''];
+            foreach ($g['endpoints'] as $ep) {
+                $op = ['tags' => [$g['title']], 'summary' => mb_strimwidth((string) $ep['summary'], 0, 120, '…'), 'description' => (string) $ep['summary'],
+                    'operationId' => strtolower($ep['method']) . '_' . trim((string) preg_replace('/[^a-z0-9]+/i', '_', $ep['path']), '_') ?: 'root'];
+                $params = [];
+                $props = [];
+                $req = [];
+                foreach ($ep['params'] as $p) {
+                    $schema = self::oaType($p);
+                    $desc = (string) $p['desc'] . ($p['default'] !== null ? ' (پیش‌فرض: ' . $p['default'] . ')' : '');
+                    if ($p['in'] === 'query') {
+                        $params[] = ['name' => $p['name'], 'in' => 'query', 'required' => (bool) $p['required'], 'description' => $desc, 'schema' => $schema];
+                    } else {
+                        $props[$p['name']] = $schema + ['description' => $desc];
+                        if ($p['required']) {
+                            $req[] = $p['name'];
+                        }
+                    }
+                }
+                if ($params) {
+                    $op['parameters'] = $params;
+                }
+                if ($props) {
+                    $body = ['type' => 'object', 'properties' => $props];
+                    if ($req) {
+                        $body['required'] = $req;
+                    }
+                    $op['requestBody'] = ['required' => (bool) $req, 'content' => ['application/json' => ['schema' => $body, 'example' => (object) self::sampleBody($ep)]]];
+                }
+                $op['responses'] = ['200' => ['description' => 'موفق', 'content' => ['application/json' => ['example' => ['success' => true, 'status' => 'success', 'data' => $ep['example']]]]]];
+                foreach (self::errors($ep, $g['id']) as [$code, $json]) {
+                    $op['responses'][$code] = ['description' => (string) $json['message'], 'content' => ['application/json' => ['example' => $json]]];
+                }
+                $paths[$ep['path']][strtolower($ep['method'])] = $op;
+            }
+        }
+        return [
+            'openapi' => '3.0.3',
+            'info' => ['title' => (string) ($spec['meta']['title'] ?? 'Karlix API'), 'version' => (string) ($spec['meta']['version'] ?? 'v1'),
+                'description' => 'تست زنده‌ی API کارلیکس. بالای صفحه توکن را وارد کنید یا با موبایل و رمز پنل یک توکن موقت بسازید؛ بعد هر endpoint را باز کنید و «Try it out» را بزنید.'],
+            'servers' => [['url' => $baseUrl]],
+            'tags' => $tags,
+            'components' => ['securitySchemes' => ['bearerAuth' => ['type' => 'http', 'scheme' => 'bearer', 'description' => 'توکن API (پنل ← توکن‌های API)']]],
+            'security' => [['bearerAuth' => []]],
+            'paths' => $paths,
+        ];
+    }
 }

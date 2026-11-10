@@ -22,6 +22,7 @@ $ppid = pid('projects', (int) $filters['project']);
     </form>
     <div class="kb-top-acts">
         <?php if ($canManage): ?><button type="button" class="btn btn-icon" id="kb-settings" data-project="<?= e($ppid) ?>" title="تنظیمات بورد" aria-label="تنظیمات بورد"><i class="fa-solid fa-gear"></i></button><?php endif; ?>
+        <button type="button" class="btn" data-bulk-toggle aria-pressed="false" title="انتخاب چند کارت و تغییر هم‌زمان (وضعیت، اولویت، مسئول، …)"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="hide-sm">تغییر گروهی</span></button>
         <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> <span>تسک جدید</span></button>
     </div>
 </div>
@@ -103,3 +104,4 @@ $ppid = pid('projects', (int) $filters['project']);
 <?php if ($canManage) { $this->partial('board_settings', ['scope' => 'project', 'project' => $ppid, 'custom' => $customBoard]); } ?>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $taskProjects, 'assignees' => $assignees, 'shared' => null, 'context' => 'board']); ?>
+<?php $this->partial('bulk_edit'); ?>

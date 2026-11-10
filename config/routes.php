@@ -53,6 +53,9 @@ $router->get('/offline', [PwaController::class, 'offline']);
 $router->get('/docs', [DocsController::class, 'index']);
 $router->get('/docs/authentication', [DocsController::class, 'auth']);
 $router->get('/docs/errors', [DocsController::class, 'errors']);
+$router->get('/docs/openapi.json', [DocsController::class, 'openapi']);
+$router->get('/docs/swagger', [DocsController::class, 'swagger']);
+$router->post('/docs/swagger/token', [DocsController::class, 'swaggerToken']);
 $router->get('/docs/{group}', [DocsController::class, 'group']);
 $router->get('/docs/{group}/{slug}', [DocsController::class, 'endpoint']);
 
@@ -70,6 +73,8 @@ $router->group(['panel'], function ($r) {
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
+    $r->get('/tasks/bulk-options', [TaskController::class, 'bulkOptions']);
+    $r->post('/tasks/bulk', [TaskController::class, 'bulk']);
     $r->get('/tasks/{task}', [TaskController::class, 'show']);
     $r->post('/tasks/{task}/update', [TaskController::class, 'update']);
     $r->post('/tasks/{task}/toggle', [TaskController::class, 'toggle']);

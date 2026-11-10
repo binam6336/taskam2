@@ -199,6 +199,21 @@ final class Auth
         return $u !== null && $u['role'] === 'admin';
     }
 
+    /**
+     * حساب «غیرفعال» (deactivated، v7.8): کاربر وارد می‌شود و همه‌چیز را می‌بیند (فقط خواندنی) ولی هیچ تغییری نمی‌تواند بدهد
+     * (Authenticate / ApiAuth همه‌ی درخواست‌های تغییر‌دهنده را با ACCOUNT_INACTIVE رد می‌کنند). «مسدود» و «در انتظار تأیید» اصلاً وارد پنل نمی‌شوند.
+     */
+    public static function isReadOnly(?array $u = null): bool
+    {
+        $u ??= self::user();
+        return $u !== null && $u['status'] === 'deactivated' && !self::isImpersonating();
+    }
+
+    /** درخواست‌های تغییر‌دهنده‌ای که حساب غیرفعال هم مجاز است (خروج، تم دستگاه، دیده‌شدن یادآوری) */
+    public const READ_ONLY_ALLOWED = ['/logout', '/profile/appearance', '/notifications/ack', '/reauth'];
+
+    public const INACTIVE_MSG = 'حساب کاربری شما غیرفعال است؛ فقط می‌توانید اطلاعات را ببینید و امکان ثبت یا تغییر ندارید. برای فعال‌سازی با مدیر تماس بگیرید.';
+
     public static function isActive(?array $u = null): bool
     {
         $u ??= self::user();
@@ -278,7 +293,8 @@ final class Auth
         #[\SensitiveParameter]
         string $password,
         Request $req,
-        bool $remember = false
+        bool $remember = false,
+        bool $session = true
     ): array
     {
         $ip = $req->rateIp();                                  // IPv6: پیشوند ‎/64
@@ -339,8 +355,10 @@ final class Auth
             $u['password_hash'] = self::hash($password);      // مهم: هش جدید باید در همان $u باشد وگرنه نسخه‌ی رمز در سشن ناهمگام می‌شود و کاربر بلافاصله خارج می‌شود
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);
         }
-        self::login($u, $req, $remember);
-        self::trustDevice($mobile, $u);
+        if ($session) {                                        // $session = false: فقط بررسی رمز (ساخت توکن در «تست API»)، بدون ورود به پنل
+            self::login($u, $req, $remember);
+            self::trustDevice($mobile, $u);
+        }
         return ['ok' => true, 'message' => '', 'user' => $u];
     }
 

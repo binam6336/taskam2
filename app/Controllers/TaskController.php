@@ -190,6 +190,44 @@ final class TaskController extends Controller
     }
 
     /** تغییر وضعیت بورد از جزئیات تسک */
+    /** «تغییر گروهی» (v7.8): گزینه‌های پنجره برای تسک‌های انتخاب‌شده (ids = شناسه‌های عمومی با کاما) */
+    public function bulkOptions()
+    {
+        $this->rateLimit('task_bulk', 60);
+        $ids = \App\Core\Pid::ids('tasks', array_slice(explode(',', (string) ($this->request->query['ids'] ?? '')), 0, TaskService::BULK_MAX));
+        $res = TaskService::bulkOptions($this->uid(), $ids);
+        $res['ok'] ? $this->ok('', $res['data']) : $this->fail($res['message'], $res['http'] ?? 422);
+    }
+
+    /** «تغییر گروهی» (v7.8): اعمال یک یا چند پارامتر روی همه‌ی تسک‌های انتخاب‌شده */
+    public function bulk()
+    {
+        $this->rateLimit('task_bulk', 30);
+        $ids = \App\Core\Pid::ids('tasks', array_slice(explode(',', $this->request->str('ids', 2000)), 0, TaskService::BULK_MAX));
+        $in = [];
+        foreach (['priority', 'status', 'due_date', 'due_time', 'clear_due'] as $k) {
+            $v = $this->request->input($k);
+            if ($v !== null && $v !== '') {
+                $in[$k] = (string) $v;
+            }
+        }
+        foreach (['assignee_id', 'project_id', 'subject_id'] as $k) {
+            $v = $this->request->input($k);
+            if ($v !== null && $v !== '') {
+                $in[$k] = (int) $v;                // Request شناسه‌ی عمومی را به عددی برگردانده (نامعتبر = -1)
+            }
+        }
+        if (($this->request->input('subject_none') ?? '') === '1') {
+            $in['subject_id'] = 0;                  // حذف لیبل
+        }
+        if (isset($in['assignee_id']) && $in['assignee_id'] < 0 || isset($in['project_id']) && $in['project_id'] < 0 || isset($in['subject_id']) && $in['subject_id'] < 0) {
+            $this->fail('مقدار انتخاب‌شده معتبر نیست.');
+        }
+        $res = TaskService::bulk($this->uid(), $ids, $in);
+        $d = $res['data'] ?? [];
+        $this->respond($res['ok'], $res['message'], '/tasks', $d);
+    }
+
     public function status(string $id)
     {
         $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));

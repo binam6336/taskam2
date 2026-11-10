@@ -19,7 +19,7 @@ $overdue = !in_array($key, ['done', 'archived', 'review'], true) && $t['due_date
                 <?php if ($t['assignee_id']): ?>
                 <div class="kb-foot">
                     <?php $an = full_name($t, 'assignee_'); ?>
-                        <span class="kb-who"><span class="avatar xs"><?php if ($t['assignee_avatar']): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($t['assignee_avatar'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($an)) ?><?php endif; ?></span><span class="truncate"><?= e($an) ?></span></span>
+                        <span class="kb-who" title="مسئول: <?= e($an) ?>"><span class="avatar xs"><?php if ($t['assignee_avatar']): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($t['assignee_avatar'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($an)) ?><?php endif; ?></span><span class="truncate"><?= e($an) ?></span></span>
                 </div>
                 <?php endif; ?>
             </article>

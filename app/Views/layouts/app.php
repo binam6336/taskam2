@@ -45,6 +45,9 @@ $tbCols = array_slice($tbAll, 0, 4);
     <form method="post" action="<?= e(url('/admin/impersonate/exit')) ?>" data-no-nav data-imp-exit><?= csrf_field() ?><button class="btn btn-sm btn-primary"><i class="fa-solid fa-right-from-bracket"></i> پایان و بستن این پنجره</button></form>
 </div>
 <?php endif; ?>
+        <?php if (\App\Core\Auth::isReadOnly($u)): // v7.8: حساب غیرفعال = فقط مشاهده ?>
+        <div class="ro-bar" role="status"><i class="fa-solid fa-eye" aria-hidden="true"></i> <span>حساب شما <b>غیرفعال</b> است: همه‌چیز را می‌بینید ولی ثبت، ارسال پیام یا تغییر وضعیت ممکن نیست. برای فعال‌سازی با مدیر تماس بگیرید.</span></div>
+        <?php endif; ?>
         <header class="topbar">
             <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>

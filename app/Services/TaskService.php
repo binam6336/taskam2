@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Core\DB;
 use App\Core\Validate;
 use App\Models\NoteModel;
+use App\Models\ProjectModel;
 use App\Models\SubjectModel;
 use App\Models\TaskModel;
 
@@ -336,6 +337,100 @@ final class TaskService
             Notifier::taskAssigned($fresh, $actor, $pt);
         }
         return self::res(true, 'تسک به‌روزرسانی شد.', '', 200, $fresh);
+    }
+
+    /** سقف تسک‌های یک «تغییر گروهی» */
+    public const BULK_MAX = 100;
+
+    /** تسک‌های قابل‌دیدن کاربر از میان شناسه‌ها (مسدودشده‌ها کنار می‌روند) */
+    private static function bulkTasks(int $actor, array $ids): array
+    {
+        $out = [];
+        foreach (array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, self::BULK_MAX) as $id) {
+            $t = TaskModel::raw($id);
+            if ($t !== null && empty($t['blocked_at']) && Access::canTask($t, $actor, 'view')) {
+                $out[] = $t;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * گزینه‌های پنجره‌ی «تغییر گروهی» (v7.8): وضعیت بورد فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند؛
+     * مسئول = اعضای مشترک همه‌ی پروژه‌های تسک‌های انتخاب‌شده؛ لیبل‌ها و پروژه‌های خود کاربر.
+     */
+    public static function bulkOptions(int $actor, array $ids): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $pids = array_values(array_unique(array_map(static fn($t) => $t['project_id'] === null ? 0 : (int) $t['project_id'], $tasks)));
+        $statuses = null;
+        if (count($pids) === 1 && $pids[0] > 0) {
+            $statuses = [];
+            foreach (BoardConfig::statuses($pids[0]) as $k => $c) {
+                $statuses[] = ['key' => $k, 'label' => $c['label']];
+            }
+        }
+        $people = null;
+        foreach ($pids as $pid) {
+            $ids2 = $pid > 0 ? array_map('intval', array_column(TaskAnalytics::people($pid), 'id')) : [$actor];
+            $people = $people === null ? $ids2 : array_values(array_intersect($people, $ids2));
+        }
+        $assignees = $people ? DB::all('SELECT id, first_name, last_name FROM users WHERE id IN (' . DB::in($people) . ') ORDER BY first_name, last_name', $people) : [];
+        return self::res(true, '', '', 200, [
+            'count' => count($tasks),
+            'statuses' => $statuses,
+            'assignees' => array_map(static fn($u) => ['id' => pid('users', $u['id']), 'name' => full_name($u)], $assignees),
+            'labels' => array_map(static fn($l) => ['id' => pid('subjects', $l['id']), 'title' => $l['title'], 'color' => $l['color']], SubjectModel::forUser($actor)),
+            'projects' => array_map(static fn($p) => ['id' => pid('projects', $p['id']), 'title' => $p['title']], ProjectModel::forUser($actor)),
+        ]);
+    }
+
+    /**
+     * «تغییر گروهی» (v7.8): یک یا چند پارامتر برای همه‌ی تسک‌های انتخاب‌شده، هر تسک با همان قواعد و دسترسی‌های ویرایش تکی
+     * (update + BoardService::setStatus)؛ تسکی که اجازه ندارد رد می‌شود و بقیه انجام می‌شوند.
+     * $in: priority | assignee_id | subject_id (0 = حذف لیبل) | project_id | due_date (+ due_time) | clear_due | status
+     */
+    public static function bulk(int $actor, array $ids, array $in): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $fields = [];
+        foreach (['priority', 'assignee_id', 'subject_id', 'project_id'] as $k) {
+            if (array_key_exists($k, $in) && (string) $in[$k] !== '') {
+                $fields[$k] = $in[$k];
+            }
+        }
+        if (!empty($in['clear_due'])) {
+            $fields['due_date'] = '';
+        } elseif (!empty($in['due_date'])) {
+            $fields['due_date'] = (string) $in['due_date'];
+            $fields['due_time'] = (string) ($in['due_time'] ?? '');
+        }
+        $status = trim((string) ($in['status'] ?? ''));
+        if (!$fields && $status === '') {
+            return self::err('هیچ موردی برای تغییر انتخاب نشده است.', 'BULK_NOTHING');
+        }
+        $ok = 0;
+        $fails = [];
+        foreach ($tasks as $t) {
+            $id = (int) $t['id'];
+            $r = $fields ? self::update($actor, $id, $fields) : ['ok' => true];
+            if ($r['ok'] && $status !== '' && BoardService::statusOf(TaskModel::raw($id) ?? $t) !== $status) {
+                $r = BoardService::setStatus($actor, $id, $status);
+            }
+            if ($r['ok']) {
+                $ok++;
+            } else {
+                $fails[] = ['id' => pid('tasks', $id), 'title' => (string) $t['title'], 'message' => (string) $r['message']];
+            }
+        }
+        $msg = fa_num($ok) . ' تسک به‌روزرسانی شد.' . ($fails ? ' ' . fa_num(count($fails)) . ' تسک تغییر نکرد.' : '');
+        return self::res($ok > 0, $ok > 0 ? $msg : 'هیچ تسکی تغییر نکرد: ' . ($fails[0]['message'] ?? ''), $ok > 0 ? '' : 'BULK_FAILED', $ok > 0 ? 200 : 422, ['updated' => $ok, 'failed' => $fails]);
     }
 
     public static function toggle(int $actor, int $id): array

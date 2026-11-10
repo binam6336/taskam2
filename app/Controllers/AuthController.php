@@ -156,7 +156,7 @@ final class AuthController extends Controller
     public function pending()
     {
         $u = $this->user();
-        if ($u['status'] === 'active') {
+        if ($u['status'] === 'active' || $u['status'] === 'deactivated') {
             $this->redirect('/');
         }
         $this->view('auth/pending', ['status' => $u['status']], ['title' => 'وضعیت حساب'], 'auth');
@@ -177,6 +177,6 @@ final class AuthController extends Controller
         if ($u['role'] === 'admin' && $u['status'] === 'active' && !Auth::isImpersonating()) {
             $this->redirect('/admin');
         }
-        $this->redirect($u['status'] === 'active' ? '/dashboard' : '/pending');
+        $this->redirect(in_array($u['status'], ['active', 'deactivated'], true) ? '/dashboard' : '/pending');
     }
 }

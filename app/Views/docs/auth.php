@@ -47,11 +47,10 @@ $bad = static fn(string $m, string $c) => ['success' => false, 'status' => 'erro
     <div><div class="muted small mb-1"><span class="badge yellow">403</span> حساب صاحب توکن فعال نیست</div><?= D::codeBox(D::pretty($bad('حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE'))) ?></div>
 </div>
 
-<h2 class="dx-h">۵) آزمایش توکن</h2>
+<h2 class="dx-h">۵) آزمایش توکن و endpointها</h2>
 <div class="card flat">
-    <p class="small muted">توکن را وارد کنید تا با <code>GET /me</code> بررسی شود (توکن فقط در حافظه‌ی همین تب می‌ماند).</p>
-    <div class="flex gap-1"><input class="input ltr" id="tok-input" type="password" placeholder="<?= e(ph('docs_auth_token')) ?>" autocomplete="off"><button class="btn btn-primary" id="tok-test"><i class="fa-solid fa-plug-circle-check"></i> آزمایش</button></div>
-    <div class="mt-1" id="tok-out" hidden><div class="small muted mb-1">وضعیت: <span class="badge" id="tok-status"></span></div><?= '<div class="codebox"><pre class="code" id="tok-pre"></pre></div>' ?></div>
+    <p class="small muted">برای امتحان توکن و همه‌ی endpointها به <b>تست API</b> بروید: توکن خود را وارد کنید (یا با موبایل و رمز پنل یک توکن موقت بسازید) و هر درخواست را همان‌جا بفرستید.</p>
+    <a class="btn btn-primary" href="<?= e(url('/docs/swagger')) ?>"><i class="fa-solid fa-flask"></i> ورود به تست API (Swagger)</a>
 </div>
 
 <h2 class="dx-h">نکات امنیتی</h2>

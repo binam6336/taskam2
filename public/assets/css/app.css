@@ -2408,6 +2408,8 @@ html[data-mode="light"] .app { background: radial-gradient(560px 380px at 8% 420
 .sb-it[aria-expanded="true"] { background: var(--tint); }
 html[data-mode="light"] .sb-badge { color: var(--main-ink); }
 .sb-it[aria-current="page"] .sb-badge { background: rgba(255, 255, 255, .25); color: #fff; }
+/* v7.8: نشان تعداد روی آیتم فعال پنجره‌ی گروه (زمینه‌ی گرادیان تم) — قرص سفید با متن رنگ تم تا در همه‌ی تم‌ها خوانا باشد */
+.sb-pop-a.active .sb-badge, html[data-mode="light"] .sb-pop-a.active .sb-badge { background: #fff; color: var(--main-ink, var(--g-700)); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
 .sb-foot { border-top: 1px solid var(--border); margin: 0 10px; padding: 10px 0; }
 .sb-pop-hic { background: var(--nav-grad); }
 .sb-pop-a.active { background: var(--nav-grad); }
@@ -2720,3 +2722,79 @@ p .ac-def { position: static; }
 .an-sub { display: block; font-size: .72rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
 .an-orphan td { background: var(--surface-2); }
 .an-n { font-size: .7rem; color: var(--muted); white-space: nowrap; }
+
+/* v7.8: نوار «حساب غیرفعال (فقط مشاهده)» */
+.ro-bar { display: flex; align-items: center; gap: .6rem; margin: 0 0 12px; padding: 10px 14px; border-radius: 14px; background: var(--warn-bg, rgba(251, 191, 36, .14)); color: var(--text); border: 1px solid rgba(217, 119, 6, .35); font-size: .85rem; }
+.ro-bar i { color: #d97706; }
+
+/* v7.8: انیمیشن جمع/باز شدن سایدبار (app.js → sbRailToggle: کلاس‌های sb-anim و sb-fade) */
+@media (min-width: 961px) {
+  html.sb-anim .sidebar { transition: width .28s cubic-bezier(.4, 0, .2, 1), transform .25s ease; }
+  html.sb-anim .main { transition: margin .28s cubic-bezier(.4, 0, .2, 1); }
+  html.sb-anim .sidebar { overflow: hidden; }
+  html.sb-anim .sb-it, html.sb-anim .sb-top, html.sb-anim .sb-me { white-space: nowrap; }
+  .sb-lbl, .sb-chev, .sb-me-t, .sb-brand-t, .sb-hint { transition: opacity .16s ease; }
+  html.sb-fade .sb-lbl, html.sb-fade .sb-chev, html.sb-fade .sb-me-t, html.sb-fade .sb-brand-t, html.sb-fade .sb-hint, html.sb-fade .sb-badge { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { html.sb-anim .sidebar, html.sb-anim .main { transition: none; } }
+
+/* v7.8: پنجره‌ی پیشرفت آپلود (TK.upload) */
+.up-pop { position: fixed; inset-inline: 0; bottom: 24px; z-index: 300; display: flex; justify-content: center; pointer-events: none; animation: up-in .2s ease; }
+.up-pop.out { opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; }
+.up-pop-in { pointer-events: auto; width: min(380px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border-2, var(--border)); box-shadow: 0 18px 48px -12px rgba(var(--shade-rgb, 0, 0, 0), .35); color: var(--text); }
+.up-pop-h { display: flex; align-items: center; gap: .55rem; }
+.up-pop-h i { color: var(--main-ink, var(--g-600)); }
+.up-pop-h b { flex: 1; font-size: .9rem; }
+.up-pop-pc { font-weight: 800; color: var(--main-ink, var(--g-600)); font-variant-numeric: tabular-nums; }
+.up-pop-name { margin: 4px 0 10px; font-size: .75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: right; }
+.up-pop-bar { height: 8px; border-radius: 8px; background: var(--surface-3); overflow: hidden; }
+.up-pop-bar > div { width: 0; height: 100%; border-radius: 8px; background: var(--nav-grad, var(--g-600)); transition: width .2s; }
+.up-pop-f { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 10px; font-size: .75rem; color: var(--muted); }
+@keyframes up-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* v7.8: تغییر گروهی (modules/bulk.js) */
+.bulk-bar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; justify-content: center; padding: 10px 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border-2, var(--border)); box-shadow: 0 18px 48px -12px rgba(var(--shade-rgb, 0, 0, 0), .4); max-width: calc(100vw - 24px); }
+body:has(.modal.open) .bulk-bar, .bulk-bar[hidden] { display: none; }
+.bulk-n { font-size: .85rem; margin-inline-end: .4rem; }
+.bulk-n b { color: var(--main-ink, var(--g-600)); font-size: 1rem; }
+html.bulk-on .item[id^="task-"], html.bulk-on .kb-card[data-id] { cursor: pointer; position: relative; user-select: none; }
+html.bulk-on .item[id^="task-"] { padding-inline-start: 46px; }
+html.bulk-on .kb-card[data-id] { padding-inline-start: 38px; }
+.bulk-ck { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--border-2, var(--border)); background: var(--surface); display: grid; place-items: center; color: transparent; font-size: 12px; transition: background .15s, border-color .15s; z-index: 2; }
+.kb-card > .bulk-ck { top: 14px; transform: none; inset-inline-start: 10px; }
+.bulk-sel > .bulk-ck { background: var(--main, var(--g-600)); border-color: var(--main, var(--g-600)); color: #fff; }
+html.bulk-on .bulk-sel { outline: 2px solid var(--main, var(--g-600)); outline-offset: -2px; }
+html.bulk-on .item[id^="task-"] .tick, html.bulk-on .item-actions, html.bulk-on .kb-handle { pointer-events: none; opacity: .45; }
+[data-bulk-toggle][aria-pressed="true"] { background: var(--nav-grad, var(--g-600)); color: #fff; border-color: transparent; }
+.bulk-fails { margin-top: .8rem; padding: 10px 12px; border-radius: 12px; background: var(--danger-bg, rgba(248, 113, 113, .12)); font-size: .8rem; }
+.bulk-fails ul { margin: .4rem 0 0; padding-inline-start: 1.1rem; }
+.bulk-fails li small { display: block; color: var(--muted); }
+
+/* ═══ v7.8: پوسته‌ی بورد کانبان شبیه Jira — ستون‌های خاکستری روشن، سرستون کوچک با تعداد، کارت‌های سفید تخت با سایه‌ی ظریف،
+   برچسب‌های رنگی و آواتار مسئول در انتهای کارت. فقط ظاهر؛ دکمه‌ی جابه‌جایی و همه‌ی گزینه‌ها همان است. ═══ */
+.kb-board { --kb-col-bg: color-mix(in srgb, var(--text) 4%, var(--surface)); --kb-card-bg: var(--surface); --kb-card-sh: 0 1px 1px rgba(9, 30, 66, .22), 0 0 1px rgba(9, 30, 66, .28); gap: 10px; }
+html[data-mode="dark"] .kb-board { --kb-col-bg: color-mix(in srgb, #fff 3%, var(--surface-0, var(--bg))); --kb-card-bg: color-mix(in srgb, #fff 6%, var(--surface)); --kb-card-sh: 0 1px 2px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .05); }
+.kb-board .kb-col { background: var(--kb-col-bg); border: 0; border-radius: 8px; box-shadow: none; }
+.kb-board .kb-col.kb-over { background: color-mix(in srgb, var(--tone) 10%, var(--kb-col-bg)); box-shadow: inset 0 0 0 2px var(--tone); }
+.kb-board .kb-col-head { border-bottom: 0; padding: .7rem .8rem .35rem; gap: .45rem; }
+.kb-board .kb-col-head > i { font-size: .78rem; opacity: .85; }
+.kb-board .kb-col-head b { font-size: .74rem; font-weight: 700; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+.kb-board .kb-col-head span:not(.kb-count) { display: none; }
+.kb-board .kb-count { min-width: 0; height: auto; padding: 0; background: none; border: 0; color: var(--muted); font-size: .74rem; font-weight: 600; }
+.kb-board .kb-col[data-col="done"] .kb-col-head b::after { content: " ✓"; color: #22a06b; }
+.kb-board .kb-list { gap: 6px; padding: .35rem .5rem .6rem; }
+.kb-board .kb-card { background: var(--kb-card-bg); border: 0; border-radius: 6px; box-shadow: var(--kb-card-sh); padding: .7rem .75rem .6rem; transition: background .12s, box-shadow .12s; }
+.kb-board .kb-card:hover { background: color-mix(in srgb, var(--text) 3%, var(--kb-card-bg)); border-color: transparent; }
+.kb-board .kb-card.p-high, .kb-board .kb-card.p-medium, .kb-board .kb-card.p-low { border-inline-start: 0; }
+.kb-board .kb-title { font-weight: 500; font-size: .875rem; line-height: 1.55; }
+.kb-board .kb-title:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.kb-board .kb-meta { gap: .3rem .45rem; margin-top: .55rem; font-size: .72rem; }
+.kb-board .kb-meta > span:not(.badge) { padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.kb-board .kb-meta .badge { border-radius: 4px; font-size: .68rem; font-weight: 700; padding: 1px 6px; text-transform: uppercase; }
+.kb-board .kb-meta .prio-high { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.kb-board .kb-foot { justify-content: flex-end; margin-top: .45rem; }
+.kb-board .kb-who .truncate { display: none; }
+.kb-board .kb-who .avatar.xs { width: 24px; height: 24px; font-size: .68rem; }
+.kb-board .kb-handle { width: 26px; height: 26px; border-radius: 4px; background: transparent; border: 0; color: var(--faint); }
+.kb-board .kb-handle:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.kb-board .kb-col.kb-collapsed .kb-col-head { padding-bottom: .7rem; }
