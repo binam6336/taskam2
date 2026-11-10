@@ -1,15 +1,17 @@
 document.addEventListener('tk:ready', () => {
   const a = TK.boot().analytics; if (!a) return;
-  TK.charts.line(TK.qs('#ch-trend'), { labels: a.trend.labels, series: [{ name: 'ایجادشده', data: a.trend.created, color: '#60a5fa' }, { name: 'انجام‌شده', data: a.trend.done, color: TK.charts.colors[0] }] });
-  TK.charts.donut(TK.qs('#ch-prio'), { items: [{ label: 'زیاد', value: a.totals.high, color: '#f87171' }, { label: 'متوسط', value: a.totals.medium, color: '#fbbf24' }, { label: 'کم', value: a.totals.low, color: TK.charts.colors[0] }], center: TK.fa(a.totals.total) });
-  if (a.subjects?.length) TK.charts.donut(TK.qs('#ch-subjects'), { items: a.subjects.map((s) => ({ label: s.label, value: s.value, color: s.color })), center: '<div>' + TK.fa(a.label_count ?? a.subjects.length) + '<div class="donut-l">لیبل</div></div>', showPct: true });
+  TK.charts.line(TK.qs('#ch-trend'), { labels: a.trend.labels, series: [{ name: 'ثبت‌شده', data: a.trend.created, color: '#3b82f6' }, { name: 'تحویل‌شده', data: a.trend.done, color: TK.charts.colors[0] }], empty: 'در ۱۴ روز اخیر تسکی ثبت یا تحویل نشده است' });
+  TK.charts.donut(TK.qs('#ch-prio'), { items: [{ label: 'زیاد', value: a.totals.high, color: '#f87171' }, { label: 'متوسط', value: a.totals.medium, color: '#fbbf24' }, { label: 'کم', value: a.totals.low, color: TK.charts.colors[0] }], center: TK.fa(a.totals.total), empty: 'هنوز تسکی در این پروژه ثبت نشده است' });
+  if (a.subjects?.length) TK.charts.donut(TK.qs('#ch-subjects'), { items: a.subjects.map((s) => ({ label: s.label, value: s.value, color: s.color, pct: s.pct })), center: '<div>' + TK.fa(a.label_count ?? a.subjects.length) + '<div class="donut-l">لیبل</div></div>', showPct: true });
 
   /* ───── مقایسه‌ی سرعت ───── */
-  // پالت متمایز (سبز، آبی، نارنجی، صورتی، بنفش روشن) تا خط‌ها روی زمینه‌ی تیره با هم اشتباه نشوند
-  const SC = [TK.charts.colors[0], '#38bdf8', '#fb923c', '#f472b6', '#facc15'];
+  // پالت متمایز با کنتراست کافی در تم روشن و تیره (DATA-013: زرد کم‌رنگ حذف شد)
+  const SC = [TK.charts.colors[0], '#0ea5e9', '#f97316', '#db2777', '#8b5cf6'];
   const st = { range: a.speed.range, metric: a.speed.metric };
   const draw = (d) => TK.charts.line(TK.qs('#ch-speed'), {
-    labels: d.labels, height: 240, max: d.metric === 'score' ? 100 : null, connect: true,
+    // DATA-013: بدون connect؛ بازه‌ی بی‌تحویل جای خالی در خط است (نه روند ساختگی)
+    labels: d.labels, height: 240, max: d.metric === 'score' ? 100 : null, connect: false, emptyZero: d.metric === 'count',
+    empty: 'در این بازه هیچ‌کدام از اعضای انتخاب‌شده تسکی تحویل نداده‌اند',
     series: d.series.map((s, i) => ({ name: s.name, data: s.data, color: SC[i % SC.length] })),
   });
   const box = TK.qs('#sp-people');

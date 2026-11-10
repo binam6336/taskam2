@@ -57,7 +57,8 @@ $this->scripts[] = 'projects';
 <?php else: ?>
 <div class="grid grid-auto">
 <?php foreach ($projects as $p):
-    $pct = (int) $p['tasks_count'] > 0 ? (int) round($p['tasks_done'] / $p['tasks_count'] * 100) : 0; ?>
+    // DATA-003 (v7.7): نوار دوبخشی = تأییدشده + منتظر تأیید (تحویل‌شده)؛ عدد همان تعریف خلاصه‌ی تحلیل پروژه
+    [$pct, $pctW] = (int) $p['tasks_count'] > 0 ? array_values(\App\Services\TaskAnalytics::percents(['d' => (int) $p['tasks_done'], 'w' => (int) $p['tasks_review'], 'o' => max(0, (int) $p['tasks_count'] - (int) $p['tasks_done'] - (int) $p['tasks_review'])])) : [0, 0]; ?>
     <div class="card hover" id="proj-<?= e(pid('projects', $p)) ?>">
         <div class="flex items-center gap-2 mb-1 proj-head">
             <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج) در منوی ⋮ گوشه‌ی کارت ?>
@@ -77,8 +78,9 @@ $this->scripts[] = 'projects';
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
         </div>
         <?php if ($p['description']): ?><p class="muted small proj-desc" title="<?= e($p['description']) ?>"><?= e($p['description']) ?></p><?php endif; ?>
-        <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span><?= e(fa_num($p['tasks_done'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تسک</span></div>
-        <div class="progress mb-2"><div data-css="width:<?= $pct ?>%"></div></div>
+        <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span title="تأییدشده + منتظر تأیید سرپرست، از کل تسک‌ها"><?= e(fa_num((int) $p['tasks_done'] + (int) $p['tasks_review'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تحویل‌شده</span></div>
+        <div class="progress dual mb-1" role="img" aria-label="<?= e('تأییدشده ' . fa_num($pct) . '٪، منتظر تأیید ' . fa_num($pctW) . '٪') ?>"><div data-css="width:<?= $pct ?>%"></div><div class="p-wait" data-css="width:<?= $pctW ?>%"></div></div>
+        <div class="proj-prog-l mb-2"><span><i></i>تأییدشده <?= e(fa_num($p['tasks_done'])) ?></span><span><i class="w"></i>منتظر تأیید <?= e(fa_num($p['tasks_review'])) ?></span></div>
         <div class="flex gap-1 wrap">
             <button class="btn btn-sm" data-project="<?= e(pid('projects', $p)) ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
             <a class="btn btn-sm" href="<?= e(url('/board?project=' . pid('projects', $p))) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>

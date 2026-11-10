@@ -4,6 +4,7 @@ $s = $d['stats'];
 $this->boot['d'] = ['stats' => $s, 'trend' => $d['trend'], 'prio_open' => $d['prio_open']];
 $this->scripts[] = 'dashboard';
 $time = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['a']) : '—';
+$med = static fn(array $t) => !empty($t['c']) ? duration_fa((float) $t['med']) : '—';
 $nToday = $focus['today_count'];
 $nLate = $focus['overdue_count'];
 if ($nToday && $nLate) {
@@ -207,21 +208,24 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 <?php endif; ?>
 <div class="grid grid-4 mb-2">
     <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=all')) ?>" title="نمایش همه‌ی تسک‌های من"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num($s['total'])) ?></div><div class="lbl">کل تسک‌های من</div></div></a>
-    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=done')) ?>" title="نمایش تسک‌های انجام‌شده"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num($s['completed'])) ?></div><div class="lbl">انجام‌شده</div></div></a>
-    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="نمایش تسک‌های در جریان"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num($s['pending'])) ?></div><div class="lbl">در جریان</div></div></a>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=done')) ?>" title="تسک‌هایی که سرپرست تأیید و بسته است"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div><div class="num"><?= e(fa_num($s['completed'])) ?></div><div class="lbl">تأییدشده</div></div></a>
+    <?php // DATA-003 (v7.7): «در جریان» = هنوز تحویل نشده؛ تحویل‌شده‌های منتظر تأیید جدا (مثل فهرست تسک‌ها) ?>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="تسک‌هایی که هنوز تحویل نداده‌ام (منتظر تأیید سرپرست جدا شمرده می‌شود)"><div class="ico warn"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="num"><?= e(fa_num($s['pending'])) ?></div><div class="lbl">در جریان (تحویل‌نشده)</div><?php if ($s['waiting'] > 0): ?><div class="xs faint">+ <?= e(fa_num($s['waiting'])) ?> منتظر تأیید سرپرست</div><?php endif; ?></div></a>
     <?php // فقط تسک‌های باز با اولویت زیاد (v5.4؛ قبلاً انجام‌شده‌ها هم شمرده می‌شد) و لینک به همان فهرست فیلترشده ?>
-    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open&prio=high')) ?>" title="نمایش تسک‌های باز (در جریان) با اولویت زیاد"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($d['prio_open']['high'])) ?></div><div class="lbl">اولویت زیاد (باز)</div></div></a>
+    <a class="card stat" href="<?= e(url('/tasks?scope=mine&status=open&prio=high')) ?>" title="تسک‌های در جریان (تحویل‌نشده) با اولویت زیاد"><div class="ico danger"><i class="fa-solid fa-fire"></i></div><div><div class="num"><?= e(fa_num($d['prio_open']['high'])) ?></div><div class="lbl">اولویت زیاد (در جریان)</div></div></a>
 </div>
 
 <div class="grid grid-wide mb-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> روند ۷ روز اخیر</h3></div><div class="chart" id="ch-trend"></div></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3></div>
+    <?php // DATA-017: عنوان/زیرعنوان دقیق هر نمودار ?>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> تسک‌های تازه‌ی واگذارشده به من</h3><span class="xs faint">۷ روز اخیر، بر اساس روز ثبت</span></div><div class="chart" id="ch-trend"></div>
+        <p class="hint">تعداد تسک‌هایی که هر روز ثبت شده و مسئولش من هستم (بار کاری تازه، نه کار انجام‌شده).</p></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullseye"></i> نرخ تکمیل</h3><span class="xs faint">تسک‌هایی که مسئولشان من هستم</span></div>
         <div id="ch-ratio"></div>
         <?php if ($d['top_subject'] !== null): // فقط وقتی دست‌کم یک تسک لیبل دارد ?><div class="mt-2 small muted center">پرتکرارترین لیبل: <b class="dc-13fd80 text-green"><?= e($d['top_subject']) ?></b> · <?= e(fa_num($d['top_subject_count'])) ?> تسک</div><?php endif; ?></div>
 </div>
 
 <div class="grid grid-3 mb-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> اولویت تسک‌های باز</h3></div><div class="chart" id="ch-prio"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-flag"></i> اولویت تسک‌های در جریان</h3><span class="xs faint">تحویل‌نشده</span></div><div class="chart" id="ch-prio"></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-people-arrows"></i> گردش کار</h3></div>
         <div class="list">
             <?php // «باز از کل»؛ هر ردیف به فهرست فیلترشده‌ی خودش می‌رود ?>
@@ -229,10 +233,14 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
             <a class="flex between dash-flow-row" href="<?= e(url('/tasks?scope=mine&status=open')) ?>" title="وظایف باز من"><span class="muted">واگذارشده به من از دیگران</span><b><?= e(fa_num($d['to_me_open'])) ?> باز <span class="faint xs">از <?= e(fa_num($d['to_me'])) ?></span></b></a>
             <a class="flex between dash-flow-row" href="<?= e(url('/notes')) ?>"><span class="muted">یادداشت‌ها</span><b><?= e(fa_num($d['texts'])) ?></b></a>
         </div></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> میانگین زمان انجام</h3></div>
+    <?php // DATA-004: همان تعریف تحلیل پروژه = ایجاد تا تحویل، فقط تسک‌هایی که مسئولشان من هستم؛ با میانه و تعداد نمونه ?>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> میانگین زمان انجام</h3><span class="xs faint">از ثبت تا تحویل</span></div>
         <div class="list">
-            <div class="flex between"><span class="muted"><i class="fa-solid fa-list-check"></i> تسک</span><b><?= e($time($d['task_time'])) ?></b></div>
-        </div></div>
+            <div class="flex between"><span class="muted">میانگین</span><b><?= e($time($d['task_time'])) ?></b></div>
+            <div class="flex between"><span class="muted">میانه</span><b><?= e($med($d['task_time'])) ?></b></div>
+            <div class="flex between"><span class="muted">تعداد تسک</span><b><?= e(fa_num((int) $d['task_time']['c'])) ?></b></div>
+        </div>
+        <p class="hint">فقط تسک‌هایی که مسئولشان من هستم و تحویل داده‌ام (منتظر تأیید یا تأییدشده)؛ زمان انتظار تأیید سرپرست حساب نمی‌شود.</p></div>
 </div>
 
 <div>

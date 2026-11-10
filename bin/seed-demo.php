@@ -318,6 +318,16 @@ for ($n = 0; $n < $taskCount; $n++) {
         'completed_at' => $isDone ? $ts($approved) : null, 'delivered_at' => $deliveredAt ? $ts($deliveredAt) : null, 'delivered_by' => $deliveredBy,
         'approved_by' => $isDone ? $reviewer : null,
     ]);
+    // v7.7: اولین تحویل و تعداد برگشت برای اصلاح (KPI) از همان تاریخچه
+    $firstDel = null;
+    $reworks = 0;
+    foreach ($past as [$et, , $to]) {
+        if (($to === 'review' || $to === 'done') && $firstDel === null) {
+            $firstDel = $et;
+        }
+        $reworks += $to === 'rework' ? 1 : 0;
+    }
+    DB::run('UPDATE tasks SET first_delivered_at = ?, rework_count = ? WHERE id = ?', [$firstDel !== null ? $ts($firstDel) : ($deliveredAt ? $ts($deliveredAt) : null), $reworks, $tid]);
     // تاریخچه
     DB::insert('task_events', ['task_id' => $tid, 'user_id' => $creator, 'type' => 'created', 'data' => json_encode(['title' => $title], JSON_UNESCAPED_UNICODE), 'created_at' => $ts($created)]);
     foreach ($past as [$et, $from, $to, $by, $why]) {

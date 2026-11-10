@@ -8,13 +8,14 @@ $card = static fn(string $ico, string $cls, $num, string $lbl, ?string $href = n
     . '<div class="ico ' . $cls . '"><i class="fa-solid ' . $ico . '"></i></div><div><div class="num">' . e(fa_num($num)) . '</div><div class="lbl">' . e($lbl) . '</div></div>' . ($href ? '</a>' : '</div>');
 ?>
 <div class="grid grid-4 mb-2">
-    <?= $card('fa-users', '', $u['total'], 'کاربران') ?><?= $card('fa-list-check', 'info', $t['total'], 'تسک‌ها', '/admin/list/tasks') ?><?= $card('fa-headset', 'warn', $m['support_open'], 'تیکت پشتیبانی باز', '/admin/support') ?>
+    <?= $card('fa-users', '', $u['total'], 'کاربران') ?><?= $card('fa-list-check', 'info', $t['total'], 'تسک‌ها (فعال)', '/admin/list/tasks') ?><?= $card('fa-headset', 'warn', $m['support_open'], 'تیکت پشتیبانی باز', '/admin/support') ?>
     <?= $card('fa-diagram-project', '', $m['projects'], 'پروژه‌ها', '/admin/list/projects') ?><?= $card('fa-comments', 'info', $m['messages'], 'پیام‌های چت') ?><?= $card('fa-note-sticky', '', $m['texts'], 'یادداشت‌ها') ?><?= $card('fa-key', 'warn', $m['tokens'], 'توکن فعال') ?>
 </div>
-<div class="grid grid-wide mb-2"><div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> فعالیت ۱۴ روز اخیر</h3></div><div class="chart" id="ch-days"></div></div>
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> وضعیت تسک‌ها</h3></div><div id="ch-tasks"></div></div></div>
+<div class="grid grid-wide mb-2"><div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> فعالیت ۱۴ روز اخیر</h3><span class="xs faint">تسک‌ها و کاربران تازه‌ثبت‌شده در هر روز</span></div><div class="chart" id="ch-days"></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> وضعیت تسک‌ها</h3><span class="xs faint">بدون مسدودها و پروژه‌های نمونه</span></div><div id="ch-tasks"></div>
+        <?php if ($t['blocked'] > 0): ?><p class="small muted center mt-1"><i class="fa-solid fa-ban" aria-hidden="true"></i> <?= e(fa_num($t['blocked'])) ?> تسک مسدودشده (جدا، در هیچ عددی شمرده نشده)</p><?php endif; ?></div></div>
 <div class="grid grid-3 mb-2">
-    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-trophy"></i> فعال‌ترین کاربران</h3></div><div class="list"><?php foreach ($topUsers as $x): ?><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($x), 'src' => avatar_url($x['avatar']), 'size' => 'sm']); ?><span class="grow truncate"><?= e(full_name($x)) ?></span><span class="badge green"><?= e(fa_num($x['done'])) ?>/<?= e(fa_num($x['cnt'])) ?></span></div><?php endforeach; ?></div></div>
+    <div class="card"><div class="card-head"><h3><i class="fa-solid fa-trophy"></i> فعال‌ترین کاربران</h3><span class="xs faint">تأییدشده / کل</span></div><div class="list"><?php foreach ($topUsers as $x): ?><div class="flex items-center gap-1"><?php $this->partial('avatar', ['name' => full_name($x), 'src' => avatar_url($x['avatar']), 'size' => 'sm']); ?><span class="grow truncate"><?= e(full_name($x)) ?></span><span class="badge green"><?= e(fa_num($x['done'])) ?>/<?= e(fa_num($x['cnt'])) ?></span></div><?php endforeach; ?></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-diagram-project"></i> پروژه‌های برتر</h3></div><div class="list"><?php foreach ($topProjects as $x): ?><div class="flex between"><span class="truncate"><?= e($x['title']) ?></span><span class="small muted"><?= e(fa_num($x['tasks'])) ?> تسک • <?= e(fa_num($x['members'])) ?> عضو</span></div><?php endforeach; ?></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> لیبل‌های پرتکرار</h3></div><div class="chart" id="ch-subj"></div></div>
 </div>

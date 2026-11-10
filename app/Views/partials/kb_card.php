@@ -1,6 +1,6 @@
 <?php
 /** کارت بورد پروژه (v6.1). جابه‌جایی فقط با دکمه‌ی «جابه‌جایی» (کشیدن یا کلیک ← منوی انتقال)؛ کشیدن بقیه‌ی کارت = اسکرول افقی بورد. @var array $t @var string $key @var array $filters */
-$overdue = !in_array($key, ['done', 'archived'], true) && $t['due_date'] && $t['due_date'] < date('Y-m-d');   // عقب‌افتاده = روزهای قبل
+$overdue = !in_array($key, ['done', 'archived', 'review'], true) && $t['due_date'] && $t['due_date'] < date('Y-m-d');   // عقب‌افتاده = روزهای قبل و هنوز تحویل نشده (v7.7)
 ?>
             <article class="kb-card p-<?= e($t['priority']) ?><?= $t['is_focus'] ? ' kb-focus' : '' ?><?= !empty($t['is_confidential']) ? ' kb-secret' : '' ?>" id="kb-task-<?= e(pid('tasks', $t)) ?>" data-id="<?= e(pid('tasks', $t)) ?>" data-status="<?= e($key) ?>" data-moves="<?= e(implode(' ', $t['moves'])) ?>">
                 <?php if ($t['is_focus']): ?><div class="kb-focus-tag" title="تسک انتخاب‌شده" aria-label="تسک انتخاب‌شده"><i class="fa-solid fa-location-crosshairs"></i></div><?php endif; ?>

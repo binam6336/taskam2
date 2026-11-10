@@ -133,6 +133,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/requests/{projreq}/respond', [ProjectController::class, 'respondRequest']);
     $r->get('/projects/{project}/analytics', [ProjectController::class, 'analytics']);
     $r->get('/projects/{project}/analytics/speed', [ProjectController::class, 'speed']);
+    $r->get('/projects/{project}/analytics/export', [ProjectController::class, 'analyticsExport']);
     $r->post('/projects/{project}/update', [ProjectController::class, 'update']);
     $r->post('/projects/{project}/leave', [ProjectController::class, 'leave']);
     $r->post('/projects/{project}/block', [ProjectController::class, 'block']);

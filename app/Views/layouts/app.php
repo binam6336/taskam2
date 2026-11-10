@@ -9,6 +9,7 @@ $menu = \App\Models\SidebarModel::nav(); // چیدمان از «محتوا ← �
 $badges = array_fill_keys(['tasks', 'colleagues', 'projects', 'chat', 'support'], 0);
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => pid('users', $u)];
+$this->boot['clock'] = ['now' => time(), 'tz' => (int) date('Z')];   // v7.7: «امروز» در JS = تاریخ سرور (TK.jalali.now)
 // تور آموزشی: تا وقتی کاربر رد یا تمامش نکرده (NULL = هنوز پرسیده نشده)
 $tour = array_key_exists('tour', $u) ? $u['tour'] : 'done';
 if (($_GET['tour'] ?? '') === 'start') {

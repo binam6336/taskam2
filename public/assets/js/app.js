@@ -620,12 +620,24 @@
     const sm = summary && summary.length > 320 ? summary.slice(0, 320) + '…' : summary;
     return TK.esc(sm ? `${t}: ${sm}` : t);
   };
+  // حالت «بدون داده» (DATA-015 v7.7): به‌جای نمودار صفر، پیام صریح (و همان متن برای صفحه‌خوان)
+  const emptyChart = (el, msg) => { el.innerHTML = `<div class="chart-empty" role="img" aria-label="${TK.esc(msg)}"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><span>${TK.esc(msg)}</span></div>`; };
+  // درصد با جمع دقیق ۱۰۰ (بزرگ‌ترین باقی‌مانده؛ همان TaskAnalytics::percents سمت سرور، DATA-014)
+  const percents = (vals) => {
+    const tot = vals.reduce((a, b) => a + b, 0); if (!tot) return vals.map(() => 0);
+    const raw = vals.map((v) => (v / tot) * 100), out = raw.map(Math.floor);
+    raw.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, 100 - out.reduce((a, b) => a + b, 0)).forEach(([, i]) => { out[i]++; });
+    return out;
+  };
   TK.charts = {
     colors: C,
+    percents,
     /** نمودار خطی؛ مقدار null = بدون داده (خط قطع می‌شود). با هاور روی هر ستون، مقادیر آن نقطه نمایش داده می‌شود. */
     // connect: نقاط هر سری با خط به هم وصل شوند حتی اگر بینشان داده نباشد (مقایسه‌ی سرعت اعضا)
-    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '', connect = false, label = '' }) {
+    line(el, { labels, series, height = 220, max: fixedMax = null, suffix = '', connect = false, label = '', empty = 'هنوز داده‌ای برای این نمودار نیست', emptyZero = true }) {
       if (!el) return;
+      const anyVal = series.some((s) => s.data.some((v) => v !== null && v !== undefined && (!emptyZero || v !== 0)));
+      if (!series.length || !anyVal) { emptyChart(el, empty); return; }
       // عرض viewBox = عرض واقعی نمودار تا متن‌ها با اندازه‌ی واقعی (نه کوچک‌شده) دیده شوند
       const W = Math.max(300, Math.round(el.clientWidth || 640)), H = height, p = { l: 38, r: 14, t: 14, b: 30 };
       const vals = series.flatMap((s) => s.data).filter((v) => v !== null && v !== undefined);
@@ -665,7 +677,7 @@
       const bw = (W - p.l - p.r) / Math.max(1, n - 1);
       g += `<line class="hover-line" x1="0" x2="0" y1="${p.t}" y2="${H - p.b}" data-css="display:none"/>`;
       labels.forEach((l, i) => { const x0 = Math.max(0, x(i) - bw / 2), x1 = Math.min(W, x(i) + bw / 2); g += `<rect class="hz" data-i="${i}" x="${x0}" y="0" width="${x1 - x0}" height="${H - p.b}" fill="transparent"/>`; });
-      const nm = chartName(el, label, series.map((s) => `${s.name} ${(s.data || []).map((v, i) => (labels[i] ? labels[i] + ' ' : '') + TK.fa(v ?? 0)).join('، ')}`).join(' — '));
+      const nm = chartName(el, label, series.map((s) => `${s.name} ${(s.data || []).map((v, i) => (labels[i] ? labels[i] + ' ' : '') + (v === null || v === undefined ? 'بدون داده' : TK.fa(v))).join('، ')}`).join(' — '));
       el.innerHTML = `<div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${nm}"><title>${nm}</title>${g}</svg><div class="chart-tip" hidden></div></div><div class="legend">${series.map((s, k) => `<span data-k="${k}"><i data-css="background:${col(s, k)}"></i>${TK.esc(s.name)}</span>`).join('')}</div>`;
       // هاور روی راهنما: بقیه‌ی سری‌ها کم‌رنگ شوند
       if (series.length > 1) TK.qsa('.legend [data-k]', el).forEach((lg) => {
@@ -688,23 +700,25 @@
       svg.addEventListener('mouseleave', hide);
       svg.addEventListener('touchstart', (e) => { const z = e.target.closest('.hz, .pt'); if (z) show(+z.dataset.i); }, { passive: true });
     },
-    bars(el, { items, height = 220, label = '' }) {
+    bars(el, { items, height = 220, label = '', empty = 'هنوز داده‌ای برای این نمودار نیست' }) {
       if (!el) return;
+      if (!items.some((it) => it.value > 0)) { emptyChart(el, empty); return; }
       const W = Math.max(260, Math.round(el.clientWidth || 640)), H = height, p = { l: 10, r: 10, t: 22, b: 34 };
       const max = Math.max(1, ...items.map((i) => i.value));
       const bw = (W - p.l - p.r) / items.length;
       let g = '';
       items.forEach((it, i) => {
         const h = (it.value / max) * (H - p.t - p.b), x = p.l + i * bw + bw * 0.18, w = bw * 0.64, y = H - p.b - h, col = it.color || C[i % C.length];
-        g += `<rect x="${x}" y="${y}" width="${w}" height="${Math.max(h, 2)}" rx="6" fill="${col}" opacity=".9"><title>${TK.esc(it.label)}: ${TK.fa(it.value)}</title></rect>`;
+        if (it.value > 0) g += `<rect x="${x}" y="${y}" width="${w}" height="${Math.max(h, 2)}" rx="6" fill="${col}" opacity=".9"><title>${TK.esc(it.label)}: ${TK.fa(it.value)}</title></rect>`;
         g += `<text class="bar-v" x="${x + w / 2}" y="${y - 7}" text-anchor="middle">${TK.fa(it.value)}</text>`;
         g += `<text x="${x + w / 2}" y="${H - 10}" text-anchor="middle">${TK.esc(String(it.label).slice(0, 14))}</text>`;
       });
       const nm = chartName(el, label, items.map((it) => `${it.label} ${TK.fa(it.value)}`).join('، '));
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${nm}"><title>${nm}</title>${g}<line class="axis" x1="${p.l}" x2="${W - p.r}" y1="${H - p.b}" y2="${H - p.b}"/></svg>`;
     },
-    donut(el, { items, center = '', showPct = false, label = '' }) {
+    donut(el, { items, center = '', showPct = false, label = '', empty = 'هنوز داده‌ای برای این نمودار نیست' }) {
       if (!el) return;
+      if (!items.some((it) => it.value > 0)) { emptyChart(el, empty); return; }
       // رنگ فقط #hex یا var(--…) پذیرفته می‌شود (دفاع لایه‌ای در برابر تزریق در صفت style/stroke)
       const col = (c, i) => (/^#[0-9a-fA-F]{3,8}$|^var\(--[a-z0-9-]+\)$/.test(String(c || '')) ? c : C[i % C.length]);
       const total = items.reduce((s, i) => s + i.value, 0) || 1, R = 54, S = 18, CIRC = 2 * Math.PI * R;
@@ -714,12 +728,12 @@
         if (it.value > 0) g += `<circle class="seg" data-i="${i}" cx="70" cy="70" r="${R}" fill="none" stroke="${col(it.color, i)}" stroke-width="${S}" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;
         off += len;
       });
-      const pct = (v) => Math.round((v / total) * 100);
+      const pcs = percents(items.map((it) => it.value));
       const nm = chartName(el, label, items.map((it) => `${it.label} ${TK.fa(it.value)}`).join('، '));
-      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140" role="img" aria-label="${nm}"><title>${nm}</title>${g}</svg><div class="center-txt">${center}</div></div><div class="dc-9b54a3 legend">${items.map((it, i) => `<span><i data-css="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(pct(it.value)) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
+      el.innerHTML = `<div class="donut"><svg viewBox="0 0 140 140" role="img" aria-label="${nm}"><title>${nm}</title>${g}</svg><div class="center-txt">${center}</div></div><div class="dc-9b54a3 legend">${items.map((it, i) => `<span><i data-css="background:${col(it.color, i)}"></i>${TK.esc(it.label)} (${showPct ? TK.fa(it.pct ?? pcs[i]) + '٪' : TK.fa(it.value)})</span>`).join('')}</div>`;
       const ctr = el.querySelector('.center-txt'), base = ctr.innerHTML;
       TK.qsa('.seg', el).forEach((c) => {
-        c.addEventListener('mouseenter', () => { const it = items[+c.dataset.i]; c.classList.add('on'); ctr.innerHTML = `<div><div class="donut-v">${TK.fa(it.value)}<small> (${TK.fa(pct(it.value))}٪)</small></div><div class="donut-l">${TK.esc(it.label)}</div></div>`; });
+        c.addEventListener('mouseenter', () => { const it = items[+c.dataset.i]; c.classList.add('on'); ctr.innerHTML = `<div><div class="donut-v">${TK.fa(it.value)}<small> (${TK.fa(it.pct ?? pcs[+c.dataset.i])}٪)</small></div><div class="donut-l">${TK.esc(it.label)}</div></div>`; });
         c.addEventListener('mouseleave', () => { c.classList.remove('on'); ctr.innerHTML = base; });
       });
     },

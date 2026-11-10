@@ -42,7 +42,8 @@ document.addEventListener('tk:ready', () => {
   const an = TK.boot().an;
   if (an) {
     TK.charts.line(TK.qs('#ch-days'), { labels: an.days.labels, series: [{ name: 'تسک جدید', data: an.days.tasks }, { name: 'کاربر جدید', data: an.days.users, color: '#60a5fa' }] });
-    TK.charts.donut(TK.qs('#ch-tasks'), { items: [{ label: 'انجام‌شده', value: an.tasks.done, color: TK.charts.colors[0] }, { label: 'باز', value: an.tasks.open, color: '#fbbf24' }], center: TK.fa(an.tasks.total) });
-    TK.charts.bars(TK.qs('#ch-subj'), { height: 200, items: an.subjects.map((s) => ({ label: s.title, value: +s.cnt })) });
+    // DATA-008: تأییدشده / منتظر تأیید / تحویل‌نشده (بدون مسدودها و پروژه‌های نمونه، مثل پنل کاربر)
+    TK.charts.donut(TK.qs('#ch-tasks'), { items: [{ label: 'تأییدشده', value: an.tasks.done, color: TK.charts.colors[0] }, { label: 'منتظر تأیید', value: an.tasks.waiting, color: '#a78bfa' }, { label: 'تحویل‌نشده', value: an.tasks.open, color: '#fbbf24' }], center: TK.fa(an.tasks.total) });
+    TK.charts.bars(TK.qs('#ch-subj'), { height: 200, items: an.subjects.map((s) => ({ label: +s.users > 1 ? s.title + ' (' + TK.fa(s.users) + ' کاربر)' : s.title, value: +s.cnt })) });
   }
 });

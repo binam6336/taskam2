@@ -2707,3 +2707,16 @@ p .ac-def { position: static; }
 .ac-fs legend i { color: var(--main-ink); }
 .ac-p { display: flex; align-items: center; gap: .45rem; padding: 3px 0; font-size: .85rem; }
 .ac-p input:disabled + span { color: var(--muted); }
+
+/* v7.7 (ممیزی آمار): حالت «بدون داده» نمودارها، نوار پیشرفت دوبخشی، جدول اعضا */
+.chart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; min-height: 150px; padding: 1rem; color: var(--muted); font-size: .85rem; text-align: center; }
+.chart-empty i { font-size: 1.6rem; opacity: .45; }
+.progress.dual { display: flex; }
+.progress.dual > div { border-radius: 0; }
+.progress.dual > .p-wait { background: linear-gradient(90deg, #8b5cf6, #a78bfa); box-shadow: none; }
+.proj-prog-l { display: flex; gap: .7rem; flex-wrap: wrap; font-size: .72rem; color: var(--muted); }
+.proj-prog-l i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 4px; background: var(--g-500, var(--main)); }
+.proj-prog-l i.w { background: #a78bfa; }
+.an-sub { display: block; font-size: .72rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.an-orphan td { background: var(--surface-2); }
+.an-n { font-size: .7rem; color: var(--muted); white-space: nowrap; }

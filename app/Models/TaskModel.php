@@ -210,10 +210,11 @@ final class TaskModel
 
     public static function stats(int $uid): array
     {
-        $r = DB::one("SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) completed, COALESCE(SUM(is_completed = 0),0) pending,
-                COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low
-                FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL", [$uid]) ?? [];
-        return array_map('intval', $r + ['total' => 0, 'completed' => 0, 'pending' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
+        // v7.7 (DATA-003): completed = تأییدشده، waiting = تحویل‌شده و منتظر تأیید، pending = در جریان (هنوز تحویل نشده)
+        $r = DB::one("SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) completed, COALESCE(SUM(" . self::WAITING . "),0) waiting, COALESCE(SUM(" . self::UNDELIVERED . "),0) pending,
+                COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+                FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL", [$uid]) ?? [];
+        return array_map('intval', $r + ['total' => 0, 'completed' => 0, 'waiting' => 0, 'pending' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
     }
 
     public static function create(array $d): int
@@ -300,7 +301,13 @@ final class TaskModel
      * «عقب‌افتاده» فقط روزهای قبل (v4.1، تعریف واحد در پیشخوان، تقویم، فهرست و تحلیل): تسکی که سررسیدش امروز است
      * در «امروز» می‌ماند و اگر ساعتش گذشته باشد فقط برچسب «ساعت گذشته» می‌گیرد.
      */
-    public const OVERDUE = 't.due_date IS NOT NULL AND t.due_date < CURDATE()';
+    public const OVERDUE = "t.due_date IS NOT NULL AND t.due_date < CURDATE() AND NOT (t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review')";
+    // v7.7 (DATA-001): تسکی که مسئول تحویل داده و منتظر تأیید سرپرست است عقب‌افتاده نیست (کار مسئول تمام است؛ تأخیرش با روز تحویل
+    // در KPI سنجیده می‌شود). همین تعریف در پیشخوان، «تیم من»، تقویم، فهرست تسک‌ها، تحلیل پروژه و پنل مدیر به کار می‌رود.
+    /** «باز و تحویل‌نشده» (در جریان نزد مسئول): نه انجام‌شده، نه منتظر تأیید سرپرست */
+    public const UNDELIVERED = "t.is_completed = 0 AND NOT (t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review')";
+    /** منتظر تأیید سرپرست (تحویل‌شده، هنوز تأییدنشده) */
+    public const WAITING = "t.is_completed = 0 AND t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review'";
     /** گروه مرتب‌سازی هوشمند (v4.1.1): ۰ بدون زمان، ۱ امروز، ۲ فردا، ۳ بعدها (پیش رو)، ۴ عقب‌افتاده، ۵ انجام‌شده */
     /**
      * مرتب‌سازی هوشمند (v5.4): نیاز به اصلاح (برگشت‌خورده) ← عقب‌افتاده ← امروز ← بدون زمان ← پیش رو ← منتظر تأیید سرپرست (جمع‌شده) ← انجام‌شده.
@@ -396,8 +403,8 @@ final class TaskModel
                 FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'by_me_open' => 0, 'to_me' => 0, 'to_me_open' => 0];
         // پرتکرارترین لیبل: فقط وقتی دست‌کم یک تسک (مسئولش کاربر) لیبل دارد
         $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid, $uid]);
-        $prioOpen = DB::one("SELECT COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL", [$uid]) ?? [];
-        $dur = static fn(string $table, string $cond, array $p) => DB::one("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 a, MIN(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 mi, MAX(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 ma, COUNT(*) c FROM $table WHERE $cond AND completed_at IS NOT NULL AND completed_at > created_at", $p) ?? [];
+        // اولویت تسک‌های در جریان (تحویل‌نشده)؛ همان پایه‌ی کارت «در جریان»
+        $prioOpen = DB::one("SELECT COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low FROM tasks t WHERE t.assignee_id = ? AND " . self::UNDELIVERED . " AND t.blocked_at IS NULL", [$uid]) ?? [];
 
         $trend = ['labels' => [], 'tasks' => []];
         $td = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL AND created_at >= (CURDATE() - INTERVAL 6 DAY) GROUP BY DATE(created_at)', [$uid]), 'c', 'd');
@@ -408,11 +415,12 @@ final class TaskModel
         }
         return [
             'stats' => $s,
-            'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : 0,
+            'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : null,
             'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'], 'by_me_open' => (int) $split['by_me_open'], 'to_me_open' => (int) $split['to_me_open'],
             'top_subject' => $top ? $top['title'] : null, 'top_subject_count' => $top ? (int) $top['cnt'] : 0,
             'prio_open' => array_map('intval', $prioOpen + ['high' => 0, 'medium' => 0, 'low' => 0]),
-            'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
+            // v7.7 (DATA-004): یک تعریف در همه‌جا = ایجاد تا تحویل (TaskAnalytics::finishedAt)، فقط تسک‌هایی که مسئولشان خود کاربر است
+            'task_time' => \App\Services\TaskAnalytics::durations(DB::all('SELECT t.is_completed, t.board_status, t.created_at, t.completed_at, t.delivered_at FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL AND (t.is_completed = 1 OR t.delivered_at IS NOT NULL)', [$uid])),
             'texts' => (int) DB::value('SELECT COUNT(*) FROM texts WHERE user_id = ?', [$uid]),
             'trend' => $trend,
         ];

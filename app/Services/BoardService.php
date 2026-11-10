@@ -532,7 +532,7 @@ final class BoardService
      * ثبت تغییر وضعیت (بعد از همه‌ی بررسی‌ها) + ستون‌های تحویل/تأیید برای KPI:
      * review ← delivered_at/by = حالا/انجام‌دهنده؛ done ← approved_by = تأییدکننده (delivered_at می‌ماند)؛ مراحل قبل ← تحویل پاک می‌شود.
      */
-    private static function apply(array $t, int $actor, string $from, string $status, string $reason = ''): void
+    private static function apply(array $t, int $actor, string $from, string $status, string $reason = '', bool $withdraw = false): void
     {
         $id = (int) $t['id'];
         // علت: برای «بازبینی مسئول» ایرادی که سرپرست دیده (ستون blocked_reason؛ نامش از ستون «مسدودشده»ی قدیمی بورد مانده)
@@ -541,6 +541,11 @@ final class BoardService
         $done = $status === 'done';
         $review = $status === 'review';
         // is_quick = 0: اولین تغییر وضعیت در بورد علامت «ثبت سریع» را برمی‌دارد
+        // v7.7 (DATA-002): اولین تحویل (first_delivered_at) و تعداد برگشت برای اصلاح (rework_count) برای KPI نگه داشته می‌شوند؛
+        // برگرداندن کار امتیاز مسئول را بهتر نمی‌کند. فقط «پس گرفتن تحویل» توسط خود تحویل‌دهنده (پیش از هر برگشت) اولین تحویل را پاک می‌کند.
+        DB::run('UPDATE tasks SET first_delivered_at = CASE WHEN ? = 1 THEN COALESCE(first_delivered_at, NOW()) WHEN ? = 1 AND rework_count = 0 THEN NULL ELSE first_delivered_at END,
+                   rework_count = rework_count + ?
+                   WHERE id = ?', [$done || $review ? 1 : 0, $withdraw ? 1 : 0, $status === 'rework' && in_array($from, ['review', 'done'], true) ? 1 : 0, $id]);
         DB::run('UPDATE tasks SET board_status = ?, blocked_reason = ?, board_moved_at = NOW(), archived_at = NULL, is_completed = ?, is_quick = 0,
                    completed_at = CASE WHEN ? = 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END,
                    delivered_at = CASE WHEN ? = 1 THEN NOW() WHEN ? = 1 THEN COALESCE(delivered_at, NOW()) ELSE NULL END,
@@ -635,7 +640,7 @@ final class BoardService
         if (!isset(self::cols($t)[$prev]) || in_array($prev, ['review', 'done'], true)) {
             $prev = BoardConfig::start(isset($t['project_id']) ? (int) $t['project_id'] : null);
         }
-        self::apply($t, $actor, 'review', $prev);
+        self::apply($t, $actor, 'review', $prev, '', true);
         return self::res(true, 'تحویل پس گرفته شد؛ تسک به «' . self::lbl($t, $prev) . '» برگشت.', '', 200, ['id' => $id, 'status' => $prev, 'is_completed' => false]);
     }
 }

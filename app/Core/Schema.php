@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '043';
+    public const VERSION = '044';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -33,6 +33,9 @@ final class Schema
         ['chat_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_requests_pid` (`pid`)", null],
         // 031
         ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
+        // 044 (v7.7، DATA-002): اولین تحویل و تعداد برگشت برای اصلاح (KPI)؛ مقدار قدیمی‌ها از task_events
+        ['tasks', 'first_delivered_at', "ADD COLUMN `first_delivered_at` TIMESTAMP NULL DEFAULT NULL AFTER `approved_by`, ADD COLUMN `rework_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER `first_delivered_at`",
+            "UPDATE `tasks` t SET t.`first_delivered_at` = COALESCE((SELECT MIN(e.`created_at`) FROM `task_events` e WHERE e.`task_id` = t.`id` AND e.`type` = 'board' AND (e.`data` LIKE '%\"to\":\"review\"%' OR e.`data` LIKE '%\"to\":\"done\"%')), t.`delivered_at`), t.`rework_count` = (SELECT COUNT(*) FROM `task_events` e WHERE e.`task_id` = t.`id` AND e.`type` = 'board' AND e.`data` LIKE '%\"to\":\"rework\"%')"],
         // 030
         ['users', 'last_active_at', "ADD COLUMN `last_active_at` DATETIME NULL DEFAULT NULL AFTER `last_login_ip`", null],
         // 029

@@ -265,8 +265,8 @@ final class AdminController extends Controller
             $this->fail('کاربر یافت نشد.', 404);
         }
         $uid = (int) $u['id'];
-        $t = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done, COALESCE(SUM(is_completed = 0 AND board_status = \'review\'),0) review,
-                COALESCE(SUM(is_completed = 0 AND due_date < CURDATE()),0) late FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL', [$uid]) ?? [];
+        $t = DB::one('SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(' . \App\Models\TaskModel::WAITING . '),0) review,
+                COALESCE(SUM(t.is_completed = 0 AND ' . \App\Models\TaskModel::OVERDUE . '),0) late FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL', [$uid]) ?? [];
         $created = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND blocked_at IS NULL', [$uid]);
         $canEnter = Auth::adminCan('impersonate') && $u['role'] !== 'admin' && $u['status'] === 'active';
         $projects = [];
@@ -775,13 +775,18 @@ final class AdminController extends Controller
     {
         $this->need('view_analysis');
         $c = static fn(string $sql): int => (int) DB::value($sql);
+        $notSample = 'NOT EXISTS (SELECT 1 FROM projects sp WHERE sp.id = t.project_id AND sp.is_sample = 1)';
+        $tw = 't.blocked_at IS NULL AND ' . $notSample;
         $stats = [
             'users' => UserModel::counts(),
-            'tasks' => ['total' => $c('SELECT COUNT(*) FROM tasks'), 'done' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 1'), 'open' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 0'), 'high' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'high'"), 'medium' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'medium'"), 'low' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'low'")],
+            // DATA-008 (v7.7): همان دامنه‌ی پنل کاربر = بدون تسک‌های مسدود و بدون پروژه‌های نمونه (مثل کارت «پروژه‌ها»)؛ مسدودها جدا شمرده می‌شوند
+            'tasks' => array_map('intval', DB::one("SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(" . \App\Models\TaskModel::WAITING . "),0) waiting,
+                COALESCE(SUM(" . \App\Models\TaskModel::UNDELIVERED . "),0) open, COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+                FROM tasks t WHERE $tw") ?? []) + ['blocked' => $c('SELECT COUNT(*) FROM tasks t WHERE t.blocked_at IS NOT NULL AND ' . $notSample)],
             'misc' => ['notes' => $c('SELECT COUNT(*) FROM task_notes'), 'texts' => $c('SELECT COUNT(*) FROM texts'), 'projects' => $c('SELECT COUNT(*) FROM projects WHERE is_sample = 0'), 'members' => $c('SELECT COUNT(*) FROM project_members'), 'messages' => $c('SELECT COUNT(*) FROM chat_messages'), 'tokens' => $c('SELECT COUNT(*) FROM api_tokens WHERE is_active = 1'), 'support_open' => $c("SELECT COUNT(*) FROM support_tickets WHERE status <> 'closed'")],
         ];
         $days = [];
-        $tk = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)'), 'c', 'd');
+        $tk = array_column(DB::all("SELECT DATE(t.created_at) d, COUNT(*) c FROM tasks t WHERE $tw AND t.created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(t.created_at)"), 'c', 'd');
         $us = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM users WHERE is_bot = 0 AND created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)'), 'c', 'd');
         for ($i = 13; $i >= 0; $i--) {
             $d = date('Y-m-d', strtotime("-$i days"));
@@ -789,9 +794,10 @@ final class AdminController extends Controller
             $days['tasks'][] = (int) ($tk[$d] ?? 0);
             $days['users'][] = (int) ($us[$d] ?? 0);
         }
-        $topUsers = DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8');
-        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.is_sample = 0 GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
-        $topSubjects = DB::all('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id GROUP BY s.title ORDER BY cnt DESC LIMIT 8');
+        $topUsers = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id AND $tw WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8");
+        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id AND t.blocked_at IS NULL WHERE p.is_sample = 0 AND p.blocked_at IS NULL GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
+        // لیبل‌های هم‌نام کاربران مختلف (مثل لیبل‌های پیش‌فرض) با هم جمع می‌شوند ولی تعداد کاربرانشان هم نمایش داده می‌شود
+        $topSubjects = DB::all("SELECT s.title, COUNT(t.id) cnt, COUNT(DISTINCT s.user_id) users FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND $tw WHERE s.blocked_at IS NULL GROUP BY s.title ORDER BY cnt DESC LIMIT 8");
         $chatSec = [
             'configured' => Crypto::configured(),
             'total' => (int) DB::value('SELECT COUNT(*) FROM chat_messages'),

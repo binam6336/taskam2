@@ -8,11 +8,13 @@ document.addEventListener('tk:ready', () => {
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) TK.reload();
   });
   const d = TK.boot().d; if (!d) return;
-  TK.charts.line(TK.qs('#ch-trend'), { labels: d.trend.labels, series: [{ name: 'تسک‌های جدید', data: d.trend.tasks }] });
+  TK.charts.line(TK.qs('#ch-trend'), { labels: d.trend.labels, series: [{ name: 'تسک تازه', data: d.trend.tasks }], empty: 'در ۷ روز اخیر تسک تازه‌ای به شما واگذار نشده است' });
+  // DATA-003: تأییدشده / منتظر تأیید / در جریان (تحویل‌نشده)؛ مرکز = درصد تأییدشده
   const ratio = d.stats.total ? Math.round((d.stats.completed / d.stats.total) * 100) : 0;
-  TK.charts.donut(TK.qs('#ch-ratio'), { items: [{ label: 'انجام‌شده', value: d.stats.completed, color: TK.charts.colors[0] }, { label: 'در جریان', value: d.stats.pending, color: '#fbbf24' }], center: TK.fa(ratio) + '٪' });
+  TK.charts.donut(TK.qs('#ch-ratio'), { items: [{ label: 'تأییدشده', value: d.stats.completed, color: TK.charts.colors[0] }, { label: 'منتظر تأیید', value: d.stats.waiting || 0, color: '#a78bfa' }, { label: 'در جریان', value: d.stats.pending, color: '#fbbf24' }],
+    center: '<div>' + TK.fa(ratio) + '٪<div class="donut-l">تأییدشده</div></div>', empty: 'هنوز تسکی که مسئولش شما باشید ثبت نشده است' });
   const po = d.prio_open || d.stats;   // پایه‌ی شمارش: فقط تسک‌های باز (همان تب «در جریان»)
-  TK.charts.bars(TK.qs('#ch-prio'), { height: 190, items: [{ label: 'زیاد', value: po.high, color: '#f87171' }, { label: 'متوسط', value: po.medium, color: '#fbbf24' }, { label: 'کم', value: po.low, color: TK.charts.colors[0] }] });
+  TK.charts.bars(TK.qs('#ch-prio'), { height: 190, empty: 'تسک در جریانی ندارید', items: [{ label: 'زیاد', value: po.high, color: '#f87171' }, { label: 'متوسط', value: po.medium, color: '#fbbf24' }, { label: 'کم', value: po.low, color: TK.charts.colors[0] }] });
 });
 
 // پیشخوان v5.6: فیلتر اولویت، بخش‌های تاشو، چیپ‌های پرش، انیمیشن ورود، کیبورد (N و ↑/↓)

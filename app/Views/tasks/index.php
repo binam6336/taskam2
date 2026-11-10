@@ -119,7 +119,8 @@ $chips = [
         }
         $can = $t['can'];
         // عقب‌افتاده فقط روزهای قبل؛ امروز با ساعت گذشته = «ساعت گذشته» (تعریف واحد v4.1)
-        $overdue = !$isDone && $t['due_date'] && $t['due_date'] < date('Y-m-d');
+        // v7.7: تحویل‌شده‌ی منتظر تأیید عقب‌افتاده نیست (TaskModel::OVERDUE)
+        $overdue = !$isDone && $t['due_date'] && $t['due_date'] < date('Y-m-d') && !($t['project_id'] !== null && empty($t['archived_at']) && ($t['board_status'] ?? '') === 'review');
         $hourPast = !$isDone && !$overdue && $t['due_date'] === date('Y-m-d') && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
         $edit = [
             'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'due_date' => $t['due_date'],

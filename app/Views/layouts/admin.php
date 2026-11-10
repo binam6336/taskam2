@@ -6,6 +6,7 @@ $name = full_name($u);
 $active = $this->page;
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => pid('users', $u)];
+$this->boot['clock'] = ['now' => time(), 'tz' => (int) date('Z')];   // v7.7: «امروز» در JS = تاریخ سرور (TK.jalali.now)
 $menu = [
     ['admin-analysis', '/admin/analysis', 'fa-gauge-high', 'پیشخوان'],
     ['group' => 'users', 'icon' => 'fa-user-shield', 'label' => 'مدیریت کاربران', 'items' => [

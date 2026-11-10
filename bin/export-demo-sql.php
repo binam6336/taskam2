@@ -130,7 +130,7 @@ foreach ($subjects as $s) {
 $w('');
 $w('-- تسک‌ها + تاریخچه + یادداشت‌ها');
 $cols = ['user_id', 'assignee_id', 'subject_id', 'project_id', 'title', 'description', 'priority', 'priority_percent', 'is_completed', 'is_quick', 'board_status', 'blocked_reason', 'board_moved_at',
-    'archived_at', 'blocked_at', 'blocked_by', 'due_date', 'due_time', 'notified_at', 'share_token', 'created_at', 'completed_at', 'delivered_at', 'delivered_by', 'approved_by'];
+    'archived_at', 'blocked_at', 'blocked_by', 'due_date', 'due_time', 'notified_at', 'share_token', 'created_at', 'completed_at', 'delivered_at', 'delivered_by', 'approved_by', 'first_delivered_at', 'rework_count'];
 foreach ($tasks as $t) {
     $vals = [];
     foreach ($cols as $c) {
