@@ -2666,3 +2666,33 @@ body:not([data-layout]) .toasts { left: 50%; transform: translateX(-50%); bottom
 .dc-f95e73.dc-f95e73 { color:var(--warn); }
 .dc-fe732f.dc-fe732f { padding:.1rem .5rem;font-size:.65rem; }
 .tb-chat { position: relative; }
+
+/* ═══ تنظیمات ← دسترسی (v7.4) ═══ */
+.ac-table th, .ac-table td { vertical-align: middle; }
+table.table.ac-table { min-width: 560px; }
+.ac-table thead th { white-space: nowrap; }
+.ac-grp th { background: var(--surface-2); font-size: .82rem; color: var(--muted); text-align: start; }
+.ac-grp th i { color: var(--main-ink); margin-inline-end: .3rem; }
+.ac-perm b { display: block; font-size: .9rem; }
+.ac-perm small { display: block; font-weight: 400; color: var(--muted); font-size: .76rem; line-height: 1.6; max-width: 520px; }
+.ac-chk { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; cursor: pointer; }
+.ac-chk input { width: 18px; height: 18px; accent-color: var(--main); cursor: pointer; }
+.ac-def { position: absolute; top: 0; inset-inline-end: 2px; color: var(--main-ink); font-weight: 800; font-size: .9rem; line-height: 1; }
+p .ac-def { position: static; }
+.ac-fixed { color: var(--main-ink); }
+.ac-admins { display: flex; flex-direction: column; gap: 8px; }
+.ac-admin { border: 1px solid var(--border); border-radius: 16px; background: var(--surface-0); }
+.ac-admin > summary { display: flex; align-items: center; gap: .6rem; padding: 10px 14px; cursor: pointer; list-style: none; flex-wrap: wrap; }
+.ac-admin > summary::-webkit-details-marker { display: none; }
+.ac-admin > summary b { display: block; }
+.ac-admin > summary small { display: block; color: var(--muted); font-size: .76rem; text-align: start; }
+.ac-chev { color: var(--muted); transition: transform .2s; }
+.ac-admin[open] .ac-chev { transform: rotate(180deg); }
+.ac-body { padding: 4px 14px 14px; border-top: 1px dashed var(--border); margin: 0; }
+.ac-perms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 10px; margin-top: .4rem; }
+.ac-perms[hidden] { display: none; }
+.ac-fs { margin: 0; padding: 8px 10px 10px; border: 1px solid var(--border); border-radius: 12px; }
+.ac-fs legend { padding: 0 .35rem; font-size: .8rem; font-weight: 700; color: var(--muted); }
+.ac-fs legend i { color: var(--main-ink); }
+.ac-p { display: flex; align-items: center; gap: .45rem; padding: 3px 0; font-size: .85rem; }
+.ac-p input:disabled + span { color: var(--muted); }

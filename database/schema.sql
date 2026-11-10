@@ -31,7 +31,7 @@ CREATE TABLE `users` (
   `password_hash`                   VARCHAR(255) NOT NULL                COMMENT 'Argon2id / bcrypt',
   `role`                            ENUM('admin','user') NOT NULL DEFAULT 'user',
   `status`                          ENUM('pending','active','deactivated','blocked') NOT NULL DEFAULT 'pending',
-  `admin_permissions`               TEXT NULL DEFAULT NULL               COMMENT 'منسوخ از v4.4 (نقش در admin_role)؛ JSON: add_user, delete_user, toggle_status, edit_user',
+  `admin_permissions`               TEXT NULL DEFAULT NULL               COMMENT 'دسترسی اختصاصی مدیر (v7.4، JSON کلیدهای AdminAccess::PERMS)؛ NULL = طبق نقش admin_role',
   `admin_role`                      VARCHAR(20)  NULL DEFAULT NULL       COMMENT 'نقش مدیر: super | internal | support (فقط برای role = admin)',
   `is_bot`                          TINYINT(1) NOT NULL DEFAULT 0        COMMENT '1 = ربات اطلاع‌رسانی (امکان ورود ندارد)',
   `allow_colleague_requests`        TINYINT(1) NOT NULL DEFAULT 1,

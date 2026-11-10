@@ -216,8 +216,10 @@ final class Auth
         return Impersonation::active() ? Impersonation::current()['admin'] : null;
     }
 
-    /** دسترسی‌های مدیران (مدیر کل همه را دارد). impersonate و edit_content از v3.25 جدا شدند. */
-    public const ADMIN_PERMS = ['add_user', 'delete_user', 'toggle_status', 'edit_user', 'impersonate', 'edit_content'];
+    /** همه‌ی دسترسی‌های پنل مدیر (فهرست و توضیح در AdminAccess::PERMS؛ v7.4) */
+    public const ADMIN_PERMS = ['view_analysis', 'view_users', 'add_user', 'edit_user', 'toggle_status', 'delete_user', 'manage_admins', 'impersonate',
+        'manage_impersonations', 'edit_sidebar', 'edit_tour', 'edit_board', 'edit_placeholders', 'edit_errors', 'support_view', 'support_reply',
+        'support_manage', 'view_security', 'view_panel_docs', 'chat_encrypt'];
 
     /** مدیر کل = اولین کاربر admin. */
     public static function superAdminId(): int
@@ -247,11 +249,18 @@ final class Auth
     }
 
     /**
-     * دسترسی‌های مدیر. فعلاً (v4.4) همه‌ی نقش‌ها همه‌ی دسترسی‌ها را دارند تا محدودسازی بر اساس نقش بعداً اضافه شود.
+     * دسترسی‌های مدیر (v7.4، SEC-001): مدیر کل همه؛ بقیه طبق نقش (قابل تنظیم در «تنظیمات ← دسترسی») یا دسترسی اختصاصی خودشان.
      */
     public static function adminPermissions(array $u): array
     {
-        return self::adminRole($u) === null ? [] : self::ADMIN_PERMS;
+        return AdminAccess::of($u);
+    }
+
+    /** نقش مدیر کل (نه فقط «هر مدیری») */
+    public static function isSuperAdmin(?array $u = null): bool
+    {
+        $u ??= self::user();
+        return $u !== null && self::adminRole($u) === 'super';
     }
 
     public static function adminCan(string $perm): bool

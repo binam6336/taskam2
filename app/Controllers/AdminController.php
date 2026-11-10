@@ -27,10 +27,10 @@ final class AdminController extends Controller
     private const PERMS = ['add_user' => 'افزودن کاربر', 'edit_user' => 'ویرایش کاربر', 'toggle_status' => 'تغییر وضعیت', 'delete_user' => 'حذف کاربر',
         'impersonate' => 'ورود به پنل کاربر', 'edit_content' => 'ویرایش محتوا (سایدبار، تور، Placeholder، خطاها)'];
 
-    /** فعلاً (v4.4) همه‌ی نقش‌های مدیر همه‌ی دسترسی‌ها را دارند، از جمله مدیریت مدیران دیگر (جز حساب مدیر کل اصلی) */
+    /** مدیریت مدیران دیگر (ساخت/ویرایش/حذف مدیر و تعیین نقش) — دسترسی manage_admins (v7.4؛ قبلاً هر مدیری) */
     private function isSuper(): bool
     {
-        return Auth::adminRole($this->user() ?? []) !== null;
+        return Auth::adminCan('manage_admins');
     }
 
     /** نقش انتخاب‌شده در فرم کاربر: [role, admin_role] */
@@ -40,11 +40,21 @@ final class AdminController extends Controller
         return isset(Auth::ADMIN_ROLES[$v]) ? ['admin', $v] : ['user', null];
     }
 
+    /**
+     * دسترسی پنل مدیر (v7.4): بدون اجازه، درخواست AJAX/POST خطای ۴۰۳ می‌گیرد و صفحه (GET) به اولین بخش مجاز
+     * همین مدیر می‌رود (یا خطا اگر هیچ بخشی ندارد).
+     */
     private function need(string $perm): void
     {
-        if (!Auth::adminCan($perm)) {
-            $this->fail('شما این دسترسی را ندارید.', 403);
+        if (Auth::adminCan($perm)) {
+            return;
         }
+        $land = \App\Core\AdminAccess::landing($this->user() ?? []);
+        if ($this->request->method() === 'GET' && !$this->request->wantsJson() && $land !== null && $land !== '/' . ltrim($this->request->path(), '/')) {
+            $this->flash('شما این دسترسی را ندارید.', 'error');
+            $this->redirect($land);
+        }
+        $this->fail('شما این دسترسی را ندارید.', 403);
     }
 
     /** تعداد کاربر در هر صفحه‌ی «مدیریت کاربران» (پیش‌فرض اولی) */
@@ -52,6 +62,7 @@ final class AdminController extends Controller
 
     public function users()
     {
+        $this->need('view_users');
         $me = $this->user();
         $r = $this->request;
         // تعداد در صفحه: از آدرس، وگرنه آخرین انتخاب همین مدیر در نشست
@@ -218,6 +229,7 @@ final class AdminController extends Controller
     /** پنجره‌های ورود به پنل کاربرِ باز همین نشست مدیر (کارت بالای فهرست کاربران) */
     public function impersonations()
     {
+        $this->need('manage_impersonations');
         $rows = Impersonation::openFor($this->uid());
         $this->ok('', ['items' => array_map(static fn($r) => ['id' => pid('impersonations', $r), 'name' => full_name($r), 'mobile' => $r['mobile'], 'avatar' => avatar_url($r['avatar']),
             'started_fa' => jdate((string) $r['created_at']), 'seen_fa' => time_ago((string) $r['last_seen_at']), 'expires_fa' => jdate((string) $r['expires_at']), 'actions' => (int) $r['actions']], $rows)]);
@@ -226,6 +238,7 @@ final class AdminController extends Controller
     /** بستن یک پنجره از پنل مدیر (فقط پنجره‌های خود همین مدیر) */
     public function impersonationEnd(string $id)
     {
+        $this->need('manage_impersonations');
         $row = DB::one('SELECT id FROM impersonations WHERE id = ? AND admin_id = ? AND ended_at IS NULL', [(int) $id, $this->uid()]);
         if ($row === null) {
             $this->fail('پنجره یافت نشد یا قبلاً بسته شده است.', 404);
@@ -237,6 +250,7 @@ final class AdminController extends Controller
     /** بستن همه‌ی پنجره‌های باز این مدیر (روی همه‌ی دستگاه‌ها) */
     public function impersonationEndAll()
     {
+        $this->need('manage_impersonations');
         $n = Impersonation::endAll($this->uid(), 'end_all');
         $this->ok($n ? fa_num($n) . ' پنجره‌ی پنل کاربر بسته شد.' : 'پنجره‌ی بازی نبود.');
     }
@@ -244,6 +258,7 @@ final class AdminController extends Controller
     /** «جزئیات» کاربر در فهرست کاربران: GET /admin/users/{id}/details */
     public function userDetails(string $id)
     {
+        $this->need('view_users');
         $this->rateLimit('admin_list', 120);
         $u = UserModel::find((int) $id);
         if ($u === null || (int) $u['is_bot'] === 1) {
@@ -281,6 +296,7 @@ final class AdminController extends Controller
     /** تسک‌های یک کاربر (مسئولش) با صفحه‌بندی: GET /admin/users/{id}/tasks */
     public function userTasks(string $id)
     {
+        $this->need('view_users');
         $this->rateLimit('admin_list', 120);
         $uid = (int) $id;
         if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$uid])) {
@@ -323,16 +339,19 @@ final class AdminController extends Controller
 
     public function support()
     {
+        $this->need('support_view');
         $this->desk(null);
     }
 
     public function supportShow(string $id)
     {
+        $this->need('support_view');
         $this->desk($this->ticket($id));
     }
 
     public function supportReply(string $id)
     {
+        $this->need('support_reply');
         $t = $this->ticket($id);
         [$ok, $msg] = SupportModel::addMessage($t, $this->uid(), 'admin', $this->request->str('message', SupportModel::MSG_MAX), $this->request->file('attachment'));
         $this->respond($ok, $msg, '/admin/support/' . pid('support_tickets', $id));
@@ -340,6 +359,7 @@ final class AdminController extends Controller
 
     public function supportStatus(string $id)
     {
+        $this->need('support_manage');
         $t = $this->ticket($id);
         $s = Validate::enum($this->request->input('status'), ['open', 'in_progress', 'answered', 'closed'], '');
         if ($s === '') {
@@ -352,6 +372,7 @@ final class AdminController extends Controller
 
     public function supportDelete(string $id)
     {
+        $this->need('support_manage');
         SupportModel::delete((int) $this->ticket($id)['id']);
         $this->respond(true, 'تیکت حذف شد.', '/admin/support');
     }
@@ -361,7 +382,7 @@ final class AdminController extends Controller
     /** محتوا ← سایدبار: چیدمان، نام و مقصد (صفحه‌ی پنل یا لینک خارجی) گزینه‌های سایدبار پنل کاربر */
     public function contentSidebar()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         $pages = [];
         foreach (SidebarModel::pages() as $k => [$path, $icon, $label]) {
             $pages[] = ['key' => $k, 'path' => $path, 'icon' => $icon, 'label' => $label];
@@ -375,7 +396,7 @@ final class AdminController extends Controller
 
     public function contentSidebarSave()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         $data = json_decode((string) $this->request->input('menu', ''), true);
         if (!is_array($data)) {
             $this->respond(false, 'داده‌ی سایدبار نامعتبر است.', '/admin/content/sidebar');
@@ -395,7 +416,7 @@ final class AdminController extends Controller
 
     public function contentSidebarReset()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         SidebarModel::reset();
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
         $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
@@ -404,14 +425,14 @@ final class AdminController extends Controller
     /** محتوا ← Placeholder: متن راهنمای فیلدهای پنل کاربر با مسیر هر کدام (config/placeholder_texts.php) */
     public function contentPlaceholders()
     {
-        $this->need('edit_content');
+        $this->need('edit_placeholders');
         $this->view('admin/content_placeholders', ['groups' => PlaceholderText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'Placeholder', 'page' => 'admin-content-ph'], 'admin');
     }
 
     public function contentPlaceholderSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_placeholders');
         $err = PlaceholderText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/placeholders');
@@ -423,14 +444,14 @@ final class AdminController extends Controller
     /** محتوا ← خطاها: همه‌ی خطاهای پنل کاربر با توضیح و متن قابل ویرایش (config/error_texts.php) */
     public function contentErrors()
     {
-        $this->need('edit_content');
+        $this->need('edit_errors');
         $this->view('admin/content_errors', ['groups' => ErrorText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'خطاها', 'page' => 'admin-content-errors'], 'admin');
     }
 
     public function contentErrorSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_errors');
         $err = ErrorText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/errors');
@@ -442,7 +463,7 @@ final class AdminController extends Controller
     /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */
     public function contentTour()
     {
-        $this->need('edit_content');
+        $this->need('edit_tour');
         $this->view('admin/content_tour', ['groups' => ContentModel::tourForAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'تور آموزشی', 'page' => 'admin-content-tour'], 'admin');
     }
@@ -450,20 +471,20 @@ final class AdminController extends Controller
     /** محتوا ← بورد (v6.1): بورد پیش‌فرض پروژه‌هایی که بورد اختصاصی ندارند */
     public function contentBoard()
     {
-        $this->need('edit_content');
+        $this->need('edit_board');
         $this->view('admin/content_board', ['custom' => \App\Services\BoardConfig::templateIsCustom(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'بورد پیش‌فرض', 'page' => 'admin-content-board'], 'admin');
     }
 
     public function contentBoardData()
     {
-        $this->need('edit_content');
+        $this->need('edit_board');
         $this->ok('', \App\Services\BoardConfig::editorData(\App\Services\BoardConfig::template()));
     }
 
     public function contentBoardSave()
     {
-        $this->need('edit_content');
+        $this->need('edit_board');
         $cfg = json_decode((string) $this->request->input('config', ''), true);
         $reset = (string) $this->request->input('reset', '') === '1';
         if (!$reset && !is_array($cfg)) {
@@ -475,7 +496,7 @@ final class AdminController extends Controller
 
     public function contentTourSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_tour');
         if (!array_key_exists($id, ContentModel::tourDefs())) {
             $this->respond(false, 'متن یافت نشد.', '/admin/content/tour');
         }
@@ -492,8 +513,84 @@ final class AdminController extends Controller
     }
 
     /** تنظیمات ← امنیت: لاگ ورود مدیران به پنل کاربر (ورود، خروج، هر تغییر با قبل و بعد) — App\Core\AdminLog */
+    /* ───────── تنظیمات ← دسترسی (v7.4، SEC-001): فقط مدیر کل ───────── */
+
+    private function needSuper(): void
+    {
+        if (!Auth::isSuperAdmin()) {
+            $land = \App\Core\AdminAccess::landing($this->user() ?? []);
+            if ($this->request->method() === 'GET' && !$this->request->wantsJson() && $land !== null) {
+                $this->flash('فقط مدیر کل به بخش «دسترسی» دسترسی دارد.', 'error');
+                $this->redirect($land);
+            }
+            $this->fail('فقط مدیر کل به بخش «دسترسی» دسترسی دارد.', 403);
+        }
+        $this->denyImpersonation('/admin');
+    }
+
+    public function access()
+    {
+        $this->needSuper();
+        $admins = DB::all("SELECT id, pid, first_name, last_name, mobile, avatar, status, role, admin_role, admin_permissions, last_login_at FROM users WHERE role = 'admin' AND is_bot = 0 ORDER BY id ASC");
+        foreach ($admins as &$a) {
+            $a['ar'] = Auth::adminRole($a);
+            $a['custom'] = \App\Core\AdminAccess::custom($a);
+            $a['perms'] = \App\Core\AdminAccess::of($a);
+        }
+        unset($a);
+        $this->view('admin/access', [
+            'admins' => $admins, 'roles' => \App\Core\AdminAccess::roles(), 'defs' => \App\Core\AdminAccess::PERMS, 'groups' => \App\Core\AdminAccess::GROUPS,
+            'defaults' => \App\Core\AdminAccess::DEFAULTS, 'adminRoles' => Auth::ADMIN_ROLES, 'superId' => Auth::superAdminId(), 'supportUnread' => SupportModel::unreadForAdmin(),
+        ], ['title' => 'دسترسی', 'page' => 'admin-access'], 'admin');
+    }
+
+    /** ذخیره‌ی دسترسی نقش‌ها (مدیر داخلی، پشتیبان) */
+    public function accessRolesSave()
+    {
+        $this->needSuper();
+        $map = [];
+        foreach (array_keys(\App\Core\AdminAccess::DEFAULTS) as $role) {
+            $map[$role] = $this->request->arr('perm_' . $role);
+        }
+        \App\Core\AdminAccess::saveRoles($map, $this->uid());
+        Audit::log($this->uid(), 'admin_access_roles', ['roles' => array_map('count', $map)]);
+        $this->respond(true, 'دسترسی نقش‌ها ذخیره شد.', '/admin/access');
+    }
+
+    public function accessRolesReset()
+    {
+        $this->needSuper();
+        \App\Core\AdminAccess::resetRoles();
+        Audit::log($this->uid(), 'admin_access_reset', []);
+        $this->respond(true, 'دسترسی نقش‌ها به پیش‌فرض برگشت.', '/admin/access');
+    }
+
+    /** نقش و دسترسی یک مدیر: role (internal|support|user = برداشتن مدیریت)، mode = role|custom، perms[] */
+    public function accessUserSave(string $id)
+    {
+        $this->needSuper();
+        $t = UserModel::find((int) $id);
+        if ($t === null || $t['role'] !== 'admin' || (int) $t['is_bot'] === 1) {
+            $this->respond(false, 'مدیر یافت نشد.', '/admin/access');
+        }
+        if ((int) $t['id'] === Auth::superAdminId()) {
+            $this->respond(false, 'نقش و دسترسی حساب مدیر کل اصلی تغییر نمی‌کند.', '/admin/access');
+        }
+        $role = $this->request->str('admin_role', 20);
+        if (!isset(Auth::ADMIN_ROLES[$role]) && $role !== 'user') {
+            $this->respond(false, 'نقش انتخاب‌شده معتبر نیست.', '/admin/access');
+        }
+        $custom = $this->request->str('mode', 10) === 'custom' && $role !== 'super' && $role !== 'user'
+            ? json_encode(\App\Core\AdminAccess::clean($this->request->arr('perms'))) : null;
+        $d = $role === 'user' ? ['role' => 'user', 'admin_role' => null, 'admin_permissions' => null] : ['admin_role' => $role, 'admin_permissions' => $custom];
+        DB::update('users', $d, 'id = ?', [(int) $t['id']]);
+        Audit::log($this->uid(), 'admin_access_user', ['id' => (int) $t['id'], 'role' => $role, 'custom' => $custom !== null]);
+        $this->respond(true, $role === 'user' ? 'دسترسی مدیریت این حساب برداشته شد؛ حالا کاربر عادی است.' : 'نقش و دسترسی «' . full_name($t) . '» ذخیره شد.', '/admin/access');
+    }
+
     public function security()
     {
+        $this->need('view_security');
         $this->rateLimit('admin_list', 60);
         $r = $this->request->query;
         $per = (int) ($r['per'] ?? self::USERS_PER_PAGE[0]);
@@ -535,6 +632,7 @@ final class AdminController extends Controller
     /** تنظیمات ← مستندات پنل: محدودیت‌ها و قواعد امنیتی مهم (App\Services\PanelDocs) */
     public function panelDocs()
     {
+        $this->need('view_panel_docs');
         $this->view('admin/panel_docs', ['cards' => \App\Services\PanelDocs::cards(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'مستندات پنل', 'page' => 'admin-panel-docs'], 'admin');
     }
@@ -548,6 +646,7 @@ final class AdminController extends Controller
     /** GET /admin/list/{kind}: فهرست صفحه‌بندی‌شده با جستجو و فیلتر وضعیت (کلیک روی کارت‌های پیشخوان مدیر) */
     public function listing(string $kind)
     {
+        $this->need('view_analysis');
         if (!isset(self::LISTS[$kind])) {
             $this->abort(404);
         }
@@ -607,6 +706,7 @@ final class AdminController extends Controller
     /** پنجره‌ی جزئیات پروژه در فهرست پروژه‌های مدیر: GET /admin/list/projects/{id} */
     public function projectInfo(string $id)
     {
+        $this->need('view_analysis');
         $this->rateLimit('admin_list', 120);
         $p = DB::one('SELECT p.id, p.title, p.description, p.priority_type, p.max_members, p.blocked_at, p.created_at, p.user_id, u.first_name, u.last_name, u.mobile, u.avatar, u.role, u.status
             FROM projects p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [(int) $id]);
@@ -629,6 +729,7 @@ final class AdminController extends Controller
     /** اعضا یا تسک‌های یک پروژه (صفحه‌بندی‌شده) برای همان پنجره: GET /admin/list/projects/{id}/{part} */
     public function projectPart(string $id, string $part)
     {
+        $this->need('view_analysis');
         $this->rateLimit('admin_list', 120);
         $pid = (int) $id;
         if (!in_array($part, ['members', 'tasks'], true) || !DB::value('SELECT 1 FROM projects WHERE id = ?', [$pid])) {
@@ -672,6 +773,7 @@ final class AdminController extends Controller
 
     public function analysis()
     {
+        $this->need('view_analysis');
         $c = static fn(string $sql): int => (int) DB::value($sql);
         $stats = [
             'users' => UserModel::counts(),
@@ -695,7 +797,7 @@ final class AdminController extends Controller
             'total' => (int) DB::value('SELECT COUNT(*) FROM chat_messages'),
             'enc' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE message LIKE 'enc:v1:%'"),
             'plain' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE (message <> '' AND message NOT LIKE 'enc:v1:%') OR (attachment_name IS NOT NULL AND attachment_name <> '' AND attachment_name NOT LIKE 'enc:v1:%')"),
-            'isSuper' => $this->isSuper(),
+            'isSuper' => Auth::adminCan('chat_encrypt'),
         ];
         $audit = DB::all('SELECT a.action, a.ip, a.created_at, a.details, u.first_name, u.last_name, u.mobile FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 15');
         $this->view('admin/analysis', compact('stats', 'days', 'topUsers', 'topProjects', 'topSubjects', 'audit', 'chatSec') + ['supportUnread' => SupportModel::unreadForAdmin()], ['title' => 'تحلیل سیستم', 'page' => 'admin-analysis'], 'admin');
@@ -704,9 +806,7 @@ final class AdminController extends Controller
     /** رمزگذاری پیام‌های متن‌ساده‌ی قبلی (فقط مدیر کل). تا ~۲۰ ثانیه در هر کلیک؛ در صورت باقی‌ماندن، دوباره بزنید. */
     public function chatEncrypt()
     {
-        if (!$this->isSuper()) {
-            $this->fail('فقط مدیر کل می‌تواند این عملیات را انجام دهد.', 403);
-        }
+        $this->need('chat_encrypt');
         if (!Crypto::configured()) {
             $this->fail('ENCODE_PASSWORD در .env تنظیم نشده یا کمتر از ۱۲ نویسه است (یا OpenSSL فعال نیست).');
         }

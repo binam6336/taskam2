@@ -230,6 +230,10 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/security', [AdminController::class, 'security']);
+    $r->get('/admin/access', [AdminController::class, 'access']);
+    $r->post('/admin/access/roles', [AdminController::class, 'accessRolesSave']);
+    $r->post('/admin/access/roles/reset', [AdminController::class, 'accessRolesReset']);
+    $r->post('/admin/access/users/{user}', [AdminController::class, 'accessUserSave']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);

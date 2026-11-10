@@ -40,8 +40,8 @@ TABLES = {
         'password_hash': 'هش رمز عبور با Argon2id (یا bcrypt روی سرورهای قدیمی‌تر)؛ هنگام ورود اگر الگوریتم قدیمی باشد خودکار بازهش می‌شود. تغییر آن نشست‌های دیگر و توکن‌های API را باطل می‌کند.',
         'role': 'نقش: user = کاربر پنل، admin = مدیر (پنل مدیر).',
         'status': 'وضعیت حساب: pending (منتظر تأیید مدیر) ← active؛ deactivated = غیرفعال؛ blocked = مسدود. فقط active وارد پنل می‌شود.',
-        'admin_permissions': 'منسوخ از v4.4 (دیگر خوانده یا نوشته نمی‌شود): آرایه‌ی JSON قدیمی دسترسی‌های مدیر. نقش مدیر در admin_role است.',
-        'admin_role': 'نقش مدیر (فقط role = admin): super = مدیر کل، internal = مدیر داخلی، support = پشتیبان. اولین مدیر (کمترین id) همیشه مدیر کل است. فعلاً همه‌ی نقش‌ها همه‌ی دسترسی‌های پنل مدیر را دارند (Auth::adminPermissions)؛ محدودسازی بر اساس نقش بعداً اضافه می‌شود. فقط حساب مدیر کل اصلی و حساب خود مدیر از تغییر نقش/وضعیت/حذف توسط دیگران محفوظ است.',
+        'admin_permissions': 'دسترسی اختصاصی مدیر (v7.4، JSON آرایه‌ی کلیدهای AdminAccess::PERMS مثل ["view_users","support_view"]). NULL = دسترسی طبق نقش (admin_role). فقط مدیر کل در «تنظیمات ← دسترسی» آن را می‌نویسد؛ برای مدیر کل خوانده نمی‌شود (همیشه همه). مقدارهای قدیمیِ منسوخ از v4.4 با داده‌ی ۰۴۲ پاک شدند.',
+        'admin_role': 'نقش مدیر (فقط role = admin): super = مدیر کل، internal = مدیر داخلی، support = پشتیبان. اولین مدیر (کمترین id) همیشه مدیر کل است. از v7.4 دسترسی‌های پنل مدیر بر اساس نقش است (Auth::adminPermissions ← AdminAccess::of): مدیر کل همه، مدیر داخلی و پشتیبان طبق جدول «تنظیمات ← دسترسی» (content_texts.admin.access) یا دسترسی اختصاصی admin_permissions. فقط حساب مدیر کل اصلی و حساب خود مدیر از تغییر نقش/وضعیت/حذف توسط دیگران محفوظ است.',
         'is_bot': '۱ = حساب ربات اطلاع‌رسانی (ورود ندارد، پیام به آن ارسال نمی‌شود).',
         'allow_colleague_requests': '۱ = دیگران می‌توانند این کاربر را با شماره موبایل پیدا کنند (درخواست همکاری و «پیام جدید» در گفتگو). ۰ = فقط همکاران تأییدشده پیدایش می‌کنند.',
         'project_join_requires_approval': '۱ = افزودن به پروژه به‌جای عضویت مستقیم، درخواست (project_join_requests) می‌سازد و کاربر باید تأیید کند.',
@@ -173,7 +173,7 @@ TABLES = {
     'desc': 'متن‌هایی که مدیر در «پنل مدیر ← محتوا» تغییر داده: متن‌های تور آموزشی، چیدمان سایدبار، متن خطاها و placeholderها. نبودن ردیف = متن پیش‌فرض از config.',
     'flow': [
         'مدیر متن را ویرایش می‌کند ← ردیف با کلید ثابت ذخیره/به‌روز می‌شود؛ «بازگشت به پیش‌فرض» ردیف را حذف می‌کند.',
-        'کلیدها: board.default (v6.1، JSON بورد پیش‌فرض از «محتوا ← بورد»؛ نبود = چیدمان اولیه)، tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php؛ JSON چیدمان، هر گزینه با desc = توضیح زیر نام در پاپ‌آپ زیرمنو، نبودِ desc = توضیح پیش‌فرض config)، sidebar.user.opts (تنظیمات نمایش سایدبار: {"show_desc": true/false})، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
+        'کلیدها: admin.access (v7.4، JSON دسترسی نقش‌های مدیر {internal:[…], support:[…]} از «تنظیمات ← دسترسی»؛ نبود = AdminAccess::DEFAULTS)، board.default (v6.1، JSON بورد پیش‌فرض از «محتوا ← بورد»؛ نبود = چیدمان اولیه)، tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php؛ JSON چیدمان، هر گزینه با desc = توضیح زیر نام در پاپ‌آپ زیرمنو، نبودِ desc = توضیح پیش‌فرض config)، sidebar.user.opts (تنظیمات نمایش سایدبار: {"show_desc": true/false})، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
     ],
     'cols': {
         'key': 'کلید یکتای متن، مثل tour.step_5 یا sidebar.user.',
