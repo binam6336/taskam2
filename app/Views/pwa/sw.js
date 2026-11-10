@@ -1,4 +1,4 @@
-/* Taskam service worker — نسخه‌ی PWA
+/* Karlix service worker — نسخه‌ی PWA
    • کش فایل‌های ایستا (CSS/JS/تصاویر) برای باز شدن سریع، صفحه‌ی آفلاین وقتی اینترنت نیست
    • صفحه‌ها و داده‌ها همیشه از شبکه می‌آیند (اطلاعات کاربر کش نمی‌شود)
    • Web Push: اعلان پیام، تسک و یادآوری حتی وقتی برنامه بسته است */
@@ -66,7 +66,7 @@ self.addEventListener('fetch', (e) => {
 /* ───── اعلان‌ها ───── */
 self.addEventListener('push', (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'تسکام', body: e.data ? e.data.text() : '' }; }
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'کارلیکس', body: e.data ? e.data.text() : '' }; }
   e.waitUntil((async () => {
     if (typeof d.unread === 'number' && self.navigator.setAppBadge) {
       try { d.unread > 0 ? await self.navigator.setAppBadge(d.unread) : await self.navigator.clearAppBadge(); } catch { /* پشتیبانی نمی‌شود */ }
@@ -76,7 +76,7 @@ self.addEventListener('push', (e) => {
     const visible = wins.find((c) => c.visibilityState === 'visible' && c.focused);
     if (visible && d.kind !== 'test') { visible.postMessage({ type: 'tk-push', payload: d }); return; }
     const kind = d.kind || 'info';
-    await self.registration.showNotification(d.title || 'تسکام', {
+    await self.registration.showNotification(d.title || 'کارلیکس', {
       body: d.body || '',
       icon: abs(d.icon || 'assets/img/icon-192.png'),
       badge: abs(d.badge || 'assets/img/badge-96.png'),       // آیکن تک‌رنگ نوار وضعیت اندروید

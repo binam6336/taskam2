@@ -1,6 +1,6 @@
 <?php /** محتوا ← بورد (v6.1): بورد پیش‌فرض. @var bool $custom */ ?>
 <div class="page-head"><h2><i class="dc-961bcb fa-solid fa-table-columns"></i> بورد پیش‌فرض</h2>
-    <span class="badge <?= $custom ? 'green' : '' ?>"><?= $custom ? 'تنظیم‌شده توسط مدیر' : 'چیدمان اولیه‌ی تسکام' ?></span></div>
+    <span class="badge <?= $custom ? 'green' : '' ?>"><?= $custom ? 'تنظیم‌شده توسط مدیر' : 'چیدمان اولیه‌ی کارلیکس' ?></span></div>
 <div class="card bs-admin">
     <?php $this->partial('board_settings', ['scope' => 'template', 'project' => '', 'custom' => $custom]); ?>
 </div>

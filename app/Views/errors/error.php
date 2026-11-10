@@ -10,7 +10,7 @@ $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 
 <title><?= e($titles[$status] ?? 'خطا') ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri(user_theme($currentUser ?? null))) ?>">
 <link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/taskam-icons.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/karlix-icons.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 </head>
 <body>

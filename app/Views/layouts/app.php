@@ -31,7 +31,7 @@ $tbCols = array_slice($tbAll, 0, 4);
 <body class="<?= e($this->bodyClass) ?>" data-layout="app">
 <div class="app">
     <?php $sb = [
-        'home' => url('/dashboard'), 'title' => 'تسکام', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => fa_num((string) $u['mobile']), 'user_sub_ltr' => true,
+        'home' => url('/dashboard'), 'title' => 'کارلیکس', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => fa_num((string) $u['mobile']), 'user_sub_ltr' => true,
         'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'desc' => [],   // توضیح‌ها داخل خود $menu (SidebarModel::nav)
     ];
     require __DIR__ . '/../partials/sidebar.php'; ?>

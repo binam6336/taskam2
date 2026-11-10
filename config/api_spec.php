@@ -20,7 +20,7 @@ $person = ['user_id' => 9, 'first_name' => 'مریم', 'last_name' => 'احمد�
 $project = ['id' => 2, 'title' => 'بازطراحی وب‌سایت', 'description' => null, 'max_members' => 10, 'priority_type' => 'category', 'profile_image' => null, 'status' => 1, 'is_creator' => true, 'my_permissions' => ['edit_project', 'add_member', 'remove_member', 'manage_permissions', 'view_analytics'], 'my_task_permissions' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete', 'block'], 'my_role' => 'creator', 'my_board_permissions' => ['to_todo', 'to_progress', 'to_review', 'to_done', 'move_back', 'move_any'], 'created_at' => '2026-09-01 12:00:00', 'members_count' => 4];
 
 $spec = [
-    'meta' => ['title' => 'Taskam API', 'version' => 'v1', 'updated' => '2026-10'],
+    'meta' => ['title' => 'Karlix API', 'version' => 'v1', 'updated' => '2026-10'],
     'errors' => [
         ['code' => 'UNAUTHORIZED / TOKEN_INVALID', 'http' => 401, 'desc' => 'توکن ارسال نشده، نامعتبر، غیرفعال یا منقضی است.'],
         ['code' => 'ACCOUNT_INACTIVE', 'http' => 403, 'desc' => 'حساب صاحب توکن فعال نیست.'],
@@ -39,7 +39,7 @@ $spec = [
     ],
     'groups' => [
         ['id' => 'general', 'title' => 'عمومی', 'icon' => 'fa-compass', 'desc' => 'اطلاعات API، هویت توکن و زمان سرور.', 'endpoints' => [
-            ['method' => 'GET', 'path' => '/', 'summary' => 'معرفی API و فهرست endpointها', 'params' => [], 'example' => ['name' => 'Taskam API', 'version' => 'v1', 'base_url' => 'https://example.com/api/v1', 'auth' => ['type' => 'Bearer Token', 'header' => 'Authorization: Bearer <token>']]],
+            ['method' => 'GET', 'path' => '/', 'summary' => 'معرفی API و فهرست endpointها', 'params' => [], 'example' => ['name' => 'Karlix API', 'version' => 'v1', 'base_url' => 'https://example.com/api/v1', 'auth' => ['type' => 'Bearer Token', 'header' => 'Authorization: Bearer <token>']]],
             ['method' => 'GET', 'path' => '/me', 'summary' => 'اطلاعات کاربر صاحب توکن', 'params' => [], 'example' => ['id' => 7, 'first_name' => 'علی', 'last_name' => 'رضایی', 'full_name' => 'علی رضایی', 'mobile' => '09121234567', 'email' => null, 'avatar_url' => null, 'auth_method' => 'token']],
             ['method' => 'GET', 'path' => '/time', 'summary' => 'زمان سرور (تهران) به میلادی و شمسی', 'params' => [], 'example' => ['timezone' => 'Asia/Tehran', 'iso' => '2026-10-23T10:15:00+03:30', 'persian' => ['formatted' => '1405/08/01', 'weekday' => 'جمعه']]],
         ]],

@@ -8,4 +8,4 @@
 5. محتویات `uploads/` قدیمی را در `storage/uploads/` کپی کنید (نام زیرپوشه‌ها یکسان است).
 6. وارد شوید؛ رمزها تغییری نکرده‌اند و هش‌ها در اولین ورود به Argon2id ارتقا می‌یابند.
 
-نگاشت‌ها: `users.password→password_hash` • `colleague_messages→chat_messages` • ربات تسکام با `is_bot=1` • توکن‌های API هش می‌شوند • شناسه‌های دسترسی سریع (`subject, hamkar, call_request, prpfile`) به (`subjects, colleagues, calls, profile`) تبدیل می‌شوند • جدول بلااستفاده‌ی `sidebar_manager_auth` منتقل نمی‌شود.
+نگاشت‌ها: `users.password→password_hash` • `colleague_messages→chat_messages` • ربات کارلیکس با `is_bot=1` • توکن‌های API هش می‌شوند • شناسه‌های دسترسی سریع (`subject, hamkar, call_request, prpfile`) به (`subjects, colleagues, calls, profile`) تبدیل می‌شوند • جدول بلااستفاده‌ی `sidebar_manager_auth` منتقل نمی‌شود.

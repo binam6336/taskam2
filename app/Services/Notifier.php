@@ -7,7 +7,7 @@ use App\Core\DB;
 use App\Core\Jalali;
 use App\Models\UserModel;
 
-/** ارسال اعلان‌های سیستمی از طریق «ربات تسکام» در چت. */
+/** ارسال اعلان‌های سیستمی از طریق «ربات کارلیکس» در چت. */
 final class Notifier
 {
     public static function send(int $toUserId, string $text): void

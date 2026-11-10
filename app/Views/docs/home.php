@@ -7,7 +7,7 @@ foreach ($spec['groups'] as $g) {
 $sample = ['success' => true, 'status' => 'success', 'message' => 'پیام اختیاری', 'data' => ['…' => '…']];
 ?>
 <section class="dx-hero">
-    <h1>مستندات <span>Taskam API</span></h1>
+    <h1>مستندات <span>Karlix API</span></h1>
     <p>REST API ساده و امن برای مدیریت تسک‌ها، یادداشت‌ها، همکاران و پروژه‌ها. با یک توکن Bearer در چند دقیقه شروع کنید.</p>
     <div class="flex gap-2 wrap">
         <a class="btn btn-primary" href="<?= e(url('/docs/authentication')) ?>"><i class="fa-solid fa-key"></i> نحوه دریافت و ارسال توکن</a>

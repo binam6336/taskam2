@@ -16,10 +16,10 @@ document.addEventListener('tk:ready', () => {
   paint();
   setTimeout(paint, 1500);
   document.addEventListener('tk:installable', paint);
-  document.addEventListener('tk:installed', () => { btn.disabled = true; btn.querySelector('span').textContent = 'نصب شد'; state.textContent = 'تسکام نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید.'; });
+  document.addEventListener('tk:installed', () => { btn.disabled = true; btn.querySelector('span').textContent = 'نصب شد'; state.textContent = 'کارلیکس نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید.'; });
   btn.addEventListener('click', async () => {
     const r = await TK.pwa.install();
-    if (r === 'accepted') TK.toast('در حال نصب تسکام…', 'success');
+    if (r === 'accepted') TK.toast('در حال نصب کارلیکس…', 'success');
     else if (r === 'dismissed') TK.toast('نصب لغو شد؛ هر وقت خواستید دوباره دکمه را بزنید.', 'info');
     paint();
   });
@@ -63,7 +63,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.get('/install/android/check');
     TK.busy(a, false); delete a.dataset.busy;
     if (!TK.ok(r)) { TK.toast('خطا در دریافت نرم‌افزار، لطفاً بعداً تلاش کنید.', 'error'); return; }
-    const l = document.createElement('a'); l.href = a.href; l.download = 'taskam.apk'; l.setAttribute('data-no-nav', ''); document.body.appendChild(l); l.click(); l.remove();
+    const l = document.createElement('a'); l.href = a.href; l.download = 'karlix.apk'; l.setAttribute('data-no-nav', ''); document.body.appendChild(l); l.click(); l.remove();
     TK.toast('دریافت فایل شروع شد (' + (r.size_fa || r.data?.size_fa || '') + ').', 'success');
   });
 });

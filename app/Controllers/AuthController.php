@@ -22,7 +22,7 @@ final class AuthController extends Controller
             header('Retry-After: 60');
             $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
         }
-        $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به تسکام'], 'auth');
+        $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به کارلیکس'], 'auth');
     }
 
     /** تصویر کپچای صفحه‌ی ورود (هر بار کد جدید) */

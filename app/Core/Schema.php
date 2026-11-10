@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '042';
+    public const VERSION = '043';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -122,6 +122,7 @@ final class Schema
         ['040', '040_project_boards.sql'],
         ['041', '041_drop_groups.sql'],
         ['042', '042_admin_access.sql'],
+        ['043', '043_rebrand_karlix.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */

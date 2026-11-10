@@ -153,7 +153,7 @@ for gname, ts in GROUPS:
 total_cols = sum(len(d['cols']) for d in S.values())
 font = 'file://' + os.path.join(ROOT, 'public/assets/vendor/vazirmatn/fonts/webfonts')
 today = datetime.date.today().isoformat()
-doc = f'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>مستندات دیتابیس تسکام</title>
+doc = f'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>مستندات دیتابیس کارلیکس</title>
 <style>
 @font-face {{ font-family: V; src: url('{font}/Vazirmatn-Regular.woff2'); font-weight: 400; }}
 @font-face {{ font-family: V; src: url('{font}/Vazirmatn-Medium.woff2'); font-weight: 500; }}
@@ -205,7 +205,7 @@ td.nl {{ text-align: center; }}
 </style></head><body>
 <div class="cover">
   <div class="k">مستندات فنی</div>
-  <h1>دیتابیس تسکام (Taskam v2)</h1>
+  <h1>دیتابیس کارلیکس (Karlix، نام قبلی: تسکام)</h1>
   <p>همه‌ی جدول‌ها و ستون‌ها: نوع داده، مقدار پیش‌فرض، کلیدها و روابط، و فلو و کاربرد هر بخش در برنامه.</p>
   <div class="stats"><div><b>{len(S)}</b>جدول</div><div><b>{total_cols}</b>ستون</div><div><b>{sum(len(d["fks"]) for d in S.values())}</b>کلید خارجی</div></div>
   <p style="margin-top:22px;font-size:9.5pt">نسخه‌ی برنامه: <code>{e(version)}</code> — نسخه‌ی ساختار دیتابیس (Schema): <code>{e(schema_ver)}</code> — تاریخ ساخت: <code>{today}</code><br>
@@ -229,7 +229,7 @@ td.nl {{ text-align: center; }}
 {"".join(parts)}
 </body></html>'''
 
-out_html = os.path.join('/tmp', 'taskam-db-docs.html')
+out_html = os.path.join('/tmp', 'karlix-db-docs.html')
 open(out_html, 'w', encoding='utf-8').write(doc)
 pdf = os.path.join(ROOT, 'docs', 'database.pdf')
 subprocess.run(['node', os.path.join(os.path.dirname(__file__), 'render.js'), out_html, pdf, version], check=True)

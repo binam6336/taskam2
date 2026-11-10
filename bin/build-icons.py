@@ -5,7 +5,7 @@
   python3 bin/build-icons.py
 
 کد (app/، config/، public/assets/js/) را برای نام‌های fa-* می‌گردد و از vendor/fontawesome/css/all.min.css
-فایل vendor/fontawesome/css/taskam-icons.css و فونت‌های woff2 کوچک‌شده‌ی webfonts/taskam-*.woff2 را می‌سازد.
+فایل vendor/fontawesome/css/karlix-icons.css و فونت‌های woff2 کوچک‌شده‌ی webfonts/karlix-*.woff2 را می‌سازد.
 بعد از اضافه کردن آیکون تازه در کد، این اسکریپت را دوباره اجرا و خروجی‌ها را کامیت کنید (نیاز: pip install fonttools brotli).
 """
 import os, re, sys
@@ -69,17 +69,17 @@ for key, (src, fam, w) in faces.items():
     # نام فایل با هش محتوا تا کش طولانی مرورگر (immutable) بعد از ساخت دوباره کهنه نماند
     import hashlib, glob, io
     f.flavor = 'woff2'; buf = io.BytesIO(); f.save(buf); data = buf.getvalue()
-    for old in glob.glob(os.path.join(FA, 'webfonts', 'taskam-%s*.woff2' % key)):
+    for old in glob.glob(os.path.join(FA, 'webfonts', 'karlix-%s*.woff2' % key)):
         os.remove(old)
-    name = 'taskam-%s.%s.woff2' % (key, hashlib.sha1(data).hexdigest()[:10])
+    name = 'karlix-%s.%s.woff2' % (key, hashlib.sha1(data).hexdigest()[:10])
     open(os.path.join(FA, 'webfonts', name), 'wb').write(data)
     ff.append('@font-face{font-family:%s;font-style:normal;font-weight:%d;font-display:block;src:url(../webfonts/%s) format("woff2")}' % (fam, w, name))
 
-res = header + '\n/* Taskam subset — ساخته‌شده با bin/build-icons.py؛ دستی ویرایش نکنید. %d آیکون */\n' % len(icon_cp) + ''.join(out) + ''.join(ff) + '\n'
-open(os.path.join(FA, 'css/taskam-icons.css'), 'w', encoding='utf-8').write(res)
+res = header + '\n/* Karlix subset — ساخته‌شده با bin/build-icons.py؛ دستی ویرایش نکنید. %d آیکون */\n' % len(icon_cp) + ''.join(out) + ''.join(ff) + '\n'
+open(os.path.join(FA, 'css/karlix-icons.css'), 'w', encoding='utf-8').write(res)
 print('icons:', len(icon_cp), 'css:', len(res), 'bytes')
 import glob
-for p in sorted(glob.glob(os.path.join(FA, 'webfonts', 'taskam-*.woff2'))):
+for p in sorted(glob.glob(os.path.join(FA, 'webfonts', 'karlix-*.woff2'))):
     print(os.path.basename(p), os.path.getsize(p), 'bytes')
 missing = sorted(n for n in used if n not in icon_cp and re.fullmatch(r'fa-[a-z0-9-]+', n))
 print('names without glyph (helpers/sizes/typos):', ' '.join(missing[:60]))

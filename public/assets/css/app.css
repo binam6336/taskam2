@@ -1,11 +1,11 @@
 /* ==========================================================================
-   Taskam UI — یک استایل‌شیت برای کل پنل (کاربر، مدیر، احراز هویت، مستندات)
+   Karlix UI — یک استایل‌شیت برای کل پنل (کاربر، مدیر، احراز هویت، مستندات)
    تم: سبز + مشکی • RTL • بدون وابستگی (فقط فونت/آیکون از CDN)
    ========================================================================== */
 
 :root {
   /* رنگ‌های لوگو (logo_svg در helpers.php) */
-  --logo-a: #22c55e; --logo-b: #10b981; --logo-bg1: #121816; --logo-bg2: #0a0f0d; --logo-inner: #111c16;
+  --logo-a: #3FAE58; --logo-b: #7BE08F; --logo-base: #13221A; --logo-inner: #0F1A13; --logo-glass: #FFFFFF; --logo-glass-o: .22;
   --bg: #060908;
   --bg-2: #0a100d;
   --surface: #0f1612;
@@ -569,6 +569,11 @@ table.table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .auth-card { width: 100%; max-width: 460px; }
 .auth-card .brand { justify-content: center; padding: 0 0 1.2rem; font-size: 1.5rem; flex-direction: column; text-align: center; gap: .6rem; }
 .auth-card .brand .logo { width: 64px; height: 64px; }
+/* v7.5 کارلیکس: لوگوی کامل (نشان + نوشته) در صفحه‌ی ورود */
+.auth-card .brand-lockup { margin: 0; gap: .2rem; }
+.brand-lockup .lockup { display: block; width: 170px; aspect-ratio: 180 / 146; }
+.brand-lockup .lockup svg { display: block; width: 100%; height: 100%; }
+.brand-lockup small { margin-top: 0; font-size: .8rem; }
 .pw-meter { height: 4px; border-radius: 4px; background: var(--surface-3); margin-top: .4rem; overflow: hidden; } .pw-meter i { display: block; height: 100%; width: 0; transition: .25s; }
 
 /* ───────────── Chat ───────────── */
@@ -830,7 +835,7 @@ input[type=file].input::-webkit-file-upload-button { margin-inline-end: .9rem; p
    ═══════════════════════════════════════════════════════════════════════ */
 html[data-mode="light"] {
   color-scheme: light;
-  --logo-a: #7FB77E; --logo-b: #4E9A5B; --logo-bg1: #FBFAEB; --logo-bg2: #E3E4C9; --logo-inner: #F7F6DC;
+  --logo-a: #6FA867; --logo-b: #3F6E3B; --logo-base: #FFFFFF; --logo-inner: #FBFAEC; --logo-glass: #FFFFFF; --logo-glass-o: 1;
   /* پس‌زمینه کمی تیره‌تر و خنثی‌تر از #F7F6DC تا چشم را نزند؛ خود #F7F6DC رنگ کارت‌هاست */
   --bg: #E8E9D3;
   --bg-2: #E1E3CB;
@@ -884,7 +889,7 @@ html[data-mode="light"] {
 /* ═══ شش تم v7.0 (config/themes.php): پالت [dark, main, acc, card, bg] × روشن/تیره — ساخته‌شده با bin/… (دستی هم قابل ویرایش) ═══ */
 html[data-theme="green-light"] {
   --p-dark: #2F4A2F; --p-main: #4A7C45; --p-acc: #8DBB86; --p-card: #F4F1D8; --p-bg: #FBFAEC;
-  --logo-a: #4A7C45; --logo-b: #8DBB86; --logo-bg1: #FFFFFF; --logo-bg2: #F4F1D8; --logo-inner: #FBFAEC;
+  --logo-a: #6FA867; --logo-b: #3F6E3B; --logo-base: #FFFFFF; --logo-inner: #FBFAEC; --logo-glass: #FFFFFF; --logo-glass-o: 1;
   --shell-out: #E7E8D9; --bg: #FBFAEC; --bg-2: #FAF8EC;
   --surface: #FCFBF3; --surface-0: #FFFFFF; --surface-2: #F8F7E8; --surface-3: #F4F1D8;
   --border: #E6E9E6; --border-2: #D5DBD5;
@@ -905,7 +910,7 @@ html[data-theme="green-light"] {
 html[data-theme="green-dark"] {
   /* v7.3: سبز تیره‌ی زنده‌تر (پس‌زمینه‌ی تیره‌ی کم‌خاکستری، سبز اشباع‌تر، متن روشن خنثی) به‌جای ترکیب‌های غبارآلود قبلی */
   --p-dark: #2F4A2F; --p-main: #4A7C45; --p-acc: #8DBB86; --p-card: #F4F1D8; --p-bg: #FBFAEC;
-  --logo-a: #6FD683; --logo-b: #3FAE58; --logo-bg1: #13221A; --logo-bg2: #0A120D; --logo-inner: #0F1A13;
+  --logo-a: #3FAE58; --logo-b: #7BE08F; --logo-base: #13221A; --logo-inner: #0F1A13; --logo-glass: #FFFFFF; --logo-glass-o: .22;
   --shell-out: #050906; --bg: #08100B; --bg-2: #0B140E;
   --surface: #0F1A13; --surface-0: #0B150F; --surface-2: #142219; --surface-3: #1A2B20;
   --border: #1F3326; --border-2: #2C4A36;
@@ -926,7 +931,7 @@ html[data-theme="green-dark"] {
 
 html[data-theme="momentum-light"] {
   --p-dark: #202631; --p-main: #F07836; --p-acc: #FFB36B; --p-card: #F4E9DF; --p-bg: #F8F7F5;
-  --logo-a: #F07836; --logo-b: #FFB36B; --logo-bg1: #FFFFFF; --logo-bg2: #F4E9DF; --logo-inner: #F8F7F5;
+  --logo-a: #FF9A57; --logo-b: #E0611F; --logo-base: #FFFFFF; --logo-inner: #F8F7F5; --logo-glass: #FFFFFF; --logo-glass-o: 1;
   --shell-out: #E2E2E1; --bg: #F8F7F5; --bg-2: #FAF4EF;
   --surface: #FCF8F5; --surface-0: #FFFFFF; --surface-2: #F8F2EC; --surface-3: #F4E9DF;
   --border: #E4E5E6; --border-2: #D2D4D6;
@@ -946,7 +951,7 @@ html[data-theme="momentum-light"] {
 }
 html[data-theme="momentum-dark"] {
   --p-dark: #202631; --p-main: #F07836; --p-acc: #FFB36B; --p-card: #F4E9DF; --p-bg: #F8F7F5;
-  --logo-a: #FFB36B; --logo-b: #F07836; --logo-bg1: #13171D; --logo-bg2: #0A0B0F; --logo-inner: #0E1116;
+  --logo-a: #F07836; --logo-b: #FFB878; --logo-base: #13171D; --logo-inner: #0E1116; --logo-glass: #FFFFFF; --logo-glass-o: .22;
   --shell-out: #07080B; --bg: #0C0E12; --bg-2: #0D1015;
   --surface: #101318; --surface-0: #0D1015; --surface-2: #13171D; --surface-3: #181C24;
   --border: #1C212B; --border-2: #51453E;
@@ -966,7 +971,7 @@ html[data-theme="momentum-dark"] {
 }
 html[data-theme="violet-light"] {
   --p-dark: #241B3D; --p-main: #6D4AFF; --p-acc: #A78BFA; --p-card: #F0ECFF; --p-bg: #FAF9FF;
-  --logo-a: #6D4AFF; --logo-b: #A78BFA; --logo-bg1: #FFFFFF; --logo-bg2: #F0ECFF; --logo-inner: #FAF9FF;
+  --logo-a: #8A6AFC; --logo-b: #6443E8; --logo-base: #FFFFFF; --logo-inner: #FBFAFF; --logo-glass: #FBFAFF; --logo-glass-o: 1;
   --shell-out: #E5E3EC; --bg: #FAF9FF; --bg-2: #F8F6FF;
   --surface: #FAF9FF; --surface-0: #FFFFFF; --surface-2: #F6F4FF; --surface-3: #F0ECFF;
   --border: #E5E4E8; --border-2: #D3D1D8;
@@ -986,7 +991,7 @@ html[data-theme="violet-light"] {
 }
 html[data-theme="violet-dark"] {
   --p-dark: #241B3D; --p-main: #6D4AFF; --p-acc: #A78BFA; --p-card: #F0ECFF; --p-bg: #FAF9FF;
-  --logo-a: #A78BFA; --logo-b: #6D4AFF; --logo-bg1: #161025; --logo-bg2: #0B0812; --logo-inner: #100C1B;
+  --logo-a: #7C5CFF; --logo-b: #B49CFF; --logo-base: #161025; --logo-inner: #100C1B; --logo-glass: #FFFFFF; --logo-glass-o: .22;
   --shell-out: #08060D; --bg: #0D0A16; --bg-2: #0F0B1A;
   --surface: #120E1E; --surface-0: #0F0B1A; --surface-2: #161025; --surface-3: #1B142D;
   --border: #201836; --border-2: #413467;
@@ -1880,11 +1885,17 @@ html[data-mode="light"] .dp-row { background: var(--surface-0); }
 .chat-input.is-waiting .btn { opacity: .45; pointer-events: none; }
 
 /* لوگو بدون ویژگی style (CSP بدون unsafe-inline) */
-.lg-a { stop-color: var(--logo-a, #22c55e); }
-.lg-b { stop-color: var(--logo-b, #10b981); }
-.lg-bg1 { stop-color: var(--logo-bg1, #121816); }
-.lg-bg2 { stop-color: var(--logo-bg2, #0a0f0d); }
-rect.lg-inner { fill: var(--logo-inner, #111c16); }
+/* لوگوی کارلیکس (logo_mark در helpers.php): رنگ‌ها از --logo-* تم فعلی */
+.lg-a { stop-color: var(--logo-a, #3FAE58); }
+.lg-b { stop-color: var(--logo-b, #7BE08F); }
+.lg-gl { stop-color: var(--logo-glass, #FFFFFF); }
+.lg-base { fill: var(--logo-base, #13221A); }
+.lg-tint { fill: var(--logo-a, #3FAE58); }
+.lg-glass { opacity: var(--logo-glass-o, .22); }
+.lg-ln { stroke: var(--logo-a, #3FAE58); }
+.lg-ck { stroke: var(--logo-b, #7BE08F); }
+.lg-dot { fill: var(--logo-inner, #0F1A13); stroke: var(--logo-b, #7BE08F); }
+.lg-word { fill: var(--muted, #676078); }
 /* data-css: استایل پویا که app.js با CSSOM اعمال می‌کند؛ display:none از همان لحظه‌ی اول (بدون پرش) */
 [data-css*="display:none"] { display: none; }
 /* صفحه‌ی خطا (بدون app.js، پس بدون data-css) */
@@ -2620,7 +2631,7 @@ body:not([data-layout]) .toasts { left: 50%; transform: translateX(-50%); bottom
 .fp-rm:hover { background: var(--danger-bg); color: var(--danger); }
 .fp-cnt { font-size: .74rem; color: var(--muted); }
 .tf-drop [data-file-names]:empty::before { content: attr(data-empty); color: var(--muted); }
-/* «تاپ تاپ» در فهرست منشن: لوگوی تسکام با رنگ تم */
+/* «تاپ تاپ» در فهرست منشن: لوگوی کارلیکس با رنگ تم */
 .mention-taptap .mt-logo { padding: 0; background: none; overflow: hidden; border-radius: 9px; }
 .mention-taptap .mt-logo svg { width: 100%; height: 100%; display: block; }
 .dd-sep { height: 1px; margin: 4px 6px; background: var(--border); }

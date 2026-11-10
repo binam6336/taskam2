@@ -271,7 +271,7 @@ final class Impersonation
         header('Content-Type: text/html; charset=utf-8');
         echo '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>پنجره بسته شد</title><link rel="icon" type="image/svg+xml" href="' . e(favicon_uri()) . '">'
-            . '<link rel="stylesheet" href="' . e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) . '"><link rel="stylesheet" href="' . e(asset('vendor/fontawesome/css/taskam-icons.css')) . '">'
+            . '<link rel="stylesheet" href="' . e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) . '"><link rel="stylesheet" href="' . e(asset('vendor/fontawesome/css/karlix-icons.css')) . '">'
             . '<link rel="stylesheet" href="' . e(asset('css/app.css')) . '"></head><body><div class="error-page"><div>'
             . '<h2 class="mt-1"><i class="fa-solid fa-user-lock err-ico"></i> پنجره‌ی ورود به پنل کاربر</h2><p>' . e($msg) . '</p>'
             . '<p class="muted small">این تب را ببندید؛ نشست پنل مدیر شما سر جایش است.</p>'

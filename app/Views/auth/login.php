@@ -1,5 +1,5 @@
 <?php /** @var string $tab */ $isReg = $tab === 'register'; ?>
-<div class="brand"><span class="logo"><?= logo_svg() ?></span><span>تسکام<small>مدیریت وظایف، تیم و مشتریان</small></span></div>
+<h1 class="brand brand-lockup"><span class="lockup"><?= brand_lockup_svg('fa', app_name()) ?></span><small>مدیریت وظایف، تیم و مشتریان</small></h1>
 <div class="card">
     <div class="tabs mb-2" data-css="display:flex">
         <button type="button" class="tab grow <?= $isReg ? '' : 'active' ?>" data-auth-tab="login" data-css="justify-content:center">ورود</button>

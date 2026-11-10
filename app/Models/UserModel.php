@@ -41,7 +41,7 @@ final class UserModel
             return $id;
         }
         return $id = DB::insert('users', [
-            'mobile' => '00000000000', 'first_name' => 'تسکام', 'last_name' => '',
+            'mobile' => '00000000000', 'first_name' => 'کارلیکس', 'last_name' => '',
             'password_hash' => password_hash(bin2hex(random_bytes(24)), PASSWORD_BCRYPT),
             'role' => 'user', 'status' => 'active', 'is_bot' => 1,
         ]);

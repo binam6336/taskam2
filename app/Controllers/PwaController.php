@@ -26,7 +26,7 @@ final class PwaController extends Controller
 
     public function manifest()
     {
-        $name = (string) env('APP_NAME', 'تسکام');
+        $name = (string) app_name();
         $s = self::scope();
         // آیکن‌ها و رنگ‌ها مطابق تم کاربر (manifest با crossorigin="use-credentials" درخواست می‌شود تا نشست همراهش باشد)
         $th = user_theme(Auth::user());
@@ -83,12 +83,19 @@ final class PwaController extends Controller
     }
 
     /** فایل نرم‌افزار اندروید (v5.14): کنار برنامه، بیرون از پوشه‌ی عمومی؛ آپلود دستی روی سرور */
-    public const APK_FILE = 'app/taskam.apk';
+    public const APK_FILE = 'app/karlix.apk';
+    /** نام قبلی فایل (پیش از ریبرند v7.5)؛ اگر فایل تازه نباشد همین خوانده می‌شود */
+    private const APK_LEGACY = 'app/taskam.apk';
 
     private static function apkPath(): ?string
     {
-        $f = STORAGE_PATH . '/' . self::APK_FILE;
-        return is_file($f) && is_readable($f) && filesize($f) > 0 ? $f : null;
+        foreach ([self::APK_FILE, self::APK_LEGACY] as $rel) {
+            $f = STORAGE_PATH . '/' . $rel;
+            if (is_file($f) && is_readable($f) && filesize($f) > 0) {
+                return $f;
+            }
+        }
+        return null;
     }
 
     public function apkCheck()
@@ -114,7 +121,7 @@ final class PwaController extends Controller
             @session_write_close();          // دانلود طولانی جلوی بقیه‌ی درخواست‌های کاربر را نگیرد
         }
         header('Content-Type: application/vnd.android.package-archive');
-        header('Content-Disposition: attachment; filename="taskam.apk"');
+        header('Content-Disposition: attachment; filename="karlix.apk"');
         header('Content-Length: ' . filesize($f));
         header('Cache-Control: private, max-age=300');
         header('X-Content-Type-Options: nosniff');

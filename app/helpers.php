@@ -242,56 +242,90 @@ function duration_fa(float $hours): string
 }
 
 /**
- * رنگ‌های لوگو برای هر تم: [گرادیان خط ۱، گرادیان خط ۲، پس‌زمینه ۱، پس‌زمینه ۲، داخل مربع]
- * همین رنگ‌ها در app.css به‌صورت --logo-* برای هر تم تعریف شده‌اند (لوگوی داخل صفحه با تغییر تم فوراً عوض می‌شود).
+ * رنگ‌های لوگوی کارلیکس برای هر تم (v7.5): [a = رنگ روشن‌تر گرادیان/خط‌ها، b = رنگ پررنگ تیک، base = زمینه‌ی کاشی، inner = داخل نقطه، glass = رنگ براقی، glass_o = شدت براقی]
+ * منبع: کلید logo در config/themes.php — همین رنگ‌ها در app.css به‌صورت --logo-* برای هر تم تکرار شده‌اند (لوگوی داخل صفحه با تغییر تم فوراً عوض می‌شود).
  */
 function logo_palette(string $theme): array
 {
-    // رنگ لوگو از پالت تم (v7.0): [گرادیان ۱، گرادیان ۲، پس‌زمینه ۱، پس‌زمینه ۲، داخل]
     $t = themes()[theme_key($theme)];
-    [$dark, $main, $acc, $card, $bg] = $t['palette'];
-    return $t['mode'] === 'light' ? [$main, $acc, '#FFFFFF', $card, $bg] : [$acc, $main, '#16131f', '#0b0a10', '#13101c'];
+    return $t['logo'] + [5 => 1];
+}
+
+/** نام برنامه (v7.5: کارلیکس). مقدار قدیمی APP_NAME («تسکام») نادیده گرفته می‌شود. */
+function app_name(): string
+{
+    $n = trim((string) env('APP_NAME', ''));
+    return $n === '' || preg_match('/^(تسکام|taskam)$/iu', $n) ? 'کارلیکس' : $n;
 }
 
 /**
- * لوگوی تسکام (SVG).
- * $theme = null: رنگ از متغیرهای CSS تم فعلی صفحه (--logo-*) با پیش‌فرض تم تیره؛ وگرنه رنگ ثابت همان تم (فاوآیکن، آیکن PWA).
- * $bleed: نسخه‌ی تمام‌صفحه (maskable / apple-touch): پس‌زمینه بدون گوشه‌ی گرد و طرح کوچک‌تر در ناحیه‌ی امن.
+ * بدنه‌ی نشان کارلیکس در مختصات 0..100 (کاشی 14..86): کاشی شیشه‌ای + کمان + خطوط سرعت + تیک.
+ * $theme = null: رنگ از کلاس‌های .lg-* (متغیرهای --logo-* تم فعلی صفحه)؛ وگرنه رنگ ثابت همان تم.
+ */
+function logo_mark(string $u, ?string $theme, bool $bleed = false): string
+{
+    $c = $theme !== null ? logo_palette($theme) : null;
+    // ویژگی رنگ: ثابت (تم مشخص) یا کلاس (بدون style به‌خاطر CSP)
+    $at = static fn(string $cls, string $prop, int $i) => $c !== null ? $prop . '="' . $c[$i] . '"' : 'class="' . $cls . '"';
+    $tile = $bleed ? 'x="14" y="14" width="72" height="72"' : 'x="14" y="14" width="72" height="72" rx="22"';
+    return '<defs>'
+        . '<linearGradient id="' . $u . 'k" gradientUnits="userSpaceOnUse" x1="30" y1="29" x2="71" y2="71"><stop offset="0" ' . $at('lg-a', 'stop-color', 0) . '/><stop offset="1" ' . $at('lg-b', 'stop-color', 1) . '/></linearGradient>'
+        . '<linearGradient id="' . $u . 'g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".32"/><stop offset="1" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".12"/></linearGradient>'
+        . '<linearGradient id="' . $u . 'e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" ' . $at('lg-a', 'stop-color', 0) . ' stop-opacity=".35"/><stop offset=".55" ' . $at('lg-a', 'stop-color', 0) . ' stop-opacity=".12"/><stop offset="1" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".8"/></linearGradient>'
+        . '</defs>'
+        . '<rect ' . $tile . ' ' . $at('lg-base', 'fill', 2) . '/>'
+        . '<rect ' . $tile . ' ' . $at('lg-tint', 'fill', 0) . ' fill-opacity=".10"/>'
+        . '<rect ' . $tile . ' fill="url(#' . $u . 'g)" ' . ($c !== null ? 'opacity="' . $c[5] . '"' : 'class="lg-glass"') . '/>'
+        . ($bleed ? '<g transform="translate(9 9) scale(.82)">' : '<rect x="14.6" y="14.6" width="70.8" height="70.8" rx="21.4" fill="none" stroke="url(#' . $u . 'e)" stroke-width="1.2"/>')
+        . '<path d="M33.1 38.5 A21 21 0 1 1 33.1 61.5" fill="none" stroke="url(#' . $u . 'k)" stroke-width="3.2" stroke-linecap="round"/>'
+        . '<path d="M22 44.5 H29 M18 50 H31 M22 55.5 H29" ' . $at('lg-ln', 'stroke', 0) . ' stroke-width="3.2" stroke-linecap="round" opacity=".6"/>'
+        . '<path d="M43 45 L50 52 L62 39" fill="none" ' . $at('lg-ck', 'stroke', 1) . ' stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        . '<circle cx="50" cy="52" r="2.4" ' . ($c !== null ? 'fill="' . $c[3] . '" stroke="' . $c[1] . '"' : 'class="lg-dot"') . ' stroke-width="1.6"/>'
+        . ($bleed ? '</g>' : '');
+}
+
+/**
+ * لوگوی کارلیکس (SVG، فقط نشان).
+ * $theme = null: رنگ از متغیرهای CSS تم فعلی صفحه (--logo-*)؛ وگرنه رنگ ثابت همان تم (فاوآیکن، آیکن PWA).
+ * $bleed: نسخه‌ی تمام‌صفحه (maskable / apple-touch): زمینه بدون گوشه‌ی گرد و طرح در ناحیه‌ی امن.
  */
 function logo_svg(string $uid = '', ?string $theme = null, bool $bleed = false): string
 {
     static $n = 0;
     $u = $uid !== '' ? $uid : 'lg' . (++$n);
-    $c = logo_palette($theme ?? 'dark');
-    // رنگ i: ثابت یا var(--logo-*, پیش‌فرض)
-    // بدون ویژگی style (CSP): رنگ از کلاس‌های .lg-* در CSS (app.css / offline.css) با متغیرهای --logo-*
-    $col = static fn(int $i, string $prop) => $theme !== null ? $prop . '="' . $c[$i] . '"' : 'class="' . ['lg-a', 'lg-b', 'lg-bg1', 'lg-bg2', 'lg-inner'][$i] . '"';
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" aria-hidden="true" focusable="false">'
-        . '<defs>'
-        . '<linearGradient id="' . $u . 'g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" ' . $col(0, 'stop-color') . '/><stop offset="100%" ' . $col(1, 'stop-color') . '/></linearGradient>'
-        . '<linearGradient id="' . $u . 'b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" ' . $col(2, 'stop-color') . '/><stop offset="100%" ' . $col(3, 'stop-color') . '/></linearGradient>'
-        . '<filter id="' . $u . 'f" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>'
-        . '</defs>'
-        . '<rect width="400" height="400" rx="' . ($bleed ? 0 : 90) . '" fill="url(#' . $u . 'b)"/>'
-        . ($bleed ? '<g transform="translate(40 40) scale(.8)">' : '')
-        . '<path d="M 200 75 A 125 125 0 1 1 85 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" opacity="0.35"/>'
-        . '<path d="M 85 160 L 85 200 L 125 200" fill="none" stroke="url(#' . $u . 'g)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>'
-        . '<rect x="125" y="125" width="150" height="150" rx="40" ' . ($theme !== null ? 'fill="' . $c[4] . '"' : 'class="lg-inner"') . ' stroke="url(#' . $u . 'g)" stroke-width="10" filter="url(#' . $u . 'f)"/>'
-        . '<path d="M 160 200 L 195 235 L 245 170" fill="none" stroke="url(#' . $u . 'g)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>'
-        . ($bleed ? '</g>' : '')
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 14 72 72" width="100%" height="100%" aria-hidden="true" focusable="false">'
+        . logo_mark($u, $theme, $bleed) . '</svg>';
+}
+
+/**
+ * لوگوی کامل (نشان + نوشته‌ی «کارلیکس» یا «Karlix») از فایل‌های public/assets/img/brand؛ رنگ نشان از تم، رنگ نوشته .lg-word.
+ */
+function brand_lockup_svg(string $lang = 'fa', string $label = ''): string
+{
+    static $paths = [], $n = 0;
+    $lang = $lang === 'en' ? 'en' : 'fa';
+    if (!isset($paths[$lang])) {
+        $raw = (string) @file_get_contents(BASE_PATH . '/public/assets/img/brand/karlix-' . $lang . '.svg');
+        $paths[$lang] = preg_match('~<path transform="([^"]+)" fill="[^"]*" d="([^"]+)"~', $raw, $m) ? [$m[1], $m[2]] : ['', ''];
+    }
+    [$tr, $d] = $paths[$lang];
+    $label = $label !== '' ? $label : ($lang === 'en' ? 'Karlix' : 'کارلیکس');
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 146" width="100%" height="100%" role="img" aria-label="' . e($label) . '" focusable="false">'
+        . '<g transform="translate(40 2)">' . logo_mark('bl' . (++$n), null) . '</g>'
+        . ($d !== '' ? '<path transform="' . e($tr) . '" class="lg-word" d="' . e($d) . '"/>' : '')
         . '</svg>';
 }
 
 /** فاو‌آیکن تم به‌صورت data URI (بدون درخواست جداگانه به سرور). */
-function favicon_uri(string $theme = 'dark'): string
+function favicon_uri(string $theme = THEME_DEFAULT): string
 {
     return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav', $theme)));
 }
 
-/** پسوند فایل آیکن‌های PNG تم ('' برای تیره، '-light' برای تم‌های روشن). */
+/** پسوند فایل آیکن‌های PNG تم (v7.5: هر تم آیکن خودش را دارد، مثل -violet-dark؛ bin/build-brand-icons.js). */
 function icon_suffix(string $theme): string
 {
-    return theme_mode($theme) === 'light' ? '-light' : '';
+    return '-' . theme_key($theme);
 }
 
 /** رنگ اولویت درصدی: سبز (کم) ← زرد (متوسط) ← قرمز (زیاد) */

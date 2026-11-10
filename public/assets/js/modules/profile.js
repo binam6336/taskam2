@@ -34,7 +34,7 @@ document.addEventListener('tk:ready', () => {
     TK.qs('meta[name=theme-color]')?.setAttribute('content', getComputedStyle(html).getPropertyValue('--bg').trim());
     // فاوآیکن و آیکن اپل هم با تم عوض می‌شوند (لوگوهای داخل صفحه با متغیرهای CSS خودشان عوض شده‌اند)
     try { const fav = JSON.parse(tf.dataset.favicons || '{}')[next]; if (fav) TK.qs('link[rel=icon]')?.setAttribute('href', fav); } catch { /* */ }
-    TK.qs('link[rel=apple-touch-icon]')?.setAttribute('href', tf.dataset.iconBase + (html.dataset.mode === 'light' ? '-light' : '') + '.png');
+    TK.qs('link[rel=apple-touch-icon]')?.setAttribute('href', tf.dataset.iconBase + '-' + next + '.png');
   });
   // تصویر پروفایل: پیش‌نمایش و بارگذاری خودکار بعد از انتخاب (بدون دکمه‌ی جدا)
   TK.qs('#av-file')?.addEventListener('change', (e) => {

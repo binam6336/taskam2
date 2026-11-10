@@ -53,7 +53,7 @@ $badgeAs = ['admin-support' => 'support'];
 <body class="<?= e($this->bodyClass) ?>" data-layout="admin">
 <div class="app">
     <?php $sb = [
-        'home' => url('/admin'), 'title' => 'پنل مدیریت', 'sub' => 'تسکام', 'user' => $u, 'user_sub' => \App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label'],
+        'home' => url('/admin'), 'title' => 'پنل مدیریت', 'sub' => 'کارلیکس', 'user' => $u, 'user_sub' => \App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label'],
         'logout' => 'خروج از حساب', 'desc' => [],
     ];
     require __DIR__ . '/../partials/sidebar.php'; ?>

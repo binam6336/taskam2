@@ -243,7 +243,7 @@ final class Push
         if (!self::enabled()) {
             return 0;
         }
-        return self::deliver($uid, ['title' => 'تسکام ✅', 'body' => 'اعلان‌های این دستگاه فعال است؛ پیام‌ها و یادآوری‌ها حتی وقتی برنامه بسته است می‌رسند.', 'url' => 'dashboard', 'tag' => 'test', 'kind' => 'test']);
+        return self::deliver($uid, ['title' => 'کارلیکس ✅', 'body' => 'اعلان‌های این دستگاه فعال است؛ پیام‌ها و یادآوری‌ها حتی وقتی برنامه بسته است می‌رسند.', 'url' => 'dashboard', 'tag' => 'test', 'kind' => 'test']);
     }
 
     // ───── رویدادها ─────
@@ -269,7 +269,7 @@ final class Push
         if ($senderIsBot) {
             // اعلان سیستمی: خط اول عنوان، بقیه متن
             $lines = array_values(array_filter(array_map('trim', explode("\n", $clean)), static fn($l) => $l !== ''));
-            $title = $lines[0] ?? 'تسکام';
+            $title = $lines[0] ?? 'کارلیکس';
             $body = implode(' • ', array_slice($lines, 1, 4));
             self::toUser($receiver, ['title' => $title, 'body' => $body, 'url' => $link ?? 'chat?user=' . pid('users', $sender), 'tag' => 'n' . pid('chat_messages', $msgId), 'kind' => 'system']);
             return;

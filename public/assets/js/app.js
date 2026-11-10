@@ -1,4 +1,4 @@
-/* Taskam — هسته‌ی جاوااسکریپت یکپارچه (فضای نام TK). ماژول‌های هر صفحه در modules/ هستند. */
+/* Karlix — هسته‌ی جاوااسکریپت یکپارچه (فضای نام TK). ماژول‌های هر صفحه در modules/ هستند. */
 (() => {
   'use strict';
   const TK = (window.TK = {});
@@ -748,7 +748,7 @@
     async subscription() { const r = await TK.pwa.ready(); return r?.pushManager ? r.pushManager.getSubscription() : null; },
     /** اجازه‌ی اعلان + اشتراک push + ثبت در سرور */
     async enablePush() {
-      if (!TK.pwa.pushSupported()) return { ok: false, msg: TK.pwa.ios() && !TK.pwa.standalone() ? 'در آیفون ابتدا تسکام را به صفحه‌ی اصلی اضافه کنید و از همان‌جا باز کنید.' : 'این مرورگر از اعلان‌های PWA پشتیبانی نمی‌کند.' };
+      if (!TK.pwa.pushSupported()) return { ok: false, msg: TK.pwa.ios() && !TK.pwa.standalone() ? 'در آیفون ابتدا کارلیکس را به صفحه‌ی اصلی اضافه کنید و از همان‌جا باز کنید.' : 'این مرورگر از اعلان‌های PWA پشتیبانی نمی‌کند.' };
       const perm = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
       if (perm !== 'granted') return { ok: false, msg: perm === 'denied' ? 'اعلان‌ها مسدود است؛ از تنظیمات سایت در مرورگر (آیکن قفل کنار آدرس) آن را «مجاز» کنید.' : 'اجازه‌ی اعلان داده نشد.' };
       const reg = await TK.pwa.ready(); if (!reg) return { ok: false, msg: 'service worker فعال نشد (سایت باید HTTPS باشد).' };
@@ -799,7 +799,7 @@
     f.submit();
   });
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); TK.pwa.installEvt = e; document.dispatchEvent(new CustomEvent('tk:installable', { detail: true })); });
-  window.addEventListener('appinstalled', () => { TK.pwa.installEvt = null; TK.toast('تسکام نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید. 🎉', 'success', 6000); document.dispatchEvent(new CustomEvent('tk:installed')); });
+  window.addEventListener('appinstalled', () => { TK.pwa.installEvt = null; TK.toast('کارلیکس نصب شد؛ از صفحه‌ی اصلی دستگاه بازش کنید. 🎉', 'success', 6000); document.dispatchEvent(new CustomEvent('tk:installed')); });
   if ('serviceWorker' in navigator && swUrl && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
     navigator.serviceWorker.register(swUrl, { scope: TK.base + '/' }).then((r) => { TK.pwa.reg = r; TK.pwa.sync(); }).catch(() => { /* بدون PWA ادامه */ });
     // پیام service worker: اعلانی که وقتی برنامه جلوی چشم است رسیده → toast داخل صفحه
@@ -974,7 +974,7 @@
       const p = await Notification.requestPermission(); paintBell();
       return TK.toast(p === 'granted' ? 'اعلان‌های مرورگر فعال شد.' : 'اجازه‌ی اعلان داده نشد.', p === 'granted' ? 'success' : 'warning');
     }
-    TK.notify({ title: 'پیام جدید – تسکام', body: 'اعلان‌های مرورگر فعال است ✅', url: '' });
+    TK.notify({ title: 'پیام جدید – کارلیکس', body: 'اعلان‌های مرورگر فعال است ✅', url: '' });
   });
   if (boot.live && 'Notification' in window && Notification.permission === 'default' && !sessionStorage.getItem('tk_notif_hint')) {
     sessionStorage.setItem('tk_notif_hint', '1');
