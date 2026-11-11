@@ -189,7 +189,7 @@ final class Schema
 
     /**
      * اعمال تغییرات افزایشی. $force: بدون توجه به فایل نشانه (php bin/migrate.php --force)؛ $report: گزارش هر مرحله (CLI).
-     * خطاها هم در storage/logs و هم در storage/cache/schema-errors.json ثبت می‌شوند تا در «مستندات پنل» دیده شوند.
+     * خطاها هم در storage/logs/database/ و هم در storage/cache/schema-errors.json ثبت می‌شوند تا در «مستندات پنل» دیده شوند.
      */
     public static function ensure(bool $force = false, ?callable $report = null): void
     {
@@ -203,8 +203,7 @@ final class Schema
         $fail = static function (string $what, \Throwable $e) use (&$errors, $say): void {
             $errors[] = $what . ' — ' . $e->getMessage();
             $say('✗ ' . $what . ' — ' . $e->getMessage());
-            error_log('schema: ' . $what . ' — ' . $e->getMessage());
-            ErrorHandler::log(new \RuntimeException('schema: ' . $what . ' — ' . $e->getMessage(), 0, $e));
+            Log::error(new \RuntimeException('schema: ' . $what . ' — ' . $e->getMessage(), 0, $e), 'database');
         };
         $ok = true;
         try {
@@ -324,7 +323,9 @@ final class Schema
                 $say('! فایل نشانه ' . $flag . ' نوشته نشد (پوشه‌ی storage/cache قابل نوشتن نیست؛ بررسی در هر درخواست تکرار می‌شود)');
             }
             @unlink($ef);
+            Log::info('schema.ensured', ['version' => self::VERSION, 'force' => $force]);
         } else {
+            Log::warning('schema.failed', ['version' => self::VERSION, 'errors' => count($errors)]);
             @file_put_contents($ef, json_encode(['at' => date('c'), 'version' => self::VERSION, 'errors' => $errors], JSON_UNESCAPED_UNICODE));
         }
     }

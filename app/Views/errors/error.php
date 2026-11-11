@@ -1,5 +1,5 @@
 <?php
-/** @var int $status @var string $message @var ?string $detail */
+/** @var int $status @var string $message @var ?string $detail @var ?string $ref */
 $titles = [403 => 'دسترسی ممنوع', 404 => 'صفحه پیدا نشد', 405 => 'متد مجاز نیست', 419 => 'نشست منقضی شد', 500 => 'خطای سرور'];
 $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 => 'fa-triangle-exclamation'];
 ?>
@@ -18,6 +18,7 @@ $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 
     <div class="code"><?= e(fa_num($status)) ?></div>
     <h2 class="mt-1"><i class="fa-solid <?= e($icons[$status] ?? 'fa-circle-exclamation') ?> err-ico"></i> <?= e($titles[$status] ?? 'خطا') ?></h2>
     <p class="muted"><?= e($message) ?></p>
+    <?php if (!empty($ref)): ?><p class="small muted">کد پیگیری: <span class="ltr"><?= e($ref) ?></span></p><?php endif; ?>
     <?php if (!empty($detail)): ?><pre class="card flat ltr small err-detail"><?= e($detail) ?></pre><?php endif; ?>
     <div class="flex gap-2 err-actions"><a class="btn btn-primary" href="<?= e(url('/')) ?>"><i class="fa-solid fa-house"></i> صفحه‌ی اصلی</a></div>
 </div></div>

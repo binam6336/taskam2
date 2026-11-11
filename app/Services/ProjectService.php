@@ -101,7 +101,7 @@ final class ProjectService
                 DB::run('UPDATE projects SET is_sample = 1 WHERE id = ?', [(int) $id]);   // در فهرست‌ها و آمار پنل مدیر شمرده نمی‌شود
             }
         } catch (\Throwable $e) {
-            error_log('sample project: ' . $e->getMessage()); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
+            \App\Core\Log::error($e, 'projects', ['step' => 'sample project', 'user' => $uid]); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
         }
     }
 

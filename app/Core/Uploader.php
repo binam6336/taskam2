@@ -238,7 +238,7 @@ final class Uploader
             return 'فایل آلوده تشخیص داده شد';
         }
         if ($code !== 0) {
-            error_log('virus scan: ' . $bin . ' exit ' . $code . ' — ' . implode(' ', array_slice($out, 0, 3)));
+            Log::warning('files.virus_scan_failed', ['scanner' => $bin, 'exit' => $code, 'output' => implode(' ', array_slice($out, 0, 3))]);
         }
         return null;
     }

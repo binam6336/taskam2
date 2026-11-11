@@ -188,6 +188,19 @@ final class Auth
         return $u ? (int) $u['id'] : null;
     }
 
+    /** شناسه‌ی کاربرِ همین درخواست فقط اگر قبلاً بارگذاری شده (برای لاگ: بدون باز کردن نشست یا کوئری) */
+    public static function loadedId(): ?int
+    {
+        if (!self::$loaded || self::$user === null) {
+            return null;
+        }
+        try {
+            return Impersonation::active() ? (int) (Impersonation::current()['target']['id'] ?? self::$user['id']) : (int) self::$user['id'];
+        } catch (\Throwable $e) {
+            return (int) self::$user['id'];
+        }
+    }
+
     public static function check(): bool
     {
         return self::user() !== null;

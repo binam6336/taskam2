@@ -20,7 +20,7 @@ final class TaskHistory
         try {
             DB::insert('task_events', ['task_id' => $taskId, 'user_id' => $actor, 'type' => $type, 'data' => $data ? json_encode($data, JSON_UNESCAPED_UNICODE) : null]);
         } catch (\Throwable $e) {
-            error_log('task history: ' . $e->getMessage());
+            \App\Core\Log::error($e, 'tasks', ['step' => 'task history', 'task' => $taskId, 'type' => $type]);
         }
     }
 
