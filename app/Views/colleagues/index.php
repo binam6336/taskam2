@@ -1,13 +1,15 @@
 <?php
-/** @var array $colleagues @var array $incoming @var array $outgoing @var array $blocked @var array $addProjects @var array $followers */
+/**
+ * @var string $tab @var ?array $list (ColleagueService::paged، فقط تب list) @var int $colTotal
+ * @var array $incoming @var array $outgoing @var array $blocked @var array $addProjects @var array $followers
+ */
 $this->scripts[] = 'colleagues';
-$this->boot['colleagues'] = ['projects' => $addProjects];
-$tab = in_array($_GET['tab'] ?? '', ['requests', 'followers', 'blocked'], true) ? $_GET['tab'] : 'list';
+$this->boot['colleagues'] = ['projects' => $addProjects, 'per' => \App\Services\ColleagueService::PER_PAGE];
 $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 ?>
 <div class="page-head">
     <div class="tabs" data-live="col-tabs">
-        <a class="tab <?= $tab === 'list' ? 'active' : '' ?>" href="<?= e($tabUrl('list')) ?>">همکاران <span class="badge-count"><?= e(fa_num(count($colleagues))) ?></span></a>
+        <a class="tab <?= $tab === 'list' ? 'active' : '' ?>" href="<?= e($tabUrl('list')) ?>">همکاران <span class="badge-count"><?= e(fa_num($colTotal)) ?></span></a>
         <a class="tab <?= $tab === 'requests' ? 'active' : '' ?>" href="<?= e($tabUrl('requests')) ?>">درخواست‌ها <span class="badge-count <?= $incoming ? '' : 'zero' ?>"><?= e(fa_num(count($incoming))) ?></span></a>
         <a class="tab <?= $tab === 'followers' ? 'active' : '' ?>" href="<?= e($tabUrl('followers')) ?>" title="کاربرانی که شما را به لیست همکاران خود اضافه کرده‌اند">کاربرانی که مرا همکار کرده‌اند <span class="badge-count"><?= e(fa_num(count($followers))) ?></span></a>
         <a class="tab <?= $tab === 'blocked' ? 'active' : '' ?>" href="<?= e($tabUrl('blocked')) ?>">مسدودها <span class="badge-count"><?= e(fa_num(count($blocked))) ?></span></a>
@@ -15,27 +17,93 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
     <button class="btn btn-primary" data-modal="m-add-col"><i class="fa-solid fa-user-plus"></i> افزودن همکار</button>
 </div>
 
-<div data-live="col-body">
-<?php if ($tab === 'list'): ?>
-    <?php if (!$colleagues): ?><div class="card empty"><i class="fa-solid fa-users"></i><p>هنوز همکاری اضافه نکرده‌اید. با شماره موبایل جستجو کنید.</p></div>
-    <?php else: ?><div class="grid grid-auto">
-        <?php foreach ($colleagues as $c): $nm = full_name($c); ?>
-        <div class="card hover" id="col-<?= e(pid('users', $c['user_id'])) ?>">
-            <div class="flex items-center gap-2 mb-1">
-                <?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($c['avatar'])]); ?>
-                <div class="grow"><div class="bold"><?= e($nm) ?></div><div class="xs muted ltr"><?= e(fa_num((string) $c['mobile'])) ?></div></div>
-                <?php if ($c['is_blocked_by_me']): ?><span class="badge red">مسدود</span><?php elseif ($c['has_blocked_me']): ?><span class="badge yellow">شما را مسدود کرده</span><?php endif; ?>
-            </div>
-            <div class="flex gap-1 wrap">
-                <a class="btn btn-sm" href="<?= e(url('/chat') . '?user=' . pid('users', $c['user_id'])) ?>" title="گفتگو" aria-label="گفتگو با <?= e(full_name($c)) ?>"><i class="fa-regular fa-comment"></i></a>
-                <?php if (!$c['is_blocked_by_me'] && !$c['has_blocked_me']): ?><button class="btn btn-sm" data-add-to-project="<?= e(pid('users', $c['user_id'])) ?>" data-name="<?= e($nm) ?>" title="عضو کردن این همکار در پروژه‌های شما"><i class="fa-solid fa-diagram-project"></i> افزودن به پروژه</button><?php endif; ?>
-                <?php if (!$c['is_blocked_by_me']): ?><button class="btn btn-sm btn-icon" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود" aria-label="مسدود"><i class="fa-solid fa-ban"></i></button><?php endif; ?>
-                <button class="btn btn-sm btn-icon btn-danger" data-post="<?= e(url('/colleagues/' . pid('users', $c['user_id']) . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف" aria-label="حذف"><i class="fa-solid fa-user-minus"></i></button>
-            </div>
-        </div>
-        <?php endforeach; ?></div><?php endif; ?>
+<?php if ($tab === 'list'):
+    $per = $list['per'];
+    // پارامترهایی که در لینک‌های صفحه‌بندی می‌مانند (پیش‌فرض‌ها حذف)
+    $keep = array_filter(['tab' => 'list', 'q' => $list['q'], 'sort' => $list['sort'] !== 'recent' ? $list['sort'] : null], static fn($v) => $v !== null && $v !== '');
+    $countText = static fn(array $l): string => $l['q'] !== '' ? fa_num($l['total']) . ' نتیجه' : fa_num($l['total']) . ' همکار';
+?>
+<div class="col-wrap" data-col-wrap>
+<?php if ($colTotal > 0): ?>
+<form class="col-toolbar" method="get" action="<?= e(url('/colleagues')) ?>" data-col-toolbar>
+    <input type="hidden" name="tab" value="list">
+    <?php if ($per !== \App\Services\ColleagueService::PER_PAGE[0]): ?><input type="hidden" name="per_page" value="<?= (int) $per ?>" data-col-per-hidden><?php endif; ?>
+    <div class="col-search" role="search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <label for="col-q" class="sr-only">جستجو در همکاران</label>
+        <input id="col-q" name="q" type="text" inputmode="search" enterkeyhint="search" data-col-search autocomplete="off" maxlength="100" value="<?= e($list['q']) ?>"
+               placeholder="<?= e(ph('colleague_search')) ?>" aria-describedby="col-count" aria-keyshortcuts="/">
+        <kbd aria-hidden="true">/</kbd>
+    </div>
+    <label for="col-sort" class="sr-only">مرتب‌سازی</label>
+    <select id="col-sort" name="sort" class="col-select" data-col-sort>
+        <option value="recent" <?= $list['sort'] === 'recent' ? 'selected' : '' ?>>جدیدترین</option>
+        <option value="alpha" <?= $list['sort'] === 'alpha' ? 'selected' : '' ?>>الفبایی</option>
+    </select>
+    <div class="col-seg" role="group" aria-label="نحوه‌ی نمایش">
+        <button type="button" data-col-view="list" aria-pressed="true" title="نمایش لیستی"><i class="fa-solid fa-list" aria-hidden="true"></i><span class="sr-only">نمایش لیستی</span></button>
+        <button type="button" data-col-view="grid" aria-pressed="false" title="نمایش کارتی"><i class="fa-solid fa-table-cells" aria-hidden="true"></i><span class="sr-only">نمایش کارتی</span></button>
+    </div>
+    <p class="col-count" id="col-count" data-col-count role="status" aria-live="polite"><?= e($countText($list)) ?></p>
+    <noscript><button class="btn btn-sm">جستجو</button></noscript>
+</form>
+<?php endif; ?>
 
-<?php elseif ($tab === 'requests'): ?>
+<div data-live="col-body">
+    <div hidden data-col-meta data-page="<?= (int) $list['page'] ?>" data-pages="<?= (int) $list['pages'] ?>" data-total="<?= (int) $list['total'] ?>" data-per="<?= (int) $per ?>" data-count="<?= e($countText($list)) ?>"></div>
+    <h2 class="sr-only" id="col-h" tabindex="-1">لیست همکاران<?= $list['pages'] > 1 ? '، صفحه‌ی ' . e(fa_num($list['page'])) . ' از ' . e(fa_num($list['pages'])) : '' ?></h2>
+    <?php if ($colTotal === 0): ?>
+    <div class="col-empty">
+        <i class="fa-solid fa-user-group" aria-hidden="true"></i>
+        <p class="m-0">هنوز همکاری اضافه نکرده‌اید. با شماره موبایل جستجو کنید و درخواست همکاری بفرستید.</p>
+        <button type="button" class="btn btn-primary" data-modal="m-add-col"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> افزودن همکار</button>
+    </div>
+    <?php elseif (!$list['rows']): ?>
+    <div class="col-empty">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <p class="m-0">همکاری با «<?= e($list['q']) ?>» پیدا نشد.</p>
+        <a class="btn btn-sm" href="<?= e(url('/colleagues') . '?' . http_build_query(array_diff_key($keep, ['q' => 1]) + ($per !== \App\Services\ColleagueService::PER_PAGE[0] ? ['per_page' => $per] : []))) ?>" data-col-clear>پاک کردن جستجو</a>
+    </div>
+    <?php else: ?>
+    <ul class="col-list" data-col-list aria-labelledby="col-h">
+    <?php foreach ($list['rows'] as $c):
+        $cid = pid('users', $c['user_id']);
+        $nm = full_name($c);
+        $mob = (string) ($c['mobile'] ?? '');
+        $src = avatar_url($c['avatar']);
+        $blockedAny = $c['is_blocked_by_me'] || $c['has_blocked_me'];
+    ?>
+        <li class="col-item" id="col-<?= e($cid) ?>">
+            <span class="col-av" data-col-hue="<?= e($cid) ?>" aria-hidden="true"><?php if ($src): ?><img loading="lazy" decoding="async" src="<?= e($src) ?>" alt=""><?php else: ?><?= e(initial($nm)) ?><?php endif; ?></span>
+            <div class="col-main">
+                <h3 class="col-name"><?= e($nm) ?></h3>
+                <div class="col-meta">
+                    <?php if ($mob !== '' && $c['approved']): ?><a class="col-phone" href="tel:<?= e($mob) ?>" dir="ltr" aria-label="تماس با <?= e($nm) ?>، <?= e(fa_num($mob)) ?>"><?= e(fa_num($mob)) ?></a>
+                    <?php elseif ($mob !== ''): ?><span class="col-phone" dir="ltr" title="شماره‌ی کامل فقط بعد از تأیید همکاری نمایش داده می‌شود"><?= e(fa_num($mob)) ?></span><?php endif; ?>
+                    <?php if ($c['is_blocked_by_me']): ?><span class="col-tag danger">مسدود</span><?php elseif ($c['has_blocked_me']): ?><span class="col-tag warn">شما را مسدود کرده</span><?php endif; ?>
+                </div>
+            </div>
+            <div class="col-actions" role="group" aria-label="عملیات برای <?= e($nm) ?>">
+                <a class="btn btn-sm col-grow" href="<?= e(url('/chat') . '?user=' . $cid) ?>" title="گفتگو"><i class="fa-regular fa-comment" aria-hidden="true"></i><span class="lbl">گفتگو</span><span class="sr-only"> با <?= e($nm) ?></span></a>
+                <?php if (!$blockedAny): ?><button type="button" class="btn btn-sm col-grow" data-add-to-project="<?= e($cid) ?>" data-name="<?= e($nm) ?>" title="عضو کردن این همکار در پروژه‌های شما"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i><span class="lbl">افزودن به پروژه</span><span class="sr-only"> — <?= e($nm) ?></span></button><?php endif; ?>
+                <span class="col-sep" aria-hidden="true"></span>
+                <?php if (!$c['is_blocked_by_me']): ?><button type="button" class="btn btn-sm btn-icon col-warn" data-post="<?= e(url('/colleagues/' . $cid . '/block')) ?>" data-confirm="«<?= e($nm) ?>» مسدود شود؟" title="مسدود کردن" aria-label="مسدود کردن <?= e($nm) ?>"><i class="fa-solid fa-ban" aria-hidden="true"></i></button><?php endif; ?>
+                <button type="button" class="btn btn-sm btn-icon col-danger" data-post="<?= e(url('/colleagues/' . $cid . '/remove')) ?>" data-confirm="«<?= e($nm) ?>» از لیست همکاران حذف شود؟" title="حذف از همکاران" aria-label="حذف <?= e($nm) ?> از همکاران"><i class="fa-solid fa-user-minus" aria-hidden="true"></i></button>
+            </div>
+        </li>
+    <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+    <?php if ($colTotal > 0 && $list['total'] > 0) {
+        $this->partial('pager', ['page' => $list['page'], 'pages' => $list['pages'], 'total' => $list['total'], 'per' => $per, 'perOptions' => \App\Services\ColleagueService::PER_PAGE,
+            'query' => $keep, 'label' => 'صفحه‌بندی همکاران', 'noun' => 'همکار', 'id' => 'col-pg']);
+    } ?>
+</div>
+</div>
+
+<?php else: ?>
+<div data-live="col-body">
+<?php if ($tab === 'requests'): ?>
     <h3 class="mb-1">دریافتی</h3>
     <?php if (!$incoming): ?><div class="card empty"><i class="fa-regular fa-envelope-open"></i><p>درخواست جدیدی ندارید.</p></div><?php else: ?><div class="list mb-3">
         <?php foreach ($incoming as $r): $nm = full_name($r); ?><div class="item"><?php $this->partial('avatar', ['name' => $nm, 'src' => avatar_url($r['avatar'])]); ?>
@@ -80,6 +148,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
             <?php else: ?><button class="btn btn-sm" data-post="<?= e(url('/colleagues/' . pid('users', $b['user_id']) . '/unblock')) ?>" data-after="reload">رفع مسدودی</button><?php endif; ?></div><?php endforeach; ?></div><?php endif; ?>
 <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('colleague_mobile')) ?>" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>

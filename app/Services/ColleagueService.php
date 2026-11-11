@@ -7,19 +7,68 @@ use App\Core\DB;
 
 final class ColleagueService
 {
+    /** گزینه‌های «تعداد در هر صفحه» تب همکاران (اولی = پیش‌فرض) */
+    public const PER_PAGE = [10, 20, 50, 100];
+    public const SORTS = ['recent', 'alpha'];
+
     public static function listFor(int $uid, string $q = '', int $limit = 200, int $offset = 0): array
+    {
+        [$w, $p] = self::where($uid, $q, false);
+        return self::rows($uid, $w, $p, 'c.created_at DESC, c.id DESC', $limit, $offset);
+    }
+
+    /** تعداد کل همکاران کاربر (عدد تب «همکاران»؛ مستقل از جستجو و صفحه) */
+    public static function countFor(int $uid): int
+    {
+        return (int) DB::value("SELECT COUNT(*) FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ? AND u.status = 'active'", [$uid]);
+    }
+
+    /**
+     * یک صفحه از لیست همکاران (تب list، v7.14): جستجو روی همه‌ی ردیف‌ها (نام، و موبایل فقط برای همکاران تأییدشده — موبایل ماسک‌شده
+     * با جستجوی رقم لو نمی‌رود)، COUNT جدا با همان شرط، page بیرون از بازه به نزدیک‌ترین صفحه‌ی معتبر می‌چسبد.
+     * @return array{rows:array, total:int, page:int, pages:int, per:int, sort:string, q:string, from:int, to:int}
+     */
+    public static function paged(int $uid, string $q, string $sort, int $page, int $per): array
+    {
+        $q = trim(mb_substr($q, 0, 100));
+        $per = in_array($per, self::PER_PAGE, true) ? $per : self::PER_PAGE[0];
+        $sort = in_array($sort, self::SORTS, true) ? $sort : self::SORTS[0];
+        [$w, $p] = self::where($uid, $q, true);
+        $total = (int) DB::value("SELECT COUNT(*) FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE $w", $p);
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min(max(1, $page), $pages);
+        $order = $sort === 'alpha'
+            ? 'u.first_name COLLATE utf8mb4_persian_ci, u.last_name COLLATE utf8mb4_persian_ci, c.id'
+            : 'c.created_at DESC, c.id DESC';
+        $rows = $total ? self::rows($uid, $w, $p, $order, $per, ($page - 1) * $per) : [];
+        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'pages' => $pages, 'per' => $per, 'sort' => $sort, 'q' => $q,
+            'from' => $total ? ($page - 1) * $per + 1 : 0, 'to' => ($page - 1) * $per + count($rows)];
+    }
+
+    /** شرط لیست همکاران؛ $safeMobile = موبایل همکار تأییدنشده در جستجو نیست (همان که در خروجی ماسک می‌شود) */
+    private static function where(int $uid, string $q, bool $safeMobile): array
     {
         $w = "c.user_id = ? AND u.status = 'active'";
         $p = [$uid];
         if ($q !== '') {
-            [$qs, $qp] = \App\Core\Search::sql(["CONCAT(u.first_name, ' ', u.last_name)", 'u.mobile'], $q);
+            $mobile = 'u.mobile';
+            if ($safeMobile) {
+                $ok = array_keys(self::approvedIds($uid));
+                $mobile = $ok ? "CASE WHEN u.id IN (" . implode(',', array_map('intval', $ok)) . ") THEN u.mobile ELSE '' END" : "''";
+            }
+            [$qs, $qp] = \App\Core\Search::sql(["CONCAT(u.first_name, ' ', u.last_name)", $mobile], $q);
             $w .= ' AND ' . $qs;
             $p = array_merge($p, $qp);
         }
+        return [$w, $p];
+    }
+
+    private static function rows(int $uid, string $w, array $p, string $order, int $limit, int $offset): array
+    {
         $rows = DB::all("SELECT c.id AS row_id, c.permissions, c.created_at AS added_at, u.id AS user_id, u.first_name, u.last_name, u.mobile, u.email, u.avatar,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = ? AND cb.blocked_user_id = u.id) AS is_blocked_by_me,
               (SELECT COUNT(*) FROM colleague_blocks cb WHERE cb.blocker_user_id = u.id AND cb.blocked_user_id = ?) AS has_blocked_me
-            FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE $w ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid], $p, [$limit, $offset]));
+            FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE $w ORDER BY $order LIMIT ? OFFSET ?", array_merge([$uid, $uid], $p, [$limit, $offset]));
         $ok = self::approvedIds($uid);
         foreach ($rows as &$r) {
             $r['is_blocked_by_me'] = (int) $r['is_blocked_by_me'] > 0;

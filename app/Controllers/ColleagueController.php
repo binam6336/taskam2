@@ -14,8 +14,16 @@ final class ColleagueController extends Controller
     public function index()
     {
         $uid = $this->uid();
+        $tab = in_array($_GET['tab'] ?? '', ['requests', 'followers', 'blocked'], true) ? $_GET['tab'] : 'list';
+        $rq = $this->request;
+        // تب «همکاران»: صفحه‌بندی سمت سرور (page / per_page / q / sort)؛ بقیه‌ی تب‌ها بدون تغییر
+        $list = $tab === 'list'
+            ? ColleagueService::paged($uid, $rq->str('q', 100), $rq->str('sort', 10), $rq->int('page') ?: 1, $rq->int('per_page'))
+            : null;
         $this->view('colleagues/index', [
-            'colleagues' => ColleagueService::listFor($uid),
+            'tab' => $tab,
+            'list' => $list,
+            'colTotal' => ColleagueService::countFor($uid),
             'incoming' => ColleagueService::incomingRequests($uid),
             'outgoing' => ColleagueService::outgoingRequests($uid),
             'blocked' => ColleagueService::blocked($uid),
