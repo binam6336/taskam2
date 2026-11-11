@@ -71,10 +71,22 @@ document.addEventListener('tk:ready', () => {
     if (!form.priority.dataset.locked) { range.disabled = !pct; form.priority.disabled = pct; }
     paintRange();
   };
-  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); });
-
-  /* ───── افزودن سریع لیبل ───── */
+  /* ───── لیبل‌ها مال پروژه‌اند (v7.12): فقط لیبل‌های پروژه‌ی انتخاب‌شده؛ «افزودن لیبل جدید» فقط با «دسترسی ایجاد لیبل» ───── */
   const subjSel = form.subject_id, subjNew = TK.qs('#subj-pick .subj-new'), subjIn = subjNew.querySelector('input');
+  const subjNewOpt = subjSel.querySelector('option[value="__new"]');
+  const renderSubj = (projectId, keep) => {
+    const cur = keep !== undefined ? String(keep ?? '') : subjSel.value;
+    TK.qsa('option[data-project]', subjSel).forEach((o) => o.remove());
+    (cfg.subjects || []).filter((x) => projectId && String(x.project_id) === String(projectId)).forEach((x) => {
+      const o = new Option(x.title, x.id); o.dataset.project = x.project_id; subjSel.insertBefore(o, subjNewOpt);
+    });
+    subjNewOpt.hidden = subjNewOpt.disabled = !projOf(projectId)?.can_label;
+    subjSel.value = [...subjSel.options].some((o) => o.value === cur && o.value !== '__new') ? cur : '';
+  };
+  renderSubj('');
+  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); renderSubj(rs.project_id.get()); });
+
+  /* ───── افزودن سریع لیبل (به پروژه‌ی انتخاب‌شده) ───── */
   const subjMode = (adding) => { subjSel.classList.toggle('hidden', adding); subjNew.classList.toggle('hidden', !adding); if (adding) { subjIn.value = ''; subjIn.focus(); } };
   subjSel.addEventListener('change', () => { if (subjSel.value === '__new') { subjSel.value = ''; subjMode(true); } });
   const COLORS = cfg.label_colors?.length ? cfg.label_colors : ['#22c55e'];
@@ -82,13 +94,13 @@ document.addEventListener('tk:ready', () => {
     const title = subjIn.value.trim();
     if (!title) { subjIn.focus(); return TK.toast('عنوان لیبل را بنویسید.', 'warning'); }
     const btn = TK.qs('[data-subj-save]', subjNew); TK.busy(btn, true);
-    const r = await TK.post('/labels', { title, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
+    const project = rs.project_id.get();
+    if (!project) { TK.busy(btn, false); return TK.toast('اول پروژه‌ی تسک را انتخاب کنید؛ لیبل مال همان پروژه ساخته می‌شود.', 'warning'); }
+    const r = await TK.post('/labels', { title, project_id: project, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
     TK.busy(btn, false);
     if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد لیبل', 'error');
-    const opt = new Option(title, r.id);
-    subjSel.insertBefore(opt, subjSel.querySelector('option[value="__new"]'));
-    (cfg.subjects = cfg.subjects || []).push({ id: r.id, title });
-    subjSel.value = String(r.id); subjMode(false);
+    (cfg.subjects = cfg.subjects || []).push({ id: r.id, title, color: r.color, project_id: project });
+    renderSubj(project, r.id); subjMode(false);
     TK.toast('لیبل «' + title + '» اضافه شد.', 'success');
   };
   TK.qs('[data-subj-save]', subjNew).addEventListener('click', saveSubject);
@@ -220,7 +232,7 @@ document.addEventListener('tk:ready', () => {
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
-    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me);
+    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); renderSubj(pid, '');
     dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
@@ -237,7 +249,7 @@ document.addEventListener('tk:ready', () => {
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
-    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? ''));
+    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); renderSubj(d.project_id ?? '', d.subject_id ?? '');
     rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
@@ -413,9 +425,9 @@ document.addEventListener('tk:ready', () => {
         + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
     } else if (key === 'label') {
       body = '<div class="qe-h">لیبل</div><div class="qe-list">' + opt('data-qe-label=""', '<i class="fa-solid fa-ban faint"></i> بدون لیبل', !t.subject_id)
-        + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" data-css="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, String(t.subject_id) === String(x.id))).join('') + '</div>';
+        + (cfg.subjects || []).filter((x) => String(x.project_id) === String(t.project_id)).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" data-css="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, String(t.subject_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'project') {
-      body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img loading="lazy" decoding="async" src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, Number(t.project_id) === x.id)).join('') + '</div>';
+      body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img loading="lazy" decoding="async" src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, String(t.project_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'due') {
       body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-date></div><div data-qe-time></div></div>
         <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-due>ذخیره</button>${t.due_date ? '<button type="button" class="btn btn-sm" data-qe-clear-due>حذف سررسید</button>' : ''}</div>`;

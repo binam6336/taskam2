@@ -128,7 +128,8 @@ final class LiveController extends Controller
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR " . \App\Models\TaskModel::mine($uid, 'tasks'), [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(MAX(id), 0) m, COALESCE(SUM(CRC32(note)), 0) h FROM task_notes WHERE task_id IN ($mine)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c FROM task_attachments WHERE task_id IN ($mine)", [$uid, $uid]);
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, color))), 0) h FROM subjects WHERE user_id = ?", [$uid]);
+                // لیبل‌های پروژه‌های کاربر (v7.12) + لیبل‌های شخصی قدیمی خودش
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, color, project_id, blocked_at))), 0) h FROM subjects WHERE user_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ? UNION SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image, p.blocked_at))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 break;
             case 'board':

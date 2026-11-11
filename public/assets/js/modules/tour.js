@@ -13,6 +13,8 @@
   const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('.sb-pop');
   const groupBtn = () => { const p = tasksGroup(); return p ? TK.qs(`.sb-it[aria-controls="${p.id}"]`) : null; };
   const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
+  // v7.12: لیبل مال پروژه است؛ بدون «دسترسی ایجاد لیبل» گزینه‌ی ساخت مخفی است و مرحله‌ی ۱۱ رد می‌شود
+  const canNewLabel = () => { const o = TK.qs('#f-task [name=subject_id] option[value="__new"]'); return !!o && !o.hidden; };
   const field = (name, text, extra = {}) => ({ page: 'tasks', target: `#f-task [data-tour="${name}"]`, action: 'ok', back: 4, text, ...extra });
   // فیلدهای داخل «گزینه‌های بیشتر»: اگر بخش بسته بود (مثلاً ادامه‌ی تور بعد از رفرش) باز می‌شود
   const openMore = () => { const b = TK.qs('#f-task [data-more-toggle]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); };
@@ -60,7 +62,7 @@
     9: more('priority', T.step_9, { next: 10 }),
     // بدون لیبل: کلیک روی لیبل → مرحله‌ی ساخت اولین لیبل؛ با لیبل موجود: انتخاب از لیست و «فهمیدم»
     10: more('label', T.step_10, {
-      action: () => (hasLabels() ? 'ok' : 'click'), next: () => (hasLabels() ? 12 : 11),
+      action: () => (hasLabels() || !canNewLabel() ? 'ok' : 'click'), next: () => (hasLabels() || !canNewLabel() ? 12 : 11),
     }),
     11: {
       page: 'tasks', target: '#subj-pick .subj-new', action: 'wait', back: 10, next: 12,

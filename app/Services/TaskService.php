@@ -88,12 +88,12 @@ final class TaskService
             $time = null;
         }
 
-        // لیبل اختیاری، پروژه اجباری
+        // لیبل اختیاری، پروژه اجباری؛ لیبل باید مال همان پروژه باشد (v7.12)
         $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
-        if ($subjectId !== null && (SubjectModel::owned($subjectId, $actor) === null || BlockService::isBlocked('label', $subjectId))) {
-            return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
-        }
         $projectId = (int) ($in['project_id'] ?? 0);
+        if ($subjectId !== null && $projectId > 0 && !SubjectModel::usableIn($subjectId, $projectId)) {
+            return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
+        }
         if ($projectId <= 0) {
             return self::err('انتخاب پروژه الزامی است.', 'PROJECT_REQUIRED');
         }
@@ -263,12 +263,11 @@ final class TaskService
         }
         if ($has('subject_id')) {
             $sid = (int) $in['subject_id'] ?: null;      // خالی = حذف لیبل
-            if ($sid !== null && SubjectModel::owned($sid, (int) $t['user_id']) === null && SubjectModel::owned($sid, $actor) === null) {
-                return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
-            }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
-                if ($sid !== null && BlockService::isBlocked('label', $sid)) {
-                    return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
+                // لیبل فقط از لیبل‌های پروژه‌ی تسک (یا پروژه‌ی جدیدش اگر همین درخواست پروژه را عوض می‌کند)
+                $lp = $has('project_id') && (int) $in['project_id'] > 0 ? (int) $in['project_id'] : (int) $t['project_id'];
+                if ($sid !== null && !SubjectModel::usableIn($sid, $lp)) {
+                    return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
                 }
                 $set['subject_id'] = $sid;
                 $needMeta = true;
@@ -302,6 +301,11 @@ final class TaskService
                 }
                 $set['project_id'] = $pid;
                 $newProject = $pid;
+                // لیبل‌ها مال پروژه‌اند: لیبل پروژه‌ی قبلی با تسک به پروژه‌ی جدید نمی‌رود
+                $curLabel = array_key_exists('subject_id', $set) ? $set['subject_id'] : ($t['subject_id'] === null ? null : (int) $t['subject_id']);
+                if ($curLabel !== null && (int) DB::value('SELECT project_id FROM subjects WHERE id = ?', [$curLabel]) !== $pid) {
+                    $set['subject_id'] = null;
+                }
             }
         }
         $reassigned = false;
@@ -387,7 +391,8 @@ final class TaskService
             'count' => count($tasks),
             'statuses' => $statuses,
             'assignees' => array_map(static fn($u) => ['id' => pid('users', $u['id']), 'name' => full_name($u)], $assignees),
-            'labels' => array_map(static fn($l) => ['id' => pid('subjects', $l['id']), 'title' => $l['title'], 'color' => $l['color']], SubjectModel::forUser($actor)),
+            // فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند (لیبل‌ها مال پروژه‌اند، v7.12)
+            'labels' => count($pids) === 1 && $pids[0] > 0 ? array_map(static fn($l) => ['id' => pid('subjects', $l['id']), 'title' => $l['title'], 'color' => $l['color']], SubjectModel::forProject($pids[0])) : [],
             'projects' => array_map(static fn($p) => ['id' => pid('projects', $p['id']), 'title' => $p['title']], ProjectModel::forUser($actor)),
         ]);
     }

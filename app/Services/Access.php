@@ -46,6 +46,8 @@ final class Access
         'manage_permissions' => ['label' => 'اعطای دسترسی', 'icon' => 'fa-key', 'desc' => 'تغییر دسترسی سایر اعضا (فقط مجوزهایی که خودتان دارید)'],
         'view_analytics'     => ['label' => 'مشاهده تحلیل‌ها', 'icon' => 'fa-chart-line', 'desc' => 'دسترسی به صفحه‌ی تحلیل و آمار پروژه'],
         'manage_board'       => ['label' => 'مدیریت بورد', 'icon' => 'fa-table-columns', 'desc' => 'تنظیمات بورد پروژه: ساخت، ویرایش، حذف و چیدمان ستون‌ها، رنگ و آیکون آن‌ها و وضعیت اول تسک‌های جدید'],
+        // v7.12: لیبل‌ها مال پروژه‌اند؛ بقیه‌ی اعضا فقط از لیبل‌های موجود پروژه استفاده می‌کنند (نقش «مدیر واحد» و بالاتر دارند)
+        'create_label'       => ['label' => 'دسترسی ایجاد لیبل', 'icon' => 'fa-tags', 'desc' => 'ساخت لیبل جدید برای این پروژه و ویرایش و مسدود کردن لیبل‌های آن؛ بدون این دسترسی فقط لیبل‌های موجود پروژه روی تسک‌ها گذاشته می‌شوند'],
     ];
 
     /**
@@ -53,11 +55,11 @@ final class Access
      * نقش ذخیره نمی‌شود؛ از روی دسترسی‌های فعلی تشخیص داده می‌شود (هر تغییر دستی = «سفارشی»).
      */
     public const ROLES = [
-        'admin'        => ['label' => 'مدیر کل', 'icon' => 'fa-crown', 'tone' => 'green', 'desc' => 'همه‌ی دسترسی‌ها در همه‌ی بخش‌های پروژه؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
+        'admin'        => ['label' => 'مدیر کل', 'icon' => 'fa-crown', 'tone' => 'green', 'desc' => 'همه‌ی دسترسی‌ها در همه‌ی بخش‌های پروژه (از جمله ساخت لیبل)؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
             'task' => '*', 'project' => '*', 'board' => '*', 'view' => 'all', 'limit' => null],
-        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز مسدود کردن تسک؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
+        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز مسدود کردن تسک (از جمله ساخت لیبل پروژه)؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => '*', 'board' => '*', 'view' => 'all', 'limit' => null],
-        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز مسدود کردن. پروژه: همه‌چیز جز افزودن و خارج کردن کاربر و مدیریت بورد. بورد: تغییر وضعیت؛ تسک‌های همه را می‌بیند؛ حداکثر ۲۰ تسک خودش در هر ستون.',
+        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز مسدود کردن. پروژه: همه‌چیز جز افزودن و خارج کردن کاربر، مدیریت بورد و ساخت لیبل. بورد: تغییر وضعیت؛ تسک‌های همه را می‌بیند؛ حداکثر ۲۰ تسک خودش در هر ستون.',
             'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => ['edit_project', 'manage_permissions', 'view_analytics'], 'board' => '*', 'view' => 'all', 'limit' => 20],
         // عضو: تغییر وضعیت در بورد بله، تأیید و بستن (تکمیل تسک) نه
         'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. بورد: تغییر وضعیت (بدون تأیید و بستن)؛ تسک‌های همه را می‌بیند؛ حداکثر ۱۰ تسک خودش در هر ستون؛ بدون دسترسی پروژه.',
@@ -455,5 +457,17 @@ final class Access
     public static function projectCan(int $projectId, int $uid, string $perm): bool
     {
         return in_array($perm, self::projectPerms($projectId, $uid), true);
+    }
+
+    /** ساخت، ویرایش و مسدود کردن لیبل‌های پروژه (v7.12): سازنده‌ی پروژه یا عضو با «دسترسی ایجاد لیبل»؛ پروژه‌ی مسدود = هیچ‌کس */
+    public static function canManageLabels(int $projectId, int $uid): bool
+    {
+        static $cache = [];
+        $k = $projectId . ':' . $uid;
+        if (!isset($cache[$k])) {
+            $cache[$k] = $projectId > 0 && !DB::value('SELECT 1 FROM projects WHERE id = ? AND blocked_at IS NOT NULL', [$projectId])
+                && self::projectCan($projectId, $uid, 'create_label');
+        }
+        return $cache[$k];
     }
 }

@@ -75,6 +75,7 @@ final class ProjectService
         $id = DB::transaction(static function () use ($uid, $title, $desc, $max, $img, $ptype): int {
             $id = DB::insert('projects', ['user_id' => $uid, 'title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max, 'profile_image' => $img, 'priority_type' => $ptype]);
             DB::insert('project_members', ['project_id' => $id, 'user_id' => $uid, 'permissions' => json_encode(array_keys(Access::PROJECT_PERMS))]);
+            \App\Models\SubjectModel::seedProject($id, $uid);       // لیبل‌های پیش‌فرض پروژه (v7.12)
             return $id;
         });
         $requested = 0;

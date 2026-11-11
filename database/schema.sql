@@ -213,7 +213,8 @@ CREATE TABLE `project_leave_history` (
 CREATE TABLE `subjects` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
-  `user_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL                 COMMENT 'سازنده‌ی لیبل',
+  `project_id` INT UNSIGNED NULL DEFAULT NULL        COMMENT 'پروژه‌ی صاحب لیبل (v7.12)؛ NULL = لیبل شخصی قدیمی',
   `title`      VARCHAR(150) NOT NULL,
   `color`      VARCHAR(20) NOT NULL DEFAULT '#22c55e',
   `blocked_at` TIMESTAMP NULL DEFAULT NULL           COMMENT 'لیبل مسدودشده (به‌جای حذف)',
@@ -222,6 +223,7 @@ CREATE TABLE `subjects` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_subjects_pid` (`pid`),
   KEY `idx_subjects_user` (`user_id`),
+  KEY `idx_subjects_project` (`project_id`),
   CONSTRAINT `fk_subjects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

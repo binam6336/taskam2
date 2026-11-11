@@ -546,7 +546,6 @@ final class Auth
             'role'          => $d['role'] ?? 'user',
             'admin_permissions' => $d['admin_permissions'] ?? null,
         ]);
-        \App\Models\SubjectModel::seedDefaults($id);
         return $id;
     }
 }

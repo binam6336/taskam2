@@ -22,7 +22,8 @@ $this->scripts[] = 'bulk';
                 <div class="field"><label for="bk-priority">اولویت</label><select class="input" id="bk-priority" name="priority"><option value="">— بدون تغییر —</option><option value="high">زیاد</option><option value="medium">متوسط</option><option value="low">کم</option></select></div>
                 <div class="field"><label for="bk-assignee">مسئول انجام</label><select class="input" id="bk-assignee" name="assignee_id"><option value="">— بدون تغییر —</option></select>
                     <small class="xs faint">فقط اعضای مشترک پروژه‌ی همه‌ی تسک‌های انتخاب‌شده.</small></div>
-                <div class="field"><label for="bk-label">لیبل</label><select class="input" id="bk-label" name="subject_id"><option value="">— بدون تغییر —</option><option value="__none">بدون لیبل (حذف لیبل)</option></select></div>
+                <div class="field"><label for="bk-label">لیبل</label><select class="input" id="bk-label" name="subject_id"><option value="">— بدون تغییر —</option><option value="__none">بدون لیبل (حذف لیبل)</option></select>
+                    <small class="xs faint" data-bulk-label-note hidden>لیبل‌ها مال پروژه‌اند؛ تغییر لیبل فقط وقتی همه‌ی تسک‌های انتخاب‌شده در یک پروژه‌اند.</small></div>
                 <div class="field"><label for="bk-project">پروژه</label><select class="input" id="bk-project" name="project_id"><option value="">— بدون تغییر —</option></select></div>
                 <div class="field"><label>سررسید</label><div class="flex gap-1 items-center wrap"><div class="grow" data-bulk-date></div><label class="check xs"><input type="checkbox" name="clear_due" value="1"> حذف سررسید</label></div></div>
                 <div class="bulk-fails" data-bulk-fails hidden></div>

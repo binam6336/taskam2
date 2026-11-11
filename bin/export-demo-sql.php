@@ -121,11 +121,12 @@ foreach ($members as $m) {
         . ', ' . $q($m['permissions']) . ', ' . $q($m['task_permissions']) . ', ' . $q($m['board_permissions']) . ', ' . $q($m['board_view_users']) . ', ' . $q($m['added_at']) . ');');
 }
 $w('');
-$w('-- لیبل‌ها (اگر صاحب لیبل از قبل همین عنوان را دارد، همان استفاده می‌شود)');
+$w('-- لیبل‌ها (v7.12: مال پروژه؛ اگر پروژه از قبل همین عنوان را دارد، همان استفاده می‌شود)');
 foreach ($subjects as $s) {
-    $w('INSERT INTO subjects (pid, user_id, title, color) SELECT ' . $q(Pid::new()) . ', ' . $uv($s['user_id']) . ', ' . $q($s['title']) . ', ' . $q($s['color'])
-        . ' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ');');
-    $w('SET @s' . (int) $s['id'] . ' = (SELECT id FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ' ORDER BY id LIMIT 1);');
+    $pv = $s['project_id'] !== null ? '@p' . (int) $s['project_id'] : 'NULL';
+    $w('INSERT INTO subjects (pid, user_id, project_id, title, color) SELECT ' . $q(Pid::new()) . ', ' . $uv($s['user_id']) . ', ' . $pv . ', ' . $q($s['title']) . ', ' . $q($s['color'])
+        . ' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE project_id <=> ' . $pv . ' AND title = ' . $q($s['title']) . ');');
+    $w('SET @s' . (int) $s['id'] . ' = (SELECT id FROM subjects WHERE project_id <=> ' . $pv . ' AND title = ' . $q($s['title']) . ' ORDER BY id LIMIT 1);');
 }
 $w('');
 $w('-- تسک‌ها + تاریخچه + یادداشت‌ها');

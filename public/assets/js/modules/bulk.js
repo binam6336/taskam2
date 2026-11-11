@@ -51,6 +51,7 @@ document.addEventListener('tk:ready', () => {
     f.elements.status.disabled = !d.statuses; TK.qs('[data-bulk-status-note]', f).hidden = !!d.statuses;
     fill('assignee_id', d.assignees || [], (x) => [x.id, x.name]);
     fill('subject_id', d.labels || [], (x) => [x.id, x.title]);
+    const oneProject = !!d.statuses; f.elements.subject_id.disabled = !oneProject; TK.qs('[data-bulk-label-note]', f).hidden = oneProject;
     fill('project_id', d.projects || [], (x) => [x.id, x.title]);
     TK.qs('[data-bulk-count]', f).textContent = TK.fa(d.count);
     TK.qs('[data-bulk-sub]', f).textContent = TK.fa(d.count) + ' تسک انتخاب شده؛ فقط مواردی که انتخاب کنید عوض می‌شوند';

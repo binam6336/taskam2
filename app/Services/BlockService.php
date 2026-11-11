@@ -12,7 +12,7 @@ use App\Models\TaskModel;
  * و فقط در پنجره‌ی «مسدودشده‌ها»ی همان صفحه دیده می‌شود؛ «رفع مسدودی» همه‌چیز را مثل قبل برمی‌گرداند.
  *  - task: مجوز «مسدود کردن تسک» (Access::TASK_PERMS block؛ سازنده‌ی تسک/پروژه همیشه). تسک مسدود فقط‌خواندنی است.
  *  - project: فقط سازنده‌ی پروژه. پروژه‌ی مسدود از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد؛ تسک‌های قبلی‌اش می‌مانند.
- *  - label: صاحب لیبل. لیبل مسدود برای تسک تازه انتخاب نمی‌شود؛ تسک‌هایی که دارندش همچنان نشانش می‌دهند.
+ *  - label: لیبل پروژه = Access::canManageLabels (v7.12)، لیبل شخصی قدیمی = صاحبش. لیبل مسدود برای تسک تازه انتخاب نمی‌شود؛ تسک‌هایی که دارندش همچنان نشانش می‌دهند.
  * فقط «یادداشت‌ها» (متن‌های آماده‌ی قدیمی) همچنان حذف می‌شوند.
  */
 final class BlockService
@@ -47,9 +47,9 @@ final class BlockService
                 $own = $r !== null && (int) $r['user_id'] === $uid;
                 return [$r, $r !== null && ($own || Access::isProjectMember($id, $uid)), $own];
             case 'label':
+                // v7.12: لیبل پروژه = هر عضو می‌بیند، مسدود کردن با «دسترسی ایجاد لیبل»؛ لیبل شخصی قدیمی = صاحبش
                 $r = DB::one('SELECT * FROM subjects WHERE id = ?', [$id]);
-                $own = $r !== null && (int) $r['user_id'] === $uid;
-                return [$r, $own, $own];
+                return [$r, $r !== null && LabelService::canSee($r, $uid), $r !== null && LabelService::canManage($r, $uid)];
         }
         return [null, false, false];
     }
@@ -119,9 +119,14 @@ final class BlockService
                 }
                 break;
             case 'label':
-                foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = x.id AND t.blocked_at IS NULL) AS n
-                        FROM subjects x $who WHERE x.blocked_at IS NOT NULL AND x.user_id = ? ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid]) as $r) {
-                    $out[] = ['id' => pid('subjects', $r), 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['n']) . ' تسک', 'color' => (string) $r['color'], 'can_unblock' => true] + self::meta($r);
+                foreach (DB::all("SELECT x.*, ub.first_name AS bf, ub.last_name AS bl, p.title AS project_title, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = x.id AND t.blocked_at IS NULL) AS n
+                        FROM subjects x LEFT JOIN projects p ON p.id = x.project_id $who WHERE x.blocked_at IS NOT NULL
+                        AND ((x.project_id IS NULL AND x.user_id = ?) OR x.project_id IN (SELECT pp.id FROM projects pp WHERE pp.user_id = ? OR pp.id IN (SELECT pm.project_id FROM project_members pm WHERE pm.user_id = ?)))
+                        ORDER BY x.blocked_at DESC, x.id DESC LIMIT 1000", [$uid, $uid, $uid]) as $r) {
+                    if (!LabelService::canManage($r, $uid)) {
+                        continue;                                // فقط کسی که اجازه‌ی مسدود کردن دارد فهرست را می‌بیند
+                    }
+                    $out[] = ['id' => pid('subjects', $r), 'title' => (string) $r['title'], 'sub' => fa_num((int) $r['n']) . ' تسک' . ($r['project_title'] ? '، پروژه: ' . $r['project_title'] : ''), 'color' => (string) $r['color'], 'can_unblock' => true] + self::meta($r);
                 }
                 break;
         }

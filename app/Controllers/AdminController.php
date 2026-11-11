@@ -121,7 +121,6 @@ final class AdminController extends Controller
         [$role, $adminRole] = $this->isSuper() ? $this->roleInput() : ['user', null];
         $status = Validate::enum($this->request->input('status'), Auth::STATUSES, 'active');
         $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_role' => $adminRole]);
-        \App\Models\SubjectModel::seedDefaults($id);
         Audit::log($this->uid(), 'admin_user_created', ['id' => $id, 'role' => $role]);
         if ($role === 'user') {
             ProjectService::createSample($id);

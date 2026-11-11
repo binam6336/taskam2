@@ -181,14 +181,14 @@ foreach ($projects as $p) {
 }
 $out('پروژه‌ها: ' . count($projects) . ' تیم ساخته شد.');
 
-/* ───────────── لیبل‌ها (هر سازنده لیبل‌های تیم خودش) ───────────── */
+/* ───────────── لیبل‌ها (v7.12: لیبل‌های هر پروژه، ساخته‌ی سرپرست تیم) ───────────── */
 $labelCache = [];
-$labelOf = static function (int $uid, string $title) use (&$labelCache): int {
-    $k = $uid . '|' . $title;
+$labelOf = static function (int $uid, int $projectId, string $title) use (&$labelCache): int {
+    $k = $projectId . '|' . $title;
     if (!isset($labelCache[$k])) {
         $colors = \App\Models\SubjectModel::COLORS;
-        $id = (int) DB::value('SELECT id FROM subjects WHERE user_id = ? AND title = ? LIMIT 1', [$uid, $title]);
-        $labelCache[$k] = $id ?: DB::insert('subjects', ['user_id' => $uid, 'title' => $title, 'color' => $colors[crc32($title) % count($colors)]]);
+        $id = (int) DB::value('SELECT id FROM subjects WHERE project_id = ? AND title = ? LIMIT 1', [$projectId, $title]);
+        $labelCache[$k] = $id ?: DB::insert('subjects', ['user_id' => $uid, 'project_id' => $projectId, 'title' => $title, 'color' => $colors[crc32($title) % count($colors)]]);
     }
     return $labelCache[$k];
 };
@@ -236,7 +236,7 @@ for ($n = 0; $n < $taskCount; $n++) {
     $prio = $pick(['high', 'medium', 'medium', 'medium', 'low', 'high', 'low', 'medium']);
     $pct = $p['type'] === 'percent' ? ['high' => mt_rand(14, 20), 'medium' => mt_rand(8, 13), 'low' => mt_rand(1, 7)][$prio] * 5 : null;
     $title = $pick($p['verbs']) . ' ' . $pick($p['objects']) . (mt_rand(1, 100) <= 35 ? ' — فاز ' . mt_rand(1, 3) : '');
-    $label = mt_rand(1, 100) <= 82 ? $labelOf($p['sup'], $pick($p['labels'])) : null;   // لیبل‌های تیم = لیبل‌های سرپرست
+    $label = mt_rand(1, 100) <= 82 ? $labelOf($p['sup'], (int) $p['id'], $pick($p['labels'])) : null;   // لیبل‌های تیم = لیبل‌های سرپرست
     // سررسید
     $due = null;
     $dueTime = null;

@@ -402,7 +402,7 @@ final class TaskModel
                 COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me, COALESCE(SUM(assignee_id = ? AND user_id <> ? AND is_completed = 0),0) to_me_open
                 FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'by_me_open' => 0, 'to_me' => 0, 'to_me_open' => 0];
         // پرتکرارترین لیبل: فقط وقتی دست‌کم یک تسک (مسئولش کاربر) لیبل دارد
-        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid, $uid]);
+        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid]);   // لیبل پروژه (v7.12)، نه فقط ساخته‌ی خود کاربر
         // اولویت تسک‌های در جریان (تحویل‌نشده)؛ همان پایه‌ی کارت «در جریان»
         $prioOpen = DB::one("SELECT COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low FROM tasks t WHERE t.assignee_id = ? AND " . self::UNDELIVERED . " AND t.blocked_at IS NULL", [$uid]) ?? [];
 

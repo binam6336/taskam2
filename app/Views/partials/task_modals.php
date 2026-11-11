@@ -15,12 +15,15 @@ if ($pIds) {
     }
 }
 $this->boot['tasks'] = [
-    'subjects' => $subjects,
+    // لیبل‌ها مال پروژه‌اند (v7.12): فرم فقط لیبل‌های پروژه‌ی انتخاب‌شده را نشان می‌دهد
+    'subjects' => array_values(array_map(static fn($s) => ['id' => pid('subjects', $s), 'title' => $s['title'], 'color' => $s['color'], 'project_id' => $s['project_id'] !== null ? pid('projects', $s['project_id']) : null],
+        array_filter($subjects, static fn($s) => $s['project_id'] !== null))),
     'label_colors' => \App\Models\SubjectModel::COLORS,
     'projects' => array_map(static fn($p) => ['id' => pid('projects', $p), 'title' => $p['title'], 'image' => project_image_url($p['profile_image']), 'priority_type' => $p['priority_type'] ?? 'category',
         'members' => $pMembers[(int) $p['id']] ?? [], 'can_add' => !empty($p['is_creator']) || in_array('add_member', $p['perms'] ?? [], true),
         // انتخاب مسئول هنگام ساخت (v5.5): هر عضو جز «بدون دسترسی»؛ تغییر مسئول تسک ثبت‌شده با can.reassign خود تسک قفل می‌شود
-        'can_assign' => \App\Services\Access::canAssignOnCreate((int) $p['id'], $meId)], $projects),
+        'can_assign' => \App\Services\Access::canAssignOnCreate((int) $p['id'], $meId),
+        'can_label' => \App\Services\Access::canManageLabels((int) $p['id'], $meId)], $projects),
     'me_name' => full_name($me),
     'assignees' => $assignees,
     'shared' => $shared ?? null,
@@ -54,7 +57,7 @@ $this->scripts[] = 'tasks';
                         <input type="range" class="prio-range" name="priority_percent" min="0" max="100" step="5" value="50" disabled aria-label="اولویت درصدی">
                         <div class="prio-scale"><span>کم</span><span>متوسط</span><span>زیاد</span></div></div>
                     <div class="field" data-tour="label"><label><i class="fa-solid fa-tag"></i> لیبل <span class="faint">(اختیاری)</span></label>
-                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id"><option value="">— بدون لیبل —</option><?php foreach ($subjects as $s): ?><option value="<?= e(pid('subjects', $s)) ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
+                        <div class="subj-pick" id="subj-pick"><select class="input" name="subject_id"><option value="">— بدون لیبل —</option><?php foreach ($subjects as $s): if ($s['project_id'] === null) continue; ?><option value="<?= e(pid('subjects', $s)) ?>" data-project="<?= e(pid('projects', $s['project_id'])) ?>"><?= e($s['title']) ?></option><?php endforeach; ?><option value="__new">＋ افزودن لیبل جدید</option></select>
                             <div class="subj-new hidden"><input class="input" maxlength="150" placeholder="<?= e(ph('task_label_new')) ?>" aria-label="عنوان لیبل جدید"><button type="button" class="btn btn-primary btn-icon" data-subj-save title="افزودن" aria-label="افزودن"><i class="fa-solid fa-check"></i></button><button type="button" class="btn btn-icon" data-subj-cancel title="انصراف" aria-label="انصراف"><i class="fa-solid fa-xmark"></i></button></div></div></div>
                 </div>
                 <div class="field" data-tour="due"><label><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</label><div data-jdue></div></div>

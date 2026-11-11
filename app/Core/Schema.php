@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '046';
+    public const VERSION = '047';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -35,6 +35,7 @@ final class Schema
         ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
         // 046 (v7.10، بار کاری): ظرفیت هفتگی پروژه و ظرفیت اختصاصی هر عضو
         ['projects', 'workload_capacity', "ADD COLUMN `workload_capacity` INT NOT NULL DEFAULT 12 AFTER `board_config`", null],
+        ['subjects', 'project_id', "ADD COLUMN `project_id` INT UNSIGNED NULL DEFAULT NULL AFTER `user_id`, ADD KEY `idx_subjects_project` (`project_id`)", null],
         ['project_members', 'weekly_capacity', "ADD COLUMN `weekly_capacity` INT NULL DEFAULT NULL AFTER `board_limits`", null],
         // 045 (v7.9، صندوق بررسی): دسته‌های علت آخرین برگشت برای اصلاح
         ['tasks', 'rework_category', "ADD COLUMN `rework_category` VARCHAR(120) NULL DEFAULT NULL AFTER `rework_count`", null],
@@ -118,6 +119,11 @@ final class Schema
     ];
 
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
+    /** اصلاح داده‌ی یک‌باره با کد PHP (وقتی SQL خالی کافی نیست)؛ نشانه‌ی storage/cache/data-<id> */
+    private const PHP_DATA = [
+        ['047', [\App\Models\SubjectModel::class, 'migrateToProjects']],     // لیبل‌ها در سطح پروژه (v7.12)
+    ];
+
     private const DATA = [
         ['022', '022_member_board_perms.sql'],
         ['025', '025_chat_requests_block_ghosts.sql'],
@@ -293,6 +299,28 @@ final class Schema
                     $ok = false;
                     $fail('اصلاح داده ' . $id, $e);
                 }
+            }
+            $ran = false;
+            foreach (self::PHP_DATA as [$id, $fn]) {
+                $dflag = STORAGE_PATH . '/cache/data-' . $id;
+                if (is_file($dflag)) {
+                    continue;
+                }
+                try {
+                    DB::transaction(static function () use ($fn): void {
+                        $fn();
+                    });
+                    @file_put_contents($dflag, date('c'));
+                    $ran = true;
+                    $say('✓ اصلاح داده ' . $id . ' اجرا شد');
+                    Log::info('schema.data', ['step' => $id]);
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('اصلاح داده ' . $id, $e);
+                }
+            }
+            if ($ran) {
+                Pid::backfill($say);                               // ردیف‌هایی که اصلاح داده با INSERT خام ساخته
             }
             foreach (self::DROP_COLUMNS as [$table, $col, $ddl, $before]) {
                 if (!DB::value('SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col])) {
