@@ -632,10 +632,11 @@ document.addEventListener('tk:ready', () => {
   const mentioned = new Map();
   /* «تاپ تاپ» در فهرست منشن (v7.3): فعلاً فقط متن @تاپ‌تاپ را در یادداشت می‌گذارد و کاری روی سرور انجام نمی‌دهد
      (برای قابلیت بعدی). آیکون = همان لوگوی کارلیکس در سایدبار با رنگ‌های تم فعلی. */
-  const taptapItem = () => {
+  // تابع (نه const): render تسک اشتراکی (/tasks?task=…) پیش از این خط اجرا می‌شود و به آن نیاز دارد
+  function taptapItem() {
     const logo = TK.qs('#sidebar .brand .logo svg')?.outerHTML || '<i class="fa-solid fa-bolt"></i>';
     return `<button type="button" class="mention-taptap" data-mention-taptap><span class="avatar sm mt-logo">${logo}</span><span class="grow">تاپ تاپ</span><small class="faint">به‌زودی</small></button><div class="dd-sep"></div>`;
-  };
+  }
   const insertMention = (id, name) => {
     const ta = TK.qs('#f-note textarea', detail); if (!ta) return;
     const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;

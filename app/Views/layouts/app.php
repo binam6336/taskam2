@@ -34,7 +34,9 @@ $tbCols = array_slice($tbAll, 0, 4);
     <?php $sb = [
         'home' => url('/dashboard'), 'title' => 'کارلیکس', 'sub' => 'مدیریت وظایف و تیم', 'user' => $u, 'user_sub' => fa_num((string) $u['mobile']), 'user_sub_ltr' => true,
         'logout' => Auth::isImpersonating() ? 'بستن این پنجره' : 'خروج از حساب', 'desc' => [],   // توضیح‌ها داخل خود $menu (SidebarModel::nav)
+        'search' => url('/search'),                                // پالت = جستجوی سراسری محتوا (v7.13)
     ];
+    $tbSearch = true;
     require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>
     <div class="main">

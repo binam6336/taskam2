@@ -28,6 +28,9 @@ document.addEventListener('tk:ready', () => {
 
   const load = async (q = '') => { const r = await TK.get('/notes/data', q ? { search: q } : {}); if (r.success) { items = r.data; draw(); } };
   search?.addEventListener('input', TK.debounce((e) => load(e.target.value.trim()), 300));
+  // از جستجوی سراسری (v7.13): /notes?q=… همان جستجو را پر و اجرا می‌کند
+  const q0 = new URLSearchParams(location.search).get('q');
+  if (q0 && search) { search.value = q0.slice(0, 100); load(search.value.trim()); }
 
   const openForm = (t) => {
     form.reset(); form.id.value = t ? t.id : '';

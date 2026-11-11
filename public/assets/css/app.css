@@ -3043,3 +3043,25 @@ html[data-mode="dark"] .wl,html[data-mode="dark"] .wl-host{
 .lbl-group + .lbl-group { margin-top: 1.25rem; }
 .lbl-gh { font-size: .95rem; margin: 0 0 .6rem; display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
 .lbl-gh > i { color: var(--main-ink); }
+
+/* ───── جستجوی سراسری نوار بالا (v7.13، پالت پنل کاربر) ───── */
+.sb-gsearch { width: min(640px, calc(100vw - 32px)); }
+.sb-gsearch .sb-pal-list { max-height: min(62vh, 520px); }
+.sb-pal-gh { padding: .55rem .7rem .25rem !important; font-size: 11px; font-weight: 700; color: var(--faint); cursor: default !important; background: none !important; }
+.sb-pal-list li .sb-pal-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sb-pal-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pal-t em { font-style: normal; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pal-list li small { flex: 0 1 auto; max-width: 42%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pal-list li.is-done b { text-decoration: line-through; text-decoration-color: var(--faint); }
+.sb-pal-list li[aria-selected="true"] em { color: rgba(255, 255, 255, .8); }
+.sb-pal-hint { margin: 0; padding: .7rem 1rem .9rem; font-size: 12px; color: var(--muted); line-height: 1.9; border-top: 1px solid var(--border); }
+.sb-pal-hint kbd { font-size: 10px; padding: 1px 5px; border: 1px solid var(--border-2); border-radius: 5px; }
+.sb-pal-busy { color: var(--muted); animation: sb-pal-spin 1s linear infinite; }
+.sb-pal-busy[hidden] { display: none; }
+@keyframes sb-pal-spin { to { transform: rotate(360deg); } }
+@media (max-width: 600px) {
+  .sb-gsearch { margin-top: 8vh; }
+  .sb-gsearch .sb-pal-list li { flex-wrap: wrap; row-gap: 2px; }
+  .sb-gsearch .sb-pal-list li small { flex-basis: 100%; max-width: none; text-align: start; padding-inline-start: calc(20px + .65rem); }
+}
+@media (prefers-reduced-motion: reduce) { .sb-pal-busy { animation: none; } }

@@ -25,6 +25,7 @@ use App\Controllers\LiveController;
 use App\Controllers\ProfileController;
 use App\Controllers\ProjectController;
 use App\Controllers\PwaController;
+use App\Controllers\SearchController;
 use App\Controllers\SubjectController;
 use App\Controllers\SupportController;
 use App\Controllers\TaskController;
@@ -62,6 +63,7 @@ $router->get('/docs/{group}/{slug}', [DocsController::class, 'endpoint']);
 // ───────────────────────── پنل کاربری ─────────────────────────
 $router->group(['panel'], function ($r) {
     $r->get('/dashboard', [DashboardController::class, 'index']);
+    $r->get('/search', [SearchController::class, 'global']);          // جستجوی سراسری نوار بالا (v7.13)
 
     // تسک‌ها
     $r->get('/tasks', [TaskController::class, 'index']);
@@ -280,6 +282,7 @@ $router->group(['api'], function ($r) {
 
 
 
+    $r->get('/search', [\App\Controllers\Api\V1\SearchApi::class, 'search']);
     $r->get('/texts/list', [TextApi::class, 'list']);
     $r->get('/texts/show', [TextApi::class, 'show']);
     $r->get('/texts/stats', [TextApi::class, 'stats']);

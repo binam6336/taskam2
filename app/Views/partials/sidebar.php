@@ -83,9 +83,21 @@ $pops = [];
 <?php endforeach; ?>
     <div class="sb-tooltip" id="sb-tooltip" role="tooltip" hidden></div>
 </aside>
+<?php if (!empty($sb['search'])): /* پنل کاربر (v7.13): جستجوی سراسری در تسک‌ها، گزارش‌ها، یادداشت‌ها، پروژه‌ها، … (GlobalSearch) */ ?>
+<dialog class="sb-palette sb-gsearch" aria-label="جستجوی سراسری" data-search="<?= e($sb['search']) ?>">
+    <div class="sb-pal-in"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="text" class="sb-pal-q" role="combobox" aria-expanded="true" aria-controls="sb-pal-list" aria-autocomplete="list" aria-activedescendant="" aria-label="جستجو در تسک‌ها، گزارش‌ها، یادداشت‌ها و پروژه‌ها" placeholder="جستجو در تسک‌ها، گزارش‌ها، یادداشت‌ها، پروژه‌ها…" autocomplete="off" spellcheck="false" maxlength="100">
+        <i class="fa-solid fa-spinner sb-pal-busy" aria-hidden="true" hidden></i></div>
+    <ul class="sb-pal-list" id="sb-pal-list" role="listbox" aria-label="نتایج"></ul>
+    <p class="sb-pal-empty" hidden>چیزی پیدا نشد.</p>
+    <p class="sb-pal-hint">فقط مواردی که به آن‌ها دسترسی دارید: همه‌ی تسک‌های پروژه‌هایی که عضوشان هستید (جز تسک‌های محرمانه‌ی دیگران) و یادداشت‌ها، تیکت‌ها و همکاران خودتان. <kbd>↑</kbd> <kbd>↓</kbd> و <kbd>Enter</kbd> برای باز کردن.</p>
+    <p class="sb-pal-live sr-only" aria-live="polite"></p>
+</dialog>
+<?php else: ?>
 <dialog class="sb-palette" aria-label="جستجو و پرش سریع">
     <div class="sb-pal-in"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input type="text" class="sb-pal-q" role="combobox" aria-expanded="true" aria-controls="sb-pal-list" aria-autocomplete="list" aria-activedescendant="" aria-label="جستجوی صفحه یا عملیات" placeholder="نام صفحه یا عملیات…" autocomplete="off" spellcheck="false"></div>
     <ul class="sb-pal-list" id="sb-pal-list" role="listbox" aria-label="نتایج"></ul>
     <p class="sb-pal-empty" hidden>چیزی پیدا نشد.</p>
 </dialog>
+<?php endif; ?>

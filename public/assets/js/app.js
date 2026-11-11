@@ -560,7 +560,51 @@
     if (!sbMobile.matches) out.push({ label: document.documentElement.classList.contains('sb-rail') ? 'باز کردن کامل منو' : 'جمع کردن منو', group: 'عملیات', icon: 'fa-solid fa-angles-right', run: sbRailToggle });
     return out;
   };
+  // پنل کاربر (v7.13): پالت = جستجوی سراسری محتوا از سرور (GET /search، GlobalSearch)؛ پنل مدیر: همان پرش به صفحه‌ها
+  let gsTimer = 0, gsSeq = 0, gsData = null, gsQ = '';
+  const gsDialog = () => TK.qs('.sb-palette.sb-gsearch');
+  const gsActions = () => sbPalItems().filter((x) => x.run);          // خالی بودن جستجو: فقط عملیات (ثبت تسک، جمع کردن منو)
+  const gsItems = () => {
+    if (!gsData || !gsData.groups) return [];
+    const out = [];
+    gsData.groups.forEach((g) => g.items.forEach((it, k) => out.push({ ...it, label: it.title, gkey: g.key, gtitle: k === 0 ? g.title : '', icon: 'fa-solid ' + g.icon })));
+    return out;
+  };
+  const gsRender = () => {
+    const d = gsDialog(), list = TK.qs('.sb-pal-list', d), q = TK.qs('.sb-pal-q', d).value.trim();
+    sbPalRes = q.length < 2 ? gsActions() : gsItems();
+    sbPalSel = Math.min(sbPalSel, Math.max(0, sbPalRes.length - 1));
+    const E = TK.esc;
+    list.innerHTML = sbPalRes.map((x, i) => {
+      const head = x.gtitle ? `<li class="sb-pal-gh" role="presentation">${E(x.gtitle)}</li>` : (i === 0 && x.run ? '<li class="sb-pal-gh" role="presentation">عملیات</li>' : '');
+      const ic = x.color ? `<i class="fa-solid fa-tag" data-css="color:${E(x.color)}" aria-hidden="true"></i>` : `<i class="${E(x.icon || 'fa-solid fa-link')}" aria-hidden="true"></i>`;
+      return head + `<li role="option" id="sb-pal-o${i}" aria-selected="${i === sbPalSel}" data-i="${i}" class="${x.done ? 'is-done' : ''}">${ic}<span class="sb-pal-t"><b>${E(x.label)}</b>`
+        + (x.snippet ? `<em>${E(x.snippet)}</em>` : '') + `</span>${x.sub ? `<small>${E(x.sub)}</small>` : ''}</li>`;
+    }).join('');
+    const busy = !!gsTimer || (q.length >= 2 && gsQ !== q);
+    TK.qs('.sb-pal-empty', d).hidden = busy || sbPalRes.length > 0 || q.length < 2;
+    TK.qs('.sb-pal-hint', d).hidden = q.length >= 2 && sbPalRes.length > 0;
+    TK.qs('.sb-pal-busy', d).hidden = !busy;
+    TK.qs('.sb-pal-q', d).setAttribute('aria-activedescendant', sbPalRes.length ? 'sb-pal-o' + sbPalSel : '');
+    TK.qs('#sb-pal-o' + sbPalSel, d)?.scrollIntoView({ block: 'nearest' });
+  };
+  const gsFetch = () => {
+    const d = gsDialog(), q = TK.qs('.sb-pal-q', d).value.trim();
+    clearTimeout(gsTimer); gsTimer = 0;
+    if (q.length < 2) { gsData = null; gsQ = ''; sbPalSel = 0; gsRender(); return; }
+    gsTimer = setTimeout(async () => {
+      gsTimer = 0; const seq = ++gsSeq;
+      gsRender();
+      const r = await TK.get(d.dataset.search, { q });
+      if (seq !== gsSeq || !d.open) return;                       // پاسخ قدیمی (کاربر ادامه‌ی تایپ داده)
+      if (!TK.ok(r)) { gsData = { groups: [] }; gsQ = q; gsRender(); if (r.message) TK.toast(r.message, 'error'); return; }
+      gsData = r.data || { groups: [] }; gsQ = q; sbPalSel = 0; gsRender();
+      TK.qs('.sb-pal-live', d).textContent = gsData.total ? TK.fa(gsData.total) + ' نتیجه' : 'چیزی پیدا نشد';
+    }, 250);
+    gsRender();
+  };
   const sbPalRender = () => {
+    if (gsDialog()) { gsRender(); return; }
     const d = TK.qs('.sb-palette'), q = sbNorm(TK.qs('.sb-pal-q', d).value), list = TK.qs('.sb-pal-list', d);
     sbPalRes = sbPalItems().filter((x) => !q || sbNorm(x.label + ' ' + (x.group || '')).includes(q));
     sbPalSel = Math.min(sbPalSel, Math.max(0, sbPalRes.length - 1));
@@ -572,7 +616,7 @@
   const sbPalOpen = () => {
     const d = TK.qs('.sb-palette'); if (!d || d.open) return;
     sbPalBack = document.activeElement; sbPopClose(false); sbTipHide();
-    TK.qs('.sb-pal-q', d).value = ''; sbPalSel = 0; sbPalRender();
+    TK.qs('.sb-pal-q', d).value = ''; sbPalSel = 0; gsData = null; gsQ = ''; clearTimeout(gsTimer); gsTimer = 0; sbPalRender();
     d.showModal(); TK.qs('.sb-pal-q', d).focus();
   };
   const sbPalClose = () => { const d = TK.qs('.sb-palette'); if (d?.open) d.close(); };
@@ -580,15 +624,18 @@
     const x = sbPalRes[i]; if (!x) return;
     sbPalClose(); sbPalBack = null;
     if (x.run) { x.run(); return; }
+    // تسک در صفحه‌ای که جزئیات تسک دارد (tasks.js): همان‌جا باز شود
+    if (x.open_task && TK.qs('#m-detail')) { const a = document.createElement('a'); a.hidden = true; a.dataset.openTask = x.open_task; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if (x.url) { if (TK.visit) TK.visit(x.url); else location.href = x.url; return; }
     if (x.blank) window.open(x.href, '_blank', 'noopener'); else if (TK.visit) TK.visit(x.href); else location.href = x.href;
   };
   TK.on('click', '.sb-search', () => { if (sbMobile.matches) sbSide(false); sbPalOpen(); });
-  TK.on('input', '.sb-pal-q', () => { sbPalSel = 0; sbPalRender(); });
+  TK.on('input', '.sb-pal-q', () => { sbPalSel = 0; if (gsDialog()) gsFetch(); else sbPalRender(); });
   TK.on('keydown', '.sb-pal-q', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = sbPalRes.length; if (n) { sbPalSel = (sbPalSel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; sbPalRender(); } }
     else if (e.key === 'Enter') { e.preventDefault(); sbPalRun(sbPalSel); }
   });
-  TK.on('click', '.sb-pal-list li', (e, li) => sbPalRun(Number(li.dataset.i)));
+  TK.on('click', '.sb-pal-list li[data-i]', (e, li) => sbPalRun(Number(li.dataset.i)));
   TK.on('click', '.sb-palette', (e, d) => { if (e.target === d) sbPalClose(); });   // کلیک روی backdrop
   document.addEventListener('close', (e) => { if (e.target.matches?.('.sb-palette')) { const b = sbPalBack; sbPalBack = null; if (b && document.contains(b)) b.focus?.(); } }, true);
   document.addEventListener('keydown', (e) => {
