@@ -17,8 +17,10 @@ foreach ($projects as $p) {
             'board_limits' => (object) \App\Services\BoardService::decodeLimits($m['board_limits'] ?? null, \App\Services\BoardConfig::limited((int) $p['id'])),
             'role' => ($mr = (int) $m['user_id'] === (int) $p['user_id'] ? 'creator' : \App\Services\Access::memberRole($m)),
             'role_limit' => \App\Services\Access::ROLES[$mr]['limit'] ?? null,     // سقف پیش‌فرض نقش (v6.1)
+            'weekly_capacity' => isset($m['weekly_capacity']) ? (int) $m['weekly_capacity'] : null,   // ظرفیت هفتگی بار کاری (v7.10)
         ], $p['members']),
         // ستون‌های دارای سقف در بورد همین پروژه (v6.1: هر پروژه بورد خودش را دارد)
+        'workload_capacity' => \App\Services\WorkloadService::capacity((int) $p['id']),
         'limit_defs' => array_map(static fn($k) => ['label' => \App\Services\BoardConfig::label((int) $p['id'], $k), 'icon' => \App\Services\BoardConfig::info((int) $p['id'], $k)['icon']],
             array_combine(\App\Services\BoardConfig::limited((int) $p['id']), \App\Services\BoardConfig::limited((int) $p['id']))),
     ];
@@ -84,7 +86,8 @@ $this->scripts[] = 'projects';
         <div class="flex gap-1 wrap">
             <button class="btn btn-sm" data-project="<?= e(pid('projects', $p)) ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
             <a class="btn btn-sm" href="<?= e(url('/board?project=' . pid('projects', $p))) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
-            <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a><?php endif; ?>
+            <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a>
+                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/workload')) ?>" title="چه کسی پربار است و چه کسی جا دارد"><i class="fa-solid fa-gauge-high"></i> بار کاری</a><?php endif; ?>
         </div>
     </div>
 <?php endforeach; ?>
@@ -140,6 +143,10 @@ $this->scripts[] = 'projects';
                 <div class="bv-list" id="bv-list" hidden></div>
             </div>
             <button type="button" class="check bv-toggle mb-1" id="bl-open"><i class="fa-solid fa-gauge-high bv-ic"></i><div><b>سقف تعداد تسک</b><span id="bl-summary"></span></div><i class="fa-solid fa-chevron-left bv-chev"></i></button>
+            <?php // v7.10: ظرفیت هفتگی «بار کاری»؛ خالی = ظرفیت پیش‌فرض پروژه ?>
+            <div class="field mb-1 wc-row"><label for="mp-wcap"><i class="fa-solid fa-gauge-high"></i> ظرفیت هفتگی (امتیاز)</label>
+                <input class="input ltr" type="number" id="mp-wcap" name="weekly_capacity" min="<?= \App\Services\WorkloadService::CAP_MIN ?>" max="<?= \App\Services\WorkloadService::CAP_MAX ?>" step="1" inputmode="numeric">
+                <span class="xs muted">امتیاز کاری این عضو در هفته برای صفحه‌ی «بار کاری» (زیاد ۳، متوسط ۲، کم ۱). خالی = پیش‌فرض پروژه.</span></div>
             <div id="mp-board-list" class="list"></div></div>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary">ذخیره</button></div></form></div></div>

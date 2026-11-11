@@ -1,0 +1,149 @@
+{
+ "loads": [
+  {
+   "member_id": 1,
+   "name": "الهام کریمی",
+   "capacity": 12,
+   "od": 6,
+   "wk": 6,
+   "nd": 4,
+   "load": 16,
+   "pct": 133,
+   "level": "bd",
+   "open": 8
+  },
+  {
+   "member_id": 2,
+   "name": "مریم حسینی",
+   "capacity": 12,
+   "od": 5,
+   "wk": 5,
+   "nd": 5,
+   "load": 15,
+   "pct": 125,
+   "level": "bd",
+   "open": 7
+  },
+  {
+   "member_id": 3,
+   "name": "سینا محمدی",
+   "capacity": 12,
+   "od": 5,
+   "wk": 5,
+   "nd": 5,
+   "load": 15,
+   "pct": 125,
+   "level": "bd",
+   "open": 6
+  },
+  {
+   "member_id": 4,
+   "name": "آرش رضایی",
+   "capacity": 12,
+   "od": 0,
+   "wk": 4,
+   "nd": 0,
+   "load": 4,
+   "pct": 33,
+   "level": "ok",
+   "open": 3
+  },
+  {
+   "member_id": 5,
+   "name": "نیلوفر احمدی",
+   "capacity": 12,
+   "od": 0,
+   "wk": 2,
+   "nd": 1,
+   "load": 3,
+   "pct": 25,
+   "level": "ok",
+   "open": 2
+  },
+  {
+   "member_id": 7,
+   "name": "ترانه امینی",
+   "capacity": 8,
+   "od": 0,
+   "wk": 1,
+   "nd": 0,
+   "load": 1,
+   "pct": 13,
+   "level": "ok",
+   "open": 1
+  },
+  {
+   "member_id": 6,
+   "name": "کیان اکبری",
+   "capacity": 12,
+   "od": 0,
+   "wk": 1,
+   "nd": 0,
+   "load": 1,
+   "pct": 8,
+   "level": "ok",
+   "open": 1
+  }
+ ],
+ "suggestions": [
+  {
+   "task_id": "t6",
+   "task_title": "تست صفحه‌ی پرداخت",
+   "weight": 3,
+   "label": "تست و کنترل کیفیت",
+   "from_id": 1,
+   "from_name": "الهام کریمی",
+   "to_id": 6,
+   "to_name": "کیان اکبری",
+   "from_before": 133,
+   "from_after": 108,
+   "to_before": 8,
+   "to_after": 33,
+   "was_overdue": false,
+   "new_due_date": null,
+   "affinity": true
+  },
+  {
+   "task_id": "t9",
+   "task_title": "اتصال به درگاه پرداخت",
+   "weight": 3,
+   "label": "بک‌اند و API",
+   "from_id": 2,
+   "from_name": "مریم حسینی",
+   "to_id": 7,
+   "to_name": "ترانه امینی",
+   "from_before": 125,
+   "from_after": 100,
+   "to_before": 13,
+   "to_after": 50,
+   "was_overdue": true,
+   "new_due_date": "2026-11-11",
+   "affinity": false
+  },
+  {
+   "task_id": "t2",
+   "task_title": "مرتب‌سازی اشتباه جستجو",
+   "weight": 1,
+   "label": "رفع باگ",
+   "from_id": 1,
+   "from_name": "الهام کریمی",
+   "to_id": 5,
+   "to_name": "نیلوفر احمدی",
+   "from_before": 108,
+   "from_after": 100,
+   "to_before": 25,
+   "to_after": 33,
+   "was_overdue": true,
+   "new_due_date": "2026-11-11",
+   "affinity": false
+  }
+ ],
+ "unresolved": [
+  {
+   "member_id": 3,
+   "name": "سینا محمدی",
+   "pct": 125,
+   "reason": "nothing_movable"
+  }
+ ]
+}

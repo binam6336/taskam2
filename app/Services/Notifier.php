@@ -81,6 +81,21 @@ final class Notifier
         return (string) ($task['share_token'] ?: \App\Models\TaskModel::ensureShareToken((int) $task['id']));
     }
 
+    /** مسئول تسک عوض شد (v7.10) → اطلاع به مسئول قبلی که دیگر این کار با او نیست */
+    public static function taskReassignedAway(array $task, int $actorId, int $previousId, ?string $newName): void
+    {
+        if ($previousId <= 0 || $previousId === $actorId || $previousId === (int) ($task['assignee_id'] ?? 0)) {
+            return;
+        }
+        $actor = UserModel::find($actorId);
+        self::sendFrom($actorId, $previousId, '🔁 تسک «' . $task['title'] . '» به ' . ($newName ?: 'عضو دیگری') . ' واگذار شد و دیگر مسئولش شما نیستید.'
+            . "
+
+از طرف: " . ($actor ? full_name($actor) : 'کاربر') . "
+
+[[task:" . self::token($task) . ']]');
+    }
+
     /** تسک به «بررسی سرپرست» رسید → برای همه‌ی کسانی که می‌توانند تکمیلش کنند */
     public static function taskInReview(array $task, int $actorId, array $toIds): void
     {

@@ -91,12 +91,21 @@ final class ProjectController extends Controller
         if ($limits !== null && ($err = ProjectService::cleanBoardLimits(is_array($limits) ? $limits : [], (int) $id)[1])) {
             $this->respond(false, $err, '/projects');                 // سقف نامعتبر → هیچ چیز ذخیره نمی‌شود
         }
+        $wc = $this->request->input('weekly_capacity');
+        if ($wc !== null && ($wcErr = ProjectService::weeklyCapacityError($wc))) {
+            $this->respond(false, $wcErr, '/projects');
+        }
         [$ok, $msg] = ProjectService::setBoardPermissions((int) $id, $this->uid(), (int) $userId, array_map('strval', $this->request->arr('permissions')),
             !$this->request->input('view_present') ? null : ($this->request->input('view_all') ? 'all' : array_map('intval', $this->request->arr('view_users'))));
         // سقف تعداد تسک (پاپ‌آپ «سقف تعداد تسک»): JSON {status: n|""}
         if ($ok && $limits !== null) {
             [$ok, $msg2] = ProjectService::setBoardLimits((int) $id, $this->uid(), (int) $userId, is_array($limits) ? $limits : []);
             $msg = $ok ? $msg : $msg2;
+        }
+        // ظرفیت هفتگی بار کاری (v7.10): خالی = پیش‌فرض پروژه
+        if ($ok && $this->request->input('weekly_capacity') !== null) {
+            [$ok, $msg3] = ProjectService::setWeeklyCapacity((int) $id, $this->uid(), (int) $userId, $this->request->input('weekly_capacity'));
+            $msg = $ok ? $msg : $msg3;
         }
         $this->respond($ok, $msg, '/projects');
     }
@@ -155,6 +164,63 @@ final class ProjectController extends Controller
             // DATA-013: انتخاب پیش‌فرض = پرکارترین اعضا (نه ترتیب الفبا)
             'speed' => TaskAnalytics::speedSeries((int) $id, TaskAnalytics::busiest((int) $id, 5), '1m', 'score'),
         ], ['title' => 'تحلیل پروژه', 'page' => 'projects']);
+    }
+
+    /**
+     * «بار کاری» پروژه (v7.10): HTML صفحه یا با Accept: application/json داده‌ی خام (شکل sampleData در workload.js).
+     * مشاهده = سازنده یا «مشاهده‌ی تحلیل‌ها»؛ هیچ داده‌ای از پروژه‌ی دیگر وارد نمی‌شود.
+     */
+    public function workload(string $id)
+    {
+        $this->rateLimit('heavy_analytics', 30);
+        $uid = $this->uid();
+        $p = ProjectModel::find((int) $id);
+        if ($p === null || !Access::isProjectMember((int) $id, $uid)) {
+            $this->abort(404, 'پروژه یافت نشد.', 'NOT_FOUND');
+        }
+        if (!\App\Services\WorkloadService::canView((int) $id, $uid)) {
+            $this->abort(403, 'دسترسی مشاهده‌ی بار کاری این پروژه را ندارید.', 'FORBIDDEN');
+        }
+        if (stripos((string) $this->request->header('Accept'), 'application/json') !== false) {
+            $this->json(\App\Services\WorkloadService::build((int) $id, $uid));
+        }
+        $this->view('projects/workload', [
+            'project' => $p,
+            'subjects' => \App\Models\SubjectModel::forUser($uid),
+            'projects' => ProjectModel::forUser($uid),
+            'assignees' => TaskController::assigneeOptions($uid),
+        ], ['title' => 'بار کاری', 'page' => 'projects']);
+    }
+
+    /** پاسخ JSON مخصوص «بار کاری»: {success, data} یا {success:false, message, error_code} */
+    private function workloadOut(array $r): void
+    {
+        $this->json($r['ok'] ? ['success' => true, 'message' => $r['message'], 'data' => $r['data']]
+            : ['success' => false, 'message' => $r['message'], 'error_code' => $r['code'] ?: 'ERROR'], $r['ok'] ? 200 : (int) ($r['http'] ?: 422));
+    }
+
+    /** POST /projects/{project}/workload/reassign — {task_id, assignee_id, due_date?, source} */
+    public function workloadReassign(string $id)
+    {
+        $this->rateLimit('workload_write', 60);
+        $uid = $this->uid();
+        if (ProjectModel::find((int) $id) === null || !Access::isProjectMember((int) $id, $uid)) {
+            $this->workloadOut(['ok' => false, 'message' => 'پروژه یافت نشد.', 'code' => 'NOT_FOUND', 'http' => 404]);
+        }
+        $j = $this->request->json() + $this->request->post;
+        $this->workloadOut(\App\Services\WorkloadService::reassign((int) $id, $uid, (int) ($j['task_id'] ?? 0), (int) ($j['assignee_id'] ?? 0),
+            isset($j['due_date']) ? (string) $j['due_date'] : null, array_key_exists('due_date', $j), (string) ($j['source'] ?? '')));
+    }
+
+    /** POST /projects/{project}/workload/capacity — {capacity: 4..30} */
+    public function workloadCapacity(string $id)
+    {
+        $this->rateLimit('workload_write', 60);
+        $uid = $this->uid();
+        if (ProjectModel::find((int) $id) === null || !Access::isProjectMember((int) $id, $uid)) {
+            $this->workloadOut(['ok' => false, 'message' => 'پروژه یافت نشد.', 'code' => 'NOT_FOUND', 'http' => 404]);
+        }
+        $this->workloadOut(\App\Services\WorkloadService::setCapacity((int) $id, $uid, $this->request->input('capacity')));
     }
 
     /** داده‌ی نمودار مقایسه‌ی سرعت انجام (AJAX). */

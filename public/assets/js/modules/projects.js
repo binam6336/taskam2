@@ -173,6 +173,8 @@ document.addEventListener('tk:ready', () => {
     TK.qs('#bv-list').hidden = true; TK.qs('#bv-toggle').setAttribute('aria-expanded', 'false');
     bvSync();
     limits = { ...(m.board_limits || {}) }; blSummary();
+    // ظرفیت هفتگی بار کاری (v7.10): خالی = پیش‌فرض پروژه
+    const wc = TK.qs('#mp-wcap', pf); wc.value = m.weekly_capacity ?? ''; wc.placeholder = 'پیش‌فرض پروژه: ' + TK.fa(p.workload_capacity ?? 12);
     TK.qs('#mp-board-list').innerHTML = Object.entries(data().boardPermDefs).map(([k, d]) => box('board_permissions', k, d, m.board_perms.includes(k), p.board_perms.includes(k))).join('');
     TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => box('permissions', k, d, m.perms.includes(k), p.perms.includes(k))).join('');
     TK.qs('#mp-role-list').innerHTML = Object.entries(data().roles).filter(([k]) => k !== 'custom').map(([k, r]) => `<label class="check role-opt"><input type="radio" name="role_pick" value="${E(k)}">
@@ -213,7 +215,7 @@ document.addEventListener('tk:ready', () => {
     const base = '/projects/' + target.pid + '/members/' + target.uid;
     const r1 = await TK.post(base + '/task-permissions', { permissions: vals('task_permissions') });
     const r2 = TK.ok(r1) ? await TK.post(base + '/permissions', { permissions: vals('permissions') }) : null;
-    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { limits: JSON.stringify(limits), permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').map(Number).filter((id) => id !== target.uid) }) : null;
+    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { limits: JSON.stringify(limits), permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').filter((id) => String(id) !== String(target.uid)), weekly_capacity: TK.qs('#mp-wcap', pf).value.trim() }) : null;
     TK.busy(btn, false);
     const ok = TK.ok(r1) && TK.ok(r2) && TK.ok(r3);
     TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r3 || r2 || r1).message || 'خطا'), ok ? 'success' : 'error');

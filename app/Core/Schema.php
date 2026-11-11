@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '045';
+    public const VERSION = '046';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -33,6 +33,9 @@ final class Schema
         ['chat_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_requests_pid` (`pid`)", null],
         // 031
         ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
+        // 046 (v7.10، بار کاری): ظرفیت هفتگی پروژه و ظرفیت اختصاصی هر عضو
+        ['projects', 'workload_capacity', "ADD COLUMN `workload_capacity` INT NOT NULL DEFAULT 12 AFTER `board_config`", null],
+        ['project_members', 'weekly_capacity', "ADD COLUMN `weekly_capacity` INT NULL DEFAULT NULL AFTER `board_limits`", null],
         // 045 (v7.9، صندوق بررسی): دسته‌های علت آخرین برگشت برای اصلاح
         ['tasks', 'rework_category', "ADD COLUMN `rework_category` VARCHAR(120) NULL DEFAULT NULL AFTER `rework_count`", null],
         // 044 (v7.7، DATA-002): اولین تحویل و تعداد برگشت برای اصلاح (KPI)؛ مقدار قدیمی‌ها از task_events

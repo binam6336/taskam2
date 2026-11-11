@@ -17,6 +17,12 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 <div class="page-head"><div><a class="small muted an-back" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div>
     <?php // DATA-018 (v7.7): خروجی CSV خلاصه و جدول اعضا ?>
     <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download title="دریافت خلاصه، عملکرد اعضا و زمان تأیید به‌صورت CSV (اکسل)"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> خروجی CSV</a></div>
+<?php // v7.10: تب‌های «بورد | تحلیل | بار کاری» (همان تب‌های صفحه‌ی بار کاری) ?>
+<nav class="wl-host wl-tabs an-wl-tabs" aria-label="نماهای پروژه">
+    <a class="wl-tab" href="<?= e(url('/board?project=' . pid('projects', $project))) ?>"><i class="fa-solid fa-table-columns"></i> بورد</a>
+    <a class="wl-tab is-active" aria-current="page" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a>
+    <a class="wl-tab" href="<?= e(url('/projects/' . pid('projects', $project) . '/workload')) ?>"><i class="fa-solid fa-gauge-high"></i> بار کاری</a>
+</nav>
 <?php // کارت‌ها هم‌تعریف با «خلاصه‌ی تحلیل» (v5.4): «تأییدشده» (تکمیل‌شده با تأیید سرپرست) جدا از «منتظر تأیید» (تحویل‌شده، هنوز تأییدنشده)؛ تحویل‌شده = جمع این دو ?>
 <div class="grid an-cards mb-2">
     <a class="card stat" href="<?= e($tl(['status' => 'all'])) ?>" title="نمایش همه‌ی تسک‌های پروژه"><div class="ico"><i class="fa-solid fa-list-check"></i></div><div><div class="num"><?= e(fa_num((int) $t['total'])) ?></div><div class="lbl">کل تسک‌ها</div></div></a>

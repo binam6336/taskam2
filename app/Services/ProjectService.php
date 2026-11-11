@@ -357,6 +357,41 @@ final class ProjectService
     }
 
     /**
+     * ظرفیت هفتگی اختصاصی عضو برای «بار کاری» (v7.10؛ امتیاز ۴ تا ۳۰، null = ظرفیت پیش‌فرض پروژه).
+     * همان قواعد سقف تعداد تسک: manage_permissions + مدیریت عضوی با دسترسی کمتر؛ سازنده فقط برای خودش.
+     */
+    /** خطای مقدار ظرفیت هفتگی (خالی = پیش‌فرض پروژه) یا null */
+    public static function weeklyCapacityError($value): ?string
+    {
+        $v = trim((string) $value);
+        return $v !== '' && (!ctype_digit($v) || (int) $v < WorkloadService::CAP_MIN || (int) $v > WorkloadService::CAP_MAX)
+            ? 'ظرفیت باید عددی بین ' . fa_num(WorkloadService::CAP_MIN) . ' تا ' . fa_num(WorkloadService::CAP_MAX) . ' باشد.' : null;
+    }
+
+    public static function setWeeklyCapacity(int $projectId, int $actorId, int $memberId, $value): array
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($creator === 0) {
+            return [false, 'پروژه یافت نشد.'];
+        }
+        if (!Access::projectCan($projectId, $actorId, 'manage_permissions')) {
+            return [false, 'دسترسی مدیریت مجوزها را ندارید.'];
+        }
+        if ($memberId === $creator ? $actorId !== $creator : !self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
+        }
+        if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
+            return [false, 'کاربر عضو پروژه نیست.'];
+        }
+        if ($err = self::weeklyCapacityError($value)) {
+            return [false, $err];
+        }
+        $v = trim((string) $value);
+        DB::run('UPDATE project_members SET weekly_capacity = ? WHERE project_id = ? AND user_id = ?', [$v === '' ? null : (int) $v, $projectId, $memberId]);
+        return [true, 'ظرفیت هفتگی ذخیره شد.'];
+    }
+
+    /**
      * اعمال یک نقش آماده (Access::ROLES) روی عضو: دسترسی تسک، پروژه، برد و «مشاهده‌ی تسک‌ها» یکجا.
      * همان قواعد اعطا: غیرسازنده فقط آنچه خودش دارد را تغییر می‌دهد (در آن صورت نتیجه ممکن است «سفارشی» شود).
      */

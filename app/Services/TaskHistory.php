@@ -25,7 +25,8 @@ final class TaskHistory
     }
 
     /** مقایسه‌ی ردیف قبلی تسک با تغییرات ذخیره‌شده ($set در TaskService::update) */
-    public static function changes(array $old, array $set, int $actor): void
+    /** $source (v7.10): منبع تغییر برای تاریخچه، مثل suggestion | drag | undo از «بار کاری» */
+    public static function changes(array $old, array $set, int $actor, ?string $source = null): void
     {
         $id = (int) $old['id'];
         if (array_key_exists('title', $set)) {
@@ -53,7 +54,7 @@ final class TaskHistory
             $from = $fmt($old['due_date'], $old['due_time']);
             $to = $fmt(array_key_exists('due_date', $set) ? $set['due_date'] : $old['due_date'], array_key_exists('due_time', $set) ? $set['due_time'] : $old['due_time']);
             if ($from !== $to) {
-                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to]);
+                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to] + ($source ? ['source' => $source] : []));
             }
         }
         if (array_key_exists('subject_id', $set)) {
@@ -65,7 +66,7 @@ final class TaskHistory
             self::log($id, $actor, 'project', ['from' => $t($old['project_id']), 'to' => $t($set['project_id'])]);
         }
         if (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
-            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']]);
+            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']] + ($source ? ['source' => $source] : []));
         }
     }
 
@@ -150,6 +151,7 @@ final class TaskHistory
             if ($i['type'] === 'assignee') {
                 $d['from_user'] = $who($d['from'] ?? null);
                 $d['to_user'] = $who($d['to'] ?? null);
+                unset($d['from'], $d['to']);        // شناسه‌ی عددی کاربر نباید بیرون برود (v5.0)؛ رابط فقط from_user/to_user را می‌خواند
             }
             if ($i['type'] === 'created') {
                 $d['assignee_user'] = $who($d['assignee'] ?? null);

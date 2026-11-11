@@ -546,6 +546,8 @@ document.addEventListener('tk:ready', () => {
   /* ───── تاریخچه‌ی تغییرات ───── */
   const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img loading="lazy" decoding="async" src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
   const q = (v) => (v ? `«${E(v)}»` : '<span class="muted">(خالی)</span>');
+  // منبع تغییر از صفحه‌ی «بار کاری» (v7.10): پیشنهاد / کشیدن و رها کردن / بازگردانی
+  const wlSrc = (i) => ({ suggestion: ' (پیشنهاد «بار کاری»)', drag: ' (کشیدن در «بار کاری»)', undo: ' (بازگردانی در «بار کاری»)' })[i.data && i.data.source] || '';
   const HIST = {
     created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
     confidential_on: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را محرمانه کرد${i.data.count ? ' (' + TK.fa(i.data.count) + ' بیننده‌ی انتخابی)' : ''}`],
@@ -553,10 +555,10 @@ document.addEventListener('tk:ready', () => {
     title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
     priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
+    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد${wlSrc(i)}.`],
     completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
     reopened: ['fa-rotate-left', 'warn', (i) => `${who(i.actor)} تسک را به حالت انجام‌نشده برگرداند.`],
     board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت: ${E(i.data.reason)}</div>` : '')],

@@ -141,6 +141,9 @@ $router->group(['panel'], function ($r) {
     $r->get('/projects/{project}/analytics', [ProjectController::class, 'analytics']);
     $r->get('/projects/{project}/analytics/speed', [ProjectController::class, 'speed']);
     $r->get('/projects/{project}/analytics/export', [ProjectController::class, 'analyticsExport']);
+    $r->get('/projects/{project}/workload', [ProjectController::class, 'workload']);
+    $r->post('/projects/{project}/workload/reassign', [ProjectController::class, 'workloadReassign']);
+    $r->post('/projects/{project}/workload/capacity', [ProjectController::class, 'workloadCapacity']);
     $r->post('/projects/{project}/update', [ProjectController::class, 'update']);
     $r->post('/projects/{project}/leave', [ProjectController::class, 'leave']);
     $r->post('/projects/{project}/block', [ProjectController::class, 'block']);
@@ -313,6 +316,9 @@ $router->group(['api'], function ($r) {
     $r->get('/projects/show', [ProjectApi::class, 'show']);
     $r->get('/projects/members', [ProjectApi::class, 'membersList']);
     $r->get('/projects/stats', [ProjectApi::class, 'stats']);
+    $r->get('/projects/workload', [ProjectApi::class, 'workload']);
+    $r->post('/projects/workload/reassign', [ProjectApi::class, 'workloadReassign']);
+    $r->post('/projects/workload/capacity', [ProjectApi::class, 'workloadCapacity']);
     $r->post('/projects/create', [ProjectApi::class, 'create']);
     $r->post('/projects/update', [ProjectApi::class, 'update']);
     $r->post('/projects/leave', [ProjectApi::class, 'leave']);

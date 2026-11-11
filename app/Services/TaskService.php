@@ -178,7 +178,8 @@ final class TaskService
         return $last > 0 ? $last : $allowed[0];
     }
 
-    public static function update(int $actor, int $id, array $in): array
+    /** $source (v7.10): منبع تغییر برای تاریخچه (فقط از سرویس‌های داخلی، مثل «بار کاری»: suggestion | drag | undo) */
+    public static function update(int $actor, int $id, array $in, ?string $source = null): array
     {
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view')) {
@@ -328,13 +329,16 @@ final class TaskService
         }
         if ($set) {
             DB::update('tasks', $set, 'id = ?', [$id]);
-            TaskHistory::changes($t, $set, $actor);
+            TaskHistory::changes($t, $set, $actor, $source);
         }
         $fresh = TaskModel::raw($id);
         if ($reassigned) {
             $fresh['share_token'] = TaskModel::ensureShareToken($id);
             $pt = $fresh['project_id'] ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $fresh['project_id']]) : null;
             Notifier::taskAssigned($fresh, $actor, $pt);
+            // v7.10: مسئول قبلی هم باخبر شود که کار از او گرفته شد
+            $newUser = \App\Models\UserModel::find((int) $fresh['assignee_id']);
+            Notifier::taskReassignedAway($fresh, $actor, (int) ($t['assignee_id'] ?? 0), $newUser ? full_name($newUser) : null);
         }
         return self::res(true, 'تسک به‌روزرسانی شد.', '', 200, $fresh);
     }
