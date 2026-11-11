@@ -254,6 +254,7 @@ CREATE TABLE `tasks` (
   `approved_by`  INT UNSIGNED NULL DEFAULT NULL        COMMENT 'تأییدکننده در بررسی سرپرست',
   `first_delivered_at` TIMESTAMP NULL DEFAULT NULL    COMMENT 'اولین تحویل برای بررسی (KPI؛ با برگشت پاک نمی‌شود)',
   `rework_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0  COMMENT 'تعداد برگشت برای اصلاح (بازبینی مسئول)',
+  `rework_category` VARCHAR(120) NULL DEFAULT NULL    COMMENT 'دسته‌های علت آخرین برگشت (unclear,quality,incomplete,no_attachment,out_of_scope)',
   `updated_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tasks_pid` (`pid`),

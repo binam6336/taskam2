@@ -74,4 +74,23 @@ final class TaskApi extends ApiController
     {
         $this->fromService(TaskService::toggle($this->uid, $this->id()), static fn($d) => ['id' => pid('tasks', $d['id']), 'is_completed' => (bool) ($d['is_completed'] ?? false)]);
     }
+
+    /** صندوق بررسی سرپرست (v7.9): تحویل‌های منتظر تأیید صاحب توکن (همان صف پیشخوان، بیشترین انتظار اول) */
+    public function reviewsPending()
+    {
+        $this->ok(\App\Services\ReviewService::pending($this->uid));
+    }
+
+    /** تأیید گروهی (v7.9): ids = آرایه یا رشته‌ی جداشده با کاما از شناسه‌های عمومی تسک (حداکثر ۱۰۰) */
+    public function reviewsBulkApprove()
+    {
+        $raw = $this->request->input('ids');
+        $list = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $res = \App\Services\ReviewService::bulkApprove($this->uid, \App\Core\Pid::ids('tasks', array_slice($list, 0, \App\Services\ReviewService::BULK_MAX)));
+        if ($res['ok']) {
+            $this->ok($res['data'], $res['message']);
+        }
+        // هیچ موردی تأیید نشد: پاسخ خطا ولی با فهرست ناموفق‌ها (هر کدام با error_code، مثلاً FORBIDDEN)
+        \App\Core\Response::json(['success' => false, 'status' => 'error', 'message' => $res['message'], 'error_code' => $res['code'], 'data' => $res['data']], $res['http'] === 422 ? 400 : $res['http']);
+    }
 }

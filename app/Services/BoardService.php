@@ -393,7 +393,7 @@ final class BoardService
     }
 
     /** تغییر وضعیت بورد از جزئیات تسک (پنجره‌ی کوچک روی نشان وضعیت)؛ همان قواعد بورد، بدون نیاز به دیدن کارت در بورد */
-    public static function setStatus(int $actor, int $id, string $status, string $reason = ''): array
+    public static function setStatus(int $actor, int $id, string $status, string $reason = '', array $categories = []): array
     {
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view') || !Access::canBoardView($t, $actor)) {
@@ -402,7 +402,7 @@ final class BoardService
         if ($status === 'archived' || !empty($t['archived_at'])) {
             return self::res(false, 'وضعیت نامعتبر است.', 'STATUS_INVALID', 422);
         }
-        return self::move($actor, $id, $status, $reason, true);
+        return self::move($actor, $id, $status, $reason, true, $categories);
     }
 
     /** انتقال تسک به مرحله‌ی بعد از جزئیات تسک ($from = وضعیتی که کاربر دیده بود، تا دو کلیک پشت‌سرهم دو مرحله جلو نبرد) */
@@ -454,6 +454,35 @@ final class BoardService
      * review = تسک‌های «بررسی سرپرست» در پروژه‌های کاربر که او می‌تواند تأیید/تکمیل کند (سرپرست، مدیر، سازنده‌ی پروژه)؛
      * rework = تسک‌هایی که مسئولشان کاربر است و سرپرست برای اصلاح به «بازبینی مسئول» برگردانده.
      */
+    /** SELECT پیش‌نمایش تسک‌های «منتظر اقدام» (یادداشت مسئول، پیوست، تحویل‌دهنده) */
+    private const WAIT_SELECT = 'SELECT t.id, t.title, t.share_token, t.user_id, t.assignee_id, t.project_id, t.blocked_reason, t.board_moved_at, t.delivered_at, t.due_date, t.due_time, t.is_confidential, t.is_completed, t.board_status, t.archived_at, t.blocked_at, p.title AS project_title,
+                u.first_name, u.last_name, u.avatar,
+                (SELECT COUNT(*) FROM task_attachments a WHERE a.task_id = t.id) AS files_count,
+                (SELECT n.note FROM task_notes n WHERE n.task_id = t.id AND (n.user_id = t.assignee_id OR (t.assignee_id IS NULL AND n.user_id = t.user_id)) ORDER BY n.id DESC LIMIT 1) AS last_note,
+                dv.first_name AS deliverer_first, dv.last_name AS deliverer_last
+                FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)
+                LEFT JOIN users dv ON dv.id = t.delivered_by';
+
+    /**
+     * صف «بررسی سرپرست» کاربر (v7.9، مشترک بین پیشخوان و صندوق بررسی): تسک‌های review در پروژه‌های کاربر که او اجازه‌ی
+     * تأیید و بستنشان را دارد (مجوز تکمیل + انتقال review → done در بورد؛ محرمانه‌ها از canTask رد می‌شوند). قدیمی‌ترین انتظار اول.
+     */
+    public static function reviewQueue(int $uid, int $limit = 500): array
+    {
+        $out = [];
+        foreach (DB::all(self::WAIT_SELECT . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
+                AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?))
+                ORDER BY COALESCE(t.delivered_at, t.board_moved_at) ASC, t.id ASC LIMIT 1000", [$uid, $uid]) as $t) {
+            if (in_array('done', Access::boardTargets($t, $uid, 'review', ['done']), true) && Access::canTask($t, $uid, 'complete')) {
+                $out[] = $t;
+                if (count($out) >= $limit) {
+                    break;
+                }
+            }
+        }
+        return $out;
+    }
+
     public static function waiting(int $uid, int $limit = 10): array
     {
         // پیش‌نمایش برای سرپرست پیش از تأیید (v5.4): آخرین یادداشت مسئول، تعداد پیوست‌ها، سررسید (تحویل نسبت به سررسید)
@@ -464,16 +493,7 @@ final class BoardService
                 dv.first_name AS deliverer_first, dv.last_name AS deliverer_last
                 FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = COALESCE(t.assignee_id, t.user_id)
                 LEFT JOIN users dv ON dv.id = t.delivered_by';
-        $review = [];
-        foreach (DB::all($sel . " WHERE t.board_status = 'review' AND t.archived_at IS NULL AND t.blocked_at IS NULL AND t.is_completed = 0
-                AND (p.user_id = ? OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)) ORDER BY t.board_moved_at DESC, t.id DESC LIMIT 200", [$uid, $uid]) as $t) {
-            if (in_array('done', Access::boardTargets($t, $uid, 'review', ['done']), true) && Access::canTask($t, $uid, 'complete')) {
-                $review[] = $t;
-                if (count($review) >= $limit) {
-                    break;
-                }
-            }
-        }
+        $review = self::reviewQueue($uid, $limit);
         // برگشت‌خورده: مسئولش منم، یا بی‌مسئول و سازنده‌اش منم
         $rework = DB::all($sel . " WHERE t.board_status = 'rework' AND t.archived_at IS NULL AND t.blocked_at IS NULL
                 AND (t.assignee_id = ? OR (t.assignee_id IS NULL AND t.user_id = ?))
@@ -483,7 +503,7 @@ final class BoardService
 
     /** انتقال کارت به ستون دیگر. */
     /** $fromTask: از تیک «انجام شد» در لیست تسک‌ها (دیدن تسک قبلاً با مجوز view بررسی شده؛ دیدن کارت در برد لازم نیست) */
-    public static function move(int $actor, int $id, string $status, string $reason = '', bool $fromTask = false): array
+    public static function move(int $actor, int $id, string $status, string $reason = '', bool $fromTask = false, array $categories = []): array
     {
         $t = TaskModel::raw($id);
         if ($t === null || (!$fromTask && !Access::canBoardView($t, $actor)) || !Access::canSeeConfidential($t, $actor)) {
@@ -524,7 +544,7 @@ final class BoardService
         if ($err = self::limitError($t, $status)) {
             return self::res(false, $err, 'BOARD_LIMIT', 409);
         }
-        self::apply($t, $actor, $from, $status, $reason);
+        self::apply($t, $actor, $from, $status, $reason, false, $categories);
         return self::res(true, 'تسک به «' . self::lbl($t, $status) . '» منتقل شد.', '', 200, ['id' => $id, 'status' => $status, 'is_completed' => $status === 'done']);
     }
 
@@ -532,12 +552,26 @@ final class BoardService
      * ثبت تغییر وضعیت (بعد از همه‌ی بررسی‌ها) + ستون‌های تحویل/تأیید برای KPI:
      * review ← delivered_at/by = حالا/انجام‌دهنده؛ done ← approved_by = تأییدکننده (delivered_at می‌ماند)؛ مراحل قبل ← تحویل پاک می‌شود.
      */
-    private static function apply(array $t, int $actor, string $from, string $status, string $reason = '', bool $withdraw = false): void
+    /** دسته‌های علت برگشت برای اصلاح (v7.9، صندوق بررسی؛ API: reason_category) */
+    public const REWORK_CATEGORIES = [
+        'unclear' => 'ابهام در شرح', 'quality' => 'کیفیت ناکافی', 'incomplete' => 'ناقص',
+        'no_attachment' => 'بدون پیوست/مستند', 'out_of_scope' => 'خارج از محدوده',
+    ];
+
+    /** دسته‌های معتبر (به ترتیب ثابت) از آرایه یا رشته‌ی جداشده با کاما */
+    public static function reworkCategories($in): array
+    {
+        $list = is_array($in) ? $in : explode(',', (string) $in);
+        return array_values(array_intersect(array_keys(self::REWORK_CATEGORIES), array_map(static fn($x) => trim((string) $x), $list)));
+    }
+
+    private static function apply(array $t, int $actor, string $from, string $status, string $reason = '', bool $withdraw = false, array $categories = []): void
     {
         $id = (int) $t['id'];
         // علت: برای «بازبینی مسئول» ایرادی که سرپرست دیده (ستون blocked_reason؛ نامش از ستون «مسدودشده»ی قدیمی بورد مانده)
         $reason = trim(mb_substr($reason, 0, 255));
         $reason = $status === 'rework' && $reason !== '' ? $reason : null;
+        $cats = $status === 'rework' ? self::reworkCategories($categories) : [];
         $done = $status === 'done';
         $review = $status === 'review';
         // is_quick = 0: اولین تغییر وضعیت در بورد علامت «ثبت سریع» را برمی‌دارد
@@ -552,13 +586,19 @@ final class BoardService
                    delivered_by = CASE WHEN ? = 1 THEN ? WHEN ? = 1 THEN COALESCE(delivered_by, ?) ELSE NULL END,
                    approved_by = CASE WHEN ? = 1 THEN ? ELSE NULL END WHERE id = ?',
             [$status, $reason, $done ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $done ? 1 : 0, $review ? 1 : 0, $actor, $done ? 1 : 0, $actor, $done ? 1 : 0, $actor, $id]);
-        TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason]);
+        // دسته‌ی علت برگشت (v7.9): آخرین برگشت روی خود تسک + در تاریخچه
+        if ($status === 'rework') {
+            DB::run('UPDATE tasks SET rework_category = ? WHERE id = ?', [$cats ? implode(',', $cats) : null, $id]);
+        }
+        TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason] + ($cats ? ['categories' => $cats] : []));
         if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {
             // یادداشت خودکار روی تسک با علت برگشت؛ نویسنده = کسی که تسک را برگردانده
             DB::insert('task_notes', ['task_id' => $id, 'user_id' => $actor,
-                'note' => '↩️ برگشت به «' . self::lbl($t, 'rework') . '» برای اصلاح' . "\n" . 'علت: ' . ($reason ?? 'ذکر نشده')]);
+                'note' => '↩️ برگشت به «' . self::lbl($t, 'rework') . '» برای اصلاح' . "\n"
+                    . ($cats ? 'دسته: ' . implode('، ', array_map(static fn($c) => self::REWORK_CATEGORIES[$c], $cats)) . "\n" : '')
+                    . 'علت: ' . ($reason ?? 'ذکر نشده')]);
             Notifier::taskReturned($t, $actor, $reason);
         }
     }

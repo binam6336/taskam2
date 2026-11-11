@@ -73,7 +73,8 @@ final class BoardApi extends ApiController
     public function move()
     {
         $id = $this->id();
-        $res = BoardService::move($this->uid, $id, trim((string) $this->request->input('status', '')), (string) $this->request->input('reason', ''));
+        $cats = $this->request->input('reason_category');   // v7.9: دسته‌های علت برگشت (فقط با rework)
+        $res = BoardService::move($this->uid, $id, trim((string) $this->request->input('status', '')), (string) $this->request->input('reason', ''), false, BoardService::reworkCategories(is_array($cats) ? $cats : (string) $cats));
         $this->fromService($res, function () use ($id) {
             $t = TaskModel::find($id, $this->uid);
             return $t ? self::card($t) : ['id' => pid('tasks', $id)];

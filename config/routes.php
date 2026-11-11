@@ -73,6 +73,8 @@ $router->group(['panel'], function ($r) {
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
+    $r->get('/tasks/review/pending', [TaskController::class, 'reviewPending']);
+    $r->post('/tasks/review/bulk-approve', [TaskController::class, 'reviewBulkApprove']);
     $r->get('/tasks/bulk-options', [TaskController::class, 'bulkOptions']);
     $r->post('/tasks/bulk', [TaskController::class, 'bulk']);
     $r->get('/tasks/{task}', [TaskController::class, 'show']);
@@ -270,6 +272,8 @@ $router->group(['api'], function ($r) {
     $r->get('/tasks/blocked', [BlockApi::class, 'taskList']);
     $r->post('/tasks/block', [BlockApi::class, 'taskBlock']);
     $r->post('/tasks/unblock', [BlockApi::class, 'taskUnblock']);
+    $r->get('/reviews/pending', [TaskApi::class, 'reviewsPending']);
+    $r->post('/reviews/bulk-approve', [TaskApi::class, 'reviewsBulkApprove']);
 
 
 

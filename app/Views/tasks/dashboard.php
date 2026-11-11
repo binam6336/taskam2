@@ -93,17 +93,32 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 
     <div class="dash-side">
     <div class="card dash-wait" id="dash-wait">
-        <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> منتظر اقدام <?php if ($wCount): ?><span class="badge yellow"><?= e(fa_num($wCount)) ?></span><?php endif; ?></h3></div>
-        <?php if (!$wCount): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
+        <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> منتظر اقدام <?php if ($wCount): ?><span class="badge yellow" data-ri-badge><?= e(fa_num($wCount)) ?></span><?php endif; ?></h3></div>
+        <?php if (!$wCount && !$w['reviewer']): ?><div class="empty small"><i class="fa-regular fa-circle-check"></i><p>چیزی منتظر شما نیست.</p></div><?php endif; ?>
 
-        <?php if ($w['review']): ?>
-        <div class="dash-sec"><div class="dash-sec-head"><b><i class="dc-5e4c34 fa-solid fa-magnifying-glass"></i> منتظر بررسی سرپرست</b></div>
-            <div class="list"><?php foreach ($w['review'] as $t): ?>
-                <div class="item dash-wait-item dash-review-item">
+        <?php // صندوق بررسی سرپرست (v7.9): نوار خلاصه + ۳ موردِ بیشترین انتظار؛ بقیه با «نمایش همه» و کامل در مودال صندوق بررسی
+        $rs = $w['review_sum']; $rsItems = $rs['items'];
+        if ($w['review'] || $w['reviewer']): ?>
+        <div class="dash-sec ri-sec" id="ri-sec">
+            <div class="ri-sum">
+                <span class="ri-sum-ic" aria-hidden="true"><i class="fa-solid <?= $rs['count'] ? 'fa-inbox' : 'fa-circle-check' ?>"></i></span>
+                <div class="grow min0">
+                    <?php if ($rs['count']): ?>
+                    <b class="ri-sum-t"><span class="ri-num"><?= e(fa_num($rs['count'])) ?></span> تحویل منتظر شماست</b>
+                    <div class="xs faint ri-sum-sub">قدیمی‌ترین: <span class="ri-num"><?= e($rs['oldest_label']) ?></span><?php if ($rs['over_sla_count']): ?> <span class="ri-warn">• <span class="ri-num"><?= e(fa_num($rs['over_sla_count'])) ?></span> مورد بیش از مهلت</span><?php endif; ?></div>
+                    <?php else: ?>
+                    <b class="ri-sum-t ri-ok">صندوق بررسی خالی است</b>
+                    <?php endif; ?>
+                </div>
+                <?php if ($rs['count']): ?><button type="button" class="btn btn-sm btn-primary" data-ri-open aria-haspopup="dialog"><i class="fa-solid fa-inbox" aria-hidden="true"></i> ورود به صندوق بررسی</button><?php endif; ?>
+            </div>
+            <?php if ($rs['count']): ?>
+            <div class="list"><?php foreach ($w['review'] as $ri => $t): ?>
+                <div class="item dash-wait-item dash-review-item<?= $ri >= 3 ? ' ri-extra' : '' ?>"<?= $ri >= 3 ? ' hidden' : '' ?>>
                     <a class="flex items-center gap-2 grow min0" href="<?= e(url('/tasks?task=' . ($t['share_token'] ?: ''))) ?>" data-open-task="<?= e(pid('tasks', $t)) ?>">
                     <?php $this->partial('avatar', ['name' => full_name($t), 'src' => avatar_url($t['avatar'] ?? null), 'size' => 'sm']); ?>
                     <div class="grow min0"><div class="small truncate"><b>«<?= e($t['title']) ?>»</b> منتظر تأیید شماست</div>
-                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?><?= e(time_ago($t['delivered_at'] ?? $t['board_moved_at'] ?? '')) ?></div>
+                        <div class="xs faint truncate">مسئول: <?= e(full_name($t)) ?> • <?= $t['project_title'] ? '<i class="fa-solid fa-diagram-project"></i> ' . e($t['project_title']) . ' • ' : '' ?>انتظار: <span class="ri-num<?= $rsItems[$ri]['over_sla'] ? ' ri-warn' : '' ?>"><?= e($rsItems[$ri]['wait_label']) ?></span></div>
                         <?php // پیش‌نمایش کار پیش از تأیید: آخرین یادداشت مسئول، پیوست‌ها و تحویل نسبت به سررسید (v5.4)
                         $dl = $t['delivered_at'] ? substr((string) $t['delivered_at'], 0, 10) : date('Y-m-d');
                         $lateDays = $t['due_date'] && $dl > $t['due_date'] ? (int) round((strtotime($dl) - strtotime((string) $t['due_date'])) / 86400) : 0; ?>
@@ -117,9 +132,11 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
                         <button type="button" class="btn btn-xs btn-primary" data-post="<?= e(url('/tasks/' . pid('tasks', $t) . '/status')) ?>" data-data='{"status":"done"}' title="تأیید و بستن"><i class="fa-solid fa-check-double"></i> تأیید</button>
                         <button type="button" class="btn btn-xs" data-dash-rework="<?= e(pid('tasks', $t)) ?>" title="برگرداندن برای اصلاح"><i class="fa-solid fa-rotate-left"></i> اصلاح</button>
                     </div></div>
-            <?php endforeach; ?></div></div>
+            <?php endforeach; ?></div>
+            <?php if ($rs['count'] > 3): ?><button type="button" class="ri-more-link" data-ri-more aria-expanded="false" data-ri-n="<?= e(fa_num($rs['count'] - 3)) ?>">نمایش همه (<?= e(fa_num($rs['count'] - 3)) ?> مورد دیگر)</button><?php endif; ?>
+            <?php endif; ?>
+        </div>
         <?php endif; ?>
-
 
         <?php if ($w['rework']): ?>
         <div class="dash-sec"><div class="dash-sec-head"><b><i class="dc-483f44 fa-solid fa-rotate-left"></i> برگشته برای اصلاح (بازبینی مسئول)</b></div>
@@ -249,3 +266,4 @@ $wCount = count($w['mentions']) + count($w['chats']) + count($w['colleagues']) +
 </div>
 
 <?php $this->partial('task_modals', ['subjects' => $subjects, 'projects' => $projects, 'assignees' => $assignees, 'shared' => null, 'context' => 'dashboard']); ?>
+<?php if ($w['review'] || $w['reviewer']) { $this->partial('review_inbox'); } ?>

@@ -17,6 +17,9 @@ final class DashboardController extends Controller
     public function index()
     {
         $uid = $this->uid();
+        // صندوق بررسی (v7.9): کل صف «بررسی سرپرست» (بیشترین انتظار اول) برای نوار خلاصه، ۳ ردیف پیشخوان و شمارنده‌ها
+        $wait = BoardService::waiting($uid);
+        $wait['review'] = BoardService::reviewQueue($uid, 500);
         $this->view('tasks/dashboard', [
             'd' => TaskModel::dashboard($uid),
             'me' => Auth::user() ?? [],
@@ -24,7 +27,11 @@ final class DashboardController extends Controller
             'focus' => TaskModel::focus($uid),
             // منتظر اقدام: منشن‌ها، پیام‌های چت، درخواست همکاری و دعوت به پروژه
             // + تسک‌های منتظر بررسی سرپرست (برای کسی که می‌تواند تأیید کند) و برگشته به بازبینی مسئول (برای مسئول)
-            'waiting' => TaskModel::waiting($uid) + BoardService::waiting($uid) + [
+            'waiting' => TaskModel::waiting($uid) + $wait + [
+                'review_sum' => \App\Services\ReviewService::fromRows($wait['review']),
+                // «صندوق بررسی خالی است» فقط برای کسی که نقش بررسی دارد: سازنده‌ی پروژه‌ی تیمی یا کسی که قبلاً تحویلی را تأیید کرده
+                'reviewer' => (bool) \App\Core\DB::value('SELECT 1 FROM projects p WHERE p.user_id = ? AND p.blocked_at IS NULL AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id)
+                    UNION SELECT 1 FROM tasks WHERE approved_by = ? AND (delivered_by IS NULL OR delivered_by <> approved_by) LIMIT 1', [$uid, $uid]),
                 'colleagues' => ColleagueService::incomingRequests($uid),
                 'invites' => ProjectModel::pendingRequestsFor($uid),
             ],

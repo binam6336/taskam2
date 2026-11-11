@@ -190,6 +190,23 @@ final class TaskController extends Controller
     }
 
     /** تغییر وضعیت بورد از جزئیات تسک */
+    /** صندوق بررسی سرپرست (v7.9): تحویل‌های منتظر تأیید کاربر جاری + خلاصه (بیشترین انتظار اول) */
+    public function reviewPending()
+    {
+        $this->rateLimit('review_inbox', 60);
+        $this->ok('', \App\Services\ReviewService::pending($this->uid()));
+    }
+
+    /** صندوق بررسی (v7.9): تأیید گروهی — برای هر تسک همان تأیید تکی؛ موفق‌ها و ناموفق‌ها جدا */
+    public function reviewBulkApprove()
+    {
+        $this->rateLimit('review_inbox', 60);
+        $raw = $this->request->input('ids');
+        $list = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $res = \App\Services\ReviewService::bulkApprove($this->uid(), \App\Core\Pid::ids('tasks', array_slice($list, 0, \App\Services\ReviewService::BULK_MAX)));
+        $res['ok'] ? $this->ok($res['message'], $res['data']) : $this->fail($res['message'], (int) $res['http'], $res['data'] + ['error_code' => $res['code']]);
+    }
+
     /** «تغییر گروهی» (v7.8): گزینه‌های پنجره برای تسک‌های انتخاب‌شده (ids = شناسه‌های عمومی با کاما) */
     public function bulkOptions()
     {
@@ -230,7 +247,9 @@ final class TaskController extends Controller
 
     public function status(string $id)
     {
-        $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
+        // v7.9: دسته‌های علت برگشت (reason_category: آرایه یا رشته‌ی جداشده با کاما)
+        $cats = $this->request->input('reason_category');
+        $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255), BoardService::reworkCategories(is_array($cats) ? $cats : (string) $cats));
         $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
         // «تأیید و بستن» (جزئیات / پیشخوان): پیام با دکمه‌ی «بازگردانی» چند دقیقه‌ای (v5.4)
         if ($res['ok'] && ($d['status'] ?? '') === 'done') {
