@@ -8,32 +8,37 @@ $tabUrl = static fn(string $sc, string $st) => url('/tasks') . '?' . http_build_
 $fCount = ($filters['when'] !== '' ? 1 : 0) + ($filters['prio'] !== '' ? 1 : 0) + ($filters['project'] > 0 ? 1 : 0) + ($filters['label'] > 0 ? 1 : 0);
 $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' => $filters['sort'] !== 'smart' ? $filters['sort'] : '', 'flow' => $filters['flow'], 'when' => $filters['when'], 'prio' => $filters['prio'], 'project' => $filters['project'] ? pid('projects', $filters['project']) : '', 'assignee' => $filters['assignee'] ? pid('users', $filters['assignee']) : '', 'label' => $filters['label'] ? pid('subjects', $filters['label']) : '']);
 ?>
-<section class="t-ctrl" aria-label="ابزار تسک‌ها">
-<div class="t-ctrl-row t-ctrl-scope">
-    <?php if ($projScope): ?>
-    <div class="t-proj-head">
-        <a class="small muted" href="<?= e(url('/projects/' . $projScope['id'] . '/analytics')) ?>"><i class="fa-solid fa-arrow-right"></i> تحلیل پروژه</a>
-        <h2><i class="dc-961bcb fa-solid fa-diagram-project"></i> تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?>
-            <?php if ($filters['when'] === 'overdue'): ?> <span class="badge red">عقب‌افتاده</span><?php endif; ?></h2>
+<?php /* v7.16 (دموی UI): سربرگ صفحه با دکمه‌ها، کارت کنترل (دامنه + ابزار / وضعیت + فیلتر سریع) و ردیف جستجوی جدا */ ?>
+<div class="page-head">
+    <div class="ph-text">
+        <?php if ($projScope): ?>
+        <a class="ph-back" href="<?= e(url('/projects/' . $projScope['id'] . '/analytics')) ?>"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> تحلیل پروژه</a>
+        <h2>تسک‌های پروژه «<?= e($projScope['title']) ?>»<?php if ($projScope['assignee_name']): ?> <span class="chip-s"><i class="fa-solid fa-user"></i> <?= e($projScope['assignee_name']) ?></span><?php endif; ?><?php if ($filters['when'] === 'overdue'): ?> <span class="chip-s is-danger">عقب‌افتاده</span><?php endif; ?></h2>
+        <?php else: ?>
+        <h2>تسک‌ها</h2>
+        <p class="ph-desc">فهرست کارهای شما و کارهایی که به دیگران سپرده‌اید.</p>
+        <?php endif; ?>
     </div>
-    <?php else: ?>
+    <div class="ph-actions">
+        <?php $this->partial('blocked_button', ['kind' => 'tasks', 'count' => $blockedCount ?? 0, 'label' => 'تسک‌های مسدودشده', 'text' => 'موارد مسدود']); ?>
+        <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> <span class="btn-t">نمای تقویم</span></a>
+        <button type="button" class="btn btn-primary" id="btn-new-task" data-create-default aria-label="تسک جدید"><i class="fa-solid fa-plus" aria-hidden="true"></i> <span class="btn-t">تسک جدید</span></button>
+    </div>
+</div>
+<section class="card is-flush t-ctrl" aria-label="ابزار تسک‌ها">
+<div class="t-ctrl-top">
+    <?php if (!$projScope): ?>
     <div class="tabs" data-live="t-scope">
-        <a class="tab <?= $scope === 'mine' ? 'active' : '' ?>" href="<?= e($tabUrl('mine', $status)) ?>"><i class="fa-solid fa-user-check"></i> وظایف من <span class="badge-count"><?= e(fa_num($counts['mine_open'])) ?></span></a>
-        <a class="tab <?= $scope === 'others' ? 'active' : '' ?>" href="<?= e($tabUrl('others', $status)) ?>"><i class="fa-solid fa-share-nodes"></i> واگذارشده به دیگران <span class="badge-count"><?= e(fa_num($counts['others_open'])) ?></span></a>
+        <a class="tab <?= $scope === 'mine' ? 'active' : '' ?>" href="<?= e($tabUrl('mine', $status)) ?>"<?= $scope === 'mine' ? ' aria-current="page"' : '' ?>><i class="fa-solid fa-user"></i> وظایف من <span class="badge-count"><?= e(fa_num($counts['mine_open'])) ?></span></a>
+        <a class="tab <?= $scope === 'others' ? 'active' : '' ?>" href="<?= e($tabUrl('others', $status)) ?>"<?= $scope === 'others' ? ' aria-current="page"' : '' ?>><i class="fa-solid fa-share"></i> واگذارشده به دیگران <span class="badge-count"><?= e(fa_num($counts['others_open'])) ?></span></a>
     </div>
     <?php endif; ?>
-    <button type="button" class="btn btn-primary" id="btn-new-task" aria-label="تسک جدید"><i class="fa-solid fa-plus" aria-hidden="true"></i> <span class="btn-t">تسک جدید</span></button>
-</div>
-
-<div class="t-ctrl-row t-ctrl-search">
     <form method="get" class="t-toolbar" id="t-toolbar">
         <?php foreach (['scope' => $scope, 'status' => $status] as $k => $v): ?><input type="hidden" name="<?= $k ?>" value="<?= e($v) ?>"><?php endforeach; ?>
         <?php foreach (['when', 'prio', 'project', 'assignee', 'label', 'flow'] as $k): if ($filters[$k] !== '' && $filters[$k] !== 0): ?><input type="hidden" name="<?= $k ?>" value="<?= e((string) $filters[$k]) ?>"><?php endif; endforeach; ?>
-        <div class="search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>"></div>
         <?php $sCount = $fCount + ($filters['sort'] !== 'smart' ? 1 : 0); ?>
-        <button type="button" class="btn t-bulk-btn" data-bulk-toggle aria-pressed="false" title="انتخاب چند تسک و تغییر هم‌زمان" aria-label="تغییر گروهی"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="btn-t">تغییر گروهی</span></button>
-        <a class="btn t-cal-btn" href="<?= e(url('/calendar')) ?>" title="تقویم تسک‌ها" aria-label="تقویم تسک‌ها"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> <span class="btn-t">تقویم</span></a>
-        <button type="button" class="btn btn-icon t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر" aria-label="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter"></i><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
+        <button type="button" class="btn btn-sm t-drawer-btn<?= $sCount ? ' btn-outline' : '' ?>" data-drawer-open aria-controls="t-drawer" aria-expanded="false" title="مرتب‌سازی و فیلتر"><i class="fa-solid fa-filter" aria-hidden="true"></i> <span class="btn-t">فیلتر</span><?php if ($sCount): ?><span class="badge-count t-drawer-count"><?= e(fa_num($sCount)) ?></span><?php endif; ?></button>
+        <button type="button" class="btn btn-sm t-bulk-btn" data-bulk-toggle aria-pressed="false" title="انتخاب چند تسک و تغییر هم‌زمان"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> <span class="btn-t">انتخاب گروهی</span></button>
         <!-- سایدبار مخفی مرتب‌سازی و فیلتر (سمت چپ) -->
         <div class="t-drawer-back" data-drawer-close hidden></div>
         <aside class="t-drawer" id="t-drawer" aria-label="مرتب‌سازی و فیلتر" aria-hidden="true">
@@ -60,21 +65,19 @@ $keep = array_filter(['scope' => $scope, 'status' => $status, 'q' => $q, 'sort' 
         </aside>
     </form>
 </div>
-<div class="t-ctrl-sep" aria-hidden="true"></div>
-<div class="t-ctrl-row t-ctrl-status">
-    <div class="tabs" data-live="t-status">
+<div class="t-ctrl-bottom">
+    <div class="utabs t-status" data-live="t-status">
         <?php if ($projScope): $pc = $projScope['counts']; ?>
-        <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($pc['all'])) ?></span></a>
-        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'open')) ?>">باز <span class="badge-count"><?= e(fa_num($pc['open'])) ?></span></a>
-        <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($pc['done'])) ?></span></a>
+        <a class="utab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'all')) ?>">همه <span class="cnt"><?= e(fa_num($pc['all'])) ?></span></a>
+        <a class="utab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'open')) ?>">باز <span class="cnt"><?= e(fa_num($pc['open'])) ?></span></a>
+        <a class="utab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl('project', 'done')) ?>">انجام‌شده <span class="cnt"><?= e(fa_num($pc['done'])) ?></span></a>
         <?php else: ?>
-        <a class="tab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'all')) ?>">همه <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] + $counts[$scope . '_done'])) ?></span></a>
+        <a class="utab <?= $status === 'all' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'all')) ?>">همه <span class="cnt"><?= e(fa_num($counts[$scope . '_open'] + $counts[$scope . '_done'])) ?></span></a>
         <?php $rv = ($counts[$scope . '_review'] ?? 0); ?>
-        <a class="tab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>" title="<?= $rv ? e(fa_num($counts[$scope . '_open'] - $rv) . ' تسک در جریان و ' . fa_num($rv) . ' تسک تحویل‌داده‌شده که منتظر تأیید سرپرست است') : '' ?>">در جریان <span class="badge-count"><?= e(fa_num($counts[$scope . '_open'] - $rv)) ?></span><?php if ($rv): ?> <span class="badge-count t-rv-count">+ <?= e(fa_num($rv)) ?> منتظر تأیید</span><?php endif; ?></a>
-        <a class="tab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="badge-count"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
+        <a class="utab <?= $status === 'open' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'open')) ?>" title="<?= $rv ? e(fa_num($counts[$scope . '_open'] - $rv) . ' تسک در جریان و ' . fa_num($rv) . ' تسک تحویل‌داده‌شده که منتظر تأیید سرپرست است') : '' ?>">در جریان <span class="cnt"><?= e(fa_num($counts[$scope . '_open'] - $rv)) ?></span><?php if ($rv): ?> <span class="badge-count t-rv-count">+ <?= e(fa_num($rv)) ?> منتظر تأیید</span><?php endif; ?></a>
+        <a class="utab <?= $status === 'done' ? 'active' : '' ?>" href="<?= e($tabUrl($scope, 'done')) ?>">انجام‌شده <span class="cnt"><?= e(fa_num($counts[$scope . '_done'])) ?></span></a>
         <?php endif; ?>
     </div>
-</div>
 
 <?php // فیلترهای پرکاربرد به‌صورت چیپ (کلیک دوباره = برداشتن فیلتر)
 $chipUrl = static function (array $set) use ($keep): string { $q = array_filter(array_merge($keep, $set), static fn($v) => $v !== '' && $v !== null); unset($q['page']); return url('/tasks') . '?' . http_build_query($q); };
@@ -85,15 +88,15 @@ $chips = [
     ['flow', 'rework', 'fa-solid fa-rotate-left', 'برگشت‌خورده برای اصلاح', $flowCounts['rework'] ?? 0],
 ]; ?>
 <div class="t-fgrp" role="group" aria-label="فیلترهای سریع">
-<span class="t-fgrp-lbl">فیلتر سریع:</span>
 <div class="t-chips" data-live="t-chips">
     <?php foreach ($chips as [$k, $v, $ic, $lbl, $n]): $on = $filters[$k] === $v; if ($k === 'flow' && !$n && !$on) continue; ?>
     <a class="chip t-chip<?= $on ? ' on' : '' ?>" href="<?= e($chipUrl([$k => $on ? '' : $v] + ($k === 'flow' ? ['when' => ''] : ['flow' => '']))) ?>" <?= $on ? 'aria-current="true"' : '' ?>><i class="<?= e($ic) ?>"></i> <?= e($lbl) ?><?php if ($n): ?> <span class="badge-count"><?= e(fa_num($n)) ?></span><?php endif; ?><?php if ($on): ?> <i class="fa-solid fa-xmark xs"></i><?php endif; ?></a>
     <?php endforeach; ?>
 </div>
-<?php $this->partial('blocked_button', ['kind' => 'tasks', 'count' => $blockedCount ?? 0, 'label' => 'تسک‌های مسدودشده', 'text' => 'مسدودشده']); ?>
+</div>
 </div>
 </section>
+<div class="search t-search-row"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="input" name="q" form="t-toolbar" value="<?= e($q) ?>" placeholder="<?= e(ph('tasks_search')) ?>" aria-label="جستجو در عنوان و توضیحات تسک‌ها" data-page-search><kbd aria-hidden="true">/</kbd></div>
 
 <div data-live="t-list">
 <?php if (!$tasks): ?>

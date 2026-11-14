@@ -195,6 +195,9 @@ document.addEventListener('tk:ready', () => {
   // گزینه‌های بیشتر (اولویت، لیبل، سررسید، پیوست): پیش‌فرض بسته؛ با کلیک روی فلش/متن باز می‌شود
   const moreBtn = TK.qs('[data-more-toggle]', form), moreBox = TK.qs('#task-more');
   const setMore = (on) => { moreBox.hidden = !on; moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false'); moreBtn.classList.toggle('open', on); };
+  // v7.16 (دمو): Ctrl/⌘+Enter فرم تسک را ثبت می‌کند؛ همان میان‌بر در یادداشت تسک
+  form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.matches?.('#f-note textarea')) { e.preventDefault(); e.target.form.requestSubmit(); } });
   moreBtn.addEventListener('click', () => setMore(moreBox.hidden));
   const setupForm = (title, action, files) => {
     TK.qs('#task-modal-title').textContent = title;
@@ -239,8 +242,6 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open(modal);
   };
   TK.qs('#btn-new-task')?.addEventListener('click', () => openNew());
-  // v7.15: منوی «ایجاد» نوار بالا از صفحه‌های بدون فرم تسک به /tasks?new=1 می‌آید
-  if (new URLSearchParams(location.search).get('new') === '1') { const q = new URLSearchParams(location.search); q.delete('new'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '')); setTimeout(() => openNew(), 0); }
   // موبایل: منوی ⋮ دکمه‌های هر کارت (جزئیات/ویرایش/حذف)
   const closeMore = (except) => TK.qsa('.item-actions.open').forEach((a) => { if (a !== except) { a.classList.remove('open'); a.querySelector('[data-item-more]')?.setAttribute('aria-expanded', 'false'); } });
   TK.on('click', '[data-item-more]', (e, b) => { e.stopPropagation(); const a = b.closest('.item-actions'); closeMore(a); const on = a.classList.toggle('open'); b.setAttribute('aria-expanded', on ? 'true' : 'false'); });
@@ -503,54 +504,74 @@ document.addEventListener('tk:ready', () => {
     const b = t.board, pct = b && b.steps ? Math.round((t.is_completed ? b.steps : b.step) * 100 / b.steps) : (t.is_completed ? 100 : 0);
     // مراحل بورد پروژه (UI-005 v7.3): نام هر مرحله در title و یک متن برای صفحه‌خوان
     const flow = (b && b.flow) || [];
-    const steps = flow.length ? `<div class="td-steps" aria-hidden="true">${flow.map((lbl, i) => `<span class="td-stp${i + 1 <= b.step ? ' on' : ''}${i + 1 === b.step ? ' cur' : ''}" title="مرحله‌ی ${F(i + 1)}: ${E(lbl)}"><i>${F(i + 1)}</i></span>`).join('<span class="td-ln"></span>')}</div>
+    // v7.16 (دموی UI، «Task detail»): نوار بالا (پروژه · زمان ثبت + ابزارها)، عنوان بزرگ، ستون اصلی (شرح، پیوست‌ها، یادداشت‌ها) و ستون کناری
+    // (کارت وضعیت با مراحل، کارت ویژگی‌ها با ویرایش سریع، سازنده/تاریخ) — همچنان پنجره‌ی وسط صفحه (#m-detail)
+    const stepsHtml = flow.length ? `<ol class="td-steps" aria-hidden="true">${flow.map((lbl, i) => `<li class="${i + 1 < b.step || t.is_completed ? 'done' : ''}${i + 1 === b.step && !t.is_completed ? ' cur' : ''}" title="مرحله‌ی ${F(i + 1)}: ${E(lbl)}"><span>${F(i + 1)}</span></li>`).join('')}</ol>
       <p class="sr-only">${b.step ? `مرحله‌ی ${F(b.step)} از ${F(flow.length)}: ${E(b.label)}` : `${E(b.label)} (خارج از مراحل اصلی بورد)`}. مراحل: ${flow.map((l, i) => F(i + 1) + '. ' + E(l)).join('، ')}</p>` : '';
     const acts = doneBtns(t) + nextBtn(b);
+    const c = t.can || {};
+    const st = b ? `<span class="chip-s"><i class="fa-solid ${E(b.icon)}"></i>${E(b.label)}</span>` : `<span class="chip-s ${t.is_completed ? 'is-accent' : 'is-warn'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`;
+    const stProp = b && b.targets?.length ? qe('status', true, st, 'وضعیت بورد')
+      : b && b.lock && b.status !== 'archived' ? `<button type="button" class="qe-chip" data-lock-reason="${E(b.lock)}" title="چرا نمی‌توانم وضعیت را تغییر دهم؟">${st}<i class="fa-solid fa-lock qe-ic"></i></button>` : st;
+    const lbl = t.subject_title ? `<span class="chip-s is-outline"><span class="dot" data-css="background:${E(t.subject_color || 'var(--muted)')}"></span>${E(t.subject_title)}</span>` : '<span class="faint">بدون لیبل</span>';
+    const due = t.due_fa ? `<span class="chip-s${t.is_overdue ? ' is-danger' : ''}"><i class="fa-regular fa-calendar"></i>${E(t.due_fa)}</span>` : '<span class="faint">بدون سررسید</span>';
+    const prj = t.project_title ? `<span class="tr-proj"><span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span>${E(t.project_title)}</span>` : '<span class="faint">بدون پروژه</span>';
+    const prop = (ic, name, val) => `<div class="td-prop"><span class="td-pl"><i class="fa-solid ${ic}" aria-hidden="true"></i>${name}</span><div class="td-pv">${val}</div></div>`;
     detail.innerHTML = `
       <div class="td-head">
-        <span class="td-chip" aria-hidden="true"><i class="fa-solid ${b ? E(b.icon) : 'fa-list-check'}"></i></span>
-        <div class="td-ttl"><h3>${E(t.title)}</h3><small>${t.project_title ? E(t.project_title) + ' · ' : ''}ایجاد شده در ${E(t.created_fa)}</small></div>
+        <div class="td-crumb">${t.project_title ? `<span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span><span class="truncate">${E(t.project_title)}</span><span aria-hidden="true">·</span>` : ''}<span class="nowrap">ثبت ${E(t.created_fa)}</span>
+          ${t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : ''}
+          ${t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : ''}</div>
         <div class="td-tools">
-          ${canEdit ? '<button class="btn btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
-          ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
+          ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
+          ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
+          <button class="btn btn-ghost btn-icon btn-sm" data-detail-share title="کپی لینک تسک" aria-label="کپی لینک تسک"><i class="fa-solid fa-link"></i></button>
           ${moreMenu(t)}
-          <button class="btn btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
+      <div class="td-scroll">
+      <h2 class="td-title" id="td-title">${E(t.title)}</h2>
+      ${t.is_blocked ? `<div class="alert error blk-alert td-banner"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
       <div class="td-grid">
       <div class="td-main">
-      ${t.is_blocked ? `<div class="alert error blk-alert"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
-      <div class="flex wrap gap-1 qe-row td-tags">
-        ${chipsHtml(t)}
-      </div>
-      <section class="td-pn"><h4><i class="fa-regular fa-message"></i> شرح تسک</h4>
+      <section class="td-sec"><h3 class="td-h"><i class="fa-solid fa-file"></i> شرح تسک</h3>
         ${t.description ? `<div class="note-body td-desc">${rich(t.description)}</div>` : '<div class="faint small">توضیحی برای این تسک نوشته نشده است.</div>'}</section>
-      <section class="td-pn"><h4><i class="fa-solid fa-paperclip"></i> پیوست‌های تسک</h4>
-        <div class="td-drop"><div id="task-files" class="grow">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small"><i class="fa-solid fa-paperclip"></i> پیوستی وجود ندارد.</span>'}</div>
-        ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row" enctype="multipart/form-data"><span class="file-pick-names faint small" data-file-names></span><label class="btn btn-icon btn-sm file-pick" title="افزودن فایل به پیوست‌ها" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden data-auto-upload></label></form>` : ''}</div></section>
-      <section class="td-pn"><h4><i class="fa-regular fa-comments"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span><em>جدیدترین بالا</em></h4>
-      ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
-        <div class="flex gap-1 mt-1 wrap items-center file-pick-row"><button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button><span class="file-pick-names faint small grow" data-file-names></span>
-          <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
-            <div class="dropdown-menu mention-menu">${taptapItem()}${(t.mentionable || []).length ? `<div class="dc-ca0ead xs faint">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img loading="lazy" decoding="async" src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="dc-1cbb30 faint small">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
-          <label class="btn btn-icon file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label></div></form>` : ''}
+      <section class="td-sec"><div class="td-h-row"><h3 class="td-h"><i class="fa-solid fa-paperclip"></i> پیوست‌ها <span class="cnt">${F(t.files.length)}</span></h3>
+        ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row" enctype="multipart/form-data"><span class="file-pick-names faint small" data-file-names></span><label class="btn btn-ghost btn-sm file-pick" title="افزودن فایل به پیوست‌ها"><i class="fa-solid fa-upload"></i> افزودن فایل<input type="file" name="attachments[]" multiple hidden data-auto-upload></label></form>` : ''}</div>
+        <div id="task-files" class="td-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div></section>
+      <section class="td-sec">
+        <div class="utabs td-tabs"><span class="utab active">یادداشت‌ها و گزارش پیشرفت <span class="cnt">${F(t.notes.length)}</span></span><button type="button" class="utab" data-detail-history>تاریخچه‌ی تغییرات</button></div>
+      ${t.can.notes ? `<form id="f-note" class="td-compose" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
+        <div class="td-compose-bar file-pick-row"><button class="btn btn-primary btn-sm">ثبت یادداشت</button>
+          <div class="dropdown mention-dd"><button type="button" class="btn btn-ghost btn-icon btn-sm mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
+            <div class="dropdown-menu mention-menu">${taptapItem()}${(t.mentionable || []).length ? `<div class="menu-label">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img loading="lazy" decoding="async" src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="menu-label">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
+          <label class="btn btn-ghost btn-icon btn-sm file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label>
+          <span class="file-pick-names faint small grow" data-file-names></span><span class="td-kbd" aria-hidden="true"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ثبت</span></div></form>` : ''}
+      <div class="td-notes-bar"><span class="faint xs">${F(t.notes.length)} یادداشت</span><span class="faint xs">جدیدترین بالا</span></div>
       <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="td-empty">هنوز یادداشتی ثبت نشده است.</div>'}</div></section>
       </div>
       <aside class="td-side">
-        <section class="td-pn"><h4>وضعیت</h4>
-          ${steps}
-          <div class="td-pr"><span>${b ? E(b.label) : (t.is_completed ? 'انجام‌شده' : 'در جریان')}</span><b>${F(pct)}٪</b></div>
-          <div class="td-bar"><i data-css="width:${pct}%"></i></div>
-          <div class="td-acts">${acts}<button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button></div>
+        <section class="td-card"><div class="td-card-h"><b>وضعیت</b>${flow.length && b.step ? `<span class="faint xs">مرحله‌ی ${F(b.step)} از ${F(flow.length)}</span>` : `<span class="faint xs">${F(pct)}٪</span>`}</div>
+          ${stepsHtml}
+          <div class="td-st">${b ? `<i class="fa-solid ${E(b.icon)}" aria-hidden="true"></i> ${E(b.label)}` : (t.is_completed ? 'انجام‌شده' : 'در جریان')}</div>
+          <div class="td-acts">${acts}</div>
         </section>
-        <section class="td-pn"><h4>جزئیات</h4>
-          <div class="td-kv"><span>سازنده</span><b>${av(t.creator_name, t.creator_avatar)}${E(t.creator_name)}</b></div>
-          <div class="td-kv"><span>مسئول</span><b>${t.assignee_name ? av(t.assignee_name, t.assignee_avatar) + E(t.assignee_name) : '—'}</b></div>
-          <div class="td-kv"><span>ایجاد</span><b>${E(t.created_fa)}</b></div>
-          ${t.completed_fa ? `<div class="td-kv"><span>تکمیل</span><b>${E(t.completed_fa)}</b></div>` : ''}
+        <section class="td-card td-props qe-row">
+          ${prop('fa-layer-group', 'وضعیت', stProp)}
+          ${prop('fa-user', 'مسئول', t.assignee_name ? `<span class="td-who">${av(t.assignee_name, t.assignee_avatar)}${E(t.assignee_name)}</span>` : '—')}
+          ${prop('fa-flag', 'اولویت', qe('priority', c.edit_meta, prioBadge(t), 'اولویت'))}
+          ${prop('fa-calendar', 'سررسید', qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید'))}
+          ${prop('fa-tag', 'لیبل', qe('label', c.edit_meta, lbl, 'لیبل'))}
+          ${prop('fa-folder', 'پروژه', qe('project', c.change_project, prj, 'پروژه'))}
         </section>
-        <button type="button" class="btn btn-sm td-hist" data-detail-history title="تاریخچه‌ی تغییرات"><i class="fa-solid fa-clock-rotate-left"></i> تاریخچه‌ی تغییرات</button>
+        <dl class="kv td-meta">
+          <dt>سازنده</dt><dd><span class="td-who">${av(t.creator_name, t.creator_avatar)}${E(t.creator_name)}</span></dd>
+          <dt>تاریخ ایجاد</dt><dd>${E(t.created_fa)}</dd>
+          ${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
+        </dl>
       </aside>
+      </div>
       </div>`;
     // لینک در یادداشت: همان پاپ‌اور عنوان‌گذاری توضیحات (نمایش [عنوان](لینک) به‌صورت لینک قابل کلیک با rich())
     const noteTa = TK.qs('#f-note textarea', detail);

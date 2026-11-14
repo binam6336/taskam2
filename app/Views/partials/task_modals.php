@@ -37,7 +37,7 @@ $this->scripts[] = 'tasks';
     <div class="modal-box tf-box">
         <form method="post" action="<?= e(url('/tasks')) ?>" enctype="multipart/form-data" data-ajax id="f-task">
             <?= csrf_field() ?>
-            <div class="modal-head tf-head"><span class="td-chip" aria-hidden="true"><i class="fa-solid fa-list-check"></i></span><div class="td-ttl"><h3 id="task-modal-title">تسک جدید</h3><small>اطلاعات تسک را وارد کنید</small></div><button type="button" class="btn btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="modal-head tf-head"><span class="td-chip" aria-hidden="true"><i class="fa-solid fa-list-check"></i></span><div class="td-ttl"><h3 id="task-modal-title">تسک جدید</h3><small>اطلاعات تسک را وارد کنید</small></div><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
             <div class="modal-body tf-body">
                 <div class="field" data-tour="title"><label>عنوان <span class="req" aria-hidden="true">*</span></label><input class="input" name="title" maxlength="255" required placeholder="<?= e(ph('task_title')) ?>"></div>
                 <div class="field" data-tour="desc"><label>توضیحات</label><textarea class="input" name="description" rows="3" data-linkify placeholder="<?= e(ph('task_desc')) ?>"></textarea></div>
@@ -49,7 +49,7 @@ $this->scripts[] = 'tasks';
                     <div class="field" data-tour="assignee"><label>مسئول انجام</label><div data-rselect="assignee_id"></div>
                     </div>
                 </div>
-                <div class="tf-more"><button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more">گزینه‌های بیشتر <i class="fa-solid fa-chevron-down"></i></button></div>
+                <div class="tf-more"><button type="button" class="more-toggle" data-more-toggle data-tour="more" aria-expanded="false" aria-controls="task-more"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i><b>گزینه‌های بیشتر</b><span class="tf-more-hint">اولویت، لیبل، سررسید، پیوست، لینک</span></button></div>
                 <div class="task-more" id="task-more" hidden>
                 <div class="row">
                     <div class="field" id="prio-cat" data-tour="priority"><label><i class="fa-regular fa-flag"></i> اولویت</label><select class="input" name="priority"><option value="low">کم</option><option value="medium" selected>متوسط</option><option value="high">زیاد</option></select></div>
@@ -65,7 +65,7 @@ $this->scripts[] = 'tasks';
                     <div class="file-pick-row tf-drop"><span class="tf-drop-ic" aria-hidden="true"><i class="fa-solid fa-paperclip"></i></span><span class="file-pick-names small grow" data-file-names data-empty="فایل را انتخاب کنید (می‌توانید چند فایل بردارید)"></span><label class="btn btn-sm file-pick" data-tour="files" title="افزودن فایل" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i> انتخاب فایل<input type="file" name="attachments[]" multiple hidden></label></div></div>
                 </div>
             </div>
-            <div class="modal-foot tf-foot"><button class="btn btn-primary" type="submit" data-tour="save"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button><button type="button" class="btn" data-close>انصراف</button></div>
+            <div class="modal-foot tf-foot"><button class="btn btn-primary" type="submit" data-tour="save"><i class="fa-solid fa-check"></i> ثبت تسک</button><button type="button" class="btn" data-close>انصراف</button><span class="tf-kbd" aria-hidden="true"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> ثبت</span></div>
         </form>
     </div>
 </div>

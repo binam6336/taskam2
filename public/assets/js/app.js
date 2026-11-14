@@ -1200,44 +1200,62 @@
   window.addEventListener('resize', () => { if (nt.open) ntPlace(); }, { passive: true });
   TK.afterSwap.push(() => { nt.open = false; nt.seq++; });
 
-  // منوی «ایجاد»
+  // منوهای بازشو (v7.16): «ایجاد» در نوار بالا و منوی حساب پایین سایدبار — دکمه [aria-haspopup=menu][aria-controls] + div.tb-menu
+  const MENU_BTN = '.tb-create-btn, [data-user-menu]';
+  let tbOpen = null;
   const tbMenuClose = (focus = true) => {
-    const m = TK.qs('#tb-create-menu'); if (!m || m.hidden) return;
-    m.hidden = true; const b = TK.qs('.tb-create-btn'); b?.setAttribute('aria-expanded', 'false'); if (focus) b?.focus();
+    if (!tbOpen) return; const { m, b } = tbOpen; tbOpen = null;
+    m.hidden = true; b.setAttribute('aria-expanded', 'false'); if (focus) b.focus();
   };
-  const tbMenuItems = () => TK.qsa('#tb-create-menu [role=menuitem]');
-  TK.on('click', '.tb-create-btn', (e, b) => {
-    e.stopPropagation(); const m = TK.qs('#tb-create-menu'); if (!m) return;
-    if (!m.hidden) return tbMenuClose();
-    ntClose(false); m.hidden = false; b.setAttribute('aria-expanded', 'true'); tbMenuItems()[0]?.focus();
+  const tbMenuItems = () => (tbOpen ? TK.qsa('[role=menuitem]', tbOpen.m) : []);
+  TK.on('click', MENU_BTN, (e, b) => {
+    e.stopPropagation(); const m = document.getElementById(b.getAttribute('aria-controls')); if (!m) return;
+    const same = tbOpen && tbOpen.m === m; tbMenuClose(false); if (same) return;
+    ntClose(false); m.hidden = false; b.setAttribute('aria-expanded', 'true'); tbOpen = { m, b }; tbMenuItems()[0]?.focus();
   });
-  TK.on('click', '#tb-create-menu [role=menuitem]', (e, it) => {
-    tbMenuClose(false);
+  TK.on('click', '.tb-menu [role=menuitem]', (e, it) => {
     const k = it.dataset.create;
+    if (it.type === 'submit') return;                       // خروج: فرم خودش ارسال می‌شود
+    tbMenuClose(false);
     if (k === 'task') { if (TK.tasks?.openNew && TK.qs('#m-task')) TK.tasks.openNew(); else TK.visit(TK.url('/tasks?new=1')); }
-    else if (k === 'project') { const b = TK.qs('#btn-new-project'); if (b) b.click(); else TK.visit(TK.url('/projects?new=1')); }
+    else if (k === 'project') { const b = TK.qs('#btn-new-project'); if (b) { e.preventDefault(); b.click(); } }
   });
-  document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.tb-create')) tbMenuClose(false); });
+  document.addEventListener('pointerdown', (e) => { if (tbOpen && !e.target.closest('.tb-menu, ' + MENU_BTN)) tbMenuClose(false); });
   document.addEventListener('keydown', (e) => {
-    const m = TK.qs('#tb-create-menu'); if (!m || m.hidden || !m.contains(document.activeElement)) return;
+    if (!tbOpen || !tbOpen.m.contains(document.activeElement)) return;
     const items = tbMenuItems(), i = items.indexOf(document.activeElement);
     if (e.key === 'Escape') { e.preventDefault(); tbMenuClose(); }
     else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
     else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1]?.focus(); }
     else if (e.key === 'Tab') tbMenuClose(false);
   });
+  TK.afterSwap.push(() => { tbOpen = null; });
+  const themeSync = () => {
+    const dark = document.documentElement.dataset.mode === 'dark';
+    TK.qsa('[data-theme-toggle]').forEach((t) => {
+      const lbl = dark ? 'حالت روشن' : 'حالت تیره';
+      if (t.classList.contains('tb-ib')) { t.setAttribute('aria-pressed', String(dark)); t.setAttribute('aria-label', lbl); t.title = lbl; }
+      const i = t.querySelector('i'); if (i) i.className = 'fa-solid ' + (dark ? 'fa-sun' : 'fa-moon');
+      const l = t.querySelector('[data-theme-label]'); if (l) l.textContent = lbl;
+    });
+  };
+  themeSync(); TK.afterSwap.push(themeSync);
 
   // تغییر روشن ↔ تیره‌ی همان پالت (کوکی دستگاه kx_theme از مسیر پروفایل، بدون بارگذاری دوباره)
   TK.on('click', '[data-theme-toggle]', async (e, b) => {
     const html = document.documentElement, cur = html.dataset.theme || 'violet-light';
     const next = /-dark$/.test(cur) ? cur.replace(/-dark$/, '-light') : cur.replace(/-light$/, '-dark');
-    const r = await TK.post('/profile/appearance', { theme: next });
-    if (!TK.ok(r)) return TK.toast(r.message, 'error');
+    if (document.body.dataset.layout) {                     // پنل: کوکی دستگاه از مسیر پروفایل
+      const r = await TK.post('/profile/appearance', { theme: next });
+      if (!TK.ok(r)) return TK.toast(r.message, 'error');
+    } else {                                                // ورود/ثبت‌نام (مهمان): همان کوکی kx_theme مستقیم
+      document.cookie = 'kx_theme=' + next + '; path=' + (TK.url('/').replace(/\/$/, '') || '/') + '; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+    }
     const dark = /-dark$/.test(next);
     html.classList.add('theme-switching');
     html.dataset.theme = next; html.dataset.mode = dark ? 'dark' : 'light';
     setTimeout(() => html.classList.remove('theme-switching'), 60);
-    TK.qsa('[data-theme-toggle]').forEach((t) => { t.setAttribute('aria-pressed', String(dark)); t.title = dark ? 'رفتن به حالت روشن' : 'رفتن به حالت تیره'; const i = t.querySelector('i'); if (i) i.className = 'fa-solid ' + (dark ? 'fa-sun' : 'fa-moon'); });
+    themeSync(); tbMenuClose(false);
     const mc = TK.qs('meta[name=theme-color]'); if (mc) mc.content = getComputedStyle(document.body).backgroundColor;
     TK.qsa('input[name=theme]').forEach((x) => { x.checked = x.value === next; });
   });
@@ -1281,6 +1299,24 @@
     syncClear(inp); inp.focus();
   });
   document.addEventListener('tk:ready', () => TK.searchClear());
+  // v7.16: منوی «ایجاد» (…?new=1): دکمه‌ی ساخت پیش‌فرض همان صفحه ([data-create-default]) باز می‌شود و پارامتر از آدرس حذف می‌شود
+  const createDefault = () => {
+    const q = new URLSearchParams(location.search); if (q.get('new') !== '1') return;
+    const b = TK.qs('[data-create-default]'); if (!b) return;
+    q.delete('new'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+    setTimeout(() => b.click(), 0);
+  };
+  document.addEventListener('tk:ready', createDefault);
+  // v7.16 (دمو): رنگ ثابت آواتار هر نفر — hue از نام (title/aria-label/alt یا متن)، با CSSOM (بدون style درون‌خطی)
+  const avHue = (el) => {
+    if (el.dataset.hue === '1' || el.querySelector('img')) return;
+    const k = (el.getAttribute('title') || el.getAttribute('aria-label') || el.dataset.name || el.closest('[title]')?.getAttribute('title') || el.textContent || '').trim();
+    let h = 0; for (const ch of k) h = (h * 31 + ch.codePointAt(0)) % 360;
+    el.style.setProperty('--h', String(h)); el.dataset.hue = '1';
+  };
+  const avScan = (root) => { if (root.nodeType !== 1) return; if (root.matches('.avatar')) avHue(root); root.querySelectorAll?.('.avatar').forEach(avHue); };
+  avScan(document.body);
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(avScan))).observe(document.body, { childList: true, subtree: true });
   document.addEventListener('tk:live', () => TK.searchClear());
 
   /* ───── نوار پیشرفت باریک سبز بالای صفحه ───── */

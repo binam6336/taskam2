@@ -21,7 +21,8 @@ $badge = static function (string $key) use ($badges, $badgeAs, $cnt): string {
         return '';
     }
     $n = (int) $badges[$key];
-    return '<span class="sb-badge' . ($n > 0 ? '' : ' zero') . '" data-badge="' . e($badgeAs[$key] ?? $key) . '" aria-hidden="true">' . e(fa_num($n)) . '</span><span class="sr-only sb-sr">' . e($cnt($n)) . '</span>';
+    $alert = in_array($key, ['chat', 'colleagues', 'support', 'projects', 'admin-support'], true) ? ' is-alert' : '';   // v7.16: مثل دمو، شمارنده‌ی «کار منتظر شما» پررنگ
+    return '<span class="sb-badge' . $alert . ($n > 0 ? '' : ' zero') . '" data-badge=""' . e($badgeAs[$key] ?? $key) . '" aria-hidden="true">' . e(fa_num($n)) . '</span><span class="sr-only sb-sr">' . e($cnt($n)) . '</span>';
 };
 $pops = [];
 ?>
@@ -29,7 +30,7 @@ $pops = [];
 <aside class="sidebar" id="sidebar">
     <div class="sb-top">
         <a class="brand" href="<?= e($sb['home']) ?>" aria-label="<?= e($sb['title']) ?> — صفحه اصلی"><span class="logo" aria-hidden="true"><?= logo_svg() ?></span><span class="sb-brand-t"><?= e($sb['title']) ?><small><?= e($sb['sub']) ?></small></span></a>
-        <button type="button" class="sb-icon-btn sb-rail-btn" aria-pressed="false" aria-label="جمع کردن منو"><i class="fa-solid fa-angles-right" aria-hidden="true"></i></button>
+        <button type="button" class="sb-icon-btn sb-rail-btn" aria-pressed="false" aria-label="جمع کردن منو"><i class="fa-solid fa-kx-panel" aria-hidden="true"></i></button>
     </div>
 
     <nav class="sb-nav" aria-label="منوی اصلی">
@@ -71,11 +72,22 @@ $pops = [];
         </ul>
     </nav>
 
-    <div class="sb-foot"><div class="sb-me">
-        <span class="avatar sm sb-av"><?php if (!empty($su['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($su['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($suName)) ?><?php endif; ?></span>
-        <div class="sb-me-t"><b class="truncate"><?= e($suName) ?></b><small<?= !empty($sb['user_sub_ltr']) ? ' dir="ltr"' : '' ?>><?= e((string) $sb['user_sub']) ?></small></div>
-        <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button type="submit" class="sb-icon-btn sb-out" aria-label="<?= e($sb['logout']) ?>"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></button></form>
-    </div></div>
+    <div class="sb-foot">
+        <button type="button" class="sb-me" data-user-menu aria-haspopup="menu" aria-expanded="false" aria-controls="sb-user-menu" aria-label="منوی حساب کاربری">
+            <span class="avatar sm sb-av"><?php if (!empty($su['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($su['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($suName)) ?><?php endif; ?></span>
+            <span class="sb-me-t"><b class="truncate"><?= e($suName) ?></b><small<?= !empty($sb['user_sub_ltr']) ? ' dir="ltr"' : '' ?>><?= e((string) $sb['user_sub']) ?></small></span>
+            <i class="fa-solid fa-chevron-up sb-me-chev" aria-hidden="true"></i>
+        </button>
+        <div class="tb-menu sb-user-menu" id="sb-user-menu" role="menu" aria-label="حساب کاربری" hidden>
+            <div class="menu-label"><?= e($suName) ?></div>
+            <a role="menuitem" href="<?= e(url('/profile')) ?>"><i class="fa-solid fa-user" aria-hidden="true"></i><span>پروفایل و تنظیمات</span></a>
+            <a role="menuitem" href="<?= e(url('/profile#appearance')) ?>"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>تنظیمات ظاهری</span></a>
+            <button type="button" role="menuitem" data-theme-toggle><i class="fa-solid fa-moon" aria-hidden="true"></i><span data-theme-label>حالت تیره</span></button>
+            <?php if (empty($sb['admin'])): ?><a role="menuitem" href="<?= e(url('/tour/start')) ?>"><i class="fa-solid fa-compass" aria-hidden="true"></i><span>راهنمای کار با کارلیکس</span></a><?php endif; ?>
+            <div class="menu-sep" role="separator"></div>
+            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button type="submit" role="menuitem" class="danger"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span><?= e($sb['logout']) ?></span></button></form>
+        </div>
+    </div>
 
 <?php foreach ($pops as ['id' => $gid, 'item' => $item]): ?>
     <div class="sb-pop" id="<?= e($gid) ?>" role="dialog" aria-modal="false" aria-labelledby="<?= e($gid) ?>-t" hidden>

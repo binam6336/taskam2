@@ -59,6 +59,20 @@ document.addEventListener('tk:ready', () => {
   document.addEventListener('tk:live', () => init(false));
 
   TK.on('click', '[data-dash-prio]', (e, b) => { prio = b.dataset.dashPrio; store.set(PK, prio); applyFilter(true); });
+  // v7.16 (دمو): تب‌های زیرخط‌دار «امروز / عقب‌افتاده / ۷ روز آینده» (الگوی tablist با ←/→)
+  const tabSel = (b, focus) => {
+    TK.qsa('[data-dash-tab]').forEach((t) => {
+      const on = t === b; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      const pane = document.getElementById(t.getAttribute('aria-controls')); if (pane) pane.hidden = !on;
+    });
+    if (focus) b.focus();
+  };
+  TK.on('click', '[data-dash-tab]', (e, b) => tabSel(b, false));
+  TK.on('keydown', '[data-dash-tab]', (e, b) => {
+    const all = TK.qsa('[data-dash-tab]'), i = all.indexOf(b);
+    const k = { ArrowLeft: 1, ArrowRight: -1, Home: -i, End: all.length - 1 - i }[e.key];
+    if (k === undefined) return; e.preventDefault(); tabSel(all[(i + k + all.length) % all.length], true);
+  });
   TK.on('click', '[data-dash-sec]', (e, b) => {
     const open = b.getAttribute('aria-expanded') !== 'true';
     store.set(SK + b.dataset.dashSec, open ? '1' : '0'); applySections();

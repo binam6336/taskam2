@@ -26,7 +26,6 @@ $tbTheme = user_theme($u);
 $tbDark = (themes()[$tbTheme]['mode'] ?? 'light') === 'dark';
 $tbNotifs = \App\Services\NotificationCenter::unread((int) $u['id']);
 $badges['notifs'] = $tbNotifs;
-$tbChat = max(0, \App\Models\ChatModel::totalUnread((int) $u['id']) - $tbNotifs);   // گفتگوی نوار بالا بدون پیام‌های ربات
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
@@ -53,21 +52,22 @@ $tbChat = max(0, \App\Models\ChatModel::totalUnread((int) $u['id']) - $tbNotifs)
         <div class="ro-bar" role="status"><i class="fa-solid fa-eye" aria-hidden="true"></i> <span>حساب شما <b>غیرفعال</b> است: همه‌چیز را می‌بینید ولی ثبت، ارسال پیام یا تغییر وضعیت ممکن نیست. برای فعال‌سازی با مدیر تماس بگیرید.</span></div>
         <?php endif; ?>
         <header class="topbar">
-            <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
-            <h1><?= e($this->title) ?></h1>
+            <button type="button" class="tb-ib menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="باز کردن منو"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+            <div class="tb-title"><?php if (!empty($this->crumbs)): ?><div class="tb-crumbs"><?php foreach ($this->crumbs as [$cl, $ch]): ?><?php if ($ch): ?><a href="<?= e(url($ch)) ?>"><?= e($cl) ?></a><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><?php else: ?><span><?= e($cl) ?></span><?php endif; ?><?php endforeach; ?></div><?php endif; ?><h1 class="tb-h"><?= e($this->title) ?></h1></div>
             <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
             <div class="tb-acts">
-                <button type="button" class="tb-ib" data-theme-toggle aria-pressed="<?= $tbDark ? 'true' : 'false' ?>" aria-label="حالت تیره" title="<?= $tbDark ? 'رفتن به حالت روشن' : 'رفتن به حالت تیره' ?>"><i class="fa-solid <?= $tbDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button>
-                <button type="button" class="tb-ib" id="nt-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="nt-panel" aria-label="اعلان‌ها<?= $tbNotifs ? '، ' . e(fa_num($tbNotifs)) . ' خوانده‌نشده' : '' ?>" title="اعلان‌ها"><i class="fa-regular fa-bell" aria-hidden="true"></i><span class="tb-dot badge-count<?= $tbNotifs ? '' : ' zero' ?>" data-badge="notifs" aria-hidden="true"><?= e(fa_num($tbNotifs)) ?></span></button>
-                <a class="tb-ib tb-chat" href="<?= e(url('/chat')) ?>" title="گفتگو" aria-label="گفتگو"><i class="fa-regular fa-comments" aria-hidden="true"></i><span class="tb-dot badge-count<?= $tbChat ? '' : ' zero' ?>" data-badge="chat_people" aria-hidden="true"><?= e(fa_num($tbChat)) ?></span></a>
+                <button type="button" class="tb-ib tb-hide-sm" data-theme-toggle aria-pressed="<?= $tbDark ? 'true' : 'false' ?>" aria-label="<?= $tbDark ? 'حالت روشن' : 'حالت تیره' ?>" title="<?= $tbDark ? 'حالت روشن' : 'حالت تیره' ?>"><i class="fa-solid <?= $tbDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button>
+                <button type="button" class="tb-ib" id="nt-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="nt-panel" aria-label="اعلان‌ها<?= $tbNotifs ? '، ' . e(fa_num($tbNotifs)) . ' خوانده‌نشده' : '' ?>" title="اعلان‌ها"><i class="fa-regular fa-bell" aria-hidden="true"></i><span class="tb-ind badge-count<?= $tbNotifs ? '' : ' zero' ?>" data-badge="notifs" aria-hidden="true"><?= e(fa_num($tbNotifs)) ?></span></button>
                 <div class="tb-create">
-                    <button type="button" class="btn btn-primary tb-create-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="tb-create-menu"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>ایجاد</span></button>
+                    <button type="button" class="btn btn-primary tb-create-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="tb-create-menu"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="tb-hide-sm">ایجاد</span></button>
                     <div class="tb-menu" id="tb-create-menu" role="menu" aria-label="ایجاد" hidden>
                         <button type="button" role="menuitem" data-create="task"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>تسک جدید</span></button>
                         <button type="button" role="menuitem" data-quick-task><i class="fa-solid fa-bolt" aria-hidden="true"></i><span>ثبت سریع تسک</span></button>
-                        <button type="button" role="menuitem" data-create="project"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i><span>پروژه‌ی جدید</span></button>
+                        <div class="menu-sep" role="separator"></div>
+                        <a role="menuitem" href="<?= e(url('/projects?new=1')) ?>" data-create="project"><i class="fa-solid fa-folder" aria-hidden="true"></i><span>پروژه‌ی جدید</span></a>
+                        <a role="menuitem" href="<?= e(url('/notes?new=1')) ?>"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i><span>یادداشت جدید</span></a>
                         <a role="menuitem" href="<?= e(url('/colleagues?add=1')) ?>"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><span>دعوت همکار</span></a>
-                        <a role="menuitem" href="<?= e(url('/notes')) ?>"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i><span>یادداشت‌ها</span></a>
+                        <a role="menuitem" href="<?= e(url('/support?new=1')) ?>"><i class="fa-solid fa-life-ring" aria-hidden="true"></i><span>تیکت پشتیبانی</span></a>
                     </div>
                 </div>
             </div>

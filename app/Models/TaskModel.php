@@ -349,6 +349,8 @@ final class TaskModel
     {
         $today = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
         $late = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
+        // v7.16 (پیشخوان دمو): تب «۷ روز آینده» = فردا تا هفت روز بعد
+        $soon = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date > CURDATE() AND t.due_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)';
         $rows = static function (string $where, string $order) use ($uid, $limit): array {
             $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
             foreach ($list as &$t) {
@@ -374,6 +376,8 @@ final class TaskModel
         return [
             'today' => $rows($today, 't.due_time IS NULL, t.due_time, t.id'),
             'overdue' => $overdue,
+            'upcoming' => $rows($soon, 't.due_date, t.due_time IS NULL, t.due_time, t.id'),
+            'upcoming_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $soon, [$uid]),
             'today_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $today, [$uid]),
             'overdue_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $late, [$uid]),
             'mix' => ['high' => (int) ($mix['high'] ?? 0), 'medium' => (int) ($mix['medium'] ?? 0), 'low' => (int) ($mix['low'] ?? 0)],

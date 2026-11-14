@@ -19,7 +19,7 @@
 <?php // v7.3 سرعت: فونت‌های پرکاربرد زودتر دریافت شوند (همان آدرس‌های CSS، بدون ?v تا با کش یکی باشند) ?>
 <link rel="preload" href="<?= e(app_base() . '/assets/vendor/sahel/fonts/Sahel.woff2') ?>" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="<?= e(app_base() . '/assets/vendor/sahel/fonts/Sahel-Bold.woff2') ?>" as="font" type="font/woff2" crossorigin>
-<?php foreach (glob(BASE_PATH . '/public/assets/vendor/fontawesome/webfonts/karlix-solid.*.woff2') ?: [] as $fa): ?><link rel="preload" href="<?= e(app_base() . '/assets/vendor/fontawesome/webfonts/' . basename($fa)) ?>" as="font" type="font/woff2" crossorigin><?php endforeach; ?>
 <link rel="stylesheet" href="<?= e(asset('vendor/sahel/sahel-font-face.css')) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/karlix-icons.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/kx-icons.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/kx.css')) ?>">

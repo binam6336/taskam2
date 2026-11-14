@@ -40,7 +40,7 @@ $this->scripts[] = 'projects';
 ?>
 <div class="page-head"><h2><i class="dc-961bcb fa-solid fa-diagram-project"></i> پروژه‌ها</h2>
     <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'projects', 'count' => $blockedCount ?? 0, 'label' => 'پروژه‌های مسدودشده']); ?>
-    <button class="btn btn-primary" id="btn-new-project"><i class="fa-solid fa-plus"></i> پروژه جدید</button></div></div>
+    <button class="btn btn-primary" id="btn-new-project" data-create-default><i class="fa-solid fa-plus"></i> پروژه جدید</button></div></div>
 
 <div data-live="proj-body">
 <script type="application/json" id="proj-data"><?= json_html($projData) ?></script>

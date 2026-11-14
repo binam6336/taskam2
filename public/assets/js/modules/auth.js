@@ -6,7 +6,8 @@ document.addEventListener('tk:ready', () => {
     const reg = b.dataset.authTab === 'register';
     TK.qs('#form-login')?.classList.toggle('hidden', reg);
     TK.qs('#form-register')?.classList.toggle('hidden', !reg);
-    TK.qsa('[data-auth-tab]').forEach((x) => x.classList.toggle('active', x === b));
+    TK.qsa('[data-auth-tab]').forEach((x) => { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', String(x === b)); });
+    TK.qs((reg ? '#form-register' : '#form-login') + ' input:not([type=hidden])')?.focus();
   }));
   // قدرت رمز عبور
   const p = TK.qs('#r-pass'), bar = TK.qs('#pw-bar');
@@ -28,23 +29,10 @@ document.addEventListener('tk:ready', () => {
     const refresh = () => { capImg.src = TK.url('/captcha') + '?t=' + Date.now(); cap.value = ''; };
     TK.qs('[data-captcha-refresh]')?.addEventListener('click', () => { refresh(); cap.focus(); });
     capImg?.addEventListener('click', refresh);
-    // «ورود» اول پنجره‌ی کپچا را باز می‌کند؛ با «تأیید» کد در فرم گذاشته و درخواست ورود ارسال می‌شود
-    const form = TK.qs('#form-login'), hidden = TK.qs('[data-captcha-value]');
-    let sending = false;
-    form?.addEventListener('submit', (e) => {
-      if (sending) return;
-      e.preventDefault();
-      if (!form.reportValidity()) return;
-      refresh(); TK.modal.open('m-captcha'); setTimeout(() => cap.focus(), 50);
-    });
-    const ok = () => {
-      if (cap.value.length !== (+cap.maxLength || 5)) { cap.classList.add('is-invalid'); cap.focus(); return; }
-      hidden.value = cap.value; sending = true;
-      TK.qs('[data-captcha-ok]').disabled = true;
-      form.requestSubmit ? form.requestSubmit() : form.submit();
-    };
-    TK.qs('[data-captcha-ok]')?.addEventListener('click', ok);
-    cap.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+    // v7.16 (دمو): کد امنیتی داخل خود فرم است؛ تصویر با بارگذاری صفحه گرفته می‌شود (یک‌بارمصرف، ۱۰ دقیقه)
+    refresh();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - (capImg.dataset.t || 0) > 9 * 60000) refresh(); });
+    capImg.addEventListener('load', () => { capImg.dataset.t = Date.now(); });
   }
   // صفحه‌ی انتظار: بررسی خودکار فعال‌شدن
   if (TK.boot().pendingPoll) setInterval(async () => { const r = await TK.get('/pending/status'); if (r.active) location.href = TK.url('/'); }, 8000);

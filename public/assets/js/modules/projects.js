@@ -27,8 +27,6 @@ document.addEventListener('tk:ready', () => {
     TK.resetForm(form); form.setAttribute('action', TK.url('/projects')); form.max_members.value = 10; form.priority_type.value = 'category';
     TK.qs('#proj-title-h').textContent = 'پروژه جدید'; TK.qs('#members-field').classList.remove('hidden'); memberChecks(); TK.modal.open('m-project');
   });
-  // v7.15: منوی «ایجاد» نوار بالا: /projects?new=1
-  if (new URLSearchParams(location.search).get('new') === '1') { history.replaceState(history.state, '', location.pathname); setTimeout(() => TK.qs('#btn-new-project')?.click(), 0); }
 
   /* ستون دسترسی‌ها: سه گروه تسک، پروژه و بورد پروژه */
   const chips = (keys, defs, empty) => keys.map((k) => `<span class="dc-9a70ac chip">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;

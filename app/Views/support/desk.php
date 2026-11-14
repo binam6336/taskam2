@@ -36,7 +36,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
                 <div class="dc-3f9f96 grow"><h3 class="desk-h">تاریخچه تیکت‌ها</h3>
                     <div class="xs muted"><?= $admin ? 'تیکت‌های ثبت‌شده‌ی همه‌ی کاربران' : 'تیکت‌های ثبت‌شده‌ی شما' ?></div></div>
                 <span class="badge" data-live="desk-count"><?= e(fa_num($list['total'])) ?> تیکت</span>
-                <?php if (!$admin): ?><button class="btn btn-primary btn-sm" data-modal="m-support" type="button"><i class="fa-solid fa-plus"></i> <span class="hide-xs">تیکت جدید</span></button><?php endif; ?>
+                <?php if (!$admin): ?><button class="btn btn-primary btn-sm" data-modal="m-support" type="button" data-create-default><i class="fa-solid fa-plus"></i> <span class="hide-xs">تیکت جدید</span></button><?php endif; ?>
                 <?php if ($ticket): ?><button type="button" class="btn btn-ghost btn-icon btn-sm desk-side-close" data-desk-list="close" aria-label="بستن فهرست"><i class="fa-solid fa-xmark"></i></button><?php endif; ?>
             </div>
             <form class="desk-search search" method="get" action="<?= e(url($base)) ?>" role="search">

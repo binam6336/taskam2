@@ -32,47 +32,45 @@ return [
         'dashboard' => 'خلاصه‌ی کارهای امروز',
     ],
     'pages' => [
-        'dashboard'  => ['/dashboard', 'fa-gauge-high', 'پیشخوان'],
+        'dashboard'  => ['/dashboard', 'fa-house', 'پیشخوان'],
         'tasks'      => ['/tasks', 'fa-list-check', 'تسک‌ها'],
         'calendar'   => ['/calendar', 'fa-calendar-days', 'تقویم'],
         'board'      => ['/board', 'fa-table-columns', 'بورد پروژه'],
-        'subjects'   => ['/labels', 'fa-tags', 'لیبل‌ها'],
+        'subjects'   => ['/labels', 'fa-tag', 'لیبل‌ها'],
         'texts'      => ['/notes', 'fa-note-sticky', 'یادداشت‌ها'],
         'colleagues' => ['/colleagues', 'fa-users', 'همکاران'],
-        'projects'   => ['/projects', 'fa-diagram-project', 'پروژه‌ها'],
+        'projects'   => ['/projects', 'fa-folder', 'پروژه‌ها'],
         'chat'       => ['/chat', 'fa-comments', 'گفتگو'],
-        'tokens'     => ['/tokens', 'fa-key', 'توکن API'],
+        'tokens'     => ['/tokens', 'fa-key', 'توکن‌های API'],
         'docs'       => ['/docs', 'fa-book', 'مستندات API'],
-        'profile'    => ['/profile', 'fa-user-gear', 'پروفایل'],
-        'install'    => ['/install', 'fa-download', 'نصب'],
-        'tour'       => ['/tour/start', 'fa-graduation-cap', 'آموزش'],
-        'support'    => ['/support', 'fa-headset', 'تیکت'],
+        'profile'    => ['/profile', 'fa-user', 'پروفایل'],
+        'install'    => ['/install', 'fa-download', 'نصب اپلیکیشن'],
+        'tour'       => ['/tour/start', 'fa-compass', 'آموزش'],
+        'support'    => ['/support', 'fa-life-ring', 'پشتیبانی'],
     ],
+    // v7.16 (دموی UI): پیشخوان + چهار بخش «کار من / تیم / توسعه‌دهندگان / راهنما»؛ «پروفایل» در منوی حساب پایین سایدبار است
     'default' => [
         ['t' => 'page', 'page' => 'dashboard', 'label' => 'پیشخوان'],
-        ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
+        ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-list-check', 'label' => 'کار من', 'items' => [
             ['t' => 'page', 'page' => 'tasks', 'label' => 'تسک‌ها'],
-            ['t' => 'page', 'page' => 'calendar', 'label' => 'تقویم'],
             ['t' => 'page', 'page' => 'board', 'label' => 'بورد پروژه'],
+            ['t' => 'page', 'page' => 'calendar', 'label' => 'تقویم'],
             ['t' => 'page', 'page' => 'texts', 'label' => 'یادداشت‌ها'],
+        ]],
+        ['t' => 'group', 'id' => 'team', 'icon' => 'fa-users', 'label' => 'تیم', 'items' => [
+            ['t' => 'page', 'page' => 'projects', 'label' => 'پروژه‌ها'],
+            ['t' => 'page', 'page' => 'colleagues', 'label' => 'همکاران'],
+            ['t' => 'page', 'page' => 'chat', 'label' => 'گفتگو'],
             ['t' => 'page', 'page' => 'subjects', 'label' => 'لیبل‌ها'],
         ]],
-        ['t' => 'group', 'id' => 'team', 'icon' => 'fa-people-group', 'label' => 'مدیریت تیم', 'items' => [
-            ['t' => 'page', 'page' => 'colleagues', 'label' => 'همکاران'],
-            ['t' => 'page', 'page' => 'projects', 'label' => 'پروژه‌ها'],
-            ['t' => 'page', 'page' => 'chat', 'label' => 'گفتگو'],
-        ]],
-        ['t' => 'group', 'id' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
-            ['t' => 'page', 'page' => 'tokens', 'label' => 'توکن API'],
+        ['t' => 'group', 'id' => 'api', 'icon' => 'fa-code', 'label' => 'توسعه‌دهندگان', 'items' => [
+            ['t' => 'page', 'page' => 'tokens', 'label' => 'توکن‌های API'],
             ['t' => 'page', 'page' => 'docs', 'label' => 'مستندات API'],
         ]],
-        ['t' => 'group', 'id' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
-            ['t' => 'page', 'page' => 'profile', 'label' => 'پروفایل'],
-            ['t' => 'page', 'page' => 'install', 'label' => 'نصب'],
+        ['t' => 'group', 'id' => 'support', 'icon' => 'fa-life-ring', 'label' => 'راهنما', 'items' => [
+            ['t' => 'page', 'page' => 'support', 'label' => 'پشتیبانی'],
+            ['t' => 'page', 'page' => 'install', 'label' => 'نصب اپلیکیشن'],
             ['t' => 'page', 'page' => 'tour', 'label' => 'آموزش'],
-        ]],
-        ['t' => 'group', 'id' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
-            ['t' => 'page', 'page' => 'support', 'label' => 'تیکت'],
         ]],
     ],
 ];
