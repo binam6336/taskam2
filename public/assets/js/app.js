@@ -1310,11 +1310,13 @@
   // v7.16 (دمو): رنگ ثابت آواتار هر نفر — hue از نام (title/aria-label/alt یا متن)، با CSSOM (بدون style درون‌خطی)
   const avHue = (el) => {
     if (el.dataset.hue === '1' || el.querySelector('img')) return;
-    const k = (el.getAttribute('title') || el.getAttribute('aria-label') || el.dataset.name || el.closest('[title]')?.getAttribute('title') || el.textContent || '').trim();
-    let h = 0; for (const ch of k) h = (h * 31 + ch.codePointAt(0)) % 360;
+    const row = el.closest('li, .contact, .item, .col-item, .kb-card, a, button, .td-who, .sb-me');
+    const k = (el.getAttribute('title') || el.getAttribute('aria-label') || el.dataset.name || (row && row !== el ? row.textContent : '') || el.textContent || '').trim().slice(0, 40);
+    let x = 2166136261; for (const ch of k) { x ^= ch.codePointAt(0); x = Math.imul(x, 16777619) >>> 0; }   // FNV-1a: نام‌های نزدیک هم رنگ‌های دور
+    const h = x % 360;
     el.style.setProperty('--h', String(h)); el.dataset.hue = '1';
   };
-  const avScan = (root) => { if (root.nodeType !== 1) return; if (root.matches('.avatar')) avHue(root); root.querySelectorAll?.('.avatar').forEach(avHue); };
+  const avScan = (root) => { if (root.nodeType !== 1) return; if (root.matches('.avatar, .proj-ic')) avHue(root); root.querySelectorAll?.('.avatar, .proj-ic').forEach(avHue); };
   avScan(document.body);
   new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(avScan))).observe(document.body, { childList: true, subtree: true });
   document.addEventListener('tk:live', () => TK.searchClear());

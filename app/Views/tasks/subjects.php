@@ -14,20 +14,18 @@ foreach ($subjects as $s) {
 }
 $canCreate = !empty($manageable);
 ?>
-<div class="page-head"><h2><i class="dc-961bcb fa-solid fa-tags"></i> لیبل‌ها</h2>
-    <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'labels', 'count' => $blockedCount ?? 0, 'label' => 'لیبل‌های مسدودشده']); ?>
+<div class="page-head"><div class="ph-text"><h2>لیبل‌ها</h2><p class="ph-desc lbl-intro">لیبل‌ها مال هر پروژه‌اند و همه‌ی اعضای پروژه از آن‌ها استفاده می‌کنند. <?= $canCreate ? 'شما در ' . e(fa_num(count($manageable))) . ' پروژه اجازه‌ی ساخت لیبل دارید.' : 'ساخت لیبل جدید «دسترسی ایجاد لیبل» در پروژه می‌خواهد.' ?></p></div>
+    <div class="ph-actions"><?php $this->partial('blocked_button', ['kind' => 'labels', 'count' => $blockedCount ?? 0, 'label' => 'لیبل‌های مسدودشده', 'text' => 'موارد مسدود']); ?>
     <?php if ($canCreate): ?><button class="btn btn-primary" data-modal="m-subject" id="btn-new-subject"><i class="fa-solid fa-plus"></i> لیبل جدید</button><?php endif; ?></div></div>
-<p class="small muted lbl-intro"><i class="fa-solid fa-circle-info"></i> لیبل‌ها مال هر پروژه‌اند و همه‌ی اعضای پروژه از آن‌ها استفاده می‌کنند.
-    <?= $canCreate ? 'شما در ' . e(fa_num(count($manageable))) . ' پروژه اجازه‌ی ساخت لیبل دارید.' : 'ساخت لیبل جدید «دسترسی ایجاد لیبل» در پروژه می‌خواهد (سازنده‌ی پروژه، نقش مدیر کل یا مدیر واحد)؛ شما از لیبل‌های موجود استفاده می‌کنید.' ?></p>
 <div data-live="subjects">
 <?php if (!$subjects): ?><div class="card empty"><i class="fa-solid fa-tags"></i><p>هنوز در پروژه‌های شما لیبلی نیست. لیبل‌ها برای دسته‌بندی تسک‌ها هستند.</p></div>
 <?php else: foreach ($groups as $g): ?>
-<section class="lbl-group" aria-label="<?= e($g['legacy'] ? 'لیبل‌های شخصی قدیمی' : 'لیبل‌های پروژه ' . $g['title']) ?>">
-    <h3 class="lbl-gh"><?php if ($g['legacy']): ?><i class="fa-solid fa-box-archive"></i> لیبل‌های شخصی قدیمی <span class="xs faint">(بدون پروژه؛ روی تسک تازه گذاشته نمی‌شوند — به یک پروژه منتقلشان کنید)</span>
+<section class="card is-flush lbl-group" aria-label="<?= e($g['legacy'] ? 'لیبل‌های شخصی قدیمی' : 'لیبل‌های پروژه ' . $g['title']) ?>">
+    <h3 class="lbl-gh card-head is-bordered"><?php if ($g['legacy']): ?><i class="fa-solid fa-box-archive"></i> لیبل‌های شخصی قدیمی <span class="xs faint">(بدون پروژه؛ روی تسک تازه گذاشته نمی‌شوند — به یک پروژه منتقلشان کنید)</span>
         <?php else: ?><i class="fa-solid fa-diagram-project"></i> <?= e($g['title']) ?> <span class="xs faint"><?= e(fa_num(count($g['rows']))) ?> لیبل<?= $g['can'] ? '' : '، فقط استفاده' ?></span><?php endif; ?></h3>
-    <div class="grid grid-auto">
+    <div class="lbl-rows">
     <?php foreach ($g['rows'] as $s): $sp = pid('subjects', $s); ?>
-    <div class="card hover flex items-center gap-2">
+    <div class="lbl-row">
         <i class="fa-solid fa-tag label-icon" data-css="color:<?= e($s['color']) ?>"></i>
         <div class="grow"><div class="bold"><?= e($s['title']) ?></div><a class="xs lbl-tasks" href="<?= e(url('/tasks?scope=all&status=all&label=' . $sp)) ?>" title="نمایش تسک‌های این لیبل"><?= e(fa_num($s['tasks_count'])) ?> تسک <i class="fa-solid fa-arrow-left"></i></a></div>
         <?php if (!empty($s['can_manage'])): ?>

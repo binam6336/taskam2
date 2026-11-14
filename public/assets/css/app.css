@@ -2254,7 +2254,6 @@ html[data-mode="light"] .stat .ico.purple { background: rgba(124, 92, 220, .14);
 .note-dot { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--nc) 55%, var(--surface)); background: var(--nc); cursor: pointer; opacity: .75; transition: transform .12s, opacity .12s; }
 .note-dot:hover { opacity: 1; transform: scale(1.15); }
 .note-dot.on { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--nc); }
-html[data-mode="light"] .note-card { background: color-mix(in srgb, var(--nc) 30%, #fff); border-color: color-mix(in srgb, var(--nc) 55%, transparent); box-shadow: 0 6px 14px -10px rgba(40, 50, 30, .35); }
 html[data-mode="light"] .note-btn { color: #4b5243; }
 .note-colors { border: 0; padding: 0; margin: 0; }
 .note-colors legend { margin-bottom: .35rem; font-size: .85rem; font-weight: 600; }

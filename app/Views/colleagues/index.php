@@ -7,15 +7,18 @@ $this->scripts[] = 'colleagues';
 $this->boot['colleagues'] = ['projects' => $addProjects, 'per' => \App\Services\ColleagueService::PER_PAGE];
 $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 ?>
+<?php /* v7.16 (دموی UI): سربرگ + یک کارت با تب‌های زیرخط‌دار، نوار ابزار، فهرست و صفحه‌بندی */ ?>
 <div class="page-head">
-    <div class="tabs" data-live="col-tabs">
-        <a class="tab <?= $tab === 'list' ? 'active' : '' ?>" href="<?= e($tabUrl('list')) ?>">همکاران <span class="badge-count"><?= e(fa_num($colTotal)) ?></span></a>
-        <a class="tab <?= $tab === 'requests' ? 'active' : '' ?>" href="<?= e($tabUrl('requests')) ?>">درخواست‌ها <span class="badge-count <?= $incoming ? '' : 'zero' ?>"><?= e(fa_num(count($incoming))) ?></span></a>
-        <a class="tab <?= $tab === 'followers' ? 'active' : '' ?>" href="<?= e($tabUrl('followers')) ?>" title="کاربرانی که شما را به لیست همکاران خود اضافه کرده‌اند">کاربرانی که مرا همکار کرده‌اند <span class="badge-count"><?= e(fa_num(count($followers))) ?></span></a>
-        <a class="tab <?= $tab === 'blocked' ? 'active' : '' ?>" href="<?= e($tabUrl('blocked')) ?>">مسدودها <span class="badge-count"><?= e(fa_num(count($blocked))) ?></span></a>
-    </div>
-    <button class="btn btn-primary" data-modal="m-add-col"><i class="fa-solid fa-user-plus"></i> افزودن همکار</button>
+    <div class="ph-text"><h2>همکاران</h2><p class="ph-desc">همکاران تأییدشده را می‌توانید به پروژه‌ها اضافه کنید، به آن‌ها تسک بسپارید و با آن‌ها گفتگو کنید.</p></div>
+    <div class="ph-actions"><button class="btn btn-primary" data-modal="m-add-col"><i class="fa-solid fa-user-plus"></i> افزودن همکار</button></div>
 </div>
+<section class="card is-flush col-card">
+    <div class="utabs col-tabs" data-live="col-tabs">
+        <a class="utab <?= $tab === 'list' ? 'active' : '' ?>" href="<?= e($tabUrl('list')) ?>">همکاران <span class="cnt"><?= e(fa_num($colTotal)) ?></span></a>
+        <a class="utab <?= $tab === 'requests' ? 'active' : '' ?>" href="<?= e($tabUrl('requests')) ?>">درخواست‌ها <span class="cnt"><?= e(fa_num(count($incoming))) ?></span></a>
+        <a class="utab <?= $tab === 'followers' ? 'active' : '' ?>" href="<?= e($tabUrl('followers')) ?>" title="کاربرانی که شما را به لیست همکاران خود اضافه کرده‌اند">کاربرانی که مرا همکار کرده‌اند <span class="cnt"><?= e(fa_num(count($followers))) ?></span></a>
+        <a class="utab <?= $tab === 'blocked' ? 'active' : '' ?>" href="<?= e($tabUrl('blocked')) ?>">مسدودها <span class="cnt"><?= e(fa_num(count($blocked))) ?></span></a>
+    </div>
 
 <?php if ($tab === 'list'):
     $per = $list['per'];
@@ -102,7 +105,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 </div>
 
 <?php else: ?>
-<div data-live="col-body">
+<div data-live="col-body" class="col-pane">
 <?php if ($tab === 'requests'): ?>
     <h3 class="mb-1">دریافتی</h3>
     <?php if (!$incoming): ?><div class="card empty"><i class="fa-regular fa-envelope-open"></i><p>درخواست جدیدی ندارید.</p></div><?php else: ?><div class="list mb-3">
@@ -149,6 +152,7 @@ $tabUrl = static fn(string $t) => url('/colleagues') . '?tab=' . $t;
 <?php endif; ?>
 </div>
 <?php endif; ?>
+</section>
 
 <div class="modal" id="m-add-col"><div class="modal-box sm"><div class="modal-head"><h3><i class="fa-solid fa-user-plus"></i> افزودن همکار</h3><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body"><form id="f-search" class="flex gap-1"><input class="input ltr" name="mobile" data-mobile inputmode="numeric" placeholder="<?= e(ph('colleague_mobile')) ?>" required><button class="btn btn-primary">جستجو</button></form><div id="search-result" class="mt-2"></div></div></div></div>

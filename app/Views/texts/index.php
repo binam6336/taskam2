@@ -5,10 +5,10 @@ $this->boot['texts'] = $texts;
 $this->boot['noteColors'] = $colors;
 $this->scripts[] = 'texts'; ?>
 <div class="page-head">
-    <div class="dc-ae18a0 search grow"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها"></div>
-    <button class="btn btn-primary" id="btn-new-text" data-create-default><i class="fa-solid fa-plus"></i> یادداشت جدید</button>
+    <div class="ph-text"><h2>یادداشت‌ها</h2><p class="ph-desc">یادداشت‌های شخصی و متن‌های آماده؛ فقط برای خودتان. برای مرتب کردن، کارت را بکشید و با دایره‌های رنگی پایین هر کارت رنگش را عوض کنید.</p></div>
+    <div class="ph-actions"><button class="btn btn-primary" id="btn-new-text" data-create-default><i class="fa-solid fa-plus"></i> یادداشت جدید</button></div>
 </div>
-<p class="muted small mb-2"><i class="fa-solid fa-circle-info"></i> یادداشت‌ها فقط برای خودتان است. با کشیدن کارت ترتیب را عوض کنید و با دایره‌های رنگی پایین هر یادداشت رنگش را تغییر دهید.</p>
+<div class="search notes-search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها" data-page-search></div>
 <div class="notes-grid" id="text-grid"></div>
 <div class="card empty hidden" id="text-empty"><i class="fa-solid fa-note-sticky"></i><p id="text-empty-msg">هنوز یادداشتی ندارید.</p></div>
 

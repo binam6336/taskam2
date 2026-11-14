@@ -38,9 +38,9 @@ foreach ($boot as $bp) {
 $projData = ['limitDefs' => $limitDefs, 'list' => $boot, 'colleagues' => $colleagues, 'permDefs' => $permDefs, 'taskPermDefs' => $taskPermDefs, 'boardPermDefs' => $boardPermDefs, 'roles' => $roleDefs, 'me' => (int) $currentUser['id']];
 $this->scripts[] = 'projects';
 ?>
-<div class="page-head"><h2><i class="dc-961bcb fa-solid fa-diagram-project"></i> پروژه‌ها</h2>
-    <div class="flex gap-2 items-center"><?php $this->partial('blocked_button', ['kind' => 'projects', 'count' => $blockedCount ?? 0, 'label' => 'پروژه‌های مسدودشده']); ?>
-    <button class="btn btn-primary" id="btn-new-project" data-create-default><i class="fa-solid fa-plus"></i> پروژه جدید</button></div></div>
+<div class="page-head"><div class="ph-text"><h2>پروژه‌ها</h2><p class="ph-desc">پروژه‌هایی که سازنده یا عضو آن‌ها هستید. نقش شما در هر پروژه روی کارتش آمده است.</p></div>
+    <div class="ph-actions"><?php $this->partial('blocked_button', ['kind' => 'projects', 'count' => $blockedCount ?? 0, 'label' => 'پروژه‌های مسدودشده', 'text' => 'موارد مسدود']); ?>
+    <button class="btn btn-primary" id="btn-new-project" data-create-default><i class="fa-solid fa-plus"></i> پروژه‌ی جدید</button></div></div>
 
 <div data-live="proj-body">
 <script type="application/json" id="proj-data"><?= json_html($projData) ?></script>
@@ -57,13 +57,17 @@ $this->scripts[] = 'projects';
 
 <?php if (!$projects): ?><div class="card empty"><i class="fa-solid fa-diagram-project"></i><p>هنوز در هیچ پروژه‌ای نیستید. یک پروژه بسازید و همکاران را دعوت کنید.</p></div>
 <?php else: ?>
-<div class="grid grid-auto">
+<div class="grid proj-grid">
 <?php foreach ($projects as $p):
     // DATA-003 (v7.7): نوار دوبخشی = تأییدشده + منتظر تأیید (تحویل‌شده)؛ عدد همان تعریف خلاصه‌ی تحلیل پروژه
     [$pct, $pctW] = (int) $p['tasks_count'] > 0 ? array_values(\App\Services\TaskAnalytics::percents(['d' => (int) $p['tasks_done'], 'w' => (int) $p['tasks_review'], 'o' => max(0, (int) $p['tasks_count'] - (int) $p['tasks_done'] - (int) $p['tasks_review'])])) : [0, 0]; ?>
-    <div class="card hover" id="proj-<?= e(pid('projects', $p)) ?>">
-        <div class="flex items-center gap-2 mb-1 proj-head">
-            <?php // کارهای کم‌کاربرد/خطرناک (مسدود، خروج) در منوی ⋮ گوشه‌ی کارت ?>
+    <?php $delivered = (int) $p['tasks_done'] + (int) $p['tasks_review']; $all = (int) $p['tasks_count']; ?>
+    <div class="card proj-card" id="proj-<?= e(pid('projects', $p)) ?>">
+        <div class="pc-head">
+            <span class="proj-ic lg pc-ic" title="<?= e($p['title']) ?>"><?php if ($p['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
+            <div class="pc-ttl"><div class="pc-name"><?= e($p['title']) ?></div>
+                <div class="pc-badges"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
+                    <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
             <div class="dropdown proj-menu"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-toggle title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر پروژه"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                 <div class="dropdown-menu">
                 <?php if (!$p['is_creator']): ?>
@@ -74,20 +78,17 @@ $this->scripts[] = 'projects';
                     <button type="button" class="text-danger" data-post="<?= e(url('/block/projects/' . pid('projects', $p))) ?>" data-confirm="پروژه‌ی «<?= e($p['title']) ?>» مسدود شود؟ از فهرست همه‌ی اعضا کنار می‌رود و تسک یا عضو جدید نمی‌گیرد (تسک‌های فعلی‌اش می‌مانند). از «پروژه‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i> مسدود کردن پروژه</button>
                 <?php endif; ?>
                 </div></div>
-            <span class="dc-2226f8 avatar sq lg"><?php if ($p['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
-            <div class="grow"><div class="bold"><?= e($p['title']) ?></div>
-                <div class="flex gap-1 wrap mt-1"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
-                    <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
         </div>
-        <?php if ($p['description']): ?><p class="muted small proj-desc" title="<?= e($p['description']) ?>"><?= e($p['description']) ?></p><?php endif; ?>
-        <div class="flex between small muted mb-1"><span title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span><span title="تأییدشده + منتظر تأیید سرپرست، از کل تسک‌ها"><?= e(fa_num((int) $p['tasks_done'] + (int) $p['tasks_review'])) ?> از <?= e(fa_num($p['tasks_count'])) ?> تحویل‌شده</span></div>
-        <div class="progress dual mb-1" role="img" aria-label="<?= e('تأییدشده ' . fa_num($pct) . '٪، منتظر تأیید ' . fa_num($pctW) . '٪') ?>"><div data-css="width:<?= $pct ?>%"></div><div class="p-wait" data-css="width:<?= $pctW ?>%"></div></div>
-        <div class="proj-prog-l mb-2"><span><i></i>تأییدشده <?= e(fa_num($p['tasks_done'])) ?></span><span><i class="w"></i>منتظر تأیید <?= e(fa_num($p['tasks_review'])) ?></span></div>
-        <div class="flex gap-1 wrap">
-            <button class="btn btn-sm" data-project="<?= e(pid('projects', $p)) ?>"><i class="fa-solid fa-gear"></i> مدیریت</button>
-            <a class="btn btn-sm" href="<?= e(url('/board?project=' . pid('projects', $p))) ?>" title="بورد پروژه با فیلتر تسک‌های همین پروژه"><i class="fa-solid fa-table-columns"></i> ورود به بورد</a>
+        <p class="pc-desc" title="<?= e((string) $p['description']) ?>"><?= $p['description'] ? e($p['description']) : '<span class="faint">بدون توضیح</span>' ?></p>
+        <div class="pc-prog"><span><?= e(fa_num($delivered)) ?> از <?= e(fa_num($all)) ?> تحویل‌شده</span><span><?= e(fa_num($all ? (int) round($delivered * 100 / $all) : 0)) ?>٪</span></div>
+        <div class="progress dual" role="img" aria-label="<?= e('تأییدشده ' . fa_num($pct) . '٪، منتظر تأیید ' . fa_num($pctW) . '٪') ?>"><div data-css="width:<?= $pct ?>%"></div><div class="p-wait" data-css="width:<?= $pctW ?>%"></div></div>
+        <div class="pc-stats">تأییدشده <?= e(fa_num($p['tasks_done'])) ?> · منتظر تأیید <?= e(fa_num($p['tasks_review'])) ?></div>
+        <div class="pc-foot"><span class="pc-mem" title="تعداد اعضای فعلی از سقف اعضای پروژه"><i class="fa-solid fa-users" aria-hidden="true"></i> <?= e(fa_num($p['members_count'])) ?> عضو از <?= e(fa_num($p['max_members'])) ?></span>
+            <button class="btn btn-ghost btn-sm" data-project="<?= e(pid('projects', $p)) ?>"><i class="fa-solid fa-gear"></i> مدیریت</button></div>
+        <div class="pc-acts">
+            <a class="btn btn-sm" href="<?= e(url('/board?project=' . pid('projects', $p))) ?>" title="بورد پروژه"><i class="fa-solid fa-table-columns"></i> بورد</a>
             <?php if (in_array('view_analytics', $p['perms'], true)): ?><a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/analytics')) ?>"><i class="fa-solid fa-chart-line"></i> تحلیل</a>
-                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/workload')) ?>" title="چه کسی پربار است و چه کسی جا دارد"><i class="fa-solid fa-gauge-high"></i> بار کاری</a><?php endif; ?>
+                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $p) . '/workload')) ?>" title="چه کسی پربار است و چه کسی جا دارد"><i class="fa-solid fa-kx-scale"></i> بار کاری</a><?php endif; ?>
         </div>
     </div>
 <?php endforeach; ?>

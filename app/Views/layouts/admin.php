@@ -55,15 +55,16 @@ $badgeAs = ['admin-support' => 'support'];
 <div class="app">
     <?php $sb = [
         'home' => url('/admin'), 'title' => 'پنل مدیریت', 'sub' => 'کارلیکس', 'user' => $u, 'user_sub' => \App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label'],
-        'logout' => 'خروج از حساب', 'desc' => [],
+        'logout' => 'خروج از حساب', 'desc' => [], 'admin' => true,
     ];
     require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>
     <div class="main">
         <header class="topbar">
-            <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
-            <h1><?= e($this->title) ?></h1>
+            <button type="button" class="tb-ib menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="باز کردن منو"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+            <div class="tb-title"><h1 class="tb-h"><?= e($this->title) ?></h1></div>
             <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
+            <div class="tb-acts"><?php $admDark = (themes()[user_theme($u)]['mode'] ?? 'light') === 'dark'; ?><button type="button" class="tb-ib" data-theme-toggle aria-label="<?= $admDark ? 'حالت روشن' : 'حالت تیره' ?>" title="<?= $admDark ? 'حالت روشن' : 'حالت تیره' ?>"><i class="fa-solid <?= $admDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button></div>
         </header>
         <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>

@@ -2,14 +2,14 @@
 /** تقویم تسک‌ها. @var array $subjects @var array $projects @var array $assignees */
 $this->scripts[] = 'calendar';
 ?>
-<div class="page-head"><h2><i class="dc-961bcb fa-regular fa-calendar-days"></i> تقویم تسک‌ها</h2>
-    <div class="flex gap-1">
-        <a class="btn" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-list-check"></i> لیست تسک‌ها</a>
+<div class="page-head"><div class="ph-text"><h2>تقویم تسک‌ها</h2><p class="ph-desc">سررسید کارها در نمای ماهانه. برای تغییر سررسید، تسک را به روز دیگری بکشید.</p></div>
+    <div class="ph-actions">
+        <a class="btn" href="<?= e(url('/tasks')) ?>"><i class="fa-solid fa-list"></i> فهرست تسک‌ها</a>
         <button type="button" class="btn btn-primary" data-cal-new><i class="fa-solid fa-plus"></i> تسک جدید</button>
     </div>
 </div>
 
-<section class="card cal" id="cal" aria-label="تقویم تسک‌ها">
+<section class="card is-flush cal" id="cal" aria-label="تقویم تسک‌ها">
     <div class="cal-bar">
         <div class="cal-nav">
             <button type="button" class="btn btn-icon btn-sm" data-cal-prev title="ماه قبل" aria-label="ماه قبل"><i class="fa-solid fa-chevron-right"></i></button>
