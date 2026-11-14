@@ -223,7 +223,7 @@ final class Auth
     }
 
     /** درخواست‌های تغییر‌دهنده‌ای که حساب غیرفعال هم مجاز است (خروج، تم دستگاه، دیده‌شدن یادآوری) */
-    public const READ_ONLY_ALLOWED = ['/logout', '/profile/appearance', '/notifications/ack', '/reauth'];
+    public const READ_ONLY_ALLOWED = ['/logout', '/profile/appearance', '/notifications/ack', '/notifications/read', '/reauth'];
 
     public const INACTIVE_MSG = 'حساب کاربری شما غیرفعال است؛ فقط می‌توانید اطلاعات را ببینید و امکان ثبت یا تغییر ندارید. برای فعال‌سازی با مدیر تماس بگیرید.';
 

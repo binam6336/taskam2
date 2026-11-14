@@ -22,6 +22,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\DocsController;
 use App\Controllers\FileController;
 use App\Controllers\LiveController;
+use App\Controllers\NotificationController;
 use App\Controllers\ProfileController;
 use App\Controllers\ProjectController;
 use App\Controllers\PwaController;
@@ -93,6 +94,8 @@ $router->group(['panel'], function ($r) {
     $r->post('/notes/{note}/update', [TaskController::class, 'updateNote']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
+    $r->get('/notifications/feed', [NotificationController::class, 'feed']);    // v7.15 زنگ اعلان‌ها
+    $r->post('/notifications/read', [NotificationController::class, 'read']);
     $r->post('/tasks/quick', [TaskController::class, 'quick']);
 
     // بورد پروژه (کانبان، دمو)

@@ -21,10 +21,12 @@ if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
 }
 $this->scripts[] = 'quicktask';                       // «ثبت سریع تسک» (دکمه‌ی صاعقه، همه‌ی صفحه‌ها)
 $this->scripts[] = 'blocked';                         // پنجره‌ی «مسدودشده‌ها» (مسدود کردن به‌جای حذف)
-// نوار بالا (v7.1): چهار همکار اخیر (همکاری تأییدشده، مسدودنشده) + «دعوت»
-$tbAll = array_values(array_filter(\App\Services\ColleagueService::listFor((int) $u['id'], '', 30), static fn($c) => $c['approved'] && !$c['is_blocked_by_me'] && !$c['has_blocked_me']));
-$tbColsN = count($tbAll);
-$tbCols = array_slice($tbAll, 0, 4);
+// نوار بالا (v7.15): تغییر روشن/تیره‌ی همان پالت، زنگ اعلان‌ها (NotificationCenter)، گفتگو و منوی «ایجاد»
+$tbTheme = user_theme($u);
+$tbDark = (themes()[$tbTheme]['mode'] ?? 'light') === 'dark';
+$tbNotifs = \App\Services\NotificationCenter::unread((int) $u['id']);
+$badges['notifs'] = $tbNotifs;
+$tbChat = max(0, \App\Models\ChatModel::totalUnread((int) $u['id']) - $tbNotifs);   // گفتگوی نوار بالا بدون پیام‌های ربات
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
@@ -54,15 +56,30 @@ $tbCols = array_slice($tbAll, 0, 4);
             <button type="button" class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="منو"><i class="fa-solid fa-bars"></i></button>
             <h1><?= e($this->title) ?></h1>
             <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
-            <div class="tb-team">
-                <?php if ($tbCols): ?><a class="tb-stack" href="<?= e(url('/colleagues')) ?>" aria-label="همکاران (<?= e(fa_num($tbColsN)) ?> نفر)" title="همکاران"><?php foreach ($tbCols as $c): $cn = full_name($c); ?><span class="avatar sm" title="<?= e($cn) ?>"><?php if (!empty($c['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($c['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($cn)) ?><?php endif; ?></span><?php endforeach; ?><?php if ($tbColsN > count($tbCols)): ?><span class="avatar sm tb-more">+<?= e(fa_num($tbColsN - count($tbCols))) ?></span><?php endif; ?></a><?php endif; ?>
-                <a class="btn btn-sm tb-invite" href="<?= e(url('/colleagues?add=1')) ?>" title="دعوت همکار"><span>دعوت</span> <i class="fa-solid fa-plus" aria-hidden="true"></i></a>
+            <div class="tb-acts">
+                <button type="button" class="tb-ib" data-theme-toggle aria-pressed="<?= $tbDark ? 'true' : 'false' ?>" aria-label="حالت تیره" title="<?= $tbDark ? 'رفتن به حالت روشن' : 'رفتن به حالت تیره' ?>"><i class="fa-solid <?= $tbDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button>
+                <button type="button" class="tb-ib" id="nt-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="nt-panel" aria-label="اعلان‌ها<?= $tbNotifs ? '، ' . e(fa_num($tbNotifs)) . ' خوانده‌نشده' : '' ?>" title="اعلان‌ها"><i class="fa-regular fa-bell" aria-hidden="true"></i><span class="tb-dot badge-count<?= $tbNotifs ? '' : ' zero' ?>" data-badge="notifs" aria-hidden="true"><?= e(fa_num($tbNotifs)) ?></span></button>
+                <a class="tb-ib tb-chat" href="<?= e(url('/chat')) ?>" title="گفتگو" aria-label="گفتگو"><i class="fa-regular fa-comments" aria-hidden="true"></i><span class="tb-dot badge-count<?= $tbChat ? '' : ' zero' ?>" data-badge="chat_people" aria-hidden="true"><?= e(fa_num($tbChat)) ?></span></a>
+                <div class="tb-create">
+                    <button type="button" class="btn btn-primary tb-create-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="tb-create-menu"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>ایجاد</span></button>
+                    <div class="tb-menu" id="tb-create-menu" role="menu" aria-label="ایجاد" hidden>
+                        <button type="button" role="menuitem" data-create="task"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>تسک جدید</span></button>
+                        <button type="button" role="menuitem" data-quick-task><i class="fa-solid fa-bolt" aria-hidden="true"></i><span>ثبت سریع تسک</span></button>
+                        <button type="button" role="menuitem" data-create="project"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i><span>پروژه‌ی جدید</span></button>
+                        <a role="menuitem" href="<?= e(url('/colleagues?add=1')) ?>"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><span>دعوت همکار</span></a>
+                        <a role="menuitem" href="<?= e(url('/notes')) ?>"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i><span>یادداشت‌ها</span></a>
+                    </div>
+                </div>
             </div>
-            <button type="button" class="btn btn-ghost btn-icon" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell"></i></button>
-            <a class="btn btn-ghost btn-icon tb-chat" href="<?= e(url('/chat')) ?>" title="گفتگو" aria-label="گفتگو"><i class="fa-regular fa-comments"></i><span class="dc-d19037 badge-count zero" data-badge="chat">0</span></a>
         </header>
         <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>
+</div>
+<div class="nt-panel" id="nt-panel" role="dialog" aria-modal="false" aria-labelledby="nt-title" hidden>
+    <div class="nt-head"><b id="nt-title">اعلان‌ها</b><span class="nt-cnt" data-nt-cnt></span><button type="button" class="btn btn-ghost btn-sm" data-nt-all hidden>خواندن همه</button><button type="button" class="tb-ib nt-x" data-nt-close aria-label="بستن اعلان‌ها"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <div class="nt-req" data-nt-req hidden></div>
+    <ul class="nt-list" data-nt-list aria-live="polite" aria-busy="true"></ul>
+    <div class="nt-foot"><button type="button" class="btn btn-ghost btn-sm" data-nt-more hidden>اعلان‌های قدیمی‌تر</button><a class="btn btn-ghost btn-sm" data-nt-chat href="<?= e(url('/chat')) ?>">همه در گفتگوی ربات</a><button type="button" class="btn btn-ghost btn-sm" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell" aria-hidden="true"></i> <span>اعلان مرورگر</span></button></div>
 </div>
 <div class="qa">
     <button type="button" class="btn btn-primary qa-fab" aria-label="ثبت سریع تسک" title="ثبت سریع تسک" data-quick-task><i class="fa-solid fa-bolt"></i></button>

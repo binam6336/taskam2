@@ -499,7 +499,24 @@
     list.addEventListener('pointerleave', () => { if (!list.contains(document.activeElement)) hl.classList.remove('on'); });
     list.addEventListener('focusout', (e) => { if (!list.contains(e.relatedTarget) && !list.matches(':hover')) hl.classList.remove('on'); });
     sbRailSync();
+    sbFit();
   };
+  // v7.15: سایدبار بدون اسکرول داخلی — بخش‌ها (li.sb-grp) اگر جا نشوند از پایین به بالا به دکمه‌ی گروه + پاپ‌آپ تا می‌شوند
+  // (بخش صفحه‌ی فعلی آخر از همه)؛ اگر همه تا شدند و باز هم جا نشد، چگالی فشرده (sb-dense). هیچ آیتمی حذف نمی‌شود.
+  function sbFit() {
+    const nav = TK.qs('#sidebar .sb-nav'); if (!nav) return;
+    const grps = TK.qsa('[data-sb-grp]', nav);
+    grps.forEach((g) => g.classList.remove('is-folded')); nav.classList.remove('sb-dense');
+    if (sbRail()) return;                                   // rail: CSS همه را تا می‌کند
+    const over = () => nav.scrollHeight > nav.clientHeight + 1;
+    if (!over()) return;
+    const cur = grps.filter((g) => g.classList.contains('has-current'));
+    for (const g of grps.filter((x) => !cur.includes(x)).reverse().concat(cur)) { g.classList.add('is-folded'); if (!over()) return; }
+    nav.classList.add('sb-dense');
+  }
+  let sbFitT = 0;
+  window.addEventListener('resize', () => { clearTimeout(sbFitT); sbFitT = setTimeout(sbFit, 80); }, { passive: true });
+  document.fonts?.ready?.then(() => sbFit());
 
   // حالت rail (فقط دسکتاپ؛ کلاس پیش از رندر با assets/js/rail.js)
   const sbRail = () => document.documentElement.classList.contains('sb-rail') && !sbMobile.matches;
@@ -516,11 +533,11 @@
     const html = document.documentElement, on = !html.classList.contains('sb-rail');
     sbStore.set('tk.sb.rail', on ? '1' : '0'); sbPopClose(false); sbTipHide();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || sbMobile.matches) { html.classList.toggle('sb-rail', on); sbRailSync(); return; }
+    if (reduce || sbMobile.matches) { html.classList.toggle('sb-rail', on); sbRailSync(); sbFit(); return; }
     clearTimeout(sbAnimT);
     html.classList.add('sb-anim', 'sb-fade');
     sbAnimT = setTimeout(() => {
-      html.classList.toggle('sb-rail', on); sbRailSync();
+      html.classList.toggle('sb-rail', on); sbRailSync(); sbFit();
       sbAnimT = setTimeout(() => { html.classList.remove('sb-fade'); sbAnimT = setTimeout(() => html.classList.remove('sb-anim'), 200); }, 280);
     }, on ? 140 : 0);
   };
@@ -648,7 +665,7 @@
   const sbKbd = () => { if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) TK.qsa('.sb-kbd').forEach((k) => { k.textContent = '⌘ K'; }); };
 
   const sbSync = () => { sbPop = null; sbPopBtn = null; sbSide(false); sbBind(); sbKbd(); };
-  sbMobile.addEventListener?.('change', () => { sbPopClose(false); sbTipHide(); sbRailSync(); });
+  sbMobile.addEventListener?.('change', () => { sbPopClose(false); sbTipHide(); sbRailSync(); sbFit(); });
   sbSync();
   TK.afterSwap.push(sbSync);
 
@@ -1021,6 +1038,7 @@
       // متن صفحه‌خوان کنار شمارنده‌ی سایدبار («، n مورد»)
       const sbSr = (b, v) => { const sr = b.nextElementSibling; if (sr?.classList.contains('sb-sr')) sr.textContent = v ? '، ' + TK.fa(v) + ' مورد' : ''; };
       Object.entries(r.counts || {}).forEach(([k, v]) => TK.qsa(`[data-badge="${k}"]`).forEach((b) => { b.textContent = TK.fa(v); b.classList.toggle('zero', !v); sbSr(b, v); }));
+      if (r.counts && 'notifs' in r.counts) TK.ntCount?.(r.counts.notifs);   // v7.15: برچسب دسترس‌پذیر زنگ اعلان‌ها
       TK.qsa('[data-badge-sum]').forEach((b) => {
         const keys = b.dataset.badgeSum.split(',');
         if (!keys.some((k) => k in (r.counts || {}))) return;
@@ -1086,9 +1104,147 @@
     }
     TK.notify({ title: 'پیام جدید – کارلیکس', body: 'اعلان‌های مرورگر فعال است ✅', url: '' });
   });
+  /* ───── نوار بالا v7.15: زنگ اعلان‌ها (NotificationCenter = پیام‌های ربات)، منوی «ایجاد»، تغییر روشن/تیره ─────
+     همه با delegation (نوار بالا با هر جابه‌جایی نرم دوباره ساخته می‌شود). متن اعلان‌ها فقط با textContent درج می‌شود. */
+  const NT_IC = { mention: 'fa-at', rework: 'fa-rotate-left', review: 'fa-hourglass-half', reassign: 'fa-arrow-right-arrow-left', assign: 'fa-list-check', note: 'fa-comment-dots', security: 'fa-shield-halved', info: 'fa-bell' };
+  const nt = { open: false, items: [], more: false, bot: '', busy: false, seq: 0, back: null };
+  const ntEl = (sel) => TK.qs('#nt-panel ' + (sel || '')) || (sel ? null : TK.qs('#nt-panel'));
+  const ntCount = (n) => {
+    TK.qsa('[data-badge="notifs"]').forEach((b) => { b.textContent = TK.fa(n); b.classList.toggle('zero', !n); });
+    const btn = TK.qs('#nt-btn'); if (btn) btn.setAttribute('aria-label', 'اعلان‌ها' + (n ? '، ' + TK.fa(n) + ' خوانده‌نشده' : ''));
+    const c = ntEl('[data-nt-cnt]'); if (c) c.textContent = n ? TK.fa(n) + ' خوانده‌نشده' : '';
+    const all = ntEl('[data-nt-all]'); if (all) all.hidden = !n;
+  };
+  TK.ntCount = ntCount;
+  const ntRow = (x) => {
+    const li = document.createElement('li'); li.className = 'nt-it' + (x.is_read ? '' : ' unread');
+    const a = document.createElement('a'); a.className = 'nt-a'; a.href = x.url || TK.url('/chat?user=' + encodeURIComponent(nt.bot)); a.dataset.ntId = x.id;
+    if (x.task_id) a.dataset.ntTask = x.task_id;
+    const ic = document.createElement('span'); ic.className = 'nt-ic nt-' + x.kind; ic.setAttribute('aria-hidden', 'true');
+    const i = document.createElement('i'); i.className = 'fa-solid ' + (NT_IC[x.kind] || NT_IC.info); ic.appendChild(i);
+    const tx = document.createElement('span'); tx.className = 'nt-tx';
+    const b = document.createElement('b'); b.textContent = x.title; tx.appendChild(b);
+    if (x.body) { const p = document.createElement('span'); p.className = 'nt-body'; p.textContent = x.body; tx.appendChild(p); }
+    const w = document.createElement('small'); w.textContent = x.when; tx.appendChild(w);
+    a.append(ic, tx);
+    if (!x.is_read) { const s = document.createElement('span'); s.className = 'sr-only'; s.textContent = '(خوانده‌نشده)'; a.appendChild(s); }
+    li.appendChild(a); return li;
+  };
+  const ntRender = (r) => {
+    const list = ntEl('[data-nt-list]'); if (!list) return;
+    list.replaceChildren(...nt.items.map(ntRow)); list.setAttribute('aria-busy', 'false');
+    if (!nt.items.length) {
+      const li = document.createElement('li'); li.className = 'nt-empty';
+      li.innerHTML = '<i class="fa-regular fa-bell" aria-hidden="true"></i><b>اعلانی ندارید</b><span>واگذاری تسک، منشن، درخواست بررسی و برگشت برای اصلاح اینجا نمایش داده می‌شود.</span>';
+      list.appendChild(li);
+    }
+    const more = ntEl('[data-nt-more]'); if (more) more.hidden = !nt.more;
+    const req = ntEl('[data-nt-req]');
+    if (req && r && r.requests) {
+      const parts = [];
+      if (r.requests.colleagues) parts.push(['/colleagues?tab=requests', 'fa-user-plus', TK.fa(r.requests.colleagues) + ' درخواست همکاری در انتظار شما']);
+      if (r.requests.projects) parts.push(['/projects', 'fa-diagram-project', TK.fa(r.requests.projects) + ' دعوت به پروژه در انتظار شما']);
+      req.replaceChildren(...parts.map(([u, icn, t]) => { const a = document.createElement('a'); a.href = TK.url(u); a.className = 'nt-req-a'; const i = document.createElement('i'); i.className = 'fa-solid ' + icn; i.setAttribute('aria-hidden', 'true'); const s = document.createElement('span'); s.textContent = t; a.append(i, s); return a; }));
+      req.hidden = !parts.length;
+    }
+  };
+  const ntLoad = async (append = false) => {
+    if (nt.busy) return; nt.busy = true; const my = ++nt.seq;
+    const list = ntEl('[data-nt-list]'); if (list && !append) list.setAttribute('aria-busy', 'true');
+    const r = await TK.get('/notifications/feed', append && nt.items.length ? { before: nt.items[nt.items.length - 1].id } : {});
+    nt.busy = false; if (my !== nt.seq) return;
+    if (!TK.ok(r)) { if (list) { list.setAttribute('aria-busy', 'false'); const li = document.createElement('li'); li.className = 'nt-empty'; li.textContent = r.message || 'دریافت اعلان‌ها ممکن نشد.'; list.replaceChildren(li); } return; }
+    nt.items = append ? nt.items.concat(r.items) : r.items; nt.more = r.has_more; nt.bot = r.bot;
+    const chat = ntEl('[data-nt-chat]'); if (chat) chat.href = TK.url('/chat?user=' + encodeURIComponent(r.bot));
+    ntRender(r); ntCount(r.unread);
+  };
+  const ntPlace = () => {
+    const p = ntEl(), b = TK.qs('#nt-btn'); if (!p || !b) return;
+    const r = b.getBoundingClientRect();
+    p.style.setProperty('--nt-top', (r.bottom + 8) + 'px');
+    p.style.setProperty('--nt-left', Math.max(8, Math.min(r.left + r.width / 2 - p.offsetWidth / 2, window.innerWidth - p.offsetWidth - 8)) + 'px');
+  };
+  const ntClose = (focus = true) => {
+    const p = ntEl(); if (!p || p.hidden) return;
+    p.hidden = true; nt.open = false; TK.qs('#nt-btn')?.setAttribute('aria-expanded', 'false');
+    if (focus) TK.qs('#nt-btn')?.focus();
+  };
+  const ntOpen = () => {
+    const p = ntEl(); if (!p) return;
+    tbMenuClose(false);
+    p.hidden = false; nt.open = true; TK.qs('#nt-btn')?.setAttribute('aria-expanded', 'true'); ntPlace();
+    ntEl('[data-nt-close]')?.focus({ preventScroll: true });
+    ntLoad();
+  };
+  TK.on('click', '#nt-btn', (e) => { e.stopPropagation(); if (nt.open) ntClose(); else ntOpen(); });
+  TK.on('click', '[data-nt-close]', () => ntClose());
+  TK.on('click', '[data-nt-more]', () => ntLoad(true));
+  TK.on('click', '[data-nt-all]', async () => {
+    const r = await TK.post('/notifications/read', { all: '1' });
+    if (!TK.ok(r)) return TK.toast(r.message, 'error');
+    nt.items.forEach((x) => { x.is_read = true; }); ntRender(); ntCount(r.unread); TK.toast('همه‌ی اعلان‌ها خوانده شد.', 'success');
+  });
+  TK.on('click', '.nt-a', (e, a) => {
+    const x = nt.items.find((i) => i.id === a.dataset.ntId);
+    if (x && !x.is_read) { x.is_read = true; TK.post('/notifications/read', { id: x.id }).then((r) => { if (TK.ok(r)) ntCount(r.unread); }); }
+    // تسک: در صفحه‌ای که پنجره‌ی جزئیات دارد همان‌جا باز می‌شود؛ وگرنه لینک /tasks?task=… (ناوبری نرم)
+    if (a.dataset.ntTask && TK.tasks && TK.qs('#m-detail')) {
+      e.preventDefault(); ntClose(false);
+      const t = document.createElement('a'); t.hidden = true; t.dataset.openTask = a.dataset.ntTask; document.body.appendChild(t); t.click(); t.remove();
+      return;
+    }
+    ntClose(false);
+  });
+  document.addEventListener('pointerdown', (e) => { if (nt.open && !e.target.closest('#nt-panel, #nt-btn')) ntClose(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && nt.open) { e.preventDefault(); ntClose(); } });
+  window.addEventListener('resize', () => { if (nt.open) ntPlace(); }, { passive: true });
+  TK.afterSwap.push(() => { nt.open = false; nt.seq++; });
+
+  // منوی «ایجاد»
+  const tbMenuClose = (focus = true) => {
+    const m = TK.qs('#tb-create-menu'); if (!m || m.hidden) return;
+    m.hidden = true; const b = TK.qs('.tb-create-btn'); b?.setAttribute('aria-expanded', 'false'); if (focus) b?.focus();
+  };
+  const tbMenuItems = () => TK.qsa('#tb-create-menu [role=menuitem]');
+  TK.on('click', '.tb-create-btn', (e, b) => {
+    e.stopPropagation(); const m = TK.qs('#tb-create-menu'); if (!m) return;
+    if (!m.hidden) return tbMenuClose();
+    ntClose(false); m.hidden = false; b.setAttribute('aria-expanded', 'true'); tbMenuItems()[0]?.focus();
+  });
+  TK.on('click', '#tb-create-menu [role=menuitem]', (e, it) => {
+    tbMenuClose(false);
+    const k = it.dataset.create;
+    if (k === 'task') { if (TK.tasks?.openNew && TK.qs('#m-task')) TK.tasks.openNew(); else TK.visit(TK.url('/tasks?new=1')); }
+    else if (k === 'project') { const b = TK.qs('#btn-new-project'); if (b) b.click(); else TK.visit(TK.url('/projects?new=1')); }
+  });
+  document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.tb-create')) tbMenuClose(false); });
+  document.addEventListener('keydown', (e) => {
+    const m = TK.qs('#tb-create-menu'); if (!m || m.hidden || !m.contains(document.activeElement)) return;
+    const items = tbMenuItems(), i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); tbMenuClose(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
+    else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1]?.focus(); }
+    else if (e.key === 'Tab') tbMenuClose(false);
+  });
+
+  // تغییر روشن ↔ تیره‌ی همان پالت (کوکی دستگاه kx_theme از مسیر پروفایل، بدون بارگذاری دوباره)
+  TK.on('click', '[data-theme-toggle]', async (e, b) => {
+    const html = document.documentElement, cur = html.dataset.theme || 'violet-light';
+    const next = /-dark$/.test(cur) ? cur.replace(/-dark$/, '-light') : cur.replace(/-light$/, '-dark');
+    const r = await TK.post('/profile/appearance', { theme: next });
+    if (!TK.ok(r)) return TK.toast(r.message, 'error');
+    const dark = /-dark$/.test(next);
+    html.classList.add('theme-switching');
+    html.dataset.theme = next; html.dataset.mode = dark ? 'dark' : 'light';
+    setTimeout(() => html.classList.remove('theme-switching'), 60);
+    TK.qsa('[data-theme-toggle]').forEach((t) => { t.setAttribute('aria-pressed', String(dark)); t.title = dark ? 'رفتن به حالت روشن' : 'رفتن به حالت تیره'; const i = t.querySelector('i'); if (i) i.className = 'fa-solid ' + (dark ? 'fa-sun' : 'fa-moon'); });
+    const mc = TK.qs('meta[name=theme-color]'); if (mc) mc.content = getComputedStyle(document.body).backgroundColor;
+    TK.qsa('input[name=theme]').forEach((x) => { x.checked = x.value === next; });
+  });
+
   if (boot.live && 'Notification' in window && Notification.permission === 'default' && !sessionStorage.getItem('tk_notif_hint')) {
     sessionStorage.setItem('tk_notif_hint', '1');
-    setTimeout(() => TK.toast('برای دریافت اعلان پیام جدید و یادآوری تسک، روی زنگ بالای صفحه کلیک کنید.', 'info', 7000), 1500);
+    setTimeout(() => TK.toast('برای دریافت اعلان پیام جدید و یادآوری تسک روی دستگاه، زنگ بالای صفحه را باز کنید و «اعلان مرورگر» را بزنید.', 'info', 7000), 1500);
   }
 
   /* ───── دکمه‌ی × پاک‌کردن جستجو ─────

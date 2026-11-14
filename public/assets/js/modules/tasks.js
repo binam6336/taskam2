@@ -239,6 +239,8 @@ document.addEventListener('tk:ready', () => {
     TK.modal.open(modal);
   };
   TK.qs('#btn-new-task')?.addEventListener('click', () => openNew());
+  // v7.15: منوی «ایجاد» نوار بالا از صفحه‌های بدون فرم تسک به /tasks?new=1 می‌آید
+  if (new URLSearchParams(location.search).get('new') === '1') { const q = new URLSearchParams(location.search); q.delete('new'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '')); setTimeout(() => openNew(), 0); }
   // موبایل: منوی ⋮ دکمه‌های هر کارت (جزئیات/ویرایش/حذف)
   const closeMore = (except) => TK.qsa('.item-actions.open').forEach((a) => { if (a !== except) { a.classList.remove('open'); a.querySelector('[data-item-more]')?.setAttribute('aria-expanded', 'false'); } });
   TK.on('click', '[data-item-more]', (e, b) => { e.stopPropagation(); const a = b.closest('.item-actions'); closeMore(a); const on = a.classList.toggle('open'); b.setAttribute('aria-expanded', on ? 'true' : 'false'); });

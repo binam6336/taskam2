@@ -13,7 +13,7 @@
 <meta name="csrf-token" content="<?= e($csrf) ?>">
 <title>تست API • <?= e(app_name()) ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri()) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('vendor/sahel/sahel-font-face.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('vendor/swagger-ui/swagger-ui.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/swagger.css')) ?>">
 </head>

@@ -38,11 +38,14 @@ final class LiveController extends Controller
 
         $counts = [
             'chat'       => ChatModel::totalUnread($uid),
+            'notifs'     => $notifs = \App\Services\NotificationCenter::unread($uid),   // v7.15 زنگ اعلان‌ها (پیام‌های ربات)
+            'chat_people' => 0,                                                  // v7.15 آیکون گفتگوی نوار بالا: بدون پیام‌های ربات (آن‌ها در زنگ‌اند)
             'support'    => SupportModel::unreadForUser($uid),
             'colleagues' => (int) DB::value("SELECT COUNT(*) FROM colleague_requests WHERE target_id = ? AND status = 'pending'", [$uid]),
             'projects'   => (int) DB::value("SELECT COUNT(*) FROM project_join_requests WHERE user_id = ? AND status = 'pending'", [$uid]),
             'tasks'      => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE ' . \App\Models\TaskModel::mine($uid, 'tasks') . ' AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
         ];
+        $counts['chat_people'] = max(0, $counts['chat'] - $notifs);
 
         // ── پیام‌های جدید برای اعلان ──
         $messages = [];
