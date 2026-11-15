@@ -17,6 +17,7 @@ $isActive = static fn(string $k): string => $current === $k ? ' active' : '';
         <a href="<?= e(url('/docs/swagger')) ?>" class="<?= $current === 'swagger' ? 'on' : '' ?>"><i class="fa-solid fa-flask"></i> تست API</a>
     </nav>
     <div class="dx-search"><i class="fa-solid fa-magnifying-glass"></i><input id="dx-q" class="input" placeholder="<?= e(ph('docs_search')) ?>" autocomplete="off"><div class="dx-results" id="dx-results" hidden></div></div>
+    <a class="btn btn-sm dx-back" href="<?= e(url('/dashboard')) ?>" title="بازگشت به کارلیکس" aria-label="بازگشت به کارلیکس"><i class="fa-solid fa-arrow-right"></i> <span>بازگشت به کارلیکس</span></a>
     <a class="btn btn-sm btn-primary dx-panel" href="<?= e(url($loggedIn ? '/tokens' : '/login')) ?>"><i class="fa-solid fa-key"></i> <?= $loggedIn ? 'ساخت توکن' : 'ورود به پنل' ?></a>
 </header>
 <div class="dx-wrap">

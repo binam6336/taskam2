@@ -159,6 +159,8 @@ html[data-mode="dark"] .sb-tooltip, html[data-mode="dark"] .sb-tooltip::after { 
   html.sb-rail .sb-me { justify-content: center; }
   html.sb-rail .sb-foot { flex-direction: column; }
   html.sb-rail .sb-me-dot { inset-inline-start: auto; right: 8px; }
+  /* v7.18.1: در حالت جمع‌شده منوی حساب کنار ریل باز می‌شود، نه داخل ۶۸ پیکسل آن */
+  html.sb-rail .sb-foot > .sb-user-menu { right: calc(100% + 8px); left: auto; bottom: 8px; width: 250px; max-height: calc(100vh - 24px); }
   html.sb-rail .sb-me-t, html.sb-rail .sb-me-chev, html.sb-rail .sb-lbl, html.sb-rail .sb-chev { display: none; }
   html.sb-rail .sb-grp + .sb-grp, html.sb-rail .sb-list > li + .sb-grp { border-top: 1px solid var(--border); padding-top: 4px; margin-top: 4px; }
 }
@@ -721,7 +723,7 @@ a.card.stat:hover { border-color: var(--border-2); background: var(--c-subtle); 
 .td-tools { display: flex; gap: 2px; flex: none; }
 .td-tools .btn-icon { width: 32px; height: 32px; border-radius: var(--r); background: transparent; border-color: transparent; color: var(--muted); }
 .td-tools .btn-icon:hover { background: var(--c-hover); color: var(--text); }
-.td-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px 32px; }
+.td-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 24px 32px; }   /* v7.18.1: جزئیات تسک هرگز اسکرول افقی ندارد */
 .td-title { font-size: var(--fs-xl); font-weight: 700; line-height: 1.5; margin: 0 0 20px; word-break: break-word; }
 .td-banner { margin-bottom: 14px; }
 .td-grid { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 28px; align-items: start; }
@@ -742,7 +744,11 @@ a.card.stat:hover { border-color: var(--border-2); background: var(--c-subtle); 
 .file-chip-x:hover, .file-chip-x:focus-visible { background: var(--danger-bg); color: var(--danger-ink); }
 .file-chip-x:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; }
 .file-chip-x:disabled { opacity: .4; cursor: default; }
-.td-tabs { padding: 0; margin-bottom: 12px; }
+.td-tabs { padding: 0; margin-bottom: 12px; overflow: visible; }
+.td-tabs .utab { min-width: 0; white-space: normal; height: auto; min-height: 42px; padding: 8px 12px; text-align: center; }
+.td-crumb > .nowrap { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.td-crumb > .qk-badge, .td-crumb > .secret-badge, .td-crumb > .proj-ic { flex: none; }
+.td-crumb > .qk-badge::after, .td-crumb > .secret-badge::after { left: 0; right: auto; transform: none; }   /* راهنما رو به داخل، بدون بیرون‌زدگی */
 .td-tabs button.utab:hover { color: var(--text); }
 .td-compose { margin: 0 0 14px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--c-subtle); }
 .td-compose textarea.input { min-height: 64px; background: var(--c-card); }
@@ -787,7 +793,13 @@ a.card.stat:hover { border-color: var(--border-2); background: var(--c-subtle); 
   .td-side { position: static; order: -1; }
   .td-scroll { padding: 16px; }
 }
-@media (max-width: 600px) { #m-detail .modal-box.td-box { max-height: 94vh; } }
+@media (max-width: 600px) {
+  #m-detail .modal-box.td-box { max-height: 94vh; }
+  /* v7.18.1: در موبایل ابزارها ردیف اول و مسیر/تاریخ ثبت ردیف دوم — زیر آیکون‌ها نمی‌رود */
+  #m-detail .td-head { flex-wrap: wrap; row-gap: 6px; padding: 10px 12px; }
+  #m-detail .td-tools { margin-inline-start: auto; }
+  #m-detail .td-crumb { order: 2; flex-basis: 100%; }
+}
 /* dropdown: فقط وقتی باز است (رفع تداخل display) */
 .dropdown:not(.open) > .dropdown-menu { display: none; }
 .dropdown-menu .dd-hint { padding: 4px 10px; }
@@ -883,6 +895,7 @@ a.card.stat:hover { border-color: var(--border-2); background: var(--c-subtle); 
 /* کارت */
 #kb-board .kb-card { position: relative; background: var(--c-card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; box-shadow: var(--shadow-sm); cursor: auto; transition: border-color var(--dur), box-shadow var(--dur), opacity var(--dur); }
 #kb-board .kb-card:hover { border-color: var(--border-2); box-shadow: var(--shadow); }
+#kb-board .kb-card.kb-flash { border-color: var(--main); box-shadow: 0 0 0 3px var(--c-sel-strong); }
 #kb-board .kb-card::before { content: ""; position: absolute; inset-inline-start: -1px; top: 10px; bottom: 10px; width: 3px; border-radius: 3px 0 0 3px; background: transparent; }
 #kb-board .kb-card.p-high::before { background: var(--danger); } #kb-board .kb-card.p-medium::before { background: var(--warn); } #kb-board .kb-card.p-low::before { background: var(--info); }
 #kb-board .kb-card.kb-secret::before { background: var(--main); }

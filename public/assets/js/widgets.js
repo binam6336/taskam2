@@ -74,18 +74,18 @@
       let head = '', body = '';
       if (view.mode === 'days') {
         const first = J.weekday(view.y, view.m, 1), len = J.monthLen(view.y, view.m);
-        // v7.18: مثل جهت راست‌به‌چپ تقویم — دکمه‌ی راست = ماه قبل، دکمه‌ی چپ = ماه بعد
-        head = `<button type="button" data-nav="-1" aria-label="ماه قبل"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="months">${J.MONTHS[view.m - 1]} ${FA(view.y)}</button><button type="button" data-nav="1" aria-label="ماه بعد"><i class="fa-solid fa-chevron-left"></i></button>`;
+        // v7.18.1 (درخواست کاربر): فلش راست = ماه بعد، فلش چپ = ماه قبل (سال‌ها هم همین‌طور)
+        head = `<button type="button" data-nav="1" aria-label="ماه بعد"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="months">${J.MONTHS[view.m - 1]} ${FA(view.y)}</button><button type="button" data-nav="-1" aria-label="ماه قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-wd">${J.WD.map((d) => `<span>${d}</span>`).join('')}</div><div class="jcal-grid">${'<i></i>'.repeat(first)}${Array.from({ length: len }, (_, i) => {
           const d = i + 1, isT = t[0] === view.y && t[1] === view.m && t[2] === d, isS = sel && sel[0] === view.y && sel[1] === view.m && sel[2] === d;
           return `<button type="button" class="jcal-day${isT ? ' today' : ''}${isS ? ' sel' : ''}${(first + i) % 7 === 6 ? ' fri' : ''}" data-d="${d}">${FA(d)}</button>`;
         }).join('')}</div>`;
       } else if (view.mode === 'months') {
-        head = `<button type="button" data-ynav="-1" aria-label="سال قبل"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="years">${FA(view.y)}</button><button type="button" data-ynav="1" aria-label="سال بعد"><i class="fa-solid fa-chevron-left"></i></button>`;
+        head = `<button type="button" data-ynav="1" aria-label="سال بعد"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="years">${FA(view.y)}</button><button type="button" data-ynav="-1" aria-label="سال قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-months">${J.MONTHS.map((n, i) => `<button type="button" class="${t[0] === view.y && t[1] === i + 1 ? 'today' : ''}${sel && sel[0] === view.y && sel[1] === i + 1 ? ' sel' : ''}" data-m="${i + 1}">${n}</button>`).join('')}</div>`;
       } else {
         const base = view.y - (view.y % 12);
-        head = `<button type="button" data-yrange="-12" aria-label="سال‌های قبل"><i class="fa-solid fa-chevron-right"></i></button><span class="jcal-title">${FA(base)} – ${FA(base + 11)}</span><button type="button" data-yrange="12" aria-label="سال‌های بعد"><i class="fa-solid fa-chevron-left"></i></button>`;
+        head = `<button type="button" data-yrange="12" aria-label="سال‌های بعد"><i class="fa-solid fa-chevron-right"></i></button><span class="jcal-title">${FA(base)} – ${FA(base + 11)}</span><button type="button" data-yrange="-12" aria-label="سال‌های قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-months">${Array.from({ length: 12 }, (_, i) => base + i).map((y) => `<button type="button" class="${t[0] === y ? 'today' : ''}${sel && sel[0] === y ? ' sel' : ''}" data-y="${y}">${FA(y)}</button>`).join('')}</div>`;
       }
       pop.innerHTML = `<div class="jcal-head">${head}</div>${body}<div class="jcal-foot"><button type="button" class="btn btn-xs btn-primary" data-today>امروز</button><button type="button" class="btn btn-xs" data-clear>پاک کردن</button></div>`;

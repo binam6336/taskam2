@@ -63,7 +63,14 @@ document.addEventListener('tk:ready', () => {
       return;
     }
     TK.toast(r.message, 'success', 1800);
-    TK.reload();                               // علت توقف، مرتب‌سازی و شمارنده‌ها از سرور
+    // v7.18.1: ستون مقصد باز می‌ماند (حتی اگر قبلاً جمعش کرده بودید) و کارت اول آن دیده می‌شود؛ «انجام‌شده» از سرور هم جدیدترین‌اول است
+    const dest = list.closest('.kb-col');
+    if (dest) setPref(dest, false);
+    list.scrollTop = 0;
+    await TK.reload();                         // علت توقف، مرتب‌سازی و شمارنده‌ها از سرور
+    const nl = TK.qs(`[data-drop="${status}"]`), nc = TK.qs('#kb-task-' + CSS.escape(card.dataset.id));
+    if (nl) nl.scrollTop = 0;
+    if (nc) { nc.scrollIntoView({ block: 'nearest', inline: 'nearest' }); nc.classList.add('kb-flash'); setTimeout(() => nc.classList.remove('kb-flash'), 1600); }
   };
 
   /* مقصدهای مجاز هر کارت (طبق دسترسی بورد پروژه) از سرور می‌آید؛ «بازبینی مسئول» علت برگشت را می‌پرسد */
