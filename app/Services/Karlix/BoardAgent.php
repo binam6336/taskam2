@@ -147,6 +147,9 @@ final class BoardAgent
         if (!Agnes::enabled()) {
             return self::res(false, Agnes::ERRORS['not_configured'], 'AI_DISABLED', 503);
         }
+        if (($q = Quota::check($c->uid, 0)) !== null) {
+            return self::res(false, $q['message'], 'AI_QUOTA', 429);
+        }
         if (Common::usedToday($c->uid) >= Assistant::perDay()) {
             return self::res(false, 'به سقف روزانه‌ی درخواست از هوش مصنوعی (' . fa_num(Assistant::perDay()) . ') رسیده‌اید.', 'AI_DAILY_LIMIT', 429);
         }
@@ -172,11 +175,11 @@ final class BoardAgent
             }
             $c->selection = ['set' => $set !== null ? (int) $set['id'] : null, 'tasks' => $sel];
             $ctxLog = ['filters' => $c->filters, 'selection' => ['set' => $set !== null ? 'R' . $set['seq'] : null, 'count' => count($sel)]];
-            DB::insert('ai_board_messages', ['session_id' => $sid, 'role' => 'user', 'content' => $text, 'context' => json_encode($ctxLog, JSON_UNESCAPED_UNICODE), 'real_user_id' => $c->realUid]);
+            $mid = DB::insert('ai_board_messages', ['session_id' => $sid, 'role' => 'user', 'content' => $text, 'context' => json_encode($ctxLog, JSON_UNESCAPED_UNICODE), 'real_user_id' => $c->realUid]);
             if (empty($c->session['title'])) {
                 DB::run('UPDATE ai_board_sessions SET title = ? WHERE id = ?', [mb_substr($text, 0, 120), $sid]);
             }
-            $msg = self::loop($c, $text, $set);
+            $msg = self::loop($c, $text, $set, $mid);
         } catch (\Throwable $e) {
             Log::error($e, 'karlix', ['session' => $sid]);
             $msg = self::finish($c, 'هنگام پردازش خطای داخلی رخ داد؛ هیچ تغییری روی تسک‌ها اعمال نشد.', [], [], null, 'exception', 0);
@@ -187,7 +190,7 @@ final class BoardAgent
         return self::res(true, '', '', 200, ['reply' => $msg]);
     }
 
-    private static function loop(BoardContext $c, string $text, ?array $set): array
+    private static function loop(BoardContext $c, string $text, ?array $set, int $mid): array
     {
         $messages = [
             ['role' => 'system', 'content' => self::systemPrompt()],
@@ -199,11 +202,13 @@ final class BoardAgent
         $finalText = '';
         $error = null;
         for ($step = 1; $step <= self::MAX_STEPS; $step++) {
-            $ai = Agnes::chat($messages, 1400);
+            // هر گام یک فراخوانی جدا با کلید یکتای خودش (پیام + گام + تلاش)؛ سهمیه پیش از هر گام دوباره بررسی می‌شود
+            $call = isset($call) ? $call + 1 : 1;
+            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $call, 'real_user' => $c->realUid]);
             $tokens += (int) $ai['tokens'];
             if (!$ai['ok']) {
                 $error = (string) $ai['error'];
-                $finalText = (Agnes::ERRORS[$error] ?? Agnes::ERRORS['network']) . ' هیچ تغییری روی تسک‌ها اعمال نشد.';
+                $finalText = (string) $ai['message'] . ' هیچ تغییری روی تسک‌ها اعمال نشد.';
                 break;
             }
             $plan = Common::json($ai['content']);

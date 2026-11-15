@@ -52,7 +52,7 @@ final class Common
         }
         return ['date' => $now->format('Y-m-d'), 'time' => $now->format('H:i'), 'timezone' => self::TZ,
             'weekday' => Jalali::WEEKDAYS[((int) $now->format('w') + 1) % 7], 'jalali' => jdate($now->format('Y-m-d') . ' 00:00:00', false, true),
-            'week_end_friday' => $week->format('Y-m-d'), 'jalali_month_end' => $end->format('Y-m-d'), 'jalali_month' => Jalali::MONTHS[$jm - 1] . ' ' . $jy];
+            'week_end_friday' => $week->format('Y-m-d'), 'jalali_month_end' => $end->format('Y-m-d'), 'jalali_month' => Jalali::MONTHS[$jm - 1] . ' ' . fa_num($jy)];
     }
 
     /** اولین شیء JSON معتبر در پاسخ مدل (کد فنس و متن اضافه نادیده گرفته می‌شود)؛ $key = کلیدی که باید باشد */

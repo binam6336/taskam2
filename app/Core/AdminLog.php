@@ -26,6 +26,7 @@ final class AdminLog
         'task_viewers' => ['بیننده‌ی تسک محرمانه', null], 'ai_requests' => ['درخواست کارلیکس', null],
         'ai_board_sessions' => ['گفتگوی دستیار بورد', null], 'ai_board_messages' => ['پیام دستیار بورد', null], 'ai_result_sets' => ['لیست دستیار بورد', null],
         'ai_actions' => ['عملیات دستیار بورد', null], 'ai_exports' => ['خروجی دستیار بورد', null],
+        'ai_usage' => ['مصرف هوش مصنوعی', null], 'ai_quotas' => ['سهمیه‌ی هوش مصنوعی', null],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */

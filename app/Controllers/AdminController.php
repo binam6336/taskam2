@@ -121,6 +121,7 @@ final class AdminController extends Controller
         [$role, $adminRole] = $this->isSuper() ? $this->roleInput() : ['user', null];
         $status = Validate::enum($this->request->input('status'), Auth::STATUSES, 'active');
         $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_role' => $adminRole]);
+        \App\Services\Karlix\Quota::ensure($id);          // v7.21: سهمیه‌ی پیش‌فرض هوش مصنوعی
         Audit::log($this->uid(), 'admin_user_created', ['id' => $id, 'role' => $role]);
         if ($role === 'user') {
             ProjectService::createSample($id);
@@ -585,6 +586,103 @@ final class AdminController extends Controller
         DB::update('users', $d, 'id = ?', [(int) $t['id']]);
         Audit::log($this->uid(), 'admin_access_user', ['id' => (int) $t['id'], 'role' => $role, 'custom' => $custom !== null]);
         $this->respond(true, $role === 'user' ? 'دسترسی مدیریت این حساب برداشته شد؛ حالا کاربر عادی است.' : 'نقش و دسترسی «' . full_name($t) . '» ذخیره شد.', '/admin/access');
+    }
+
+    // ───────── v7.21: تنظیمات ← مصرف AI ─────────
+
+    public const AI_FILTERS = ['all' => 'همه', 'used' => 'مصرف داشته‌اند', 'near' => 'نزدیک سقف (۸۰٪+)', 'full' => 'سهمیه تمام', 'unlimited' => 'نامحدود', 'custom' => 'سهمیه‌ی اختصاصی'];
+
+    public function aiUsage()
+    {
+        $this->need('manage_ai_usage');
+        $this->rateLimit('admin_list', 60);
+        $r = $this->request->query;
+        $per = (int) ($r['per'] ?? self::USERS_PER_PAGE[1]);
+        $per = in_array($per, self::USERS_PER_PAGE, true) ? $per : self::USERS_PER_PAGE[1];
+        $f = isset(self::AI_FILTERS[$r['f'] ?? '']) ? (string) $r['f'] : 'all';
+        $q = trim(mb_substr((string) ($r['q'] ?? ''), 0, 60));
+        $d = \App\Services\Karlix\Quota::defaults();
+        $p = \App\Services\Karlix\Quota::periods();
+        // سهمیه‌ی مؤثر: ردیف ai_quotas، وگرنه پیش‌فرض فعلی (کاربری که هنوز ردیف ندارد)
+        $lim = static fn(string $col, string $k) => "IF(q.user_id IS NULL, " . ($d[$k] === null ? 'NULL' : (int) $d[$k]) . ", q.$col)";
+        $base = "FROM users u LEFT JOIN ai_quotas q ON q.user_id = u.id
+            LEFT JOIN ai_usage_counters cd ON cd.user_id = u.id AND cd.period = ?
+            LEFT JOIN ai_usage_counters cm ON cm.user_id = u.id AND cm.period = ?
+            LEFT JOIN ai_usage_counters ct ON ct.user_id = u.id AND ct.period = 'total'";
+        $sel = "u.id, u.pid, u.first_name, u.last_name, u.mobile, u.email, u.role, u.status, COALESCE(q.is_custom, 0) is_custom,
+            COALESCE(cd.used, 0) d_used, COALESCE(cm.used, 0) m_used, COALESCE(ct.used, 0) t_used,
+            " . $lim('daily_limit', 'daily') . ' d_lim, ' . $lim('monthly_limit', 'monthly') . ' m_lim, ' . $lim('total_limit', 'total') . ' t_lim';
+        $params = [$p['daily'], $p['monthly']];
+        $w = ['u.is_bot = 0'];
+        $wp = [];
+        if (\App\Core\Search::tokens($q)) {
+            [$qs, $qp] = \App\Core\Search::sql(['u.first_name', 'u.last_name', 'u.mobile', 'u.email'], $q);
+            $w[] = $qs;
+            $wp = $qp;
+        }
+        $having = [
+            'all' => '1', 'used' => 't_used > 0', 'custom' => 'is_custom = 1',
+            'unlimited' => '(d_lim IS NULL AND m_lim IS NULL AND t_lim IS NULL)',
+            'full' => '((d_lim IS NOT NULL AND d_used >= d_lim) OR (m_lim IS NOT NULL AND m_used >= m_lim) OR (t_lim IS NOT NULL AND t_used >= t_lim))',
+            'near' => '((d_lim > 0 AND d_used >= d_lim * 0.8) OR (m_lim > 0 AND m_used >= m_lim * 0.8) OR (t_lim > 0 AND t_used >= t_lim * 0.8))',
+        ][$f];
+        $sql = 'SELECT ' . $sel . ' ' . $base . ' WHERE ' . implode(' AND ', $w) . ' HAVING ' . $having;
+        $all = array_merge($params, $wp);
+        $total = (int) DB::value('SELECT COUNT(*) FROM (' . $sql . ') x', $all);
+        $pages = max(1, (int) ceil($total / $per));
+        $pg = max(1, min($pages, (int) ($r['page'] ?? 1)));
+        $rows = DB::all($sql . ' ORDER BY t_used DESC, u.id DESC LIMIT ' . $per . ' OFFSET ' . (($pg - 1) * $per), $all);
+        $sum = DB::one("SELECT COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) d, COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) m,
+            COALESCE(SUM(CASE WHEN period = 'total' THEN used END), 0) t, COUNT(DISTINCT CASE WHEN period = ? AND used > 0 THEN user_id END) active
+            FROM ai_usage_counters", [$p['daily'], $p['monthly'], $p['daily']]);
+        $this->view('admin/ai_usage', [
+            'rows' => $rows, 'total' => $total, 'pg' => $pg, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
+            'f' => $f, 'filters' => self::AI_FILTERS, 'q' => $q, 'defaults' => $d, 'sum' => $sum, 'month' => \App\Services\Karlix\Common::now()['jalali_month'],
+            'supportUnread' => SupportModel::unreadForAdmin(),
+        ], ['title' => 'مصرف هوش مصنوعی', 'page' => 'admin-ai-usage'], 'admin');
+    }
+
+    /** سقف از فرم: عدد صحیح ≥ ۰ یا «نامحدود» (null) */
+    private function aiLimits(): array
+    {
+        $out = [];
+        foreach (['daily', 'monthly', 'total'] as $k) {
+            if ($this->request->input($k . '_unlimited')) {
+                $out[$k] = null;
+                continue;
+            }
+            $v = str_replace([',', '٬', ' '], '', strtr((string) $this->request->input($k, ''), ['۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9']));
+            if (!preg_match('/^\d{1,12}$/', $v)) {
+                $this->fail('سقف ' . \App\Services\Karlix\Quota::KINDS[$k] . ' باید عدد صحیح (توکن) یا «نامحدود» باشد.');
+            }
+            $out[$k] = (int) $v;
+        }
+        return $out;
+    }
+
+    public function aiDefaults()
+    {
+        $this->need('manage_ai_usage');
+        $this->rateLimit('admin_ai_quota', 30);
+        $lim = $this->aiLimits();
+        $n = \App\Services\Karlix\Quota::setDefaults($lim, $this->uid());
+        Audit::log($this->uid(), 'ai_quota_defaults', $lim + ['users' => $n]);
+        $this->respond(true, 'سهمیه‌ی پیش‌فرض ذخیره شد و روی کاربرانی که سهمیه‌ی اختصاصی ندارند اعمال شد.', '/admin/ai-usage');
+    }
+
+    public function aiQuota(string $user)
+    {
+        $this->need('manage_ai_usage');
+        $this->rateLimit('admin_ai_quota', 30);
+        $uid = (int) $user;
+        if (!DB::value('SELECT id FROM users WHERE id = ? AND is_bot = 0', [$uid])) {
+            $this->fail('کاربر یافت نشد.', 404);
+        }
+        $reset = (string) $this->request->input('reset', '') === '1';
+        $lim = $reset ? null : $this->aiLimits();
+        \App\Services\Karlix\Quota::setUser($uid, $lim, $this->uid());
+        Audit::log($this->uid(), 'ai_quota_user', ['user' => $uid] + ($lim ?? ['reset' => true]));
+        $this->respond(true, $reset ? 'سهمیه‌ی کاربر به پیش‌فرض برگشت.' : 'سهمیه‌ی کاربر ذخیره شد؛ سوابق مصرف دست نخورد.', '/admin/ai-usage');
     }
 
     public function security()

@@ -10,7 +10,9 @@ $tabs = [
     'personal'   => ['fa-id-card', 'اطلاعات شخصی', 'اطلاعات حساب و رمز عبور'],
     'appearance' => ['fa-palette', 'تنظیمات ظاهری', 'تم پنل'],
     'security'   => ['fa-shield-halved', 'امنیت', 'نشست‌های فعال، حریم خصوصی و امنیت تسک‌ها'],
+    'ai'         => ['fa-brain', 'مصرف هوش مصنوعی', 'سهمیه‌ی روزانه، ماهانه و کلی توکن'],
 ];
+$this->boot['aiUsage'] = $ai;
 ?>
 <div class="pf-layout">
     <nav class="pf-nav" aria-label="بخش‌های پروفایل">
@@ -104,5 +106,9 @@ $tabs = [
             <p class="hint autosave-hint"><i class="fa-solid fa-cloud-arrow-up"></i> تغییرات خودکار ذخیره می‌شود.</p></form></div>
 </div>
         </section>
+        <section class="pf-pane" id="pf-ai" data-pf-pane="ai" aria-labelledby="pf-h-ai" hidden>
+            <h2 class="pf-h" id="pf-h-ai"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h2>
+            <p class="small muted">مصرف بر اساس توکن واقعی‌ای است که سرویس هوش مصنوعی برای هر درخواست کارلیکس (یادداشت تسک و دستیار بورد) گزارش می‌دهد: توکن ورودی + توکن خروجی. روز طبق ساعت تهران و ماه طبق تقویم شمسی حساب می‌شود.</p>
+            <div class="aiu-wrap" data-aiu aria-live="polite"><?php $this->partial('ai_usage', ['ai' => $ai]); ?></div>
     </div>
 </div>

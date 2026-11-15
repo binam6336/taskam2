@@ -55,16 +55,24 @@ final class Agnes
     }
 
     /**
-     * یک درخواست چت. خروجی: ['ok' => bool, 'content' => string, 'tokens' => ?int, 'error' => ?string, 'http' => int]
+     * یک درخواست چت — تنها مسیر فراخوانی مدل در کل برنامه و همیشه با سهمیه (Quota): پیش از ارسال رزرو، بعد از پاسخ ثبت مصرف واقعی.
+     * $meta: user (الزامی؛ کاربری که مصرف به سهمیه‌اش نوشته می‌شود)، feature (task_note|board)، key (شناسه‌ی یکتای این فراخوانی)، real_user (مدیر در ورود به پنل کاربر).
+     * خروجی: ['ok', 'content', 'tokens', 'usage' => [input, output, total], 'error', 'message' (متن کاربرپسند خطا)، 'http']
      * $messages = [['role' => 'system'|'user'|'assistant', 'content' => string], …]
      */
-    public static function chat(array $messages, int $maxTokens = 700): array
+    public static function chat(array $messages, int $maxTokens = 700, array $meta = []): array
     {
+        $fail = static fn(string $e, int $http = 0, ?string $msg = null) => ['ok' => false, 'content' => '', 'tokens' => null, 'usage' => null, 'error' => $e,
+            'message' => $msg ?? (self::ERRORS[$e] ?? self::ERRORS['network']), 'http' => $http];
         if (!self::enabled()) {
-            return ['ok' => false, 'content' => '', 'tokens' => null, 'error' => 'not_configured', 'http' => 0];
+            return $fail('not_configured');
+        }
+        $uid = (int) ($meta['user'] ?? 0);
+        if ($uid <= 0) {
+            return $fail('not_configured', 0, 'درخواست هوش مصنوعی بدون کاربر مشخص پذیرفته نمی‌شود.');    // هیچ فراخوانی بیرون از سهمیه
         }
         if (!function_exists('curl_init')) {
-            return ['ok' => false, 'content' => '', 'tokens' => null, 'error' => 'network', 'http' => 0];
+            return $fail('network');
         }
         $body = ['model' => self::model(), 'messages' => $messages, 'temperature' => 0.1, 'max_tokens' => $maxTokens, 'stream' => false];
         // حالت JSON فقط اگر روی سرور فعال شده باشد (پشتیبانی همه‌ی مدل‌ها از response_format تضمین‌شده نیست)
@@ -72,6 +80,11 @@ final class Agnes
             $body['response_format'] = ['type' => 'json_object'];
         }
         $payload = json_encode($body, JSON_UNESCAPED_UNICODE);
+        $key = (string) ($meta['key'] ?? ('x:' . bin2hex(random_bytes(8))));
+        $q = Quota::reserve($uid, (string) ($meta['feature'] ?? 'other'), $key, self::model(), Quota::estimate((string) $payload, $maxTokens), isset($meta['real_user']) ? (int) $meta['real_user'] : null);
+        if (!$q['ok']) {
+            return $fail($q['code'], 0, $q['message']);
+        }
         $started = microtime(true);
         $res = self::post($payload);
         // یک تلاش دوباره فقط برای خطای موقت شبکه/سرور، و فقط اگر زمان کافی مانده باشد
@@ -79,18 +92,32 @@ final class Agnes
             usleep(600000);
             $res = self::post($payload);
         }
-        if ($res['error'] !== null) {
-            Log::warning('karlix.api_error', ['error' => $res['error'], 'http' => $res['http'], 'ms' => (int) ((microtime(true) - $started) * 1000)]);
-            return ['ok' => false, 'content' => '', 'tokens' => null, 'error' => $res['error'], 'http' => $res['http']];
+        $j = $res['body'] !== '' ? json_decode($res['body'], true) : null;
+        $usage = self::usage($j);
+        $content = $res['error'] === null && is_array($j) ? ($j['choices'][0]['message']['content'] ?? null) : null;
+        $ok = $res['error'] === null && is_string($content) && trim($content) !== '';
+        $err = $res['error'] ?? ($ok ? null : 'bad_response');
+        $charged = Quota::settle((int) $q['id'], $usage, $ok, $res['http'] > 0, $err);
+        if (!$ok) {
+            Log::warning('karlix.api_error', ['error' => $err, 'http' => $res['http'], 'ms' => (int) ((microtime(true) - $started) * 1000), 'charged' => $charged]);
+            return $fail((string) $err, $res['http']) + ['charged' => $charged];
         }
-        $j = json_decode($res['body'], true);
-        $content = is_array($j) ? ($j['choices'][0]['message']['content'] ?? null) : null;
-        if (!is_string($content) || trim($content) === '') {
-            Log::warning('karlix.bad_response', ['http' => $res['http'], 'len' => strlen($res['body'])]);
-            return ['ok' => false, 'content' => '', 'tokens' => null, 'error' => 'bad_response', 'http' => $res['http']];
+        return ['ok' => true, 'content' => $content, 'tokens' => $usage['total'] ?? null, 'usage' => $usage, 'charged' => $charged, 'error' => null, 'message' => null, 'http' => $res['http']];
+    }
+
+    /** usage گزارش‌شده‌ی سرویس (OpenAI-سازگار): prompt_tokens / completion_tokens / total_tokens — یا null */
+    private static function usage($j): ?array
+    {
+        $u = is_array($j) && is_array($j['usage'] ?? null) ? $j['usage'] : null;
+        if ($u === null) {
+            return null;
         }
-        $tokens = isset($j['usage']['total_tokens']) && is_numeric($j['usage']['total_tokens']) ? (int) $j['usage']['total_tokens'] : null;
-        return ['ok' => true, 'content' => $content, 'tokens' => $tokens, 'error' => null, 'http' => $res['http']];
+        $n = static fn($v) => is_numeric($v) && $v >= 0 ? (int) $v : null;
+        $r = ['input' => $n($u['prompt_tokens'] ?? $u['input_tokens'] ?? null), 'output' => $n($u['completion_tokens'] ?? $u['output_tokens'] ?? null), 'total' => $n($u['total_tokens'] ?? null)];
+        if ($r['total'] === null && ($r['input'] !== null || $r['output'] !== null)) {
+            $r['total'] = (int) $r['input'] + (int) $r['output'];
+        }
+        return $r['total'] === null ? null : $r;
     }
 
     /** @return array{body:string,http:int,error:?string} */

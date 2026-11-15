@@ -220,6 +220,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/privacy', [ProfileController::class, 'privacy']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
+    $r->get('/profile/ai-usage', [ProfileController::class, 'aiUsage']);
     $r->post('/profile/sessions/revoke', [ProfileController::class, 'revokeSession']);
     $r->post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions']);
     $r->post('/tour', [TourController::class, 'update']);
@@ -260,6 +261,9 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/security', [AdminController::class, 'security']);
+    $r->get('/admin/ai-usage', [AdminController::class, 'aiUsage']);                     // v7.21 سهمیه‌ی مصرف هوش مصنوعی
+    $r->post('/admin/ai-usage/defaults', [AdminController::class, 'aiDefaults']);
+    $r->post('/admin/ai-usage/{user}/quota', [AdminController::class, 'aiQuota']);
     $r->get('/admin/access', [AdminController::class, 'access']);
     $r->post('/admin/access/roles', [AdminController::class, 'accessRolesSave']);
     $r->post('/admin/access/roles/reset', [AdminController::class, 'accessRolesReset']);

@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '049';
+    public const VERSION = '050';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -158,6 +158,9 @@ final class Schema
         ['ai_result_sets', '049_ai_board.sql'],
         ['ai_actions', '049_ai_board.sql'],
         ['ai_exports', '049_ai_board.sql'],
+        ['ai_quotas', '050_ai_quota.sql'],
+        ['ai_usage', '050_ai_quota.sql'],
+        ['ai_usage_counters', '050_ai_quota.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */

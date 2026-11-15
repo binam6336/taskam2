@@ -46,6 +46,7 @@ final class AdminAccess
         'support_manage'        => ['support', 'مدیریت تیکت', 'تغییر وضعیت و حذف تیکت‌ها.'],
         'view_security'         => ['settings', 'دیدن لاگ امنیتی', 'صفحه‌ی «تنظیمات ← امنیت»: ورود/خروج مدیران به پنل کاربران و تغییرات ثبت‌شده.'],
         'view_panel_docs'       => ['settings', 'مستندات پنل', 'صفحه‌ی محدودیت‌ها و قواعد پنل.'],
+        'manage_ai_usage'       => ['settings', 'مصرف هوش مصنوعی', 'صفحه‌ی «تنظیمات ← مصرف AI»: مصرف توکن کاربران، تعیین سهمیه‌ی روزانه/ماهانه/کلی هر کاربر و سهمیه‌ی پیش‌فرض.'],
         'chat_encrypt'          => ['settings', 'رمزگذاری پیام‌های قدیمی', 'رمزگذاری یک‌باره‌ی پیام‌ها و فایل‌های گفتگوی قدیمی (پیشخوان مدیر).'],
     ];
 
@@ -61,7 +62,7 @@ final class AdminAccess
         'view_analysis' => '/admin/analysis', 'view_users' => '/admin', 'support_view' => '/admin/support',
         'edit_sidebar' => '/admin/content/sidebar', 'edit_tour' => '/admin/content/tour', 'edit_board' => '/admin/content/board',
         'edit_placeholders' => '/admin/content/placeholders', 'edit_errors' => '/admin/content/errors',
-        'view_security' => '/admin/security', 'view_panel_docs' => '/admin/docs', 'manage_impersonations' => '/admin/impersonations',
+        'view_security' => '/admin/security', 'view_panel_docs' => '/admin/docs', 'manage_ai_usage' => '/admin/ai-usage', 'manage_impersonations' => '/admin/impersonations',
     ];
 
     /** پاک‌سازی فهرست: فقط کلیدهای معتبر، بدون تکرار، به ترتیب PERMS */

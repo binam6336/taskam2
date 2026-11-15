@@ -29,7 +29,21 @@ final class ProfileController extends Controller
                 'colleagues' => (int) DB::value('SELECT COUNT(*) FROM colleagues WHERE user_id = ?', [(int) $u['id']]),
                 'projects' => (int) DB::value('SELECT COUNT(*) FROM project_members WHERE user_id = ?', [(int) $u['id']]),
             ],
+            'ai' => self::aiData((int) $u['id']),
         ], ['title' => 'پروفایل', 'page' => 'profile']);
+    }
+
+    /** v7.21: مصرف هوش مصنوعی کاربر (سهمیه‌ی روزانه، ماهانه، کل) */
+    public static function aiData(int $uid): array
+    {
+        return \App\Services\Karlix\Quota::status($uid) + ['features' => \App\Services\Karlix\Quota::byFeature($uid), 'month' => \App\Services\Karlix\Common::now()['jalali_month']];
+    }
+
+    /** GET /profile/ai-usage — به‌روزرسانی زنده‌ی بخش «مصرف هوش مصنوعی» */
+    public function aiUsage()
+    {
+        $this->rateLimit('ai_usage_view', 60);
+        $this->ok('', ['usage' => self::aiData($this->uid())]);
     }
 
     public function updateInfo()

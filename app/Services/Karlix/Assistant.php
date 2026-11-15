@@ -68,6 +68,11 @@ final class Assistant
         if (!Agnes::enabled()) {
             return ['visible' => true, 'enabled' => false, 'reason' => 'دستیار هوش مصنوعی روی این سرور فعال نشده است.'];
         }
+        // v7.21: سهمیه‌ی مصرف تمام‌شده = کارلیکس در فهرست منشن غیرفعال با علت و زمان بازنشانی
+        $q = Quota::check($uid, 0);
+        if ($q !== null) {
+            return ['visible' => true, 'enabled' => false, 'reason' => $q['message']];
+        }
         return ['visible' => true, 'enabled' => true, 'reason' => null];
     }
 
@@ -81,6 +86,9 @@ final class Assistant
             return null;
         }
         $t = TaskModel::raw($taskId);
+        if (($q = Quota::check($uid, 0)) !== null) {
+            return ['queued' => false, 'message' => $q['message'] . ' یادداشت ثبت شد ولی درخواستی اجرا نمی‌شود.'];
+        }
         if ($t === null || !self::info($t, $uid, Access::canTask($t, $uid, 'notes'))['enabled']) {
             return ['queued' => false, 'message' => 'کارلیکس فعلاً در دسترس نیست؛ یادداشت ثبت شد ولی درخواستی اجرا نمی‌شود.'];
         }
@@ -163,13 +171,15 @@ final class Assistant
             return self::reply($req, $actor, $name . '، درخواستتان را بعد از @' . self::NAME . ' بنویسید؛ مثلاً: «@' . self::NAME . ' سررسید را بگذار فردا ساعت ۱۰ و اولویت را زیاد کن».', 'clarify', null, null);
         }
         $ctx = self::context($t, $actor);
+        $real = \App\Core\Auth::realUser();
         $ai = Agnes::chat([
             ['role' => 'system', 'content' => self::systemPrompt()],
             ['role' => 'user', 'content' => self::userPrompt($ctx, $ask, $taskId)],
-        ]);
+        ], 700, ['user' => $actor, 'feature' => 'task_note', 'key' => 'note:' . (int) $req['id'],
+            'real_user' => $real !== null && (int) $real['id'] !== $actor ? (int) $real['id'] : null]);
         DB::run('UPDATE ai_requests SET model = ?, tokens = ? WHERE id = ?', [Agnes::model(), $ai['tokens'], (int) $req['id']]);
         if (!$ai['ok']) {
-            $msg = Agnes::ERRORS[$ai['error']] ?? Agnes::ERRORS['network'];
+            $msg = (string) $ai['message'];                       // متن خطا یا پایان سهمیه (Quota) — بدون جزئیات فنی
             return self::reply($req, $actor, $name . '، ' . $msg . ' هیچ تغییری روی تسک اعمال نشد.', 'error', null, (string) $ai['error']);
         }
         $plan = self::parse($ai['content']);

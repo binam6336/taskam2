@@ -1253,3 +1253,39 @@ html.bulk-on #kb-board .kb-card[data-id] { padding-inline-start: 38px; }
   .kb-ai-btn span { display: none; }
   .ai-ci-row { grid-template-columns: 1fr; }
 }
+
+/* ───────── مصرف هوش مصنوعی (v7.21): پروفایل کاربر ← «مصرف هوش مصنوعی» ───────── */
+.aiu-wrap { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.aiu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.aiu-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.aiu-head { display: flex; align-items: center; gap: 8px; }
+.aiu-head h3 { margin: 0; flex: 1; font-size: var(--fs-md); }
+.aiu-ic { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r); background: var(--c-sel); color: var(--main-ink); }
+.aiu-pct { font-weight: 700; color: var(--main-ink); }
+.aiu-num { font-size: var(--fs-sm); color: var(--muted); }
+.aiu-num b { font-size: var(--fs-xl); color: var(--text); }
+.aiu-bar { height: 8px; border-radius: 4px; background: var(--c-hover); overflow: hidden; }
+.aiu-bar span { display: block; height: 100%; border-radius: 4px; background: var(--main); transition: width .4s ease; }
+.aiu-card.is-near .aiu-bar span { background: var(--warn); }
+.aiu-card.is-near .aiu-pct { color: var(--warn-ink); }
+.aiu-card.is-full .aiu-bar span { background: var(--danger); }
+.aiu-card.is-full .aiu-pct { color: var(--danger-ink); }
+.aiu-alert { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-lg); background: var(--danger-bg); color: var(--danger-ink); font-size: var(--fs-sm); }
+.aiu-feat { padding: 14px 16px; }
+.aiu-feat h3 { margin: 0 0 8px; }
+.aiu-feat ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.aiu-feat li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; font-size: var(--fs-sm); padding: 6px 0; border-bottom: 1px solid var(--border); }
+.aiu-feat li:last-child { border-bottom: 0; }
+/* پنل مدیر ← تنظیمات ← مصرف AI */
+.aiq-bar { display: inline-block; width: 56px; height: 5px; border-radius: 3px; background: var(--c-hover); overflow: hidden; vertical-align: middle; margin-inline-start: 4px; }
+.aiq-bar span { display: block; height: 100%; background: var(--main); }
+.aiq-bar.is-near span { background: var(--warn); }
+.aiq-bar.is-full span { background: var(--danger); }
+.aiq-cell { white-space: nowrap; font-size: var(--fs-xs); }
+.aiq-cell small { display: block; color: var(--faint); }
+.aiq-st { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; background: var(--c-subtle); color: var(--muted); white-space: nowrap; }
+.aiq-st.is-near { background: var(--warn-bg); color: var(--warn-ink); }
+.aiq-st.is-full { background: var(--danger-bg); color: var(--danger-ink); }
+.aiq-defaults .aiq-lims { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.aiq-lim { display: flex; flex-direction: column; gap: 6px; }
+.aiq-lim label.check { font-size: var(--fs-xs); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
