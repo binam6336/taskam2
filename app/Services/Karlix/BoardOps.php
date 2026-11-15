@@ -45,7 +45,7 @@ final class BoardOps
             return [null, 'changes must be an object'];
         }
         $ch = [];
-        $known = ['due_date', 'due_time', 'reminder_time', 'shift_days', 'clear_due', 'assignee', 'add_label', 'remove_label', 'priority', 'status', 'archive'];
+        $known = ['due_date', 'due_time', 'reminder_time', 'shift_days', 'clear_due', 'assignee', 'add_label', 'remove_label', 'priority', 'status', 'archive', 'title'];
         foreach (array_keys($raw) as $k) {
             if (!in_array($k, $known, true)) {
                 return [null, 'unknown change "' . mb_substr((string) $k, 0, 30) . '"; allowed: ' . implode(', ', $known)];
@@ -117,6 +117,13 @@ final class BoardOps
             }
             $ch['status'] = $s;
         }
+        if (isset($raw['title'])) {
+            $ti = is_string($raw['title']) ? trim(preg_replace('/\s+/u', ' ', $raw['title']) ?? '') : '';
+            if ($ti === '' || mb_strlen($ti) > 255) {
+                return [null, 'title must be 1..255 characters'];
+            }
+            $ch['title'] = $ti;
+        }
         if (!empty($raw['archive'])) {
             if (isset($ch['status'])) {
                 return [null, 'archive cannot be combined with status'];
@@ -166,9 +173,17 @@ final class BoardOps
         $cols = $c->columns();
         $before = ['due_date' => $t['due_date'], 'due_time' => $t['due_time'] !== null ? substr((string) $t['due_time'], 0, 5) : null,
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null,
-            'priority' => (string) $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'status' => $t['status']];
+            'priority' => (string) $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'status' => $t['status'],
+            'title' => (string) $t['title']];
         $after = [];
         $view = [];
+        if (isset($ch['title']) && $ch['title'] !== $before['title']) {
+            if (!Access::canTask($t, $uid, 'edit_info')) {
+                return [false, [], 'اجازه‌ی ویرایش عنوان این تسک را ندارید.', $before, []];
+            }
+            $after['title'] = $ch['title'];
+            $view[] = ['f' => 'عنوان', 'from' => mb_substr($before['title'], 0, 80), 'to' => mb_substr($ch['title'], 0, 80)];
+        }
         // سررسید
         if (isset($ch['due_date']) || isset($ch['due_time']) || isset($ch['shift_days']) || isset($ch['clear_due'])) {
             if (!Access::canTask($t, $uid, 'edit_due')) {
@@ -481,7 +496,7 @@ final class BoardOps
         return ['due_date' => $t['due_date'], 'due_time' => $t['due_time'] !== null ? substr((string) $t['due_time'], 0, 5) : null,
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null,
             'priority' => (string) $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null,
-            'status' => BoardService::statusOf($t)];
+            'status' => BoardService::statusOf($t), 'title' => (string) $t['title']];
     }
 
     private static function runBulk(BoardContext $c, array $payload): array
@@ -519,6 +534,9 @@ final class BoardOps
             }
             if (array_key_exists('subject_id', $after)) {
                 $in['subject_id'] = $after['subject_id'] ?? '';
+            }
+            if (array_key_exists('title', $after)) {
+                $in['title'] = $after['title'];
             }
             if (array_key_exists('priority_percent', $after)) {
                 $in['priority_percent'] = $after['priority_percent'];

@@ -112,6 +112,7 @@ $router->group(['panel'], function ($r) {
     // v7.20 دستیار هوش مصنوعی بورد
     $r->get('/board/ai/session', [BoardAiController::class, 'session']);
     $r->post('/board/ai/session/new', [BoardAiController::class, 'newSession']);
+    $r->post('/board/ai/session/delete', [BoardAiController::class, 'deleteSession']);
     $r->post('/board/ai/message', [BoardAiController::class, 'message']);
     $r->get('/board/ai/set', [BoardAiController::class, 'setPage']);
     $r->post('/board/ai/quick', [BoardAiController::class, 'quick']);

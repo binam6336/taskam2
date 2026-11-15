@@ -64,12 +64,68 @@ final class Common
         if (!is_array($j)) {
             $a = strpos($s, '{');
             $b = strrpos($s, '}');
-            if ($a === false || $b === false || $b <= $a) {
+            if ($a === false) {
                 return null;
             }
-            $j = json_decode(substr($s, $a, $b - $a + 1), true);
+            $j = $b !== false && $b > $a ? json_decode(substr($s, $a, $b - $a + 1), true) : null;
+            // v7.22: مدل گاهی یک «}» یا «]» جا می‌اندازد یا دو شیء پشت هم می‌نویسد ⇐ ترمیم براکت‌ها (فقط بیرون از رشته‌ها)
+            if (!is_array($j)) {
+                $j = json_decode(self::repair(substr($s, $a)), true);
+            }
         }
         return is_array($j) && ($key === null || array_key_exists($key, $j)) ? $j : null;
+    }
+
+    /**
+     * ترمیم ساده‌ی JSON: از اولین «{» تا بسته شدن همان شیء؛ بسته‌ای که با آخرین بازِ باز جور نباشد، بسته‌های جاافتاده را پیش از خودش
+     * اضافه می‌کند و در پایان بسته‌های باقی‌مانده اضافه می‌شوند. داخل رشته‌ها (با \" ) دست نمی‌خورد.
+     */
+    public static function repair(string $s): string
+    {
+        $out = '';
+        $stack = [];
+        $inStr = false;
+        $esc = false;
+        $len = strlen($s);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $s[$i];
+            if ($inStr) {
+                $out .= $ch;
+                if ($esc) {
+                    $esc = false;
+                } elseif ($ch === '\\') {
+                    $esc = true;
+                } elseif ($ch === '"') {
+                    $inStr = false;
+                }
+                continue;
+            }
+            if ($ch === '"') {
+                $inStr = true;
+            } elseif ($ch === '{' || $ch === '[') {
+                $stack[] = $ch === '{' ? '}' : ']';
+            } elseif ($ch === '}' || $ch === ']') {
+                if (!$stack) {
+                    continue;                                   // بسته‌ی اضافه
+                }
+                while ($stack && end($stack) !== $ch) {
+                    $out .= array_pop($stack);                  // بسته‌ی جاافتاده
+                }
+                if ($stack) {
+                    array_pop($stack);
+                }
+                $out .= $ch;
+                if (!$stack) {
+                    return $out;                                // شیء اول تمام شد (متن یا شیء بعدی نادیده)
+                }
+                continue;
+            }
+            $out .= $ch;
+        }
+        if ($inStr) {
+            $out .= '"';
+        }
+        return $out . implode('', array_reverse($stack));
     }
 
     public static function who(int $uid): string

@@ -61,6 +61,10 @@ final class BoardContext
     /** ارجاع مدل ⇐ شناسه‌ی واقعی (یا null)؛ فقط ارجاع‌هایی که خود سرور ساخته */
     public function idOf(string $kind, $ref): ?int
     {
+        // v7.22: مدل گاهی ارجاع را به شکل توکن می‌فرستد («[[task:T3]]»)
+        if (is_string($ref) && preg_match('/^\[\[\s*[a-z]+\s*:\s*([A-Za-z]\d{1,5})\b/u', trim($ref), $t)) {
+            $ref = $t[1];
+        }
         if (!is_string($ref) || !preg_match('/^' . strtoupper($kind) . '(\d{1,5})$/i', trim($ref), $m)) {
             return null;
         }

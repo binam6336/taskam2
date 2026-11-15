@@ -192,7 +192,7 @@ final class Quota
     /** تخمین رزرو: حجم ورودی (بایت ÷ AI_RESERVE_BYTES_PER_TOKEN، رو به بالا) + سقف خروجی max_tokens */
     public static function estimate(string $payload, int $maxTokens): int
     {
-        $div = max(1.0, (float) env('AI_RESERVE_BYTES_PER_TOKEN', 2));
+        $div = max(1.0, (float) env('AI_RESERVE_BYTES_PER_TOKEN', 3));
         return (int) ceil(strlen($payload) / $div) + $maxTokens;
     }
 

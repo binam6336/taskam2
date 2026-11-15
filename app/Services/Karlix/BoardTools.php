@@ -146,7 +146,8 @@ final class BoardTools
         $due = is_string($a['due'] ?? null) ? $a['due'] : '';
         $prio = is_string($a['priority'] ?? null) && isset(self::PRIO[$a['priority']]) ? $a['priority'] : null;
         $stale = isset($a['stale_days']) && is_numeric($a['stale_days']) ? max(1, min(365, (int) $a['stale_days'])) : null;
-        $q = is_string($a['q'] ?? null) ? Assistant::norm(mb_substr($a['q'], 0, 80)) : '';
+        $qRaw = is_string($a['q'] ?? null) ? trim(mb_substr($a['q'], 0, 80)) : '';
+        $q = $qRaw !== '' ? Assistant::norm($qRaw) : '';
         $overdue = !empty($a['overdue']) || $due === 'overdue';
 
         $out = [];
@@ -239,7 +240,7 @@ final class BoardTools
             $desc[] = 'بدون تغییر در ' . fa_num($stale) . ' روز اخیر';
         }
         if ($q !== '') {
-            $desc[] = '«' . mb_substr($q, 0, 40) . '»';
+            $desc[] = '«' . mb_substr($qRaw, 0, 40) . '»';
         }
         if (!$wantDone && !$statusKeys) {
             $desc[] = 'باز';
@@ -415,7 +416,8 @@ final class BoardTools
 
     // ───────────────────────── بار کاری ─────────────────────────
 
-    public static function workload(BoardContext $c, array $a): array
+    /** v7.20 (جدول ساده‌ی بار کاری)؛ از v7.22 ابزار workload_by_assignee به BoardInsights::workload (رتبه‌بندی وزنی) می‌رود */
+    public static function workloadTable(BoardContext $c, array $a): array
     {
         $u = $c->universe();
         $today = Common::today()->format('Y-m-d');
@@ -684,11 +686,43 @@ final class BoardTools
         }
         uasort($per, static fn($x, $y) => $y['finished'] <=> $x['finished']);
         $range = jdate($from . ' 00:00:00', false) . ' تا ' . jdate($to . ' 00:00:00', false);
+        // مقایسه با دوره‌ی قبلِ هم‌طول (v7.22)
+        $len = (int) round((strtotime($to) - strtotime($from)) / 86400) + 1;
+        $pTo = date('Y-m-d', strtotime($from . ' -1 day'));
+        $pFrom = date('Y-m-d', strtotime($pTo . ' -' . ($len - 1) . ' days'));
+        $pIn = static fn(?string $d) => $d !== null && substr($d, 0, 10) >= $pFrom && substr($d, 0, 10) <= $pTo;
+        $prev = ['created' => 0, 'finished' => 0, 'finished_late' => 0];
+        foreach ($u as $t) {
+            $prev['created'] += $pIn((string) $t['created_at']) ? 1 : 0;
+            $fin = $t['done'] ? TaskAnalytics::finishedAt($t) : null;
+            if ($pIn($fin)) {
+                $prev['finished']++;
+                $prev['finished_late'] += TaskAnalytics::isLate($t, $fin) ? 1 : 0;
+            }
+        }
+        $delta = static function (int $now, int $was): string {
+            if ($now === $was) {
+                return 'بدون تغییر';
+            }
+            return ($now > $was ? '+' : '−') . fa_num(abs($now - $was)) . ($was > 0 ? ' (' . fa_num((int) round(abs($now - $was) / $was * 100)) . '٪)' : '');
+        };
+        $answer = ['در ' . $range . ': ' . fa_num($k['finished']) . ' تسک انجام شد (' . ($k['finished_late'] ? fa_num($k['finished_late']) . ' با تأخیر' : 'همه به‌موقع') . ') و '
+            . fa_num($k['created']) . ' تسک جدید ثبت شد.',
+            'نسبت به ' . fa_num($len) . ' روز قبل: انجام‌شده ' . $delta($k['finished'], $prev['finished']) . '، ایجادشده ' . $delta($k['created'], $prev['created']) . '.'];
+        if ($per) {
+            $top = (int) array_key_first($per);
+            $answer[] = 'بیشترین انجام: ' . ($top ? '[[user:' . $c->ref('u', $top) . ']]' : 'بدون مسئول') . ' (' . fa_num($per[array_key_first($per)]['finished']) . ' تسک).';
+        }
         $blocks = [
             ['type' => 'kpis', 'items' => [
                 ['label' => 'ایجادشده', 'value' => fa_num($k['created'])], ['label' => 'انجام‌شده', 'value' => fa_num($k['finished'])],
                 ['label' => 'انجام با تأخیر', 'value' => fa_num($k['finished_late']), 'tone' => $k['finished_late'] ? 'warn' : ''],
                 ['label' => 'عقب‌افتاده‌ی فعلی', 'value' => fa_num($k['overdue_now']), 'tone' => $k['overdue_now'] ? 'danger' : ''],
+            ]],
+            ['type' => 'table', 'title' => 'مقایسه با ' . fa_num($len) . ' روز قبل', 'cols' => ['شاخص', 'این دوره', 'دوره‌ی قبل', 'تغییر'], 'rows' => [
+                ['ایجادشده', fa_num($k['created']), fa_num($prev['created']), $delta($k['created'], $prev['created'])],
+                ['انجام‌شده', fa_num($k['finished']), fa_num($prev['finished']), $delta($k['finished'], $prev['finished'])],
+                ['انجام با تأخیر', fa_num($k['finished_late']), fa_num($prev['finished_late']), $delta($k['finished_late'], $prev['finished_late'])],
             ]],
             ['type' => 'table', 'title' => 'انجام‌شده‌ها به تفکیک مسئول — ' . $range, 'cols' => ['مسئول', 'انجام‌شده', 'با تأخیر'],
                 'rows' => array_values(array_map(static fn($pk, $v) => [self::user($c, $pk ?: null), fa_num($v['finished']), fa_num($v['late'])], array_keys($per), $per))],
@@ -699,7 +733,7 @@ final class BoardTools
             $blocks[] = $blk;
             $setRef = 'R' . $set['seq'];
         }
-        return self::out(['from' => $from, 'to' => $to, 'kpis' => $k, 'finished_set' => $setRef,
+        return self::out(['from' => $from, 'to' => $to, 'kpis' => $k, 'previous' => ['from' => $pFrom, 'to' => $pTo] + $prev, 'finished_set' => $setRef, 'answer' => $answer,
             'by_assignee' => array_map(static fn($pk, $v) => ['member' => $pk ? $c->ref('u', $pk) . ' ' . $c->name($pk) : 'unassigned'] + $v, array_keys($per), $per),
             'by_label_finished' => array_map(static fn($lk, $n) => ['label' => $lk ? ($c->labels()[$lk][0] ?? '') : 'none', 'finished' => $n], array_keys($labels), $labels)],
             $blocks, 'period_report ' . $from . '..' . $to);

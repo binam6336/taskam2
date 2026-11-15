@@ -1,4 +1,4 @@
-/* دستیار هوش مصنوعی بورد (v7.20) — پنل چت RTL کنار بورد (تمام‌صفحه در موبایل).
+/* دستیار هوش مصنوعی بورد (v7.20؛ v7.22: پرامپت‌های آماده‌ی گروه‌بندی‌شده، فهرست گفتگوها با حذف) — پنل چت RTL کنار بورد (تمام‌صفحه در موبایل).
    همه‌ی داده‌ها (جدول تسک، آمار، پیش‌نمایش، نتیجه) بلوک‌های ساخت سرورند؛ متن مدل فقط به‌صورت متن ساده با پیوندهای اعتبارسنجی‌شده
    (قطعه‌های segs) نمایش داده می‌شود — هیچ HTML خامی از سرور یا مدل در صفحه گذاشته نمی‌شود (همه با TK.esc). */
 (() => {
@@ -93,7 +93,7 @@
       + (b.bad && b.bad.length ? '<span class="ai-badge is-bad">' + fa(b.bad.length) + ' تسک مجاز نیست</span>' : '')
       + (b.same ? '<span class="ai-badge">' + fa(b.same) + ' بدون تغییر</span>' : '') + '</div>'
       + ((b.rows || []).length ? '<ul class="ai-pv">' + b.rows.map((r) => '<li><div class="ai-pv-t">' + seg(r.task) + '</div>' + r.changes.map((c) => '<div class="ai-pv-c"><span class="ai-f">' + esc(c.f) + '</span><span class="ai-from">' + esc(c.from) + '</span>' + icon('arrow-left') + '<span class="ai-to">' + esc(c.to) + '</span>' + (c.note ? '<small class="ai-muted">' + esc(c.note) + '</small>' : '') + '</div>').join('') + '</li>').join('') + '</ul>' : '')
-      + ((b.bad || []).length ? '<details class="ai-bad"><summary>تسک‌هایی که تغییر نمی‌کنند و دلیلشان</summary><ul>' + b.bad.map((x) => '<li>' + (x.task ? seg(x.task) : esc(x.title || '')) + ' — <span>' + esc(x.reason) + '</span></li>').join('') + '</ul></details>' : '')
+      + ((b.bad || []).length ? '<details class="ai-bad"' + (b.count ? '' : ' open') + '><summary>تسک‌هایی که تغییر نمی‌کنند و دلیلشان</summary><ul>' + b.bad.map((x) => '<li>' + (x.task ? seg(x.task) : esc(x.title || '')) + ' — <span>' + esc(x.reason) + '</span></li>').join('') + '</ul></details>' : '')
       + (live ? '<div class="ai-acts"><button type="button" class="btn btn-primary btn-sm" data-ai-apply>' + icon('check') + 'تأیید و اجرا</button><button type="button" class="btn btn-sm" data-ai-cancel>لغو</button><span class="ai-muted ai-exp">اعتبار تا ' + esc(TK.jalali && b.expires ? b.expires.slice(11, 16) : '') + '</span></div>'
         : (b.count ? '<p class="ai-state">' + esc(stateLabel[b.status] || 'غیرفعال') + '</p>' : ''))
       + '</div>';
@@ -151,9 +151,12 @@
     panel.setAttribute('aria-label', 'دستیار هوش مصنوعی بورد');
     panel.hidden = true;
     panel.innerHTML = '<header class="ai-head"><span class="ai-head-ic">' + icon('brain') + '</span><div class="ai-head-t"><strong>دستیار هوش مصنوعی</strong><small data-ai-proj></small></div>'
-      + '<select class="ai-hist" data-ai-hist aria-label="گفتگوهای قبلی"></select>'
+      + '<button type="button" class="kb-ib" data-ai-tips title="پرامپت‌های آماده" aria-label="پرامپت‌های آماده" aria-expanded="false">' + icon('lightbulb') + '</button>'
+      + '<button type="button" class="kb-ib" data-ai-histbtn title="گفتگوهای قبلی" aria-label="گفتگوهای قبلی" aria-expanded="false">' + icon('clock-rotate-left') + '</button>'
       + '<button type="button" class="kb-ib" data-ai-new title="گفتگوی جدید" aria-label="گفتگوی جدید">' + icon('plus') + '</button>'
       + '<button type="button" class="kb-ib" data-ai-close title="بستن" aria-label="بستن">' + icon('xmark') + '</button></header>'
+      + '<div class="ai-pop" data-ai-histpop hidden role="region" aria-label="گفتگوهای قبلی"></div>'
+      + '<div class="ai-pop" data-ai-tipspop hidden role="region" aria-label="پرامپت‌های آماده"></div>'
       + '<div class="ai-ctx" data-ai-ctx></div>'
       + '<div class="ai-log" data-ai-log aria-live="polite"></div>'
       + '<div class="ai-status" data-ai-status hidden><span class="ai-dots"><span></span><span></span><span></span></span><span data-ai-status-t>در حال تحلیل داده‌های بورد…</span></div>'
@@ -185,21 +188,47 @@
     bar.innerHTML = n ? icon('list-check') + String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]) + ' تسک انتخاب شده؛ پیام بعدی روی همین‌ها اجرا می‌شود. <button type="button" class="ai-mini" data-ai-clearsel>لغو انتخاب</button>' : '';
   };
 
-  const empty = (d) => '<div class="ai-empty"><span class="ai-empty-ic">' + icon('brain') + '</span><p>سلام ' + esc(d.user || '') + '! درباره‌ی بورد «' + esc(d.project?.title || '') + '» بپرسید یا بخواهید چند تسک را با هم تغییر دهم (همیشه اول پیش‌نمایش و تأیید شما).</p>'
-    + (d.enabled ? '<div class="ai-sugs">' + (d.suggestions || []).map((s) => '<button type="button" class="ai-sug" data-ai-sug="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div>' : '<p class="ai-err">' + esc(d.reason || '') + '</p>') + '</div>';
+  // پرامپت‌های آماده به تفکیک قابلیت (فقط موارد مجاز برای دسترسی کاربر از سرور می‌آید)
+  const prompts = (d) => '<div class="ai-pgroups">' + (d.prompts || []).map((g) => '<section class="ai-pg-g"><h5>' + icon(g.icon) + esc(g.title) + '</h5><div class="ai-sugs">'
+    + g.items.map((it) => '<button type="button" class="ai-sug' + (it.fill ? ' is-fill' : '') + '" data-ai-sug="' + esc(it.text) + '"' + (it.fill ? ' data-fill="1"' : '') + '>' + esc(it.label) + '</button>').join('')
+    + '</div></section>').join('') + '</div>';
+  const empty = (d) => '<div class="ai-empty"><span class="ai-empty-ic">' + icon('brain') + '</span><p>سلام ' + esc(d.user || '') + '! درباره‌ی بورد «' + esc(d.project?.title || '') + '» بپرسید، گزارش و تحلیل بخواهید یا بگویید چند تسک را با هم تغییر دهم (همیشه اول پیش‌نمایش و تأیید شما، در حد دسترسی خودتان).</p>'
+    + (d.enabled ? prompts(d) : '<p class="ai-err">' + esc(d.reason || '') + '</p>') + '</div>';
+  const fa = (n) => String(n).replace(/\d/g, (x) => '۰۱۲۳۴۵۶۷۸۹'[x]);
+  const histHtml = (d) => {
+    const list = d.sessions || [];
+    const others = list.filter((x) => x.id !== d.session).length;
+    return '<div class="ai-pop-head"><strong>' + icon('clock-rotate-left') + 'گفتگوهای قبلی</strong>'
+      + (others ? '<button type="button" class="ai-mini is-danger" data-ai-delothers>' + icon('trash') + 'حذف همه به‌جز فعلی</button>' : '') + '</div>'
+      + (list.length ? '<ul class="ai-hlist">' + list.map((x) => '<li class="' + (x.id === d.session ? 'is-cur' : '') + '">'
+        + '<button type="button" class="ai-hopen" data-ai-hopen="' + esc(x.id) + '"' + (x.id === d.session ? ' aria-current="true"' : '') + '><span class="ai-h-t">' + esc(x.title) + '</span>'
+        + '<small class="ai-muted">' + esc(x.at) + (x.count ? ' · ' + fa(x.count) + ' پیام' : '') + (x.id === d.session ? ' · فعلی' : '') + '</small></button>'
+        + '<button type="button" class="kb-ib ai-hdel" data-ai-hdel="' + esc(x.id) + '" title="حذف این گفتگو" aria-label="حذف گفتگوی ' + esc(x.title) + '">' + icon('trash') + '</button></li>').join('') + '</ul>'
+        : '<p class="ai-muted">گفتگویی نیست.</p>');
+  };
+  const pop = (which) => {
+    ['hist', 'tips'].forEach((k) => {
+      const el = $('[data-ai-' + k + 'pop]');
+      const on = k === which && el.hidden;
+      if (on) el.innerHTML = k === 'hist' ? histHtml(data) : '<div class="ai-pop-head"><strong>' + icon('lightbulb') + 'پرامپت‌های آماده</strong></div>' + prompts(data);
+      el.hidden = !on;
+      panel.querySelector(k === 'hist' ? '[data-ai-histbtn]' : '[data-ai-tips]').setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+  };
+  const closePops = () => panel && ['hist', 'tips'].forEach((k) => { $('[data-ai-' + k + 'pop]').hidden = true; panel.querySelector(k === 'hist' ? '[data-ai-histbtn]' : '[data-ai-tips]').setAttribute('aria-expanded', 'false'); });
 
   let data = null;
   const render = (d) => {
     data = d;
     state.session = d.session;
     $('[data-ai-proj]').textContent = d.project?.title || '';
-    $('[data-ai-hist]').innerHTML = (d.sessions || []).map((s) => '<option value="' + esc(s.id) + '"' + (s.id === d.session ? ' selected' : '') + '>' + esc(s.title.length > 40 ? s.title.slice(0, 40) + '…' : s.title) + '</option>').join('');
-    $('[data-ai-hist]').hidden = (d.sessions || []).length < 2;
+    closePops();
+    panel.querySelector('[data-ai-tips]').hidden = !d.enabled;
     log().innerHTML = d.messages.length ? d.messages.map(msgHtml).join('') : empty(d);
     $('[data-ai-input]').disabled = !d.enabled;
     showCtx(); selBar();
     TK.applyCss && TK.applyCss(panel);
-    scrollEnd();
+    if (d.messages.length) scrollEnd(); else log().scrollTop = 0;
   };
 
   const load = async (session) => {
@@ -274,7 +303,11 @@
   document.addEventListener('keydown', (e) => {
     if (!panel || panel.hidden) return;
     // Esc فقط وقتی پنجره‌ی دیگری (جزئیات تسک، تأیید، …) روی پنل باز نیست
-    if (e.key === 'Escape' && !e.target.closest?.('select') && !document.querySelector('.modal.open, .ri-overlay:not([hidden])')) { e.stopPropagation(); close(); return; }
+    if (e.key === 'Escape' && !e.target.closest?.('select') && !document.querySelector('.modal.open, .ri-overlay:not([hidden])')) {
+      e.stopPropagation();
+      if (panel.querySelector('.ai-pop:not([hidden])')) { closePops(); return; }
+      close(); return;
+    }
     if (e.target.matches?.('[data-ai-input]') && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(e.target.value); }
   }, true);
 
@@ -299,7 +332,29 @@
       if (r.status === 'success') { state.sel = { set: null, tasks: new Set() }; render(r); $('[data-ai-input]').focus(); }
       return;
     }
-    if (t.matches('[data-ai-sug]')) return send(t.dataset.aiSug);
+    if (t.matches('[data-ai-sug]')) {
+      closePops();
+      if (t.dataset.fill) { const i = $('[data-ai-input]'); i.value = t.dataset.aiSug; i.focus(); i.setSelectionRange(i.value.length, i.value.length); return; }
+      return send(t.dataset.aiSug);
+    }
+    if (t.matches('[data-ai-histbtn]')) return pop('hist');
+    if (t.matches('[data-ai-tips]')) return pop('tips');
+    if (t.matches('[data-ai-hopen]')) { closePops(); if (t.dataset.aiHopen !== state.session) load(t.dataset.aiHopen); return; }
+    if (t.matches('[data-ai-hdel], [data-ai-delothers]')) {
+      if (state.sending) return;
+      const all = t.matches('[data-ai-delothers]');
+      const ok = await TK.confirm(all ? 'همه‌ی گفتگوهای این بورد به‌جز گفتگوی فعلی حذف شود؟ تغییرات اعمال‌شده روی تسک‌ها می‌ماند ولی دیگر از این گفتگوها قابل بازگردانی نیست.'
+        : 'این گفتگو حذف شود؟ تغییرات اعمال‌شده روی تسک‌ها می‌ماند ولی دیگر از این گفتگو قابل بازگردانی نیست.');
+      if (!ok) return;
+      const r = await TK.post('/board/ai/session/delete', { project, session: state.session, target: all ? 'others' : t.dataset.aiHdel });
+      if (r.status !== 'success') { TK.toast(r.message || 'حذف نشد.', 'error'); return; }
+      TK.toast(r.message || 'حذف شد.', 'success');
+      const reopen = r.session !== state.session;
+      if (reopen) state.sel = { set: null, tasks: new Set() };
+      render(r);
+      pop('hist');
+      return;
+    }
     if (t.matches('[data-ai-clearsel]')) { state.sel = { set: null, tasks: new Set() }; panel.querySelectorAll('[data-ai-pick]').forEach((c) => (c.checked = false)); panel.querySelectorAll('[data-ai-seln]').forEach((x) => (x.textContent = '')); selBar(); return; }
     if (t.matches('[data-ai-quick]')) {
       if (state.sending) return;
@@ -384,8 +439,11 @@
     }
   });
 
-  document.addEventListener('change', (e) => {
-    if (panel && e.target.matches?.('[data-ai-hist]')) load(e.target.value);
+  // کلیک بیرون از پنجره‌ی کوچک (تاریخچه/پرامپت‌ها) آن را می‌بندد
+  document.addEventListener('click', (e) => {
+    if (!panel || panel.hidden || e.target.closest?.('.ai-pop, [data-ai-histbtn], [data-ai-tips]')) return;
+    if (!e.target.isConnected) return;
+    closePops();
   });
   // تغییر فیلتر بورد در حالی که پنل باز است
   document.addEventListener('input', (e) => { if (panel && !panel.hidden && e.target.closest?.('#kb-filters')) showCtx(); });

@@ -55,11 +55,10 @@ final class BoardAiController extends Controller
 
     private function sessionData(BoardContext $c): array
     {
-        $list = array_map(static fn($s) => ['id' => $s['pid'], 'title' => $s['title'] ?: 'گفتگوی بدون عنوان', 'at' => jdate((string) $s['updated_at'])],
-            \App\Core\DB::all('SELECT pid, title, updated_at FROM ai_board_sessions WHERE user_id = ? AND project_id = ? ORDER BY updated_at DESC LIMIT 10', [$c->uid, $c->projectId]));
+        $list = BoardAgent::sessions($c->uid, $c->projectId);
         $data = ['session' => $c->session['pid'], 'project' => ['id' => pid('projects', $c->projectId), 'title' => (string) $c->project['title']],
             'user' => \App\Services\Karlix\Common::who($c->uid), 'enabled' => Agnes::enabled(), 'reason' => Agnes::enabled() ? null : Agnes::ERRORS['not_configured'],
-            'suggestions' => BoardAgent::SUGGESTIONS, 'messages' => BoardAgent::transcript($c), 'sessions' => $list,
+            'prompts' => BoardAgent::prompts($c), 'messages' => BoardAgent::transcript($c), 'sessions' => $list,
             'impersonating' => $c->realUid !== null];
         $c->saveRefs();
         return $data;
@@ -71,6 +70,30 @@ final class BoardAiController extends Controller
         $this->rateLimit('board_ai_new', 20);
         $c = $this->ctx(true);
         $this->ok('', $this->sessionData($c));
+    }
+
+    /** POST /board/ai/session/delete — {project, session (گفتگوی فعلی رابط), target: pid | "others"} ⇒ همان داده‌ی session (گفتگوی باقی‌مانده یا تازه) */
+    public function deleteSession()
+    {
+        $this->rateLimit('board_ai_new', 20);
+        $project = (int) $this->request->input('project', 0);
+        if ($project <= 0 || BoardAgent::project($this->uid(), $project) === null) {
+            $this->fail('گفتگو یا پروژه پیدا نشد.', 404, ['code' => 'NOT_FOUND']);
+        }
+        $current = (string) $this->request->input('session', '');
+        $target = (string) $this->request->input('target', '');
+        $others = $target === 'others';
+        $n = BoardAgent::deleteSessions($this->uid(), $this->realUid(), $project, $others ? null : $target, $others, $current);
+        if ($n === 0) {
+            $this->fail($others ? 'گفتگوی دیگری برای حذف نیست.' : 'این گفتگو پیدا نشد یا هنوز در حال پردازش است.', 404, ['code' => 'NOT_FOUND']);
+        }
+        // اگر گفتگوی فعلی حذف شد، آخرین گفتگوی باقی‌مانده (یا یک گفتگوی تازه) باز می‌شود
+        $keep = !$others && $target === $current ? null : $current;
+        $c = BoardAgent::session($this->uid(), $this->realUid(), $project, $keep);
+        if ($c === null) {
+            $c = BoardAgent::session($this->uid(), $this->realUid(), $project);
+        }
+        $this->ok($others ? fa_num($n) . ' گفتگو حذف شد.' : 'گفتگو حذف شد.', $this->sessionData($c) + ['deleted' => $n]);
     }
 
     /** POST /board/ai/message — {project, session, text, filters (JSON), selection (JSON)} */
