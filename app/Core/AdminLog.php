@@ -23,7 +23,7 @@ final class AdminLog
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
         'support_messages' => ['پیام تیکت', null], 'texts' => ['یادداشت', 'title'], 'users' => ['پروفایل کاربر', null],
-        'task_viewers' => ['بیننده‌ی تسک محرمانه', null],
+        'task_viewers' => ['بیننده‌ی تسک محرمانه', null], 'ai_requests' => ['درخواست کارلیکس', null],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */

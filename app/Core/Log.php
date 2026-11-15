@@ -24,6 +24,7 @@ final class Log
         'Project' => 'projects', 'Workload' => 'projects',
         'Subject' => 'labels', 'Label' => 'labels',
         'Text' => 'notes',
+        'Assistant' => 'karlix', 'Agnes' => 'karlix', 'Actions' => 'karlix',
         'Chat' => 'chat',
         'Colleague' => 'colleagues',
         'User' => 'users', 'Profile' => 'users', 'Token' => 'users', 'Tour' => 'users',

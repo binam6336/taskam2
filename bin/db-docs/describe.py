@@ -14,7 +14,7 @@ COMMON = {
 GROUPS = [
     ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'impersonations', 'admin_logs', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
-    ('تسک‌ها', ['subjects', 'tasks', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'task_attachments', 'note_attachments']),
+    ('تسک‌ها', ['subjects', 'tasks', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'ai_requests', 'task_attachments', 'note_attachments']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
     ('یادداشت‌ها و پشتیبانی', ['texts', 'support_tickets', 'support_messages']),
 ]
@@ -344,8 +344,12 @@ TABLES = {
 'task_notes': {
     'title': 'یادداشت‌های تسک',
     'desc': 'یادداشت‌ها و گفت‌وگوی روی هر تسک (با منشن @ اعضای پروژه و پیوست).',
-    'flow': ['ثبت با دسترسی notes ← منشن‌ها در task_mentions و اعلان به منشن‌شده‌ها؛ ویرایش در task_events ثبت می‌شود. از v4.0 یادداشت و پیوست‌هایش حذف نمی‌شوند (رویداد note_deleted فقط در تاریخچه‌ی قدیمی هست).'],
-    'cols': {'task_id': 'تسک.', 'user_id': 'نویسنده.', 'note': 'متن یادداشت (حداکثر ۵۰۰۰ نویسه).', 'updated_at': 'زمان آخرین ویرایش (NULL = ویرایش نشده).'},
+    'flow': [
+        'ثبت با دسترسی notes ← منشن‌ها در task_mentions و اعلان به منشن‌شده‌ها؛ ویرایش در task_events ثبت می‌شود. از v4.0 یادداشت و پیوست‌هایش حذف نمی‌شوند (رویداد note_deleted فقط در تاریخچه‌ی قدیمی هست).',
+        'v7.19: ویرایش یادداشت هم منشن‌های تازه را ثبت و اعلان می‌کند (کسی که قبلاً در همان یادداشت منشن شده دوباره اعلان نمی‌گیرد).',
+        'v7.19: یادداشتی که «@کارلیکس» دارد یک درخواست ai_requests می‌سازد؛ پاسخ دستیار یادداشتی روی همان تسک با user_id = کاربر ربات (users.is_bot = 1) است که ویرایش‌شدنی نیست.',
+    ],
+    'cols': {'task_id': 'تسک.', 'user_id': 'نویسنده (کاربر ربات = پاسخ کارلیکس).', 'note': 'متن یادداشت (حداکثر ۵۰۰۰ نویسه).', 'updated_at': 'زمان آخرین ویرایش (NULL = ویرایش نشده).'},
 },
 'task_events': {
     'title': 'تاریخچه‌ی تسک',
@@ -355,7 +359,7 @@ TABLES = {
         'task_id': 'تسک.',
         'user_id': 'انجام‌دهنده‌ی تغییر.',
         'type': 'نوع: title, description, priority, due, label, project, assignee, completed, reopened, board, archived, unarchived, blocked, unblocked, note_edited, note_deleted, file_deleted.',
-        'data': 'JSON جزئیات (مقدار قبلی from و جدید to و …).',
+        'data': 'JSON جزئیات (مقدار قبلی from و جدید to و …). source = منبع تغییر: suggestion/drag/undo از «بار کاری» (v7.10) یا karlix = اجراشده با دستیار کارلیکس به نام همان کاربر درخواست‌کننده (v7.19).',
     },
 },
 'task_mentions': {
@@ -363,6 +367,30 @@ TABLES = {
     'desc': 'وقتی در یادداشت تسک کسی با @ صدا زده می‌شود.',
     'flow': ['ثبت یادداشت با منشن (فقط اعضای همان پروژه) ← ردیف + اعلان ربات؛ دیدن تسک ← seen_at.'],
     'cols': {'task_id': 'تسک.', 'note_id': 'یادداشت.', 'user_id': 'کاربر منشن‌شده.', 'actor_id': 'نویسنده‌ی یادداشت.', 'seen_at': 'زمان دیده شدن؛ NULL = دیده نشده (شمارنده‌ی اعلان).'},
+},
+'ai_requests': {
+    'title': 'درخواست‌های کارلیکس (دستیار هوش مصنوعی)',
+    'desc': 'v7.19: هر یادداشت تسک که «@کارلیکس» دارد یک ردیف؛ مدل (Agnes AI) درخواست را به عملیات ساختاریافته تبدیل می‌کند و بک‌اند آن را با دسترسی خود کاربر اجرا می‌کند.',
+    'flow': [
+        'ثبت یادداشت (پنل وب) با منشن کارلیکس ← Assistant::queue: اگر کارلیکس فعال باشد و سقف دقیقه‌ای/روزانه‌ی کاربر پر نشده باشد ← ردیف pending (یکتا روی note_id).',
+        'مرورگر POST /tasks/{task}/notes/{note}/karlix را صدا می‌زند ← ادعای اتمی pending ← running (هر تسک یک درخواست در حال اجرا؛ بقیه به ترتیب). تکرار درخواست همان نتیجه را می‌دهد و دوباره اجرا نمی‌کند.',
+        'زمینه‌ی مجاز تسک (عنوان، توضیح کوتاه‌شده، وضعیت، سررسید، اولویت، لیبل‌ها و اعضای پروژه با ارجاع کوتاه L1/U1، بدون موبایل و شناسه) + ۴ گفت‌وگوی قبلی همین تسک به مدل می‌رود.',
+        'خروجی JSON مدل از فهرست سفید Actions::validate می‌گذرد؛ هر عملیات با TaskService::update / BoardService (همان دسترسی‌های پنل) اجرا و بعد ردیف تسک دوباره بررسی می‌شود. خطای سرویس هوش مصنوعی = هیچ تغییری روی تسک.',
+        'پاسخ از روی نتیجه‌ی واقعی ساخته و به‌صورت یادداشت کاربر ربات ثبت می‌شود (reply_note_id). درخواست running بیش از ۱۵۰ ثانیه = error (stale).',
+    ],
+    'cols': {
+        'task_id': 'تسک (فقط همین تسک تغییر می‌کند و مکالمه فقط در همین تسک دیده می‌شود).',
+        'note_id': 'یادداشت کاربر که کارلیکس را منشن کرده؛ یکتا (هر یادداشت حداکثر یک بار اجرا می‌شود).',
+        'user_id': 'درخواست‌کننده؛ فقط خودش می‌تواند اجرا را صدا بزند و همه‌ی عملیات با دسترسی او بررسی می‌شود.',
+        'status': 'pending (در صف) ← running ← done (همه انجام شد) | partial (بخشی) | failed (هیچ‌کدام) | clarify (سؤال تکمیلی) | refused (خارج از محدوده یا بدون دسترسی) | error (خطای سرویس، زمان یا داخلی).',
+        'reply_note_id': 'یادداشت پاسخ کارلیکس در task_notes (NULL تا پایان کار).',
+        'actions': 'JSON نتیجه‌ی هر عملیات: type (update_title, update_description, update_due_date, clear_due_date, update_priority, add_label, remove_label, assign_user, change_status یا unknown) + ok + partial + متن نتیجه.',
+        'error': 'کد خطا بدون اطلاعات حساس: not_configured, timeout, network, auth, rate_limited, server, bad_response, bad_json, no_access, stale, exception.',
+        'model': 'نام مدل استفاده‌شده (AGNES_MODEL، پیش‌فرض agnes-2.5-flash).',
+        'tokens': 'مصرف توکن گزارش‌شده‌ی سرویس (usage.total_tokens).',
+        'started_at': 'شروع پردازش (برای تشخیص درخواست گیرکرده).',
+        'finished_at': 'پایان پردازش.',
+    },
 },
 'task_attachments': {
     'title': 'پیوست‌های تسک',

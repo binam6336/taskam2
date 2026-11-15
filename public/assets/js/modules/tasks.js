@@ -21,7 +21,7 @@ document.addEventListener('tk:ready', () => {
     // منشن فقط روی بخش‌های متنی (نه داخل HTML لینک‌های ساخته‌شده) اعمال می‌شود
     const list = [...new Set(names.filter(Boolean).map(E))].sort((a, b) => b.length - a.length);
     const mentionRe = list.length ? new RegExp('@(' + list.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g') : null;
-    const txt = (s) => (mentionRe ? E(s).replace(mentionRe, '<span class="mention">@$1</span>') : E(s));
+    const txt = (s) => (mentionRe ? E(s).replace(mentionRe, (m0, n) => `<span class="mention${n === 'کارلیکس' ? ' mention-ai' : ''}">@${n}</span>`) : E(s));
     LINK_RE.lastIndex = 0;
     while ((m = LINK_RE.exec(src))) {
       out += txt(src.slice(last, m.index));
@@ -328,15 +328,18 @@ document.addEventListener('tk:ready', () => {
   /* ───── جزئیات ───── */
   // v7.18: پیوست خود تسک با دسترسی edit_info دکمه‌ی حذف دارد (حذف واقعی در سرور: POST /tasks/{id}/attachments/{file}/delete)
   const fileChip = (f, kind) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a>${kind === 'task' && current?.can?.edit_info && !current?.is_blocked ? `<button type="button" class="file-chip-x" data-file-del="${E(f.id)}" data-file-name="${E(f.file_name)}" aria-label="حذف ${E(f.file_name)}" title="حذف پیوست"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>` : ''}</span>`;
-  const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name];
+  const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name, current?.assistant?.visible ? 'کارلیکس' : null];
 
+  // کارلیکس (v7.19): پاسخ‌ها با آواتار مغز و نشان «دستیار هوش مصنوعی»؛ زیر یادداشتی که منشنش کرده تا پایان کار «در حال بررسی…»
+  const AI_WAIT = { pending: 'در صف کارلیکس…', running: 'کارلیکس در حال بررسی و اجرای درخواست است…' };
   const noteHtml = (n) => `
-    <div class="note" id="note-${n.id}">
-      <span class="avatar sm">${n.avatar_url ? `<img loading="lazy" decoding="async" src="${E(n.avatar_url)}" alt="">` : E(TK.initial(n.author))}</span>
+    <div class="note${n.is_ai ? ' note-ai' : ''}" id="note-${n.id}">
+      ${n.is_ai ? '<span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>' : `<span class="avatar sm">${n.avatar_url ? `<img loading="lazy" decoding="async" src="${E(n.avatar_url)}" alt="">` : E(TK.initial(n.author))}</span>`}
       <div class="grow">
-        <div class="flex between gap-2"><b class="small">${E(n.author)}</b><span class="xs faint">${E(n.created_fa)}${n.updated_at ? ' (ویرایش‌شده)' : ''}</span></div>
+        <div class="flex between gap-2"><b class="small">${E(n.is_ai ? 'کارلیکس' : n.author)}${n.is_ai ? '<span class="ai-badge">دستیار هوش مصنوعی</span>' : ''}</b><span class="xs faint">${E(n.created_fa)}${n.updated_at ? ' (ویرایش‌شده)' : ''}</span></div>
         <div class="note-body" data-note-text data-raw="${E(n.note)}">${rich(n.note, names())}</div>
         <div>${(n.attachments || []).map((f) => fileChip(f, 'note')).join('')}</div>
+        ${AI_WAIT[n.ai_state] ? `<div class="ai-state" role="status" data-ai-wait="${n.id}"><span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>${AI_WAIT[n.ai_state]}<span class="ai-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>` : ''}
         <div class="flex gap-1 mt-1">${n.can_edit ? `<button class="btn btn-xs btn-ghost" data-edit-note="${n.id}"><i class="fa-solid fa-pen"></i> ویرایش</button>` : ''}</div>
       </div>
     </div>`;
@@ -543,10 +546,9 @@ document.addEventListener('tk:ready', () => {
         <div id="task-files" class="td-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div></section>
       <section class="td-sec">
         <div class="utabs td-tabs"><span class="utab active">یادداشت‌ها و گزارش پیشرفت <span class="cnt">${F(t.notes.length)}</span></span><button type="button" class="utab" data-detail-history>تاریخچه‌ی تغییرات</button></div>
-      ${t.can.notes ? `<form id="f-note" class="td-compose" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
+      ${t.can.notes ? `<form id="f-note" class="td-compose" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" data-mention-ta placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن @ بنویسید یا از دکمه‌ی @ استفاده کنید)'))}"></textarea>
         <div class="td-compose-bar file-pick-row"><button class="btn btn-primary btn-sm">ثبت یادداشت</button>
-          <div class="dropdown mention-dd"><button type="button" class="btn btn-ghost btn-icon btn-sm mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
-            <div class="dropdown-menu mention-menu">${taptapItem()}${(t.mentionable || []).length ? `<div class="menu-label">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img loading="lazy" decoding="async" src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="menu-label">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
+          <button type="button" class="btn btn-ghost btn-icon btn-sm mention-btn" data-mention title="منشن کردن اعضای پروژه یا کارلیکس" aria-label="منشن" aria-haspopup="listbox"><i class="fa-solid fa-at"></i></button>
           <label class="btn btn-ghost btn-icon btn-sm file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label>
           <span class="file-pick-names faint small grow" data-file-names></span><span class="td-kbd" aria-hidden="true"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ثبت</span></div></form>` : ''}
       <div class="td-notes-bar"><span class="faint xs">${F(t.notes.length)} یادداشت</span><span class="faint xs">جدیدترین بالا</span></div>
@@ -583,16 +585,16 @@ document.addEventListener('tk:ready', () => {
   const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img loading="lazy" decoding="async" src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
   const q = (v) => (v ? `«${E(v)}»` : '<span class="muted">(خالی)</span>');
   // منبع تغییر از صفحه‌ی «بار کاری» (v7.10): پیشنهاد / کشیدن و رها کردن / بازگردانی
-  const wlSrc = (i) => ({ suggestion: ' (پیشنهاد «بار کاری»)', drag: ' (کشیدن در «بار کاری»)', undo: ' (بازگردانی در «بار کاری»)' })[i.data && i.data.source] || '';
+  const wlSrc = (i) => ({ suggestion: ' (پیشنهاد «بار کاری»)', drag: ' (کشیدن در «بار کاری»)', undo: ' (بازگردانی در «بار کاری»)', karlix: ' (با کارلیکس)' })[i.data && i.data.source] || '';
   const HIST = {
     created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
     confidential_on: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را محرمانه کرد${i.data.count ? ' (' + TK.fa(i.data.count) + ' بیننده‌ی انتخابی)' : ''}`],
     confidential_off: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را از حالت محرمانه خارج کرد`],
-    title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
-    priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
+    description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد${wlSrc(i)}.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
+    priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
-    label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
     assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد${wlSrc(i)}.`],
     completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
@@ -628,6 +630,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.get('/tasks/' + id);
     if (!TK.ok(r)) { TK.modal.close('m-detail'); return TK.toast(r.message || 'خطا', 'error'); }
     render(r.task);
+    aiResume(r.task);
   };
   const refresh = async () => { const r = await TK.get('/tasks/' + currentId); if (TK.ok(r)) render(r.task); };
 
@@ -644,33 +647,167 @@ document.addEventListener('tk:ready', () => {
     const fd = new FormData(f);
     if (f.id === 'f-note') {
       const text = String(fd.get('note') || '');
-      [...mentioned].filter(([, n]) => text.includes('@' + n)).forEach(([id]) => fd.append('mentions[]', id));
+      mentionIds(text).forEach((id) => fd.append('mentions[]', id));
     }
     const r = await TK.http(url, { method: 'POST', form: fd });
     TK.busy(btn, false); pick?.classList.remove('is-busy');
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
-    if (TK.ok(r)) { mentioned.clear(); const errs = r.upload_errors || r.data?.upload_errors; if (errs?.length) TK.toast(errs.join('، '), 'warning', 7000); await after(); TK.reload(); }
+    if (TK.ok(r)) {
+      const errs = r.upload_errors || r.data?.upload_errors; if (errs?.length) TK.toast(errs.join('، '), 'warning', 7000);
+      if (r.assistant_message) TK.toast(r.assistant_message, 'warning', 7000);
+      await after(); TK.reload();
+      if (r.assistant) aiRun(currentId, r.assistant);
+    }
   };
 
-  /* منشن: درج «@نام» در محل نشانگر */
-  const mentioned = new Map();
-  /* «تاپ تاپ» در فهرست منشن (v7.3): فعلاً فقط متن @تاپ‌تاپ را در یادداشت می‌گذارد و کاری روی سرور انجام نمی‌دهد
-     (برای قابلیت بعدی). آیکون = همان لوگوی کارلیکس در سایدبار با رنگ‌های تم فعلی. */
-  // تابع (نه const): render تسک اشتراکی (/tasks?task=…) پیش از این خط اجرا می‌شود و به آن نیاز دارد
-  function taptapItem() {
-    const logo = TK.qs('#sidebar .brand .logo svg')?.outerHTML || '<i class="fa-solid fa-bolt"></i>';
-    return `<button type="button" class="mention-taptap" data-mention-taptap><span class="avatar sm mt-logo">${logo}</span><span class="grow">تاپ تاپ</span><small class="faint">به‌زودی</small></button><div class="dd-sep"></div>`;
-  }
-  const insertMention = (id, name) => {
-    const ta = TK.qs('#f-note textarea', detail); if (!ta) return;
-    const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;
-    const before = ta.value.slice(0, s), pre = before && !/\s$/.test(before) ? ' ' : '';
-    const ins = `${pre}@${name} `;
-    ta.value = before + ins + ta.value.slice(e);
-    ta.selectionStart = ta.selectionEnd = s + ins.length; ta.focus();
-    mentioned.set(String(id), name);
+  /* کارلیکس: اجرای درخواست بعد از ثبت یادداشت. پاسخ در همان یادداشت‌های تسک ثبت می‌شود؛ تا آماده شدن، هر ۲ ثانیه دوباره می‌پرسد
+     (سرور هر درخواست را فقط یک بار اجرا می‌کند، پس تکرار امن است). */
+  const aiBusy = new Set();
+  const aiRun = async (taskId, noteId) => {
+    if (aiBusy.has(noteId)) return;
+    aiBusy.add(noteId);
+    try {
+      for (let i = 0; i < 60; i++) {
+        const r = await TK.post('/tasks/' + taskId + '/notes/' + noteId + '/karlix', {});
+        if (!TK.ok(r)) { if (r._http !== 429) { TK.toast(r.message || 'اجرای درخواست کارلیکس ناموفق بود.', 'error'); break; } }
+        else if (r.state !== 'pending' && r.state !== 'running') {
+          if (String(currentId) === String(taskId) && TK.qs('#m-detail.open')) await refresh();
+          if (r.state === 'done') TK.toast('کارلیکس درخواست را انجام داد.', 'success');
+          else if (r.state === 'partial') TK.toast('کارلیکس بخشی از درخواست را انجام داد؛ جزئیات در یادداشت‌ها.', 'warning', 6000);
+          else if (r.state === 'failed' || r.state === 'error') TK.toast('کارلیکس نتوانست درخواست را انجام دهد؛ توضیح در یادداشت‌ها.', 'error', 6000);
+          else TK.toast('کارلیکس پاسخ داد.', 'info');
+          TK.live?.refresh?.();
+          break;
+        }
+        await new Promise((ok) => setTimeout(ok, ((r && r.retry) || 2) * 1000));
+      }
+    } finally { aiBusy.delete(noteId); }
   };
+  // جزئیات باز شد و درخواست خود کاربر هنوز تمام نشده (مثلاً صفحه وسط کار بسته شده بود): ادامه‌ی اجرا
+  const aiResume = (t) => (t.notes || []).filter((n) => n.ai_mine && AI_WAIT[n.ai_state]).forEach((n) => aiRun(t.id, n.id));
 
+  /* ───── منشن (v7.19) ─────
+     یک فهرست شناور (#mn-pop، بیرون از ناحیه‌ی اسکرول جزئیات) برای هر textarea[data-mention-ta] (یادداشت جدید و ویرایش یادداشت):
+     با تایپ «@» بعد از فاصله/ابتدای خط یا با دکمه‌ی @ باز می‌شود، با ادامه‌ی تایپ فیلتر می‌شود، ↑/↓ + Enter/Tab انتخاب و Esc بستن.
+     «کارلیکس» (دستیار هوش مصنوعی) اولین گزینه است؛ شناسه‌ی منشن‌ها هنگام ثبت از روی متن (@نام کامل) ساخته می‌شود. */
+  const AI_NAME = 'کارلیکس';
+  const norm = (v) => String(v || '').replace(/[‌‎‏]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLowerCase();
+  const mnItems = () => {
+    const out = [], a = current?.assistant;
+    if (a?.visible) out.push({ id: 'ai', name: AI_NAME, ai: true, off: !a.enabled, hint: a.enabled ? 'دستیار هوش مصنوعی — درخواستتان را بنویسید' : (a.reason || 'فعلاً در دسترس نیست') });
+    (current?.mentionable || []).forEach((m) => out.push({ id: String(m.id), name: m.name, avatar: m.avatar }));
+    return out;
+  };
+  // شناسه‌ی اعضایی که «@نام کامل» آن‌ها در متن آمده (چه از فهرست انتخاب شده باشد، چه دستی تایپ شده)
+  const mentionIds = (text) => (current?.mentionable || []).filter((m) => text.includes('@' + m.name)).map((m) => m.id);
+  let mn = null;   // { ta, start, end, items, idx, btn }
+  const mnPop = () => {
+    let p = TK.qs('#mn-pop');
+    if (!p) {
+      p = document.createElement('div');
+      p.id = 'mn-pop'; p.className = 'mn-pop'; p.setAttribute('role', 'listbox'); p.setAttribute('aria-label', 'افراد قابل منشن'); p.hidden = true;
+      document.body.appendChild(p);
+      p.addEventListener('mousedown', (e) => e.preventDefault());           // فوکوس در textarea بماند
+      p.addEventListener('click', (e) => { const o = e.target.closest('[data-mn-i]'); if (o && mn) mnPick(+o.dataset.mnI); });
+    }
+    return p;
+  };
+  const mnClose = (undoBtn) => {
+    if (!mn) return;
+    const { ta, btn } = mn;
+    // دکمه‌ی @ یک «@» در متن گذاشته بود و چیزی انتخاب نشد: همان را برمی‌داریم
+    if (undoBtn && btn !== null && ta.value.slice(btn.at, btn.at + btn.len) === btn.text && ta.selectionStart === btn.at + btn.len) {
+      ta.value = ta.value.slice(0, btn.at) + ta.value.slice(btn.at + btn.len); ta.setSelectionRange(btn.at, btn.at);
+    }
+    mnPop().hidden = true; ta.setAttribute('aria-expanded', 'false'); ta.removeAttribute('aria-activedescendant');
+    mn = null;
+  };
+  const mnQuery = (ta) => {
+    const s = ta.selectionStart;
+    if (s == null || s !== ta.selectionEnd) return null;
+    const m = /(^|[\s(،,])@([^\s@]{0,40}(?: [^\s@]{0,40})?)$/.exec(ta.value.slice(0, s));
+    return m ? { start: s - m[2].length - 1, end: s, q: m[2] } : null;
+  };
+  const mnUpdate = (ta, btn = null) => {
+    const hit = mnQuery(ta);
+    if (!hit) return mnClose();
+    const all = mnItems(), q = norm(hit.q);
+    // بعد از انتخاب، «@نام » کامل دیگر فهرست را باز نمی‌کند
+    if (/\s$/.test(hit.q) && all.some((i) => norm(i.name) === q)) return mnClose();
+    const list = q ? all.filter((i) => norm(i.name).includes(q)) : all;
+    if (!list.length && (q || !btn)) return mnClose();
+    const keep = mn && mn.ta === ta ? mn.idx : 0;
+    mn = { ta, start: hit.start, end: hit.end, items: list, idx: Math.min(keep, Math.max(0, list.length - 1)), btn: btn || (mn && mn.ta === ta ? mn.btn : null) };
+    if (mn.items[mn.idx]?.off) mn.idx = Math.max(0, mn.items.findIndex((i) => !i.off));
+    mnRender();
+  };
+  const mnRender = () => {
+    const p = mnPop(), ta = mn.ta;
+    const av = (i) => (i.ai ? '<span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>'
+      : `<span class="avatar sm" aria-hidden="true">${i.avatar ? `<img loading="lazy" decoding="async" src="${E(i.avatar)}" alt="">` : E(TK.initial(i.name))}</span>`);
+    let html = '', memberHead = false;
+    mn.items.forEach((i, k) => {
+      if (!i.ai && !memberHead) { memberHead = true; html += `<div class="mn-head">اعضای پروژه${current?.project_title ? '‌ی «' + E(current.project_title) + '»' : ''}</div>`; }
+      html += `<div class="mn-opt${k === mn.idx ? ' is-on' : ''}${i.ai ? ' is-ai' : ''}${i.off ? ' is-off' : ''}" role="option" id="mn-o-${k}" data-mn-i="${k}" aria-selected="${k === mn.idx}"${i.off ? ' aria-disabled="true"' : ''}>${av(i)}<span class="mn-txt"><span class="mn-name">${E(i.name)}${i.ai ? ' <span class="mn-tag">AI</span>' : ''}</span>${i.hint ? `<small>${E(i.hint)}</small>` : ''}</span></div>`;
+    });
+    if (!mn.items.length) html = `<div class="mn-empty">${current?.project_id ? 'عضو دیگری در پروژه‌ی این تسک نیست.' : 'منشن فقط برای تسک‌های پروژه است.'}</div>`;
+    else if (!memberHead && !mn.ta.value.slice(mn.start + 1, mn.end)) html += `<div class="mn-empty">${current?.project_id ? 'عضو دیگری در پروژه‌ی این تسک نیست.' : 'این تسک پروژه ندارد؛ فقط کارلیکس قابل منشن است.'}</div>`;
+    p.innerHTML = html; p.hidden = false;
+    ta.setAttribute('aria-expanded', 'true'); ta.setAttribute('aria-activedescendant', 'mn-o-' + mn.idx);
+    // جای فهرست: زیر textarea اگر جا هست، وگرنه بالای آن؛ هم‌تراز لبه‌ی راست (RTL) و داخل صفحه
+    const r = ta.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    const w = Math.min(320, vw - 16);
+    p.style.width = w + 'px';
+    const h = Math.min(p.scrollHeight, 300);
+    const below = vh - r.bottom - 8, above = r.top - 8;
+    p.style.top = (below >= h || below >= above ? Math.min(r.bottom + 4, vh - h - 8) : Math.max(8, r.top - h - 4)) + 'px';
+    p.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
+    p.querySelector('.is-on')?.scrollIntoView({ block: 'nearest' });
+  };
+  const mnPick = (k) => {
+    const it = mn?.items[k];
+    if (!it) return;
+    if (it.off) { TK.toast(it.hint, 'info'); return; }
+    const ta = mn.ta, ins = '@' + it.name + ' ';
+    ta.value = ta.value.slice(0, mn.start) + ins + ta.value.slice(mn.end);
+    const pos = mn.start + ins.length;
+    mn.btn = null; mnClose();
+    ta.focus(); ta.setSelectionRange(pos, pos);
+  };
+  // دکمه‌ی @: یک «@» در محل نشانگر می‌گذارد و همان فهرست را باز می‌کند (با Esc یا کلیک بیرون برداشته می‌شود)
+  const mnFromButton = () => {
+    const ta = TK.qs('#f-note textarea', detail);
+    if (!ta) return;
+    if (mn && mn.ta === ta) return mnClose(true);
+    ta.focus();
+    const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s, before = ta.value.slice(0, s);
+    const text = (before && !/\s$/.test(before) ? ' ' : '') + '@';
+    ta.value = before + text + ta.value.slice(e);
+    ta.setSelectionRange(s + text.length, s + text.length);
+    mnUpdate(ta, { at: s, len: text.length, text });
+  };
+  detail.addEventListener('input', (e) => { if (e.target.matches('textarea[data-mention-ta]') && !e.isComposing) mnUpdate(e.target); });
+  detail.addEventListener('compositionend', (e) => { if (e.target.matches('textarea[data-mention-ta]')) mnUpdate(e.target); });
+  detail.addEventListener('keydown', (e) => {
+    if (!mn || e.target !== mn.ta || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+    const n = mn.items.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!n) return;
+      e.preventDefault();
+      let i = mn.idx;
+      for (let c = 0; c < n; c++) { i = (i + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; if (!mn.items[i].off) break; }
+      mn.idx = i; mnRender();
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && n && !e.shiftKey) {
+      e.preventDefault(); e.stopPropagation(); mnPick(mn.idx);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); mnClose(true);
+    }
+  });
+  detail.addEventListener('click', (e) => { if (mn && e.target === mn.ta) mnUpdate(mn.ta); });
+  detail.addEventListener('focusout', (e) => { if (mn && e.target === mn.ta) setTimeout(() => { if (mn && document.activeElement !== mn.ta) mnClose(true); }, 120); });
+  detail.addEventListener('scroll', () => { if (mn) mnRender(); }, true);
+  window.addEventListener('resize', () => { if (mn) mnRender(); });
+  TK.qs('#m-detail')?.addEventListener('tk:close', () => mnClose());
   // پیوست تسک: با انتخاب فایل از دکمه‌ی آیکونی، بلافاصله آپلود می‌شود
   detail.addEventListener('change', (e) => {
     if (e.target.matches('[data-auto-upload]') && e.target.files.length) submit(e.target.form, '/tasks/' + currentId + '/attachments', refresh);
@@ -692,16 +829,7 @@ document.addEventListener('tk:ready', () => {
       return;
     }
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
-    if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
-    if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
-    if (b.hasAttribute('data-mention-taptap')) {
-      b.closest('.dropdown').classList.remove('open');
-      const ta = TK.qs('#f-note textarea', detail); if (!ta) return;
-      const st = ta.selectionStart ?? ta.value.length, en = ta.selectionEnd ?? st, before = ta.value.slice(0, st);
-      const ins = (before && !/\s$/.test(before) ? ' ' : '') + '@تاپ‌تاپ ';
-      ta.value = before + ins + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = st + ins.length; ta.focus();
-      return;
-    }
+    if (b.hasAttribute('data-mention')) { e.stopPropagation(); return mnFromButton(); }
     if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) Promise.all([refresh(), TK.reload()]); else refresh(); return; }
     if (b.hasAttribute('data-detail-toggle')) {
       const r = await TK.post('/tasks/' + currentId + '/toggle');
@@ -758,10 +886,10 @@ document.addEventListener('tk:ready', () => {
     }
     if (b.dataset.editNote) {
       const box = TK.qs('#note-' + b.dataset.editNote), p = box.querySelector('[data-note-text]'), old = p.dataset.raw;
-      p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3">${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
+      p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3" data-mention-ta>${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
       linkify(p.querySelector('textarea'));
     }
-    if (b.dataset.saveNote) { const ta = b.closest('.note').querySelector('textarea'); const r = await TK.post('/notes/' + b.dataset.saveNote + '/update', { note: ta.value }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
+    if (b.dataset.saveNote) { const ta = b.closest('.note').querySelector('textarea'); const r = await TK.post('/notes/' + b.dataset.saveNote + '/update', { note: ta.value, mentions: mentionIds(ta.value) }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
     if (b.hasAttribute('data-cancel-note')) refresh();
   });
 });

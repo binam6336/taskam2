@@ -511,14 +511,7 @@ final class TaskService
         [$saved, $errors] = $files ? NoteModel::storeAttachments('note', $nid, $actor, $files) : [[], []];
         $token = TaskModel::ensureShareToken($taskId);
         $t['share_token'] = $token;
-        // منشن: فقط اعضای پروژه‌ی همین تسک
-        // تسک محرمانه: فقط کسانی منشن می‌شوند (و اعلان می‌گیرند) که تسک را می‌بینند
-        $allowed = $t['project_id'] ? array_column(array_filter(self::mentionable((int) $t['project_id'], $actor), static fn($u) => Access::canSeeConfidential($t, (int) $u['id'])), 'id') : [];
-        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
-        foreach ($mentioned as $uid) {
-            DB::insert('task_mentions', ['task_id' => $taskId, 'note_id' => $nid, 'user_id' => $uid, 'actor_id' => $actor]);
-            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
-        }
+        $mentioned = self::storeMentions($t, $actor, $nid, $text, $mentions);
         foreach (array_unique(array_filter([(int) $t['user_id'], (int) $t['assignee_id']])) as $uid) {
             if ($uid !== $actor && !in_array($uid, $mentioned, true)) {
                 Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid);
@@ -527,7 +520,33 @@ final class TaskService
         return self::res(true, 'یادداشت ثبت شد.' . ($mentioned ? ' ' . fa_num(count($mentioned)) . ' نفر منشن شدند.' : ''), '', 201, ['id' => $nid, 'attachments' => $saved, 'upload_errors' => $errors, 'mentioned' => $mentioned]);
     }
 
-    public static function updateNote(int $actor, int $noteId, string $text): array
+    /**
+     * منشن‌های یک یادداشت: فقط اعضای پروژه‌ی همین تسک (تسک محرمانه: فقط کسانی که تسک را می‌بینند)؛
+     * ردیف task_mentions + اعلان برای هر نفر. در ویرایش ($onlyNew) کسانی که قبلاً در همین یادداشت منشن شده بودند دوباره اعلان نمی‌گیرند.
+     * @return int[] شناسه‌ی منشن‌شده‌های جدید
+     */
+    private static function storeMentions(array $t, int $actor, int $noteId, string $text, array $mentions, bool $onlyNew = false): array
+    {
+        if (!$mentions || !$t['project_id']) {
+            return [];
+        }
+        $allowed = array_column(array_filter(self::mentionable((int) $t['project_id'], $actor), static fn($u) => Access::canSeeConfidential($t, (int) $u['id'])), 'id');
+        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
+        if ($onlyNew && $mentioned) {
+            $old = array_map('intval', DB::column('SELECT user_id FROM task_mentions WHERE note_id = ?', [$noteId]));
+            $mentioned = array_values(array_diff($mentioned, $old));
+        }
+        if ($mentioned && empty($t['share_token'])) {
+            $t['share_token'] = TaskModel::ensureShareToken((int) $t['id']);
+        }
+        foreach ($mentioned as $uid) {
+            DB::insert('task_mentions', ['task_id' => (int) $t['id'], 'note_id' => $noteId, 'user_id' => $uid, 'actor_id' => $actor]);
+            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
+        }
+        return $mentioned;
+    }
+
+    public static function updateNote(int $actor, int $noteId, string $text, array $mentions = []): array
     {
         $n = NoteModel::find($noteId);
         if ($n === null) {
@@ -544,13 +563,19 @@ final class TaskService
         if ((int) $n['user_id'] !== $actor && (int) $n['task_owner_id'] !== $actor) {
             return self::err('فقط نویسنده‌ی یادداشت یا صاحب تسک می‌تواند آن را ویرایش کند.', 'FORBIDDEN', 403);
         }
+        // پاسخ‌های کارلیکس (کاربر ربات) ویرایش‌شدنی نیستند تا گزارش واقعی اجرای عملیات دست نخورد
+        if ((int) $n['user_id'] === \App\Models\UserModel::botId()) {
+            return self::err('پاسخ‌های کارلیکس قابل ویرایش نیستند.', 'FORBIDDEN', 403);
+        }
         $text = trim($text);
         if ($text === '' || mb_strlen($text) > 5000) {
             return self::err('متن یادداشت نامعتبر است.', 'NOTE_INVALID');
         }
         DB::run('UPDATE task_notes SET note = ?, updated_at = NOW() WHERE id = ?', [$text, $noteId]);
         TaskHistory::log((int) $n['task_id'], $actor, 'note_edited', ['author' => (int) $n['user_id']]);
-        return self::res(true, 'یادداشت ویرایش شد.');
+        $task['share_token'] = $n['share_token'] ?? null;
+        $new = self::storeMentions($task, $actor, $noteId, $text, $mentions, true);
+        return self::res(true, 'یادداشت ویرایش شد.' . ($new ? ' ' . fa_num(count($new)) . ' نفر منشن شدند.' : ''), '', 200, ['mentioned' => $new]);
     }
 
     public static function addTaskFiles(int $actor, int $taskId, array $files): array

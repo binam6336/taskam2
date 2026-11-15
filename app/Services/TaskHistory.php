@@ -25,15 +25,16 @@ final class TaskHistory
     }
 
     /** مقایسه‌ی ردیف قبلی تسک با تغییرات ذخیره‌شده ($set در TaskService::update) */
-    /** $source (v7.10): منبع تغییر برای تاریخچه، مثل suggestion | drag | undo از «بار کاری» */
+    /** $source (v7.10): منبع تغییر برای تاریخچه، مثل suggestion | drag | undo از «بار کاری»، یا karlix (دستیار هوش مصنوعی، v7.19) */
     public static function changes(array $old, array $set, int $actor, ?string $source = null): void
     {
         $id = (int) $old['id'];
+        $src = $source ? ['source' => $source] : [];          // v7.19: منبع (بار کاری، کارلیکس) روی همه‌ی تغییرها
         if (array_key_exists('title', $set)) {
-            self::log($id, $actor, 'title', ['from' => $old['title'], 'to' => $set['title']]);
+            self::log($id, $actor, 'title', ['from' => $old['title'], 'to' => $set['title']] + $src);
         }
         if (array_key_exists('description', $set)) {
-            self::log($id, $actor, 'description', ['to' => mb_substr((string) $set['description'], 0, 2000)]);
+            self::log($id, $actor, 'description', ['to' => mb_substr((string) $set['description'], 0, 2000)] + $src);
         }
         if (array_key_exists('priority', $set) || array_key_exists('priority_percent', $set)) {
             $pct = $old['project_id'] && DB::value('SELECT priority_type FROM projects WHERE id = ?', [(int) $old['project_id']]) === 'percent';
@@ -41,7 +42,7 @@ final class TaskHistory
             $from = $fmt($old['priority'], $old['priority_percent']);
             $to = $fmt($set['priority'] ?? $old['priority'], $set['priority_percent'] ?? $old['priority_percent']);
             if ($from !== $to) {
-                self::log($id, $actor, 'priority', ['from' => $from, 'to' => $to]);
+                self::log($id, $actor, 'priority', ['from' => $from, 'to' => $to] + $src);
             }
         }
         if (array_key_exists('due_date', $set) || array_key_exists('due_time', $set)) {
@@ -54,19 +55,19 @@ final class TaskHistory
             $from = $fmt($old['due_date'], $old['due_time']);
             $to = $fmt(array_key_exists('due_date', $set) ? $set['due_date'] : $old['due_date'], array_key_exists('due_time', $set) ? $set['due_time'] : $old['due_time']);
             if ($from !== $to) {
-                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to] + ($source ? ['source' => $source] : []));
+                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to] + $src);
             }
         }
         if (array_key_exists('subject_id', $set)) {
             $t = static fn($sid) => $sid ? (string) DB::value('SELECT title FROM subjects WHERE id = ?', [(int) $sid]) : '';
-            self::log($id, $actor, 'label', ['from' => $t($old['subject_id']), 'to' => $t($set['subject_id'])]);
+            self::log($id, $actor, 'label', ['from' => $t($old['subject_id']), 'to' => $t($set['subject_id'])] + $src);
         }
         if (array_key_exists('project_id', $set)) {
             $t = static fn($pid) => $pid ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $pid]) : '';
             self::log($id, $actor, 'project', ['from' => $t($old['project_id']), 'to' => $t($set['project_id'])]);
         }
         if (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
-            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']] + ($source ? ['source' => $source] : []));
+            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']] + $src);
         }
     }
 

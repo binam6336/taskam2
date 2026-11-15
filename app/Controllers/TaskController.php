@@ -17,6 +17,7 @@ use App\Services\BoardService;
 use App\Services\Priority;
 use App\Services\TaskHistory;
 use App\Services\TaskService;
+use App\Services\Karlix\Assistant;
 
 final class TaskController extends Controller
 {
@@ -136,13 +137,19 @@ final class TaskController extends Controller
     {
         $can = TaskService::effective($t, $uid);
         $notes = array_reverse(NoteModel::forTask((int) $t['id']));   // جدیدترین بالا
+        $bot = \App\Models\UserModel::botId();
+        $ai = Assistant::states((int) $t['id']);
         foreach ($notes as &$n) {
+            // کارلیکس (v7.19): پاسخ‌ها یادداشت کاربر ربات‌اند (ویرایش‌نشدنی)؛ ai_state = وضعیت درخواستِ یادداشتی که کارلیکس را منشن کرده
+            $n['is_ai'] = (int) $n['user_id'] === $bot;
+            $n['ai_state'] = $ai[(int) $n['id']] ?? null;
+            $n['ai_mine'] = $n['ai_state'] !== null && (int) $n['user_id'] === $uid;
             $n['id'] = Pid::row('task_notes', $n);
             unset($n['pid']);
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
             $n['mine'] = (int) $n['user_id'] === $uid;
-            $n['can_edit'] = empty($t['blocked_at']) && ($n['mine'] || (int) $t['user_id'] === $uid);
+            $n['can_edit'] = empty($t['blocked_at']) && !$n['is_ai'] && ($n['mine'] || (int) $t['user_id'] === $uid);
             $n['created_fa'] = jdate($n['created_at']);
             $n['attachments'] = array_map(static fn($a) => [
                 'id' => Pid::row('note_attachments', $a), 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
@@ -161,6 +168,7 @@ final class TaskController extends Controller
             'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,
             'priority_type' => $t['project_priority_type'] ?? 'category',
             'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid, $t) : [],
+            'assistant' => Assistant::info($t, $uid, (bool) ($can['notes'] ?? false)),
             'is_completed' => (int) $t['is_completed'] === 1, 'is_quick' => (int) ($t['is_quick'] ?? 0) === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,
@@ -378,13 +386,34 @@ final class TaskController extends Controller
 
     public function addNote(string $id)
     {
-        $res = TaskService::addNote($this->uid(), (int) $id, $this->request->str('note', 5000), Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'task_notes') : []);
+        $uid = $this->uid();
+        $text = $this->request->str('note', 5000);
+        $res = TaskService::addNote($uid, (int) $id, $text, Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
+        $extra = [];
+        // کارلیکس (v7.19): یادداشتی که «@کارلیکس» دارد در صف دستیار قرار می‌گیرد؛ مرورگر بعد از ثبت، اجرا را صدا می‌زند
+        if ($res['ok']) {
+            $q = Assistant::queue((int) $id, (int) $res['data']['id'], $uid, $text);
+            if ($q !== null) {
+                $extra = $q['queued'] ? ['assistant' => Pid::of('task_notes', (int) $res['data']['id'])] : ['assistant_message' => $q['message']];
+            }
+        }
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'task_notes') + $extra : []);
+    }
+
+    /** اجرای درخواست کارلیکس روی یک یادداشت (فقط درخواست‌کننده؛ تکرارش امن است) */
+    public function assistantRun(string $task, string $note)
+    {
+        $this->rateLimit('karlix_run', 40);
+        $res = Assistant::run($this->uid(), (int) $task, (int) $note);
+        if (!$res['ok']) {
+            $this->fail($res['message'], $res['http']);
+        }
+        $this->ok('', (array) $res['data']);
     }
 
     public function updateNote(string $id)
     {
-        $res = TaskService::updateNote($this->uid(), (int) $id, $this->request->str('note', 5000));
+        $res = TaskService::updateNote($this->uid(), (int) $id, $this->request->str('note', 5000), array_map('intval', $this->request->arr('mentions')));
         $this->respond($res['ok'], $res['message'], '/tasks');
     }
 

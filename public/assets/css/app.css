@@ -2623,9 +2623,6 @@ body:not([data-layout]) .toasts { left: 50%; transform: translateX(-50%); bottom
 .fp-rm:hover { background: var(--danger-bg); color: var(--danger); }
 .fp-cnt { font-size: .74rem; color: var(--muted); }
 .tf-drop [data-file-names]:empty::before { content: attr(data-empty); color: var(--muted); }
-/* «تاپ تاپ» در فهرست منشن: لوگوی کارلیکس با رنگ تم */
-.mention-taptap .mt-logo { padding: 0; background: none; overflow: hidden; border-radius: 9px; }
-.mention-taptap .mt-logo svg { width: 100%; height: 100%; display: block; }
 .dd-sep { height: 1px; margin: 4px 6px; background: var(--border); }
 
 /* UI-017 (v7.3): استایل‌های ثابتی که قبلاً با data-css و JS اعمال می‌شدند (دو بار کلاس = اولویت بیشتر از قواعد عمومی) */
