@@ -5,7 +5,6 @@ namespace App\Services\Karlix;
 
 use App\Core\DB;
 use App\Core\Log;
-use App\Core\Throttle;
 use App\Models\TaskModel;
 use App\Models\UserModel;
 use App\Services\Access;
@@ -85,10 +84,10 @@ final class Assistant
         if ($t === null || !self::info($t, $uid, Access::canTask($t, $uid, 'notes'))['enabled']) {
             return ['queued' => false, 'message' => 'کارلیکس فعلاً در دسترس نیست؛ یادداشت ثبت شد ولی درخواستی اجرا نمی‌شود.'];
         }
-        if ((int) DB::value('SELECT COUNT(*) FROM ai_requests WHERE user_id = ? AND created_at > (NOW() - INTERVAL 1 DAY)', [$uid]) >= self::perDay()) {
+        if (Common::usedToday($uid) >= self::perDay()) {
             return ['queued' => false, 'message' => 'به سقف روزانه‌ی درخواست از کارلیکس (' . fa_num(self::perDay()) . ') رسیده‌اید؛ یادداشت ثبت شد ولی اجرا نمی‌شود.'];
         }
-        if (!Throttle::attempt('karlix', (string) $uid, self::perMinute(), 60)) {
+        if (!Common::minuteOk($uid)) {
             return ['queued' => false, 'message' => 'درخواست‌ها از کارلیکس بیش از حد سریع است؛ یادداشت ثبت شد ولی اجرا نمی‌شود. یک دقیقه بعد دوباره منشن کنید.'];
         }
         DB::run('INSERT IGNORE INTO ai_requests (task_id, note_id, user_id, status) VALUES (?, ?, ?, ?)', [$taskId, $noteId, $uid, 'pending']);
@@ -236,9 +235,7 @@ final class Assistant
 
     private static function who(int $uid): string
     {
-        $u = DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [$uid]) ?? [];
-        $n = trim(((string) ($u['first_name'] ?? '')) . ' ' . ((string) ($u['last_name'] ?? '')));
-        return $n !== '' ? $n : 'کاربر';
+        return Common::who($uid);
     }
 
     /** «@کارلیکس» از متن درخواست برداشته می‌شود */
@@ -338,15 +335,7 @@ final class Assistant
     /** تقویم ۲۱ روز آینده (میلادی + شمسی + روز هفته) تا مدل «پس‌فردا»، «شنبه‌ی بعد» و … را بدون حساب دستی به تاریخ دقیق برساند */
     private static function calendar(): array
     {
-        $out = [];
-        $d = new \DateTimeImmutable('today', new \DateTimeZone('Asia/Tehran'));
-        for ($i = 0; $i < 21; $i++) {
-            $x = $d->modify('+' . $i . ' day');
-            [$jy, $jm, $jd] = \App\Core\Jalali::fromGregorian((int) $x->format('Y'), (int) $x->format('n'), (int) $x->format('j'));
-            $out[] = ['offset' => $i, 'date' => $x->format('Y-m-d'), 'jalali' => sprintf('%04d/%02d/%02d', $jy, $jm, $jd) . ' (' . $jd . ' ' . \App\Core\Jalali::MONTHS[$jm - 1] . ')',
-                'weekday' => \App\Core\Jalali::WEEKDAYS[((int) $x->format('w') + 1) % 7]];
-        }
-        return $out;
+        return Common::calendar(21);
     }
 
     private static function systemPrompt(): string
@@ -398,18 +387,7 @@ TXT;
     /** اولین شیء JSON معتبر در پاسخ مدل (کد فنس و متن اضافه نادیده گرفته می‌شود) */
     private static function parse(string $content): ?array
     {
-        $s = trim($content);
-        $s = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $s) ?? $s;
-        $j = json_decode($s, true);
-        if (!is_array($j)) {
-            $a = strpos($s, '{');
-            $b = strrpos($s, '}');
-            if ($a === false || $b === false || $b <= $a) {
-                return null;
-            }
-            $j = json_decode(substr($s, $a, $b - $a + 1), true);
-        }
-        return is_array($j) && isset($j['reply_type']) ? $j : null;
+        return Common::json($content, 'reply_type');
     }
 
     private static function res(bool $ok, string $message, string $code = '', int $http = 200, $data = null): array

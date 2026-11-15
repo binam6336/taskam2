@@ -4,6 +4,7 @@
  * @var array $filters @var array $archive @var int $archivable @var array $over @var bool $canManage @var bool $customBoard
  */
 $this->scripts[] = 'board';
+$this->scripts[] = 'board_ai';
 $total = array_sum(array_map('count', $columns));
 $ppid = pid('projects', (int) $filters['project']);
 ?>
@@ -25,6 +26,7 @@ $ppid = pid('projects', (int) $filters['project']);
     <span class="kb-bar-gap"></span>
     <div class="kb-bar-acts">
         <button type="button" class="kb-ib" data-bulk-toggle aria-pressed="false" aria-label="تغییر گروهی" title="انتخاب چند کارت و تغییر هم‌زمان (وضعیت، اولویت، مسئول، …)"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-sm kb-ai-btn" id="kb-ai" data-project="<?= e($ppid) ?>" aria-haspopup="dialog" aria-controls="ai-panel" title="دستیار هوش مصنوعی بورد: تحلیل، گزارش و تغییر گروهی با تأیید شما"><i class="fa-solid fa-brain" aria-hidden="true"></i> <span>هوش مصنوعی</span></button>
         <?php if ($canManage): ?><button type="button" class="kb-ib" id="kb-settings" data-project="<?= e($ppid) ?>" aria-label="تنظیمات بورد" title="تنظیمات ستون‌های بورد"><i class="fa-solid fa-gear" aria-hidden="true"></i></button><?php endif; ?>
         <button type="button" class="btn btn-primary btn-sm" id="btn-new-task" data-create-default><i class="fa-solid fa-plus" aria-hidden="true"></i> <span>تسک جدید</span></button>
     </div>

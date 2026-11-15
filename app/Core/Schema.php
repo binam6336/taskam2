@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '048';
+    public const VERSION = '049';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -153,6 +153,11 @@ final class Schema
         ['admin_logs', '034_admin_logs.sql'],
         ['task_viewers', '040_project_boards.sql'],
         ['ai_requests', '048_ai_requests.sql'],
+        ['ai_board_sessions', '049_ai_board.sql'],
+        ['ai_board_messages', '049_ai_board.sql'],
+        ['ai_result_sets', '049_ai_board.sql'],
+        ['ai_actions', '049_ai_board.sql'],
+        ['ai_exports', '049_ai_board.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */

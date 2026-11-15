@@ -25,6 +25,7 @@ final class Log
         'Subject' => 'labels', 'Label' => 'labels',
         'Text' => 'notes',
         'Assistant' => 'karlix', 'Agnes' => 'karlix', 'Actions' => 'karlix',
+        'BoardAgent' => 'karlix', 'BoardTools' => 'karlix', 'BoardOps' => 'karlix', 'BoardContext' => 'karlix', 'Export' => 'karlix', 'Pdf' => 'karlix', 'BoardAi' => 'karlix',
         'Chat' => 'chat',
         'Colleague' => 'colleagues',
         'User' => 'users', 'Profile' => 'users', 'Token' => 'users', 'Tour' => 'users',

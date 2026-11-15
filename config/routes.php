@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\BlockController;
+use App\Controllers\BoardAiController;
 use App\Controllers\BoardController;
 use App\Controllers\Api\V1\BlockApi;
 use App\Controllers\Api\V1\BoardApi;
@@ -108,6 +109,17 @@ $router->group(['panel'], function ($r) {
     $r->get('/board/projects', [BoardController::class, 'projects']);
     $r->get('/board/settings', [BoardController::class, 'settings']);
     $r->post('/board/settings', [BoardController::class, 'saveSettings']);
+    // v7.20 دستیار هوش مصنوعی بورد
+    $r->get('/board/ai/session', [BoardAiController::class, 'session']);
+    $r->post('/board/ai/session/new', [BoardAiController::class, 'newSession']);
+    $r->post('/board/ai/message', [BoardAiController::class, 'message']);
+    $r->get('/board/ai/set', [BoardAiController::class, 'setPage']);
+    $r->post('/board/ai/quick', [BoardAiController::class, 'quick']);
+    $r->post('/board/ai/apply', [BoardAiController::class, 'apply']);
+    $r->post('/board/ai/undo', [BoardAiController::class, 'undo']);
+    $r->post('/board/ai/cancel', [BoardAiController::class, 'cancel']);
+    $r->post('/board/ai/export', [BoardAiController::class, 'export']);
+    $r->get('/board/ai/download', [BoardAiController::class, 'download']);
 
     // موضوعات
     $r->get('/labels', [SubjectController::class, 'index']);
