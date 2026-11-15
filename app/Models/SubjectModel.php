@@ -14,6 +14,37 @@ final class SubjectModel
         '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#64748b',
     ];
 
+    /** v7.25: نام متنی هر رنگ (API رنگ را با نام می‌گیرد و برمی‌گرداند، نه کد hex) — نام => [hex، عنوان فارسی] */
+    public const COLOR_NAMES = [
+        'red' => ['#ef4444', 'قرمز'], 'orange' => ['#f97316', 'نارنجی'], 'amber' => ['#f59e0b', 'کهربایی'],
+        'yellow' => ['#eab308', 'زرد'], 'lime' => ['#84cc16', 'سبز لیمویی'], 'green' => ['#22c55e', 'سبز'],
+        'emerald' => ['#10b981', 'زمردی'], 'teal' => ['#14b8a6', 'سبز آبی'], 'cyan' => ['#06b6d4', 'فیروزه‌ای'],
+        'blue' => ['#3b82f6', 'آبی'], 'indigo' => ['#6366f1', 'نیلی'], 'violet' => ['#8b5cf6', 'بنفش'],
+        'purple' => ['#a855f7', 'ارغوانی'], 'pink' => ['#ec4899', 'صورتی'], 'slate' => ['#64748b', 'خاکستری'],
+    ];
+
+    /** نام متنی یک رنگ hex؛ رنگ قدیمی خارج از ۱۵ رنگ = null */
+    public static function colorName(?string $hex): ?string
+    {
+        $hex = strtolower(trim((string) $hex));
+        foreach (self::COLOR_NAMES as $name => [$h]) {
+            if ($h === $hex) {
+                return $name;
+            }
+        }
+        return null;
+    }
+
+    /** فهرست رنگ‌ها برای API: [{name, title, hex}] */
+    public static function colorList(): array
+    {
+        $out = [];
+        foreach (self::COLOR_NAMES as $name => [$hex, $title]) {
+            $out[] = ['name' => $name, 'title' => $title, 'hex' => $hex];
+        }
+        return $out;
+    }
+
     /** لیبل‌های پیش‌فرض هر کاربر جدید (عنوان => رنگ) */
     public const DEFAULTS = ['پیگیری' => '#3b82f6', 'امکان‌سنجی' => '#8b5cf6', 'فوری' => '#ef4444'];
 

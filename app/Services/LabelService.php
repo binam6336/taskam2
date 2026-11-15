@@ -10,7 +10,7 @@ use App\Models\SubjectModel;
  * لیبل‌های تسک (جدول subjects) — مشترک بین پنل و API.
  * v7.12: هر لیبل مال یک پروژه است (subjects.project_id)؛ ساخت، ویرایش و مسدود کردن = Access::canManageLabels
  * (سازنده‌ی پروژه یا «دسترسی ایجاد لیبل»؛ نقش مدیر کل و مدیر واحد دارند). بقیه‌ی اعضا فقط لیبل موجود پروژه را روی تسک می‌گذارند.
- * رنگ فقط از ۱۵ رنگ آماده (SubjectModel::COLORS)؛ لیبل قدیمی با رنگ دیگر، اگر رنگ ارسال نشود همان رنگ را نگه می‌دارد.
+ * رنگ فقط از ۱۵ رنگ آماده (SubjectModel::COLORS)، با نام متنی (red، blue، … — SubjectModel::COLOR_NAMES؛ API) یا hex همان رنگ‌ها (فرم پنل)؛ لیبل قدیمی با رنگ دیگر، اگر رنگ ارسال نشود همان رنگ را نگه می‌دارد.
  */
 final class LabelService
 {
@@ -26,12 +26,15 @@ final class LabelService
         if ($c === '') {
             return null;
         }
+        if (isset(SubjectModel::COLOR_NAMES[$c])) {
+            return SubjectModel::COLOR_NAMES[$c][0];
+        }
         return in_array($c, SubjectModel::COLORS, true) ? $c : false;
     }
 
     private static function badColor(): array
     {
-        return self::res(false, 'رنگ لیبل باید یکی از ۱۵ رنگ آماده باشد: ' . implode('، ', SubjectModel::COLORS), 'COLOR_INVALID', 422);
+        return self::res(false, 'رنگ لیبل باید یکی از ۱۵ رنگ آماده باشد: ' . implode('، ', array_keys(SubjectModel::COLOR_NAMES)), 'COLOR_INVALID', 422);
     }
 
     /** لیبل با نام پروژه و can_manage برای خروجی */
