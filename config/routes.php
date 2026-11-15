@@ -8,7 +8,6 @@ use App\Controllers\BlockController;
 use App\Controllers\BoardController;
 use App\Controllers\Api\V1\BlockApi;
 use App\Controllers\Api\V1\BoardApi;
-use App\Controllers\Api\V1\CallApi;
 use App\Controllers\Api\V1\ColleagueApi;
 use App\Controllers\Api\V1\MetaApi;
 use App\Controllers\Api\V1\LabelApi;
@@ -17,16 +16,17 @@ use App\Controllers\Api\V1\TaskApi;
 use App\Controllers\Api\V1\TextApi;
 use App\Controllers\AuthController;
 use App\Controllers\CalendarController;
-use App\Controllers\CallController;
 use App\Controllers\ChatController;
 use App\Controllers\ColleagueController;
 use App\Controllers\DashboardController;
 use App\Controllers\DocsController;
 use App\Controllers\FileController;
 use App\Controllers\LiveController;
+use App\Controllers\NotificationController;
 use App\Controllers\ProfileController;
 use App\Controllers\ProjectController;
 use App\Controllers\PwaController;
+use App\Controllers\SearchController;
 use App\Controllers\SubjectController;
 use App\Controllers\SupportController;
 use App\Controllers\TaskController;
@@ -55,12 +55,16 @@ $router->get('/offline', [PwaController::class, 'offline']);
 $router->get('/docs', [DocsController::class, 'index']);
 $router->get('/docs/authentication', [DocsController::class, 'auth']);
 $router->get('/docs/errors', [DocsController::class, 'errors']);
+$router->get('/docs/openapi.json', [DocsController::class, 'openapi']);
+$router->get('/docs/swagger', [DocsController::class, 'swagger']);
+$router->post('/docs/swagger/token', [DocsController::class, 'swaggerToken']);
 $router->get('/docs/{group}', [DocsController::class, 'group']);
 $router->get('/docs/{group}/{slug}', [DocsController::class, 'endpoint']);
 
 // ───────────────────────── پنل کاربری ─────────────────────────
 $router->group(['panel'], function ($r) {
     $r->get('/dashboard', [DashboardController::class, 'index']);
+    $r->get('/search', [SearchController::class, 'global']);          // جستجوی سراسری نوار بالا (v7.13)
 
     // تسک‌ها
     $r->get('/tasks', [TaskController::class, 'index']);
@@ -68,10 +72,14 @@ $router->group(['panel'], function ($r) {
     $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
     $r->get('/tasks/quick-options', [TaskController::class, 'quickOptions']);
-    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل، درخواست تماس) + پنجره‌ی «مسدودشده‌ها»
+    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل) + پنجره‌ی «مسدودشده‌ها»
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
+    $r->get('/tasks/review/pending', [TaskController::class, 'reviewPending']);
+    $r->post('/tasks/review/bulk-approve', [TaskController::class, 'reviewBulkApprove']);
+    $r->get('/tasks/bulk-options', [TaskController::class, 'bulkOptions']);
+    $r->post('/tasks/bulk', [TaskController::class, 'bulk']);
     $r->get('/tasks/{task}', [TaskController::class, 'show']);
     $r->post('/tasks/{task}/update', [TaskController::class, 'update']);
     $r->post('/tasks/{task}/toggle', [TaskController::class, 'toggle']);
@@ -82,10 +90,14 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{task}/advance', [TaskController::class, 'advance']);
     $r->post('/tasks/{task}/status', [TaskController::class, 'status']);
     $r->post('/tasks/{task}/notes', [TaskController::class, 'addNote']);
+    $r->post('/tasks/{task}/notes/{note}/karlix', [TaskController::class, 'assistantRun']);
     $r->post('/tasks/{task}/attachments', [TaskController::class, 'addFiles']);
+    $r->post('/tasks/{task}/attachments/{file}/delete', [TaskController::class, 'removeFile']);
     $r->post('/notes/{note}/update', [TaskController::class, 'updateNote']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);
+    $r->get('/notifications/feed', [NotificationController::class, 'feed']);    // v7.15 زنگ اعلان‌ها
+    $r->post('/notifications/read', [NotificationController::class, 'read']);
     $r->post('/tasks/quick', [TaskController::class, 'quick']);
 
     // بورد پروژه (کانبان، دمو)
@@ -93,7 +105,9 @@ $router->group(['panel'], function ($r) {
     $r->post('/board/tasks/{task}/move', [BoardController::class, 'move']);
     $r->get('/board/archive', [BoardController::class, 'archive']);
     $r->post('/board/archive-done', [BoardController::class, 'archiveDone']);
-    $r->post('/board/order', [BoardController::class, 'order']);
+    $r->get('/board/projects', [BoardController::class, 'projects']);
+    $r->get('/board/settings', [BoardController::class, 'settings']);
+    $r->post('/board/settings', [BoardController::class, 'saveSettings']);
 
     // موضوعات
     $r->get('/labels', [SubjectController::class, 'index']);
@@ -102,20 +116,15 @@ $router->group(['panel'], function ($r) {
     $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
-    // متن‌های آماده
-    $r->get('/texts', [TextController::class, 'index']);
-    $r->get('/texts/data', [TextController::class, 'data']);
-    $r->post('/texts', [TextController::class, 'store']);
-    $r->post('/texts/reorder', [TextController::class, 'reorder']);
-    $r->post('/texts/{id}/update', [TextController::class, 'update']);
-    $r->post('/texts/{id}/delete', [TextController::class, 'destroy']);
+    // یادداشت‌ها (v6.0؛ قبلاً «متن‌های آماده» در /texts)
+    $r->get('/notes', [TextController::class, 'index']);
+    $r->get('/texts', [TextController::class, 'legacy']);
+    $r->get('/notes/data', [TextController::class, 'data']);
+    $r->post('/notes', [TextController::class, 'store']);
+    $r->post('/notes/reorder', [TextController::class, 'reorder']);
+    $r->post('/notes/item/{id}/update', [TextController::class, 'update']);
+    $r->post('/notes/item/{id}/delete', [TextController::class, 'destroy']);
 
-    // درخواست‌های تماس
-    $r->get('/calls', [CallController::class, 'index']);
-    $r->post('/calls', [CallController::class, 'store']);
-    $r->post('/calls/{call}/update', [CallController::class, 'update']);
-    $r->post('/calls/{call}/complete', [CallController::class, 'complete']);
-    $r->get('/calls/{call}/share', [CallController::class, 'share']);
 
     // همکاران
     $r->get('/colleagues', [ColleagueController::class, 'index']);
@@ -129,6 +138,8 @@ $router->group(['panel'], function ($r) {
     $r->post('/colleagues/unblock-key', [ColleagueController::class, 'unblockKey']);
     $r->post('/colleagues/{user}/unblock', [ColleagueController::class, 'unblock']);
 
+    $r->post('/tasks/{task}/confidential', [TaskController::class, 'confidential']);
+
     // پروژه‌ها
     $r->get('/projects', [ProjectController::class, 'index']);
     $r->post('/projects', [ProjectController::class, 'store']);
@@ -136,6 +147,10 @@ $router->group(['panel'], function ($r) {
     $r->post('/projects/requests/{projreq}/respond', [ProjectController::class, 'respondRequest']);
     $r->get('/projects/{project}/analytics', [ProjectController::class, 'analytics']);
     $r->get('/projects/{project}/analytics/speed', [ProjectController::class, 'speed']);
+    $r->get('/projects/{project}/analytics/export', [ProjectController::class, 'analyticsExport']);
+    $r->get('/projects/{project}/workload', [ProjectController::class, 'workload']);
+    $r->post('/projects/{project}/workload/reassign', [ProjectController::class, 'workloadReassign']);
+    $r->post('/projects/{project}/workload/capacity', [ProjectController::class, 'workloadCapacity']);
     $r->post('/projects/{project}/update', [ProjectController::class, 'update']);
     $r->post('/projects/{project}/leave', [ProjectController::class, 'leave']);
     $r->post('/projects/{project}/block', [ProjectController::class, 'block']);
@@ -200,6 +215,8 @@ $router->group(['auth'], function ($r) {
     $r->get('/files/{type}/{name}', [FileController::class, 'serve']);
     $r->get('/live/poll', [LiveController::class, 'poll']);
     $r->get('/install', [PwaController::class, 'install']);
+    $r->get('/install/android/check', [PwaController::class, 'apkCheck']);
+    $r->get('/install/android', [PwaController::class, 'apk']);
     $r->get('/push/key', [PwaController::class, 'pushKey']);
     $r->post('/push/subscribe', [PwaController::class, 'subscribe']);
     $r->post('/push/unsubscribe', [PwaController::class, 'unsubscribe']);
@@ -231,10 +248,17 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
     $r->get('/admin/security', [AdminController::class, 'security']);
+    $r->get('/admin/access', [AdminController::class, 'access']);
+    $r->post('/admin/access/roles', [AdminController::class, 'accessRolesSave']);
+    $r->post('/admin/access/roles/reset', [AdminController::class, 'accessRolesReset']);
+    $r->post('/admin/access/users/{user}', [AdminController::class, 'accessUserSave']);
     $r->get('/admin/content/sidebar', [AdminController::class, 'contentSidebar']);
     $r->post('/admin/content/sidebar', [AdminController::class, 'contentSidebarSave']);
     $r->post('/admin/content/sidebar/reset', [AdminController::class, 'contentSidebarReset']);
     $r->get('/admin/content/tour', [AdminController::class, 'contentTour']);
+    $r->get('/admin/content/board', [AdminController::class, 'contentBoard']);
+    $r->get('/admin/content/board/data', [AdminController::class, 'contentBoardData']);
+    $r->post('/admin/content/board', [AdminController::class, 'contentBoardSave']);
     $r->post('/admin/content/tour/{id}', [AdminController::class, 'contentTourSave']);
     $r->get('/admin/content/placeholders', [AdminController::class, 'contentPlaceholders']);
     $r->post('/admin/content/placeholders/{id}', [AdminController::class, 'contentPlaceholderSave']);
@@ -258,18 +282,12 @@ $router->group(['api'], function ($r) {
     $r->get('/tasks/blocked', [BlockApi::class, 'taskList']);
     $r->post('/tasks/block', [BlockApi::class, 'taskBlock']);
     $r->post('/tasks/unblock', [BlockApi::class, 'taskUnblock']);
-
-    $r->get('/calls/list', [CallApi::class, 'list']);
-    $r->get('/calls/show', [CallApi::class, 'show']);
-    $r->get('/calls/stats', [CallApi::class, 'stats']);
-    $r->post('/calls/create', [CallApi::class, 'create']);
-    $r->post('/calls/update', [CallApi::class, 'update']);
-    $r->post('/calls/status', [CallApi::class, 'status']);
-    $r->get('/calls/blocked', [BlockApi::class, 'callList']);
-    $r->post('/calls/block', [BlockApi::class, 'callBlock']);
-    $r->post('/calls/unblock', [BlockApi::class, 'callUnblock']);
+    $r->get('/reviews/pending', [TaskApi::class, 'reviewsPending']);
+    $r->post('/reviews/bulk-approve', [TaskApi::class, 'reviewsBulkApprove']);
 
 
+
+    $r->get('/search', [\App\Controllers\Api\V1\SearchApi::class, 'search']);
     $r->get('/texts/list', [TextApi::class, 'list']);
     $r->get('/texts/show', [TextApi::class, 'show']);
     $r->get('/texts/stats', [TextApi::class, 'stats']);
@@ -300,13 +318,15 @@ $router->group(['api'], function ($r) {
     $r->get('/board/list', [BoardApi::class, 'list']);
     $r->get('/board/archive', [BoardApi::class, 'archive']);
     $r->post('/board/move', [BoardApi::class, 'move']);
-    $r->post('/board/order', [BoardApi::class, 'order']);
     $r->post('/board/archive-done', [BoardApi::class, 'archiveDone']);
 
     $r->get('/projects/list', [ProjectApi::class, 'list']);
     $r->get('/projects/show', [ProjectApi::class, 'show']);
     $r->get('/projects/members', [ProjectApi::class, 'membersList']);
     $r->get('/projects/stats', [ProjectApi::class, 'stats']);
+    $r->get('/projects/workload', [ProjectApi::class, 'workload']);
+    $r->post('/projects/workload/reassign', [ProjectApi::class, 'workloadReassign']);
+    $r->post('/projects/workload/capacity', [ProjectApi::class, 'workloadCapacity']);
     $r->post('/projects/create', [ProjectApi::class, 'create']);
     $r->post('/projects/update', [ProjectApi::class, 'update']);
     $r->post('/projects/leave', [ProjectApi::class, 'leave']);

@@ -1,12 +1,11 @@
 <?php
 /**
- * فهرست فقط‌خواندنی مدیر (از کارت‌های «تحلیل سیستم»): تسک‌ها، پروژه‌ها، درخواست‌های تماس — صفحه‌بندی، جستجو و فیلتر وضعیت.
+ * فهرست فقط‌خواندنی مدیر (از کارت‌های «تحلیل سیستم»): تسک‌ها، پروژه‌ها — صفحه‌بندی، جستجو و فیلتر وضعیت.
  * @var string $kind @var array $rows @var int $total @var int $pg @var int $pages @var int $per @var array $perOptions @var string $q @var string $status @var array $filters @var string $heading @var string $icon
  */
 $this->scripts[] = 'admin';   // جستجوی خودکار (#users-tools)
 $this->scripts[] = 'admin_list';   // پنجره‌ی جزئیات پروژه (اعضا و تسک‌ها با صفحه‌بندی)
 $this->boot['adminList'] = ['per' => $perOptions];
-$st = \App\Services\BoardService::STATUSES;
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $base = '/admin/list/' . $kind;
 $qs = static fn(array $x) => url($base) . '?' . http_build_query(array_filter($x + ['q' => $q, 'per' => $per !== $perOptions[0] ? $per : null, 'status' => $status !== 'all' ? $status : null], static fn($v) => $v !== null && $v !== ''));
@@ -19,7 +18,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
     <div class="tabs"><?php foreach ($filters as $k => $l): ?><a class="tab <?= $status === $k ? 'active' : '' ?>" href="<?= e($qs(['status' => $k === 'all' ? null : $k, 'page' => null])) ?>"><?= e($l) ?></a><?php endforeach; ?></div>
     <form method="get" class="flex gap-2 items-center wrap" id="users-tools">
         <?php if ($status !== 'all'): ?><input type="hidden" name="status" value="<?= e($status) ?>"><?php endif; ?>
-        <div class="search" data-css="min-width:260px"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_list_search')) ?>" aria-label="جستجو"></div>
+        <div class="dc-6686b3 search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" name="q" value="<?= e($q) ?>" placeholder="<?= e(ph('admin_list_search')) ?>" aria-label="جستجو"></div>
         <label class="flex items-center gap-1 small muted users-per">نمایش در هر صفحه
             <select class="input" name="per" data-autosubmit aria-label="تعداد در هر صفحه"><?php foreach ($perOptions as $n): ?><option value="<?= (int) $n ?>" <?= $n === $per ? 'selected' : '' ?>><?= e(fa_num($n)) ?></option><?php endforeach; ?></select></label>
     </form>
@@ -32,7 +31,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
 </tr></thead><tbody>
 <?php foreach ($rows as $x): ?>
 <?php if ($kind === 'tasks'):
-    $s = $x['blocked_at'] ? ['label' => 'مسدود', 'tone' => 'danger', 'icon' => 'fa-ban'] : ($x['archived_at'] ? ['label' => 'آرشیو', 'tone' => 'muted', 'icon' => 'fa-box-archive'] : ($st[$x['board_status']] ?? ['label' => $x['is_completed'] ? 'انجام‌شده' : 'باز', 'tone' => 'muted', 'icon' => 'fa-circle']));
+    $s = $x['blocked_at'] ? ['label' => 'مسدود', 'tone' => 'danger', 'icon' => 'fa-ban'] : ($x['archived_at'] ? ['label' => 'آرشیو', 'tone' => 'muted', 'icon' => 'fa-box-archive'] : (!empty($x['project_id']) ? \App\Services\BoardConfig::info((int) $x['project_id'], (string) $x['board_status']) : ['label' => $x['is_completed'] ? 'انجام‌شده' : 'باز', 'tone' => 'muted', 'icon' => 'fa-circle']));
     $late = !$x['is_completed'] && $x['due_date'] && $x['due_date'] < date('Y-m-d'); ?>
     <tr><td class="bold"><?= e($x['title']) ?></td><td class="small"><?= e($x['project_title'] ?? '—') ?></td><td class="small"><?= e($name($x['a_first'], $x['a_last'])) ?></td><td class="small muted"><?= e($name($x['c_first'], $x['c_last'])) ?></td>
         <td><span class="badge board-st tone-<?= e($s['tone']) ?>"><i class="fa-solid <?= e($s['icon']) ?>"></i> <?= e($s['label']) ?></span></td>
@@ -43,7 +42,7 @@ $name = static fn(?string $f, ?string $l) => trim(($f ?? '') . ' ' . ($l ?? ''))
         <td class="small"><?= e(fa_num((int) $x['done'])) ?> انجام‌شده از <?= e(fa_num((int) $x['tasks'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : '<span class="badge green">فعال</span>' ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php else: ?>
-    <tr><td class="bold"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small ltr"><?= e(mask_mobile($x['mobile'])) ?></td><td class="small"><?= e($x['store'] ?: '—') ?></td>
+    <tr><td class="bold"><?= e($name($x['first_name'], $x['last_name'])) ?></td><td class="small ltr"><?= e(fa_num(mask_mobile($x['mobile']))) ?></td><td class="small"><?= e($x['store'] ?: '—') ?></td>
         <td class="small"><?= e($name($x['a_first'], $x['a_last'])) ?></td><td class="small muted"><?= e($name($x['c_first'], $x['c_last'])) ?></td>
         <td><?= $x['blocked_at'] ? '<span class="badge red"><i class="fa-solid fa-ban"></i> مسدود</span>' : ((int) $x['status'] === 1 ? '<span class="badge green">انجام‌شده</span>' : '<span class="badge yellow">جدید</span>') ?></td><td class="small muted nowrap"><?= e(jdate((string) $x['created_at'])) ?></td></tr>
 <?php endif; ?>

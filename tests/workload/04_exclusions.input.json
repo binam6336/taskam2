@@ -1,0 +1,64 @@
+{
+ "today": "2026-11-11",
+ "settings": {
+  "capacity": 12
+ },
+ "can_manage": true,
+ "project": {
+  "id": "p",
+  "title": "p"
+ },
+ "members": [
+  {
+   "id": "a",
+   "name": "A",
+   "capacity": 4
+  },
+  {
+   "id": "b",
+   "name": "B"
+  }
+ ],
+ "tasks": [
+  {
+   "id": "1",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "todo",
+   "due_date": "2026-11-11",
+   "title": "t1"
+  },
+  {
+   "id": "2",
+   "assignee_id": "a",
+   "priority": "medium",
+   "status": "review",
+   "due_date": "2026-11-11",
+   "title": "review"
+  },
+  {
+   "id": "3",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "todo",
+   "due_date": "2026-11-30",
+   "title": "later"
+  },
+  {
+   "id": "4",
+   "assignee_id": "a",
+   "priority": "low",
+   "status": "rework",
+   "due_date": "2026-11-05",
+   "title": "rework-overdue"
+  },
+  {
+   "id": "5",
+   "assignee_id": "a",
+   "priority": "medium",
+   "status": "done",
+   "due_date": "2026-11-11",
+   "title": "done"
+  }
+ ]
+}

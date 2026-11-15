@@ -13,8 +13,8 @@ android {
         applicationId 'com.taskam.app'
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName '1.0.2'
+        versionCode 4
+        versionName '1.1.0'
         // آدرس ثابت سرور؛ کاربر آن را نمی‌بیند و عوض نمی‌کند. برای سرور دیگر: ./gradlew assembleRelease -PserverUrl=https://example.com
         def serverUrl = (project.findProperty('serverUrl') ?: 'https://mahyarsalehee.ir/taskam').toString().trim()
         if (!(serverUrl ==~ /(?i)^https?:\/\/[^\s"]+$/)) throw new GradleException('serverUrl نامعتبر است: ' + serverUrl)

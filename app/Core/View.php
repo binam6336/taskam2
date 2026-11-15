@@ -12,6 +12,7 @@ final class View
     public array $scripts = [];
     public array $styles = [];
     public array $boot = [];
+    public array $crumbs = [];   // v7.16: مسیر بالای عنوان در نوار بالا [[نام، مسیر یا null]، …]
 
     public static function render(string $view, array $data = [], ?string $layout = 'app', array $meta = []): string
     {

@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Core\DB;
 use App\Core\Validate;
 use App\Models\NoteModel;
+use App\Models\ProjectModel;
 use App\Models\SubjectModel;
 use App\Models\TaskModel;
 
@@ -87,12 +88,12 @@ final class TaskService
             $time = null;
         }
 
-        // لیبل اختیاری، پروژه اجباری
+        // لیبل اختیاری، پروژه اجباری؛ لیبل باید مال همان پروژه باشد (v7.12)
         $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
-        if ($subjectId !== null && (SubjectModel::owned($subjectId, $actor) === null || BlockService::isBlocked('label', $subjectId))) {
-            return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
-        }
         $projectId = (int) ($in['project_id'] ?? 0);
+        if ($subjectId !== null && $projectId > 0 && !SubjectModel::usableIn($subjectId, $projectId)) {
+            return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
+        }
         if ($projectId <= 0) {
             return self::err('انتخاب پروژه الزامی است.', 'PROJECT_REQUIRED');
         }
@@ -115,7 +116,8 @@ final class TaskService
         }
 
         $id = TaskModel::create([
-            'user_id' => $actor, 'assignee_id' => $assignee, 'subject_id' => $subjectId, 'project_id' => $projectId,
+            'user_id' => $actor, 'assignee_id' => $assignee,
+            'subject_id' => $subjectId, 'project_id' => $projectId,
             'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
             'due_date' => $due, 'due_time' => $time,
         ] + ($quick ? ['is_quick' => 1] : []));
@@ -176,7 +178,8 @@ final class TaskService
         return $last > 0 ? $last : $allowed[0];
     }
 
-    public static function update(int $actor, int $id, array $in): array
+    /** $source (v7.10): منبع تغییر برای تاریخچه (فقط از سرویس‌های داخلی، مثل «بار کاری»: suggestion | drag | undo) */
+    public static function update(int $actor, int $id, array $in, ?string $source = null): array
     {
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view')) {
@@ -260,12 +263,11 @@ final class TaskService
         }
         if ($has('subject_id')) {
             $sid = (int) $in['subject_id'] ?: null;      // خالی = حذف لیبل
-            if ($sid !== null && SubjectModel::owned($sid, (int) $t['user_id']) === null && SubjectModel::owned($sid, $actor) === null) {
-                return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
-            }
             if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
-                if ($sid !== null && BlockService::isBlocked('label', $sid)) {
-                    return self::err('لیبل انتخاب‌شده معتبر نیست.', 'SUBJECT_INVALID');
+                // لیبل فقط از لیبل‌های پروژه‌ی تسک (یا پروژه‌ی جدیدش اگر همین درخواست پروژه را عوض می‌کند)
+                $lp = $has('project_id') && (int) $in['project_id'] > 0 ? (int) $in['project_id'] : (int) $t['project_id'];
+                if ($sid !== null && !SubjectModel::usableIn($sid, $lp)) {
+                    return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
                 }
                 $set['subject_id'] = $sid;
                 $needMeta = true;
@@ -299,6 +301,11 @@ final class TaskService
                 }
                 $set['project_id'] = $pid;
                 $newProject = $pid;
+                // لیبل‌ها مال پروژه‌اند: لیبل پروژه‌ی قبلی با تسک به پروژه‌ی جدید نمی‌رود
+                $curLabel = array_key_exists('subject_id', $set) ? $set['subject_id'] : ($t['subject_id'] === null ? null : (int) $t['subject_id']);
+                if ($curLabel !== null && (int) DB::value('SELECT project_id FROM subjects WHERE id = ?', [$curLabel]) !== $pid) {
+                    $set['subject_id'] = null;
+                }
             }
         }
         $reassigned = false;
@@ -326,15 +333,113 @@ final class TaskService
         }
         if ($set) {
             DB::update('tasks', $set, 'id = ?', [$id]);
-            TaskHistory::changes($t, $set, $actor);
+            TaskHistory::changes($t, $set, $actor, $source);
         }
         $fresh = TaskModel::raw($id);
         if ($reassigned) {
             $fresh['share_token'] = TaskModel::ensureShareToken($id);
             $pt = $fresh['project_id'] ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $fresh['project_id']]) : null;
             Notifier::taskAssigned($fresh, $actor, $pt);
+            // v7.10: مسئول قبلی هم باخبر شود که کار از او گرفته شد
+            $newUser = \App\Models\UserModel::find((int) $fresh['assignee_id']);
+            Notifier::taskReassignedAway($fresh, $actor, (int) ($t['assignee_id'] ?? 0), $newUser ? full_name($newUser) : null);
         }
         return self::res(true, 'تسک به‌روزرسانی شد.', '', 200, $fresh);
+    }
+
+    /** سقف تسک‌های یک «تغییر گروهی» */
+    public const BULK_MAX = 100;
+
+    /** تسک‌های قابل‌دیدن کاربر از میان شناسه‌ها (مسدودشده‌ها کنار می‌روند) */
+    private static function bulkTasks(int $actor, array $ids): array
+    {
+        $out = [];
+        foreach (array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, self::BULK_MAX) as $id) {
+            $t = TaskModel::raw($id);
+            if ($t !== null && empty($t['blocked_at']) && Access::canTask($t, $actor, 'view')) {
+                $out[] = $t;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * گزینه‌های پنجره‌ی «تغییر گروهی» (v7.8): وضعیت بورد فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند؛
+     * مسئول = اعضای مشترک همه‌ی پروژه‌های تسک‌های انتخاب‌شده؛ لیبل‌ها و پروژه‌های خود کاربر.
+     */
+    public static function bulkOptions(int $actor, array $ids): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $pids = array_values(array_unique(array_map(static fn($t) => $t['project_id'] === null ? 0 : (int) $t['project_id'], $tasks)));
+        $statuses = null;
+        if (count($pids) === 1 && $pids[0] > 0) {
+            $statuses = [];
+            foreach (BoardConfig::statuses($pids[0]) as $k => $c) {
+                $statuses[] = ['key' => $k, 'label' => $c['label']];
+            }
+        }
+        $people = null;
+        foreach ($pids as $pid) {
+            $ids2 = $pid > 0 ? array_map('intval', array_column(TaskAnalytics::people($pid), 'id')) : [$actor];
+            $people = $people === null ? $ids2 : array_values(array_intersect($people, $ids2));
+        }
+        $assignees = $people ? DB::all('SELECT id, first_name, last_name FROM users WHERE id IN (' . DB::in($people) . ') ORDER BY first_name, last_name', $people) : [];
+        return self::res(true, '', '', 200, [
+            'count' => count($tasks),
+            'statuses' => $statuses,
+            'assignees' => array_map(static fn($u) => ['id' => pid('users', $u['id']), 'name' => full_name($u)], $assignees),
+            // فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند (لیبل‌ها مال پروژه‌اند، v7.12)
+            'labels' => count($pids) === 1 && $pids[0] > 0 ? array_map(static fn($l) => ['id' => pid('subjects', $l['id']), 'title' => $l['title'], 'color' => $l['color']], SubjectModel::forProject($pids[0])) : [],
+            'projects' => array_map(static fn($p) => ['id' => pid('projects', $p['id']), 'title' => $p['title']], ProjectModel::forUser($actor)),
+        ]);
+    }
+
+    /**
+     * «تغییر گروهی» (v7.8): یک یا چند پارامتر برای همه‌ی تسک‌های انتخاب‌شده، هر تسک با همان قواعد و دسترسی‌های ویرایش تکی
+     * (update + BoardService::setStatus)؛ تسکی که اجازه ندارد رد می‌شود و بقیه انجام می‌شوند.
+     * $in: priority | assignee_id | subject_id (0 = حذف لیبل) | project_id | due_date (+ due_time) | clear_due | status
+     */
+    public static function bulk(int $actor, array $ids, array $in): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $fields = [];
+        foreach (['priority', 'assignee_id', 'subject_id', 'project_id'] as $k) {
+            if (array_key_exists($k, $in) && (string) $in[$k] !== '') {
+                $fields[$k] = $in[$k];
+            }
+        }
+        if (!empty($in['clear_due'])) {
+            $fields['due_date'] = '';
+        } elseif (!empty($in['due_date'])) {
+            $fields['due_date'] = (string) $in['due_date'];
+            $fields['due_time'] = (string) ($in['due_time'] ?? '');
+        }
+        $status = trim((string) ($in['status'] ?? ''));
+        if (!$fields && $status === '') {
+            return self::err('هیچ موردی برای تغییر انتخاب نشده است.', 'BULK_NOTHING');
+        }
+        $ok = 0;
+        $fails = [];
+        foreach ($tasks as $t) {
+            $id = (int) $t['id'];
+            $r = $fields ? self::update($actor, $id, $fields) : ['ok' => true];
+            if ($r['ok'] && $status !== '' && BoardService::statusOf(TaskModel::raw($id) ?? $t) !== $status) {
+                $r = BoardService::setStatus($actor, $id, $status);
+            }
+            if ($r['ok']) {
+                $ok++;
+            } else {
+                $fails[] = ['id' => pid('tasks', $id), 'title' => (string) $t['title'], 'message' => (string) $r['message']];
+            }
+        }
+        $msg = fa_num($ok) . ' تسک به‌روزرسانی شد.' . ($fails ? ' ' . fa_num(count($fails)) . ' تسک تغییر نکرد.' : '');
+        return self::res($ok > 0, $ok > 0 ? $msg : 'هیچ تسکی تغییر نکرد: ' . ($fails[0]['message'] ?? ''), $ok > 0 ? '' : 'BULK_FAILED', $ok > 0 ? 200 : 422, ['updated' => $ok, 'failed' => $fails]);
     }
 
     public static function toggle(int $actor, int $id): array
@@ -406,13 +511,7 @@ final class TaskService
         [$saved, $errors] = $files ? NoteModel::storeAttachments('note', $nid, $actor, $files) : [[], []];
         $token = TaskModel::ensureShareToken($taskId);
         $t['share_token'] = $token;
-        // منشن: فقط اعضای پروژه‌ی همین تسک
-        $allowed = $t['project_id'] ? array_column(self::mentionable((int) $t['project_id'], $actor), 'id') : [];
-        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
-        foreach ($mentioned as $uid) {
-            DB::insert('task_mentions', ['task_id' => $taskId, 'note_id' => $nid, 'user_id' => $uid, 'actor_id' => $actor]);
-            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
-        }
+        $mentioned = self::storeMentions($t, $actor, $nid, $text, $mentions);
         foreach (array_unique(array_filter([(int) $t['user_id'], (int) $t['assignee_id']])) as $uid) {
             if ($uid !== $actor && !in_array($uid, $mentioned, true)) {
                 Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid);
@@ -421,7 +520,33 @@ final class TaskService
         return self::res(true, 'یادداشت ثبت شد.' . ($mentioned ? ' ' . fa_num(count($mentioned)) . ' نفر منشن شدند.' : ''), '', 201, ['id' => $nid, 'attachments' => $saved, 'upload_errors' => $errors, 'mentioned' => $mentioned]);
     }
 
-    public static function updateNote(int $actor, int $noteId, string $text): array
+    /**
+     * منشن‌های یک یادداشت: فقط اعضای پروژه‌ی همین تسک (تسک محرمانه: فقط کسانی که تسک را می‌بینند)؛
+     * ردیف task_mentions + اعلان برای هر نفر. در ویرایش ($onlyNew) کسانی که قبلاً در همین یادداشت منشن شده بودند دوباره اعلان نمی‌گیرند.
+     * @return int[] شناسه‌ی منشن‌شده‌های جدید
+     */
+    private static function storeMentions(array $t, int $actor, int $noteId, string $text, array $mentions, bool $onlyNew = false): array
+    {
+        if (!$mentions || !$t['project_id']) {
+            return [];
+        }
+        $allowed = array_column(array_filter(self::mentionable((int) $t['project_id'], $actor), static fn($u) => Access::canSeeConfidential($t, (int) $u['id'])), 'id');
+        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
+        if ($onlyNew && $mentioned) {
+            $old = array_map('intval', DB::column('SELECT user_id FROM task_mentions WHERE note_id = ?', [$noteId]));
+            $mentioned = array_values(array_diff($mentioned, $old));
+        }
+        if ($mentioned && empty($t['share_token'])) {
+            $t['share_token'] = TaskModel::ensureShareToken((int) $t['id']);
+        }
+        foreach ($mentioned as $uid) {
+            DB::insert('task_mentions', ['task_id' => (int) $t['id'], 'note_id' => $noteId, 'user_id' => $uid, 'actor_id' => $actor]);
+            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
+        }
+        return $mentioned;
+    }
+
+    public static function updateNote(int $actor, int $noteId, string $text, array $mentions = []): array
     {
         $n = NoteModel::find($noteId);
         if ($n === null) {
@@ -438,13 +563,19 @@ final class TaskService
         if ((int) $n['user_id'] !== $actor && (int) $n['task_owner_id'] !== $actor) {
             return self::err('فقط نویسنده‌ی یادداشت یا صاحب تسک می‌تواند آن را ویرایش کند.', 'FORBIDDEN', 403);
         }
+        // پاسخ‌های کارلیکس (کاربر ربات) ویرایش‌شدنی نیستند تا گزارش واقعی اجرای عملیات دست نخورد
+        if ((int) $n['user_id'] === \App\Models\UserModel::botId()) {
+            return self::err('پاسخ‌های کارلیکس قابل ویرایش نیستند.', 'FORBIDDEN', 403);
+        }
         $text = trim($text);
         if ($text === '' || mb_strlen($text) > 5000) {
             return self::err('متن یادداشت نامعتبر است.', 'NOTE_INVALID');
         }
         DB::run('UPDATE task_notes SET note = ?, updated_at = NOW() WHERE id = ?', [$text, $noteId]);
         TaskHistory::log((int) $n['task_id'], $actor, 'note_edited', ['author' => (int) $n['user_id']]);
-        return self::res(true, 'یادداشت ویرایش شد.');
+        $task['share_token'] = $n['share_token'] ?? null;
+        $new = self::storeMentions($task, $actor, $noteId, $text, $mentions, true);
+        return self::res(true, 'یادداشت ویرایش شد.' . ($new ? ' ' . fa_num(count($new)) . ' نفر منشن شدند.' : ''), '', 200, ['mentioned' => $new]);
     }
 
     public static function addTaskFiles(int $actor, int $taskId, array $files): array
@@ -469,6 +600,32 @@ final class TaskService
         return self::res(true, 'فایل‌ها پیوست شد.', '', 201, ['attachments' => $saved, 'upload_errors' => $errors]);
     }
 
+    /**
+     * حذف یک پیوست تسک (v7.18): فقط با دسترسی edit_info همان تسک (همان دسترسی افزودن پیوست)، تسک مسدود نباشد و پیوست مال همین تسک باشد.
+     * ردیف و فایل روی دیسک حذف می‌شوند و در تاریخچه‌ی تسک (file_deleted) ثبت می‌شود.
+     */
+    public static function removeTaskFile(int $actor, int $taskId, int $fileId): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی حذف پیوست ندارید.', 'FORBIDDEN', 403);
+        }
+        $f = $fileId > 0 ? DB::one('SELECT id, file_name, file_path FROM task_attachments WHERE id = ? AND task_id = ?', [$fileId, $taskId]) : null;
+        if (!$f) {
+            return self::err('پیوست یافت نشد.', 'FILE_NOT_FOUND', 404);
+        }
+        DB::run('DELETE FROM task_attachments WHERE id = ?', [(int) $f['id']]);
+        \App\Core\Uploader::delete('task_attachments', (string) $f['file_path']);
+        TaskHistory::log($taskId, $actor, 'file_deleted', ['name' => (string) $f['file_name']]);
+        return self::res(true, 'پیوست حذف شد.', '', 200, ['count' => (int) DB::value('SELECT COUNT(*) FROM task_attachments WHERE task_id = ?', [$taskId])]);
+    }
+
     /** اعضای پروژه (سازنده + اعضا) به‌جز خود کاربر — برای منشن در یادداشت‌ها. */
     public static function mentionable(int $projectId, int $exceptUid): array
     {
@@ -477,6 +634,60 @@ final class TaskService
               AND (u.id = (SELECT user_id FROM projects WHERE id = ?) OR u.id IN (SELECT user_id FROM project_members WHERE project_id = ?))
             ORDER BY u.first_name, u.last_name", [$exceptUid, $projectId, $projectId]);
         return array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])], $rows);
+    }
+
+    /**
+     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک روشن/خاموشش می‌کند و تا Access::CONFIDENTIAL_MAX نفر از اعضای پروژه را
+     * به‌عنوان بیننده انتخاب می‌کند. سازنده و مسئول (یا اعضای گروه مسئول) همیشه می‌بینند؛ بقیه حتی با لینک یا جستجو نه.
+     */
+    public static function setConfidential(int $actor, int $taskId, bool $on, array $viewers): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if ((int) $t['user_id'] !== $actor) {
+            return self::err('فقط سازنده‌ی تسک می‌تواند آن را محرمانه کند یا بیننده‌هایش را تعیین کند.', 'FORBIDDEN', 403);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        $viewers = array_values(array_unique(array_filter(array_map('intval', $viewers), static fn($v) => $v > 0 && $v !== (int) $t['user_id'] && $v !== (int) ($t['assignee_id'] ?? 0))));
+        if (!$on) {
+            $viewers = [];
+        }
+        if (count($viewers) > Access::CONFIDENTIAL_MAX) {
+            return self::err('حداکثر ' . fa_num(Access::CONFIDENTIAL_MAX) . ' نفر را می‌توانید برای دیدن تسک محرمانه انتخاب کنید.', 'TOO_MANY_VIEWERS');
+        }
+        foreach ($viewers as $v) {
+            if ($t['project_id'] !== null ? !Access::isProjectMember((int) $t['project_id'], $v) : !Access::isColleague($actor, $v)) {
+                return self::err('بیننده‌های تسک محرمانه باید عضو همین پروژه باشند.', 'VIEWER_INVALID');
+            }
+        }
+        DB::transaction(static function () use ($taskId, $on, $viewers, $actor): void {
+            DB::run('UPDATE tasks SET is_confidential = ? WHERE id = ?', [$on ? 1 : 0, $taskId]);
+            DB::run('DELETE FROM task_viewers WHERE task_id = ?', [$taskId]);
+            foreach ($viewers as $v) {
+                DB::run('INSERT INTO task_viewers (task_id, user_id, added_by) VALUES (?, ?, ?)', [$taskId, $v, $actor]);
+            }
+        });
+        TaskHistory::log($taskId, $actor, $on ? 'confidential_on' : 'confidential_off', ['count' => count($viewers)]);
+        return self::res(true, $on ? 'تسک محرمانه شد؛ فقط شما، مسئول' . ($viewers ? ' و ' . fa_num(count($viewers)) . ' نفر انتخاب‌شده' : '') . ' آن را می‌بینید.' : 'تسک از حالت محرمانه خارج شد.', '', 200, ['is_confidential' => $on]);
+    }
+
+    /** اطلاعات «محرمانه» برای جزئیات تسک */
+    public static function confidentialInfo(array $t, int $uid): array
+    {
+        $isCreator = (int) $t['user_id'] === $uid;
+        $ids = array_map('intval', DB::column('SELECT user_id FROM task_viewers WHERE task_id = ?', [(int) $t['id']]));
+        $people = static fn(array $rows) => array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', (int) $u['id']), 'name' => $u['name'], 'avatar' => $u['avatar']], $rows);
+        $viewers = $ids ? array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])],
+            DB::all('SELECT id, first_name, last_name, avatar FROM users WHERE id IN (' . DB::in($ids) . ')', $ids)) : [];
+        $cand = $isCreator && $t['project_id'] !== null
+            ? array_values(array_filter(self::mentionable((int) $t['project_id'], $uid), static fn($u) => (int) $u['id'] !== (int) ($t['assignee_id'] ?? 0)))
+            : [];
+        return ['on' => !empty($t['is_confidential']), 'can_edit' => $isCreator && empty($t['blocked_at']), 'max' => Access::CONFIDENTIAL_MAX,
+            'viewers' => $people($viewers), 'candidates' => $people($cand)];
     }
 
     /** گزینه‌های «امنیت تسک‌ها» در پروفایل: [عنوان، توضیح] */
@@ -490,6 +701,10 @@ final class TaskService
     /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ بر اساس تنظیم «امنیت تسک‌ها»ی سازنده‌ی تسک. */
     public static function canViewShared(array $task, int $uid): bool
     {
+        // تسک محرمانه (v6.1) با لینک هم فقط برای سازنده، مسئول و بیننده‌های انتخابی باز می‌شود، هر تنظیمی که لینک داشته باشد
+        if (!Access::canSeeConfidential($task, $uid)) {
+            return false;
+        }
         if (Access::canTask($task, $uid, 'view')) {
             return true;      // سازنده، مدیر پروژه، مسئول، عضو دارای دسترسی
         }
@@ -509,9 +724,12 @@ final class TaskService
 
     /** مجوزهای مؤثر کاربر روی تسک (برای UI). */
     /** همان mentionable برای خروجی (شناسه‌ی عمومی) */
-    public static function mentionablePublic(int $projectId, int $exceptUid): array
+    public static function mentionablePublic(int $projectId, int $exceptUid, ?array $task = null): array
     {
         $rows = self::mentionable($projectId, $exceptUid);
+        if ($task !== null && !empty($task['is_confidential'])) {
+            $rows = array_values(array_filter($rows, static fn($u) => Access::canSeeConfidential($task, (int) $u['id'])));
+        }
         \App\Core\Pid::prime('users', array_column($rows, 'id'));
         return array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', $u['id'])] + $u, $rows);
     }
@@ -538,7 +756,7 @@ final class TaskService
         // تیک ردیف: تسک بی‌پروژه‌ی قدیمی = تکمیل مستقیم؛ تسک پروژه = تحویل / پس گرفتن / بازکردن تسک انجام‌شده
         // دسترسی تأیید (v5.4): تیک این کاربر مستقیم «انجام‌شده» می‌کند (و روی تسک منتظر تأیید = تأیید)
         $out['approve_direct'] = $st !== null && Access::canApprove($task, $uid);
-        $out['tick'] = $st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete']));
+        $out['tick'] = ($st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete'])));
         $out['status'] = $st;
         return $out;
     }

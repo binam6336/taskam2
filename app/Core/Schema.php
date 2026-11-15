@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '034';
+    public const VERSION = '048';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -22,7 +22,6 @@ final class Schema
         ['task_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_task_attachments_pid` (`pid`)", null],
         ['note_attachments', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_note_attachments_pid` (`pid`)", null],
         ['subjects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_subjects_pid` (`pid`)", null],
-        ['call_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_call_requests_pid` (`pid`)", null],
         ['support_tickets', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_tickets_pid` (`pid`)", null],
         ['support_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_support_messages_pid` (`pid`)", null],
         ['chat_messages', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_messages_pid` (`pid`)", null],
@@ -34,6 +33,15 @@ final class Schema
         ['chat_requests', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_chat_requests_pid` (`pid`)", null],
         // 031
         ['projects', 'is_sample', "ADD COLUMN `is_sample` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`", null],
+        // 046 (v7.10، بار کاری): ظرفیت هفتگی پروژه و ظرفیت اختصاصی هر عضو
+        ['projects', 'workload_capacity', "ADD COLUMN `workload_capacity` INT NOT NULL DEFAULT 12 AFTER `board_config`", null],
+        ['subjects', 'project_id', "ADD COLUMN `project_id` INT UNSIGNED NULL DEFAULT NULL AFTER `user_id`, ADD KEY `idx_subjects_project` (`project_id`)", null],
+        ['project_members', 'weekly_capacity', "ADD COLUMN `weekly_capacity` INT NULL DEFAULT NULL AFTER `board_limits`", null],
+        // 045 (v7.9، صندوق بررسی): دسته‌های علت آخرین برگشت برای اصلاح
+        ['tasks', 'rework_category', "ADD COLUMN `rework_category` VARCHAR(120) NULL DEFAULT NULL AFTER `rework_count`", null],
+        // 044 (v7.7، DATA-002): اولین تحویل و تعداد برگشت برای اصلاح (KPI)؛ مقدار قدیمی‌ها از task_events
+        ['tasks', 'first_delivered_at', "ADD COLUMN `first_delivered_at` TIMESTAMP NULL DEFAULT NULL AFTER `approved_by`, ADD COLUMN `rework_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER `first_delivered_at`",
+            "UPDATE `tasks` t SET t.`first_delivered_at` = COALESCE((SELECT MIN(e.`created_at`) FROM `task_events` e WHERE e.`task_id` = t.`id` AND e.`type` = 'board' AND (e.`data` LIKE '%\"to\":\"review\"%' OR e.`data` LIKE '%\"to\":\"done\"%')), t.`delivered_at`), t.`rework_count` = (SELECT COUNT(*) FROM `task_events` e WHERE e.`task_id` = t.`id` AND e.`type` = 'board' AND e.`data` LIKE '%\"to\":\"rework\"%')"],
         // 030
         ['users', 'last_active_at', "ADD COLUMN `last_active_at` DATETIME NULL DEFAULT NULL AFTER `last_login_ip`", null],
         // 029
@@ -44,7 +52,6 @@ final class Schema
         ['tasks', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `archived_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`, ADD KEY `idx_tasks_blocked` (`blocked_at`)", null],
         ['projects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `status`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         ['subjects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `color`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
-        ['call_requests', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `completed_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         // 026
         ['tasks', 'is_quick', "ADD COLUMN `is_quick` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_completed`", null],
         // 025
@@ -81,17 +88,42 @@ final class Schema
         ['api_tokens', 'scope', "ADD COLUMN `scope` ENUM('read','write') NOT NULL DEFAULT 'write' AFTER `token_prefix`", null],
         // 023
         ['users', 'board_order', 'ADD COLUMN `board_order` VARCHAR(255) NULL DEFAULT NULL AFTER `tour`', null],
+        ['texts', 'color', "ADD COLUMN `color` VARCHAR(12) NOT NULL DEFAULT 'yellow' AFTER `content`", null],   // ۰۳۹: رنگ یادداشت
+        // ۰۴۰ بورد اختصاصی هر پروژه و تسک محرمانه
+        ['projects', 'board_config', 'ADD COLUMN `board_config` TEXT NULL DEFAULT NULL AFTER `priority_type`', null],
+        ['tasks', 'is_confidential', 'ADD COLUMN `is_confidential` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_quick`', null],
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */
     private const ENUMS = [
         // 008
         ['support_tickets', 'status', 'in_progress', "MODIFY `status` ENUM('open','in_progress','answered','closed') NOT NULL DEFAULT 'open'"],
-        // 021
-        ['tasks', 'board_status', 'rework', "MODIFY `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog'"],
+        // 021 (مقدار rework) از v6.1 با تبدیل ستون به VARCHAR در TYPES جایگزین شد
+    ];
+
+    /**
+     * تغییر نوع ستون (v6.1): [جدول، ستون، پیشوند نوع مطلوب، DDL]؛ اگر نوع فعلی با این پیشوند شروع نشود اعمال می‌شود.
+     * tasks.board_status: ستون‌های بورد هر پروژه قابل تعریف‌اند (BoardConfig)، پس ENUM ← VARCHAR.
+     */
+    private const TYPES = [
+        ['tasks', 'board_status', 'varchar', "MODIFY `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog'"],
+    ];
+
+    /**
+     * حذف ستون (v7.0؛ حذف قابلیت): [جدول، ستون، DDL]؛ فقط اگر ستون هنوز هست (نصب تازه آن را ندارد). بعد از DATA اجرا می‌شود.
+     */
+    private const DROP_COLUMNS = [
+        // تسکِ گروهی بی‌مسئول ← مسئول = سازنده‌ی تسک (پیش از حذف ستون)
+        ['tasks', 'assignee_group_id', 'DROP COLUMN `assignee_group_id`', 'UPDATE `tasks` SET `assignee_id` = `user_id` WHERE `assignee_id` IS NULL AND `assignee_group_id` IS NOT NULL'],
+        ['tasks', 'group_head_approval', 'DROP COLUMN `group_head_approval`', null],
     ];
 
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
+    /** اصلاح داده‌ی یک‌باره با کد PHP (وقتی SQL خالی کافی نیست)؛ نشانه‌ی storage/cache/data-<id> */
+    private const PHP_DATA = [
+        ['047', [\App\Models\SubjectModel::class, 'migrateToProjects']],     // لیبل‌ها در سطح پروژه (v7.12)
+    ];
+
     private const DATA = [
         ['022', '022_member_board_perms.sql'],
         ['025', '025_chat_requests_block_ghosts.sql'],
@@ -100,6 +132,11 @@ final class Schema
         ['029', '029_admin_roles.sql'],
         ['030', '030_user_last_active.sql'],
         ['031', '031_sample_projects.sql'],
+        ['038', '038_drop_call_requests.sql'],
+        ['040', '040_project_boards.sql'],
+        ['041', '041_drop_groups.sql'],
+        ['042', '042_admin_access.sql'],
+        ['043', '043_rebrand_karlix.sql'],
     ];
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
@@ -114,6 +151,8 @@ final class Schema
         ['task_mentions', '020_task_mentions.sql'],
         ['impersonations', '033_impersonations.sql'],
         ['admin_logs', '034_admin_logs.sql'],
+        ['task_viewers', '040_project_boards.sql'],
+        ['ai_requests', '048_ai_requests.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */
@@ -157,7 +196,7 @@ final class Schema
 
     /**
      * اعمال تغییرات افزایشی. $force: بدون توجه به فایل نشانه (php bin/migrate.php --force)؛ $report: گزارش هر مرحله (CLI).
-     * خطاها هم در storage/logs و هم در storage/cache/schema-errors.json ثبت می‌شوند تا در «مستندات پنل» دیده شوند.
+     * خطاها هم در storage/logs/database/ و هم در storage/cache/schema-errors.json ثبت می‌شوند تا در «مستندات پنل» دیده شوند.
      */
     public static function ensure(bool $force = false, ?callable $report = null): void
     {
@@ -171,11 +210,27 @@ final class Schema
         $fail = static function (string $what, \Throwable $e) use (&$errors, $say): void {
             $errors[] = $what . ' — ' . $e->getMessage();
             $say('✗ ' . $what . ' — ' . $e->getMessage());
-            error_log('schema: ' . $what . ' — ' . $e->getMessage());
-            ErrorHandler::log(new \RuntimeException('schema: ' . $what . ' — ' . $e->getMessage(), 0, $e));
+            Log::error(new \RuntimeException('schema: ' . $what . ' — ' . $e->getMessage(), 0, $e), 'database');
         };
         $ok = true;
         try {
+            // اول جدول‌های جدید (v5.12.1): ستون‌های بعدی ممکن است مال همین جدول‌ها باشند (مثل project_groups.blocked_at)؛
+            // قبلاً ستون‌ها اول اجرا می‌شدند و روی سرور تازه خطای «جدول نیست» و تغییرات ناقص می‌ماند
+            foreach (self::TABLES as [$table, $file]) {
+                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) > 0) {
+                    continue;
+                }
+                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
+                if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
+                    try {
+                        DB::run($m[0]);
+                        $say('✓ جدول ' . $table . ' ساخته شد');
+                    } catch (\Throwable $e) {
+                        $ok = false;
+                        $fail('جدول ' . $table, $e);
+                    }
+                }
+            }
             $cols = [];
             foreach (DB::all('SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE()') as $r) {
                 $cols[strtolower((string) $r['t']) . '.' . strtolower((string) $r['c'])] = true;
@@ -195,6 +250,19 @@ final class Schema
                     $fail('ستون ' . $table . '.' . $col, $e);
                 }
             }
+            foreach (self::TYPES as [$table, $col, $prefix, $ddl]) {
+                $type = strtolower((string) DB::value('SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col]));
+                if ($type === '' || strpos($type, $prefix) === 0) {
+                    continue;
+                }
+                try {
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ نوع ' . $table . '.' . $col . ' به ' . $prefix . ' تغییر کرد');
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('تغییر نوع ' . $table . '.' . $col, $e);
+                }
+            }
             foreach (self::ENUMS as [$table, $col, $value, $ddl]) {
                 $type = (string) DB::value('SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col]);
                 if ($type === '' || strpos($type, "'" . $value . "'") !== false) {
@@ -206,21 +274,6 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('مقدار ENUM ' . $table . '.' . $col, $e);
-                }
-            }
-            foreach (self::TABLES as [$table, $file]) {
-                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) > 0) {
-                    continue;
-                }
-                $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
-                if (preg_match('/CREATE TABLE IF NOT EXISTS `' . preg_quote($table, '/') . '`.*?;/s', $sql, $m)) {
-                    try {
-                        DB::run($m[0]);
-                        $say('✓ جدول ' . $table . ' ساخته شد');
-                    } catch (\Throwable $e) {
-                        $ok = false;
-                        $fail('جدول ' . $table, $e);
-                    }
                 }
             }
             // ساخت pid ردیف‌های بدون شناسه‌ی عمومی (v5.0)
@@ -237,7 +290,8 @@ final class Schema
                 }
                 $sql = (string) @file_get_contents(BASE_PATH . '/database/migrations/' . $file);
                 try {
-                    foreach (preg_match_all('/^(UPDATE|INSERT|DELETE)\b.*?;/ms', $sql, $m) ? $m[0] : [] as $q) {
+                    // داده: UPDATE/INSERT/DELETE؛ حذف قابلیت (v6.0): فقط DROP TABLE IF EXISTS
+                    foreach (preg_match_all('/^(UPDATE|INSERT|DELETE|DROP TABLE IF EXISTS)\b.*?;/ms', $sql, $m) ? $m[0] : [] as $q) {
                         DB::run(rtrim($q, ';'));
                     }
                     @file_put_contents($dflag, date('c'));
@@ -245,6 +299,47 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('اصلاح داده ' . $id, $e);
+                }
+            }
+            $ran = false;
+            foreach (self::PHP_DATA as [$id, $fn]) {
+                $dflag = STORAGE_PATH . '/cache/data-' . $id;
+                if (is_file($dflag)) {
+                    continue;
+                }
+                try {
+                    DB::transaction(static function () use ($fn): void {
+                        $fn();
+                    });
+                    @file_put_contents($dflag, date('c'));
+                    $ran = true;
+                    $say('✓ اصلاح داده ' . $id . ' اجرا شد');
+                    Log::info('schema.data', ['step' => $id]);
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('اصلاح داده ' . $id, $e);
+                }
+            }
+            if ($ran) {
+                Pid::backfill($say);                               // ردیف‌هایی که اصلاح داده با INSERT خام ساخته
+            }
+            foreach (self::DROP_COLUMNS as [$table, $col, $ddl, $before]) {
+                if (!DB::value('SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col])) {
+                    continue;
+                }
+                try {
+                    if ($before !== null) {
+                        DB::run($before);
+                    }
+                    // ایندکسی که فقط با همین ستون شروع می‌شود اول حذف شود (MySQL قدیمی ستون ایندکس‌دار چندستونی را حذف نمی‌کند)
+                    foreach (DB::column('SELECT DISTINCT index_name FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? AND index_name <> \'PRIMARY\'', [$table, $col]) as $ix) {
+                        DB::run('ALTER TABLE `' . $table . '` DROP INDEX `' . str_replace('`', '', (string) $ix) . '`');
+                    }
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ ستون ' . $table . '.' . $col . ' حذف شد');
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('حذف ستون ' . $table . '.' . $col, $e);
                 }
             }
         } catch (\Throwable $e) {
@@ -257,7 +352,9 @@ final class Schema
                 $say('! فایل نشانه ' . $flag . ' نوشته نشد (پوشه‌ی storage/cache قابل نوشتن نیست؛ بررسی در هر درخواست تکرار می‌شود)');
             }
             @unlink($ef);
+            Log::info('schema.ensured', ['version' => self::VERSION, 'force' => $force]);
         } else {
+            Log::warning('schema.failed', ['version' => self::VERSION, 'errors' => count($errors)]);
             @file_put_contents($ef, json_encode(['at' => date('c'), 'version' => self::VERSION, 'errors' => $errors], JSON_UNESCAPED_UNICODE));
         }
     }

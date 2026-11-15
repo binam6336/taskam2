@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">تسکام</string>
+    <string name="app_name">کارلیکس</string>
     <string name="err_title">اتصال برقرار نشد</string>
     <string name="err_desc">اینترنت گوشی یا در دسترس بودن سرور را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="err_retry">تلاش دوباره</string>

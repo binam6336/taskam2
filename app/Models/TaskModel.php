@@ -21,6 +21,12 @@ final class TaskModel
         LEFT JOIN users ua ON ua.id = t.assignee_id
         LEFT JOIN users uc ON uc.id = t.user_id";
 
+    /** «مسئولش منم»: یک placeholder (شناسه‌ی کاربر) */
+    public static function mine(int $uid, string $t = 't'): string
+    {
+        return '(' . $t . '.assignee_id = ?)';
+    }
+
     /** SELECT پایه با placeholder موقعیتی: اولین ? = شناسه‌ی کاربر برای دسترسی تسک او در پروژه. */
     private static function base(): string
     {
@@ -51,6 +57,14 @@ final class TaskModel
         'subject'  => 'لیبل',
     ];
 
+    /** شرط SQL دیدن تسک محرمانه برای $uid (عدد مستقیم در SQL؛ بدون پارامتر) */
+    public static function confidentialSql(int $uid, string $t = 't'): string
+    {
+        $u = (int) $uid;
+        return "($t.is_confidential = 0 OR $t.user_id = $u OR $t.assignee_id = $u"
+            . " OR EXISTS (SELECT 1 FROM task_viewers tv WHERE tv.task_id = $t.id AND tv.user_id = $u))";
+    }
+
     /**
      * شرط WHERE مشترک فهرست و فیلترها.
      * scope: mine | others | project (همه‌ی تسک‌های یک پروژه؛ از «تحلیل پروژه»، شناسه در $projectId)
@@ -59,10 +73,11 @@ final class TaskModel
     private static function scopeWhere(int $uid, string $scope, ?bool $completed, int $projectId = 0): array
     {
         if ($scope === 'project') {
-            $where = 't.project_id = ?';
+            // تسک محرمانه (v6.1) فقط برای سازنده، مسئول/اعضای گروه مسئول و بیننده‌های انتخابی
+            $where = 't.project_id = ? AND ' . self::confidentialSql($uid);
             $params = [$projectId];
         } elseif ($scope === 'mine') {
-            $where = 't.assignee_id = ?';
+            $where = self::mine($uid);
             $params = [$uid];
         } else {
             $where = '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))';
@@ -82,7 +97,7 @@ final class TaskModel
      */
     public static function calendar(int $uid, string $from, string $to, string $scope, bool $withDone): array
     {
-        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $where = ['mine' => self::mine($uid), 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(' . self::mine($uid) . ' OR t.user_id = ?)';
         $params = [$uid, $uid];
         if ($scope === 'mine') {
             $params = [$uid];
@@ -110,12 +125,7 @@ final class TaskModel
             $where .= ' AND t.assignee_id = ?';
             $params[] = (int) $f['assignee'];
         }
-        $q = (string) ($f['q'] ?? '');
-        if ($q !== '') {
-            $where .= ' AND (t.title LIKE ? OR t.description LIKE ?)';
-            $params[] = DB::like($q);
-            $params[] = DB::like($q);
-        }
+        $q = (string) ($f['q'] ?? '');                 // جستجو پایین‌تر، بعد از بقیه‌ی فیلترها (برای غلط تایپی)
         $when = (string) ($f['when'] ?? '');
         if ($when === 'overdue') {
             $where .= ' AND t.is_completed = 0 AND ' . self::OVERDUE;
@@ -140,6 +150,19 @@ final class TaskModel
             $where .= ' AND t.subject_id = ?';
             $params[] = (int) $f['label'];
         }
+        // جستجو (v5.14): هر کلمه در عنوان یا توضیحات؛ اگر هیچ نتیجه‌ای نبود، با تحمل غلط تایپی در عنوان
+        if (\App\Core\Search::tokens($q)) {
+            [$qs, $qp] = \App\Core\Search::sql(['t.title', 't.description'], $q);
+            $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND ' . $qs, array_merge($params, $qp));
+            $fz = $total === 0 ? \App\Core\Search::fuzzyIds(DB::all('SELECT t.id, t.title FROM tasks t WHERE ' . $where . ' ORDER BY t.id DESC LIMIT ' . \App\Core\Search::FUZZY_SCAN, $params), $q, ['title']) : [];
+            if ($fz) {
+                $where .= ' AND t.id IN (' . DB::in($fz) . ')';
+                $params = array_merge($params, $fz);
+            } else {
+                $where .= ' AND ' . $qs;
+                $params = array_merge($params, $qp);
+            }
+        }
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where, $params);
         switch ($f['sort'] ?? 'created') {
             case 'due':
@@ -159,7 +182,7 @@ final class TaskModel
                 break;
             default:
                 // هوشمند (پیش‌فرض): بدون زمان، امروز، فردا، بعدها، عقب‌افتاده، انجام‌شده؛ در هر گروه اولویت بیشتر بالاتر
-                $order = self::GROUP_SQL . ', ' . "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id DESC";
+                $order = self::groupSql($uid) . ', ' . "COALESCE(t.priority_percent, CASE t.priority WHEN 'high' THEN 75 WHEN 'low' THEN 25 ELSE 50 END) DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id DESC";
         }
         $rows = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', array_merge([$uid], $params, [$limit, $offset]));
         return ['rows' => $rows, 'total' => $total];
@@ -175,7 +198,7 @@ final class TaskModel
     /** لیست API: تسک‌هایی که کاربر سازنده یا مسئول آن‌هاست. */
     public static function apiList(int $uid, string $status, int $limit, int $offset): array
     {
-        $where = '(t.user_id = ? OR t.assignee_id = ?) AND t.blocked_at IS NULL';
+        $where = '(t.user_id = ? OR ' . self::mine($uid) . ') AND t.blocked_at IS NULL';
         $params = [$uid, $uid];
         if ($status === 'pending') {
             $where .= ' AND t.is_completed = 0';
@@ -187,16 +210,17 @@ final class TaskModel
 
     public static function stats(int $uid): array
     {
-        $r = DB::one("SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) completed, COALESCE(SUM(is_completed = 0),0) pending,
-                COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low
-                FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL", [$uid]) ?? [];
-        return array_map('intval', $r + ['total' => 0, 'completed' => 0, 'pending' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
+        // v7.7 (DATA-003): completed = تأییدشده، waiting = تحویل‌شده و منتظر تأیید، pending = در جریان (هنوز تحویل نشده)
+        $r = DB::one("SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) completed, COALESCE(SUM(" . self::WAITING . "),0) waiting, COALESCE(SUM(" . self::UNDELIVERED . "),0) pending,
+                COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+                FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL", [$uid]) ?? [];
+        return array_map('intval', $r + ['total' => 0, 'completed' => 0, 'waiting' => 0, 'pending' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
     }
 
     public static function create(array $d): int
     {
-        // تسک جدید در بورد پروژه از «برنامه‌ریزی‌نشده» (Backlog) شروع می‌شود
-        $d += ['board_status' => 'backlog', 'board_moved_at' => date('Y-m-d H:i:s')];
+        // تسک جدید در «وضعیت اول بعد از ایجاد تسک» بورد همان پروژه (v6.1؛ پیش‌فرض «برنامه‌ریزی‌نشده»)
+        $d += ['board_status' => \App\Services\BoardConfig::start(isset($d['project_id']) ? (int) $d['project_id'] : null), 'board_moved_at' => date('Y-m-d H:i:s')];
         $id = DB::insert('tasks', $d);
         self::ensureShareToken($id);
         return $id;
@@ -227,10 +251,12 @@ final class TaskModel
 
     public static function toggle(int $id): array
     {
-        $done = (int) DB::value('SELECT is_completed FROM tasks WHERE id = ?', [$id]) === 1;
-        // وضعیت بورد پروژه همگام می‌ماند: تکمیل = done، بازگشت = todo
+        $row = DB::one('SELECT is_completed, project_id FROM tasks WHERE id = ?', [$id]) ?? ['is_completed' => 0, 'project_id' => null];
+        $done = (int) $row['is_completed'] === 1;
+        // وضعیت بورد همگام می‌ماند: تکمیل = done، بازگشت = ستون شروع بورد پروژه
         if ($done) {
-            DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = 'todo', board_moved_at = NOW(), archived_at = NULL WHERE id = ?", [$id]);
+            DB::run("UPDATE tasks SET is_completed = 0, completed_at = NULL, board_status = ?, board_moved_at = NOW(), archived_at = NULL WHERE id = ?",
+                [\App\Services\BoardConfig::start($row['project_id'] !== null ? (int) $row['project_id'] : null), $id]);
         } else {
             DB::run("UPDATE tasks SET is_completed = 1, completed_at = NOW(), board_status = 'done', blocked_reason = NULL, board_moved_at = NOW() WHERE id = ?", [$id]);
         }
@@ -242,7 +268,7 @@ final class TaskModel
     {
         $rows = DB::all("SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.share_token, p.title AS project_title
               FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE t.assignee_id = ? AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
+             WHERE " . self::mine($uid) . " AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
                AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
                AND TIMESTAMP(t.due_date, t.due_time) <= NOW()
                AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)", [$uid]);
@@ -257,7 +283,7 @@ final class TaskModel
             return 0;
         }
         $ids = array_slice($ids, 0, 50);
-        return DB::run('UPDATE tasks SET notified_at = NOW() WHERE assignee_id = ? AND notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
+        return DB::run('UPDATE tasks t SET t.notified_at = NOW() WHERE ' . self::mine($uid) . ' AND t.notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
     }
 
     // ───── آمار داشبورد ─────
@@ -266,7 +292,7 @@ final class TaskModel
     /** همه‌ی تسک‌های باز عقب‌افتاده (مستقل از ماه تقویم)؛ scope مثل تقویم: mine / others / all */
     public static function overdueCount(int $uid, string $scope): int
     {
-        $where = ['mine' => 't.assignee_id = ?', 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(t.assignee_id = ? OR t.user_id = ?)';
+        $where = ['mine' => self::mine($uid), 'others' => '(t.user_id = ? AND (t.assignee_id IS NULL OR t.assignee_id <> ?))'][$scope] ?? '(' . self::mine($uid) . ' OR t.user_id = ?)';
         $params = $scope === 'mine' ? [$uid] : [$uid, $uid];
         return (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $where . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE, $params);
     }
@@ -275,7 +301,13 @@ final class TaskModel
      * «عقب‌افتاده» فقط روزهای قبل (v4.1، تعریف واحد در پیشخوان، تقویم، فهرست و تحلیل): تسکی که سررسیدش امروز است
      * در «امروز» می‌ماند و اگر ساعتش گذشته باشد فقط برچسب «ساعت گذشته» می‌گیرد.
      */
-    public const OVERDUE = 't.due_date IS NOT NULL AND t.due_date < CURDATE()';
+    public const OVERDUE = "t.due_date IS NOT NULL AND t.due_date < CURDATE() AND NOT (t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review')";
+    // v7.7 (DATA-001): تسکی که مسئول تحویل داده و منتظر تأیید سرپرست است عقب‌افتاده نیست (کار مسئول تمام است؛ تأخیرش با روز تحویل
+    // در KPI سنجیده می‌شود). همین تعریف در پیشخوان، «تیم من»، تقویم، فهرست تسک‌ها، تحلیل پروژه و پنل مدیر به کار می‌رود.
+    /** «باز و تحویل‌نشده» (در جریان نزد مسئول): نه انجام‌شده، نه منتظر تأیید سرپرست */
+    public const UNDELIVERED = "t.is_completed = 0 AND NOT (t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review')";
+    /** منتظر تأیید سرپرست (تحویل‌شده، هنوز تأییدنشده) */
+    public const WAITING = "t.is_completed = 0 AND t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review'";
     /** گروه مرتب‌سازی هوشمند (v4.1.1): ۰ بدون زمان، ۱ امروز، ۲ فردا، ۳ بعدها (پیش رو)، ۴ عقب‌افتاده، ۵ انجام‌شده */
     /**
      * مرتب‌سازی هوشمند (v5.4): نیاز به اصلاح (برگشت‌خورده) ← عقب‌افتاده ← امروز ← بدون زمان ← پیش رو ← منتظر تأیید سرپرست (جمع‌شده) ← انجام‌شده.
@@ -283,6 +315,12 @@ final class TaskModel
      */
     public const GROUP_SQL = "CASE WHEN t.is_completed = 1 THEN 6 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'rework' THEN 0 WHEN t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review' THEN 5 WHEN t.due_date IS NOT NULL AND t.due_date < CURDATE() THEN 1 WHEN t.due_date = CURDATE() THEN 2 WHEN t.due_date IS NULL THEN 3 ELSE 4 END";
     public const GROUP_NAMES = ['نیاز به اصلاح', 'عقب‌افتاده', 'امروز', 'بدون زمان', 'پیش رو', 'منتظر تأیید سرپرست', 'انجام‌شده'];
+
+    /** مرتب‌سازی هوشمند (سازگاری با فراخوانی قدیمی) */
+    public static function groupSql(int $uid): string
+    {
+        return self::GROUP_SQL;
+    }
 
     public static function groupOf(array $t): int
     {
@@ -309,8 +347,10 @@ final class TaskModel
      */
     public static function focus(int $uid, int $limit = 12): array
     {
-        $today = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
-        $late = 't.assignee_id = ? AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
+        $today = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date = CURDATE()';
+        $late = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND ' . self::OVERDUE;
+        // v7.16 (پیشخوان دمو): تب «۷ روز آینده» = فردا تا هفت روز بعد
+        $soon = self::mine($uid) . ' AND t.blocked_at IS NULL AND t.is_completed = 0 AND t.due_date > CURDATE() AND t.due_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)';
         $rows = static function (string $where, string $order) use ($uid, $limit): array {
             $list = DB::all(self::base() . ' WHERE ' . $where . ' ORDER BY ' . $order . ' LIMIT ?', [$uid, $uid, $limit]);
             foreach ($list as &$t) {
@@ -318,11 +358,30 @@ final class TaskModel
             }
             return $list;
         };
+        $overdue = $rows($late, 't.due_date, t.due_time IS NULL, t.due_time, t.id');
+        foreach ($overdue as &$t) {
+            // روزهای تأخیر (پیشخوان v5.6): روز تقویمی از سررسید تا امروز، سمت سرور
+            $t['late_days'] = max(1, (int) ((strtotime(date('Y-m-d')) - strtotime((string) $t['due_date'])) / 86400));
+        }
+        unset($t);
+        $both = '(' . $today . ') OR (' . $late . ')';
+        // ترکیب اولویت‌ها: همه‌ی تسک‌های امروز + عقب‌افتاده (نه فقط ردیف‌های نمایش‌داده‌شده)
+        $mix = DB::one("SELECT COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+            FROM tasks t WHERE $both", [$uid, $uid]) ?? [];
+        // پیشنهاد شروع: اولویت بالاتر، در اولویت برابر عقب‌افتاده جلوتر از امروز، بعد سررسید قدیمی‌تر
+        $suggest = DB::one(self::base() . " WHERE $both ORDER BY FIELD(t.priority, 'high', 'medium', 'low'), t.due_date < CURDATE() DESC, t.due_date, t.due_time IS NULL, t.due_time, t.id LIMIT 1", [$uid, $uid, $uid]);
+        if ($suggest) {
+            $suggest['share_token'] = $suggest['share_token'] ?: self::ensureShareToken((int) $suggest['id']);
+        }
         return [
             'today' => $rows($today, 't.due_time IS NULL, t.due_time, t.id'),
-            'overdue' => $rows($late, 't.due_date, t.due_time IS NULL, t.due_time, t.id'),
+            'overdue' => $overdue,
+            'upcoming' => $rows($soon, 't.due_date, t.due_time IS NULL, t.due_time, t.id'),
+            'upcoming_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $soon, [$uid]),
             'today_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $today, [$uid]),
             'overdue_count' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . $late, [$uid]),
+            'mix' => ['high' => (int) ($mix['high'] ?? 0), 'medium' => (int) ($mix['medium'] ?? 0), 'low' => (int) ($mix['low'] ?? 0)],
+            'suggest' => $suggest,
         ];
     }
 
@@ -347,9 +406,9 @@ final class TaskModel
                 COALESCE(SUM(assignee_id = ? AND user_id <> ?),0) to_me, COALESCE(SUM(assignee_id = ? AND user_id <> ? AND is_completed = 0),0) to_me_open
                 FROM tasks WHERE (user_id = ? OR assignee_id = ?) AND blocked_at IS NULL', [$uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid, $uid]) ?? ['by_me' => 0, 'by_me_open' => 0, 'to_me' => 0, 'to_me_open' => 0];
         // پرتکرارترین لیبل: فقط وقتی دست‌کم یک تسک (مسئولش کاربر) لیبل دارد
-        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? WHERE s.user_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid, $uid]);
-        $prioOpen = DB::one("SELECT COALESCE(SUM(priority = 'high'),0) high, COALESCE(SUM(priority = 'medium'),0) medium, COALESCE(SUM(priority = 'low'),0) low FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL", [$uid]) ?? [];
-        $dur = static fn(string $table, string $cond, array $p) => DB::one("SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 a, MIN(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 mi, MAX(TIMESTAMPDIFF(MINUTE, created_at, completed_at))/60 ma, COUNT(*) c FROM $table WHERE $cond AND completed_at IS NOT NULL AND completed_at > created_at", $p) ?? [];
+        $top = DB::one('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND t.blocked_at IS NULL AND t.assignee_id = ? GROUP BY s.id, s.title ORDER BY cnt DESC LIMIT 1', [$uid]);   // لیبل پروژه (v7.12)، نه فقط ساخته‌ی خود کاربر
+        // اولویت تسک‌های در جریان (تحویل‌نشده)؛ همان پایه‌ی کارت «در جریان»
+        $prioOpen = DB::one("SELECT COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low FROM tasks t WHERE t.assignee_id = ? AND " . self::UNDELIVERED . " AND t.blocked_at IS NULL", [$uid]) ?? [];
 
         $trend = ['labels' => [], 'tasks' => []];
         $td = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL AND created_at >= (CURDATE() - INTERVAL 6 DAY) GROUP BY DATE(created_at)', [$uid]), 'c', 'd');
@@ -360,13 +419,12 @@ final class TaskModel
         }
         return [
             'stats' => $s,
-            'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : 0,
+            'ratio' => $s['total'] > 0 ? (int) round($s['completed'] / $s['total'] * 100) : null,
             'by_me' => (int) $split['by_me'], 'to_me' => (int) $split['to_me'], 'by_me_open' => (int) $split['by_me_open'], 'to_me_open' => (int) $split['to_me_open'],
             'top_subject' => $top ? $top['title'] : null, 'top_subject_count' => $top ? (int) $top['cnt'] : 0,
             'prio_open' => array_map('intval', $prioOpen + ['high' => 0, 'medium' => 0, 'low' => 0]),
-            'task_time' => $dur('tasks', '(user_id = ? OR assignee_id = ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
-            'call_time' => $dur('call_requests', '(user_id = ? OR assignee_id = ?) AND status = 1 AND blocked_at IS NULL', [$uid, $uid]),
-            'calls' => CallModel::stats($uid),
+            // v7.7 (DATA-004): یک تعریف در همه‌جا = ایجاد تا تحویل (TaskAnalytics::finishedAt)، فقط تسک‌هایی که مسئولشان خود کاربر است
+            'task_time' => \App\Services\TaskAnalytics::durations(DB::all('SELECT t.is_completed, t.board_status, t.created_at, t.completed_at, t.delivered_at FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL AND (t.is_completed = 1 OR t.delivered_at IS NOT NULL)', [$uid])),
             'texts' => (int) DB::value('SELECT COUNT(*) FROM texts WHERE user_id = ?', [$uid]),
             'trend' => $trend,
         ];

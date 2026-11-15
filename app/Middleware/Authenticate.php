@@ -40,6 +40,17 @@ final class Authenticate
                 // ستون هنوز ساخته نشده (قبل از مهاجرت)
             }
         }
+        // v7.8: حساب غیرفعال = فقط خواندنی (دیدن همه‌چیز، هیچ ثبت و تغییری)؛ مسدود و در انتظار تأیید → صفحه‌ی وضعیت حساب
+        if ($u['status'] === 'deactivated' && !Auth::isImpersonating()) {
+            if (!$r->isSafe() && !in_array($r->path(), Auth::READ_ONLY_ALLOWED, true)) {
+                if ($r->wantsJson()) {
+                    throw new HttpException(403, Auth::INACTIVE_MSG, 'ACCOUNT_INACTIVE');
+                }
+                \App\Core\Session::flash(Auth::INACTIVE_MSG, 'error');
+                Response::redirect('/dashboard');
+            }
+            return;
+        }
         if ($u['status'] !== 'active') {
             if ($r->wantsJson()) {
                 throw new HttpException(403, 'حساب کاربری شما فعال نیست.', 'ACCOUNT_INACTIVE');

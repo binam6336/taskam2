@@ -22,7 +22,7 @@ final class AuthController extends Controller
             header('Retry-After: 60');
             $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
         }
-        $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به تسکام'], 'auth');
+        $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به کارلیکس'], 'auth');
     }
 
     /** تصویر کپچای صفحه‌ی ورود (هر بار کد جدید) */
@@ -39,7 +39,7 @@ final class AuthController extends Controller
     {
         $mobile = Validate::mobile($this->request->str('mobile', 30));
         $pass = (string) $this->request->input('password', '');
-        Session::put('_old', ['mobile' => $this->request->str('mobile', 30)]);
+        Session::put('_old', ['mobile' => $this->request->str('mobile', 30), '_form' => 'login']);   // UI-009: مقدار فقط به فرم ورود برگردد
         // کپچا قبل از هر بررسی دیگر (و بدون ثبت در شمارنده‌های ورود): فقط حروف بزرگ
         if (Captcha::enabled() && !Captcha::verify($this->request->str('captcha', 20))) {
             Session::flash('کد امنیتی اشتباه است؛ کد جدید را وارد کنید.', 'error');
@@ -67,7 +67,7 @@ final class AuthController extends Controller
         $email = $req->str('email', 150);
         $pass = (string) $req->input('password', '');
         $confirm = (string) $req->input('password_confirm', '');
-        Session::put('_old', ['first_name' => $first, 'last_name' => $last, 'mobile' => $mobileRaw, 'email' => $email]);
+        Session::put('_old', ['first_name' => $first, 'last_name' => $last, 'mobile' => $mobileRaw, 'email' => $email, '_form' => 'register']);
 
         $fail = function (string $m) {
             Session::flash($m, 'error');
@@ -156,7 +156,7 @@ final class AuthController extends Controller
     public function pending()
     {
         $u = $this->user();
-        if ($u['status'] === 'active') {
+        if ($u['status'] === 'active' || $u['status'] === 'deactivated') {
             $this->redirect('/');
         }
         $this->view('auth/pending', ['status' => $u['status']], ['title' => 'وضعیت حساب'], 'auth');
@@ -177,6 +177,6 @@ final class AuthController extends Controller
         if ($u['role'] === 'admin' && $u['status'] === 'active' && !Auth::isImpersonating()) {
             $this->redirect('/admin');
         }
-        $this->redirect($u['status'] === 'active' ? '/dashboard' : '/pending');
+        $this->redirect(in_array($u['status'], ['active', 'deactivated'], true) ? '/dashboard' : '/pending');
     }
 }

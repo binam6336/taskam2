@@ -24,7 +24,7 @@ document.addEventListener('tk:ready', () => {
     const load = async () => {
       const r = await TK.get('/admin/impersonations'); if (!TK.ok(r)) return;
       ib.hidden = !r.items.length; TK.qs('#imp-open-n').textContent = TK.fa(r.items.length);
-      TK.qs('#imp-open-list').innerHTML = r.items.map((x) => `<div class="item"><span class="avatar sm">${x.avatar ? `<img src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
+      TK.qs('#imp-open-list').innerHTML = r.items.map((x) => `<div class="item"><span class="avatar sm">${x.avatar ? `<img loading="lazy" decoding="async" src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
         <div class="grow min0"><b>${E(x.name)}</b> <span class="ltr small muted">${E(x.mobile)}</span><div class="xs faint">شروع ${E(x.started_fa)} • آخرین فعالیت ${E(x.seen_fa)} • ${TK.fa(x.actions)} تغییر • پایان قطعی ${E(x.expires_fa)}</div></div>
         <button type="button" class="btn btn-sm" data-imp-end="${E(x.id)}"><i class="fa-solid fa-xmark"></i> بستن</button></div>`).join('');
     };
@@ -42,7 +42,8 @@ document.addEventListener('tk:ready', () => {
   const an = TK.boot().an;
   if (an) {
     TK.charts.line(TK.qs('#ch-days'), { labels: an.days.labels, series: [{ name: 'تسک جدید', data: an.days.tasks }, { name: 'کاربر جدید', data: an.days.users, color: '#60a5fa' }] });
-    TK.charts.donut(TK.qs('#ch-tasks'), { items: [{ label: 'انجام‌شده', value: an.tasks.done, color: TK.charts.colors[0] }, { label: 'باز', value: an.tasks.open, color: '#fbbf24' }], center: TK.fa(an.tasks.total) });
-    TK.charts.bars(TK.qs('#ch-subj'), { height: 200, items: an.subjects.map((s) => ({ label: s.title, value: +s.cnt })) });
+    // DATA-008: تأییدشده / منتظر تأیید / تحویل‌نشده (بدون مسدودها و پروژه‌های نمونه، مثل پنل کاربر)
+    TK.charts.donut(TK.qs('#ch-tasks'), { items: [{ label: 'تأییدشده', value: an.tasks.done, color: TK.charts.colors[0] }, { label: 'منتظر تأیید', value: an.tasks.waiting, color: '#a78bfa' }, { label: 'تحویل‌نشده', value: an.tasks.open, color: '#fbbf24' }], center: TK.fa(an.tasks.total) });
+    TK.charts.bars(TK.qs('#ch-subj'), { height: 200, items: an.subjects.map((s) => ({ label: +s.users > 1 ? s.title + ' (' + TK.fa(s.users) + ' کاربر)' : s.title, value: +s.cnt })) });
   }
 });

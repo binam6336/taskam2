@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- رنگ‌های پوسته‌ی اندروید = تم پیش‌فرض پنل «Midnight Violet — روشن» (config/themes.php)؛ حالت تیره‌ی گوشی: values-night -->
 <resources>
-    <color name="bg">#060908</color>
-    <color name="bg2">#0a100d</color>
-    <color name="card">#0f1712</color>
-    <color name="border">#1c2a21</color>
-    <color name="text">#e8f0ea</color>
-    <color name="muted">#8fa396</color>
-    <color name="accent">#22c55e</color>
-    <color name="danger">#ef4444</color>
-    <color name="icon_bg">#121816</color>
+    <color name="bg">#FAF9FF</color>
+    <color name="text">#241B3D</color>
+    <color name="muted">#6B6488</color>
+    <color name="accent">#6D4AFF</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="icon_bg">#F5F3FF</color>
 </resources>

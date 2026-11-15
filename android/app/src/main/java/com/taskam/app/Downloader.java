@@ -60,7 +60,13 @@ final class Downloader {
                 try (InputStream in = con.getInputStream()) {
                     saved = save(a, name, type, in);
                 }
-                msg = "«" + name + "» در پوشه‌ی Downloads ذخیره شد.";
+                if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".apk") || "application/vnd.android.package-archive".equals(type)) {
+                    // باز کردن APK از داخل برنامه اجازه‌ی «نصب برنامه» (REQUEST_INSTALL_PACKAGES) می‌خواهد که عمداً گرفته نشده
+                    saved = null;
+                    msg = "فایل نصبی «" + name + "» در پوشه‌ی Downloads ذخیره شد؛ برای نصب، آن را از برنامه‌ی «فایل‌ها» باز کنید.";
+                } else {
+                    msg = "«" + name + "» در پوشه‌ی Downloads ذخیره شد.";
+                }
             } catch (Exception e) {
                 msg = "دانلود انجام نشد (" + e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "") + ").";
             }
@@ -141,6 +147,6 @@ final class Downloader {
 
     private static String safe(String n) {
         n = n.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1f]", "_").trim();
-        return n.isEmpty() ? "taskam-file" : n;
+        return n.isEmpty() ? "karlix-file" : n;
     }
 }

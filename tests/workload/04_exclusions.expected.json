@@ -1,0 +1,30 @@
+{
+ "loads": [
+  {
+   "member_id": "a",
+   "name": "A",
+   "capacity": 4,
+   "od": 1,
+   "wk": 3,
+   "nd": 0,
+   "load": 4,
+   "pct": 100,
+   "level": "wr",
+   "open": 3
+  },
+  {
+   "member_id": "b",
+   "name": "B",
+   "capacity": 12,
+   "od": 0,
+   "wk": 0,
+   "nd": 0,
+   "load": 0,
+   "pct": 0,
+   "level": "ok",
+   "open": 0
+  }
+ ],
+ "suggestions": [],
+ "unresolved": []
+}

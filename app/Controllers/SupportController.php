@@ -62,7 +62,7 @@ final class SupportController extends Controller
     {
         $t = $this->owned($id);
         if ($t['status'] === 'closed') {
-            $this->respond(false, 'این تیکت بسته شده است؛ برای ارسال پیام ابتدا آن را دوباره باز کنید.', '/support/' . pid('support_tickets', $id));
+            $this->respond(false, 'این تیکت بسته شده است؛ برای ادامه یک تیکت جدید ثبت کنید.', '/support/' . pid('support_tickets', $id));
         }
         if (!Throttle::attempt('support_reply', (string) $this->uid(), 60, 3600)) {
             $this->respond(false, 'تعداد پیام‌ها در یک ساعت از حد مجاز گذشته است.', '/support/' . pid('support_tickets', $id));
@@ -80,8 +80,8 @@ final class SupportController extends Controller
 
     public function reopen(string $id)
     {
-        $t = $this->owned($id);
-        DB::run("UPDATE support_tickets SET status = 'open', closed_at = NULL WHERE id = ?", [(int) $t['id']]);
-        $this->respond(true, 'تیکت دوباره باز شد.', '/support/' . pid('support_tickets', $id));
+        // v7.8: تیکت بسته (توسط پشتیبان یا خود کاربر) را کاربر نمی‌تواند دوباره باز کند؛ فقط پنل مدیریت (وضعیت تیکت)
+        $this->owned($id);
+        $this->respond(false, 'تیکت بسته‌شده را فقط پشتیبانی می‌تواند دوباره باز کند؛ برای ادامه یک تیکت جدید ثبت کنید.', '/support/' . pid('support_tickets', $id));
     }
 }

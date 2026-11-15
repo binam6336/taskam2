@@ -17,12 +17,12 @@ final class Limits
 
     /** سقف کل تعداد [جدول، ستون مالک، عنوان] */
     public const MAX_TOTAL = [
-        'text'    => [500, 'texts', 'user_id', 'متن آماده'],
+        'text'    => [500, 'texts', 'user_id', 'یادداشت شخصی'],
         'label'   => [100, 'subjects', 'user_id', 'لیبل'],
         'project' => [50, 'projects', 'user_id', 'پروژه'],
     ];
 
-    public const KINDS = ['task' => 'تسک', 'note' => 'یادداشت', 'text' => 'متن آماده', 'label' => 'لیبل', 'project' => 'پروژه', 'call' => 'درخواست تماس'];
+    public const KINDS = ['task' => 'تسک', 'note' => 'یادداشت', 'text' => 'یادداشت شخصی', 'label' => 'لیبل', 'project' => 'پروژه'];
 
     /** null = مجاز؛ در غیر این صورت پیام خطا */
     public static function create(string $kind, int $uid): ?string

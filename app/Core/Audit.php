@@ -8,6 +8,9 @@ final class Audit
 {
     public static function log(?int $userId, string $action, array $details = []): void
     {
+        // رویداد در لاگ عمومی روز هم (storage/logs/YYYY-MM-DD.log)؛ داده‌ی حساس در Log::clean پوشانده می‌شود
+        Log::general(preg_match('/fail|lock|mismatch|throttl|misuse|duplicate/', $action) ? 'WARNING' : 'INFO',
+            'audit.' . $action, $userId !== null ? ['user_id' => $userId] + $details : $details);
         try {
             $req = Request::capture();
             DB::insert('audit_log', [

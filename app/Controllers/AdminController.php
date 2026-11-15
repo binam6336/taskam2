@@ -27,10 +27,10 @@ final class AdminController extends Controller
     private const PERMS = ['add_user' => 'افزودن کاربر', 'edit_user' => 'ویرایش کاربر', 'toggle_status' => 'تغییر وضعیت', 'delete_user' => 'حذف کاربر',
         'impersonate' => 'ورود به پنل کاربر', 'edit_content' => 'ویرایش محتوا (سایدبار، تور، Placeholder، خطاها)'];
 
-    /** فعلاً (v4.4) همه‌ی نقش‌های مدیر همه‌ی دسترسی‌ها را دارند، از جمله مدیریت مدیران دیگر (جز حساب مدیر کل اصلی) */
+    /** مدیریت مدیران دیگر (ساخت/ویرایش/حذف مدیر و تعیین نقش) — دسترسی manage_admins (v7.4؛ قبلاً هر مدیری) */
     private function isSuper(): bool
     {
-        return Auth::adminRole($this->user() ?? []) !== null;
+        return Auth::adminCan('manage_admins');
     }
 
     /** نقش انتخاب‌شده در فرم کاربر: [role, admin_role] */
@@ -40,11 +40,21 @@ final class AdminController extends Controller
         return isset(Auth::ADMIN_ROLES[$v]) ? ['admin', $v] : ['user', null];
     }
 
+    /**
+     * دسترسی پنل مدیر (v7.4): بدون اجازه، درخواست AJAX/POST خطای ۴۰۳ می‌گیرد و صفحه (GET) به اولین بخش مجاز
+     * همین مدیر می‌رود (یا خطا اگر هیچ بخشی ندارد).
+     */
     private function need(string $perm): void
     {
-        if (!Auth::adminCan($perm)) {
-            $this->fail('شما این دسترسی را ندارید.', 403);
+        if (Auth::adminCan($perm)) {
+            return;
         }
+        $land = \App\Core\AdminAccess::landing($this->user() ?? []);
+        if ($this->request->method() === 'GET' && !$this->request->wantsJson() && $land !== null && $land !== '/' . ltrim($this->request->path(), '/')) {
+            $this->flash('شما این دسترسی را ندارید.', 'error');
+            $this->redirect($land);
+        }
+        $this->fail('شما این دسترسی را ندارید.', 403);
     }
 
     /** تعداد کاربر در هر صفحه‌ی «مدیریت کاربران» (پیش‌فرض اولی) */
@@ -52,6 +62,7 @@ final class AdminController extends Controller
 
     public function users()
     {
+        $this->need('view_users');
         $me = $this->user();
         $r = $this->request;
         // تعداد در صفحه: از آدرس، وگرنه آخرین انتخاب همین مدیر در نشست
@@ -110,7 +121,6 @@ final class AdminController extends Controller
         [$role, $adminRole] = $this->isSuper() ? $this->roleInput() : ['user', null];
         $status = Validate::enum($this->request->input('status'), Auth::STATUSES, 'active');
         $id = DB::insert('users', $d + ['password_hash' => Auth::hash($pass), 'role' => $role, 'status' => $status, 'admin_role' => $adminRole]);
-        \App\Models\SubjectModel::seedDefaults($id);
         Audit::log($this->uid(), 'admin_user_created', ['id' => $id, 'role' => $role]);
         if ($role === 'user') {
             ProjectService::createSample($id);
@@ -218,6 +228,7 @@ final class AdminController extends Controller
     /** پنجره‌های ورود به پنل کاربرِ باز همین نشست مدیر (کارت بالای فهرست کاربران) */
     public function impersonations()
     {
+        $this->need('manage_impersonations');
         $rows = Impersonation::openFor($this->uid());
         $this->ok('', ['items' => array_map(static fn($r) => ['id' => pid('impersonations', $r), 'name' => full_name($r), 'mobile' => $r['mobile'], 'avatar' => avatar_url($r['avatar']),
             'started_fa' => jdate((string) $r['created_at']), 'seen_fa' => time_ago((string) $r['last_seen_at']), 'expires_fa' => jdate((string) $r['expires_at']), 'actions' => (int) $r['actions']], $rows)]);
@@ -226,6 +237,7 @@ final class AdminController extends Controller
     /** بستن یک پنجره از پنل مدیر (فقط پنجره‌های خود همین مدیر) */
     public function impersonationEnd(string $id)
     {
+        $this->need('manage_impersonations');
         $row = DB::one('SELECT id FROM impersonations WHERE id = ? AND admin_id = ? AND ended_at IS NULL', [(int) $id, $this->uid()]);
         if ($row === null) {
             $this->fail('پنجره یافت نشد یا قبلاً بسته شده است.', 404);
@@ -237,6 +249,7 @@ final class AdminController extends Controller
     /** بستن همه‌ی پنجره‌های باز این مدیر (روی همه‌ی دستگاه‌ها) */
     public function impersonationEndAll()
     {
+        $this->need('manage_impersonations');
         $n = Impersonation::endAll($this->uid(), 'end_all');
         $this->ok($n ? fa_num($n) . ' پنجره‌ی پنل کاربر بسته شد.' : 'پنجره‌ی بازی نبود.');
     }
@@ -244,14 +257,15 @@ final class AdminController extends Controller
     /** «جزئیات» کاربر در فهرست کاربران: GET /admin/users/{id}/details */
     public function userDetails(string $id)
     {
+        $this->need('view_users');
         $this->rateLimit('admin_list', 120);
         $u = UserModel::find((int) $id);
         if ($u === null || (int) $u['is_bot'] === 1) {
             $this->fail('کاربر یافت نشد.', 404);
         }
         $uid = (int) $u['id'];
-        $t = DB::one('SELECT COUNT(*) total, COALESCE(SUM(is_completed = 1),0) done, COALESCE(SUM(is_completed = 0 AND board_status = \'review\'),0) review,
-                COALESCE(SUM(is_completed = 0 AND due_date < CURDATE()),0) late FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL', [$uid]) ?? [];
+        $t = DB::one('SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(' . \App\Models\TaskModel::WAITING . '),0) review,
+                COALESCE(SUM(t.is_completed = 0 AND ' . \App\Models\TaskModel::OVERDUE . '),0) late FROM tasks t WHERE t.assignee_id = ? AND t.blocked_at IS NULL', [$uid]) ?? [];
         $created = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND blocked_at IS NULL', [$uid]);
         $canEnter = Auth::adminCan('impersonate') && $u['role'] !== 'admin' && $u['status'] === 'active';
         $projects = [];
@@ -281,6 +295,7 @@ final class AdminController extends Controller
     /** تسک‌های یک کاربر (مسئولش) با صفحه‌بندی: GET /admin/users/{id}/tasks */
     public function userTasks(string $id)
     {
+        $this->need('view_users');
         $this->rateLimit('admin_list', 120);
         $uid = (int) $id;
         if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_bot = 0', [$uid])) {
@@ -291,12 +306,12 @@ final class AdminController extends Controller
         $total = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ?', [$uid]);
         $pages = max(1, (int) ceil($total / $per));
         $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
-        $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, t.share_token, p.title AS project_title
+        $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.project_id, t.archived_at, t.blocked_at, t.due_date, t.created_at, t.share_token, p.title AS project_title
             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id WHERE t.assignee_id = ? ORDER BY t.is_completed, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$uid, $per, ($page - 1) * $per]);
-        $stl = \App\Services\BoardService::STATUSES;
+        $stl = static fn(array $x): array => \App\Services\BoardConfig::info($x['project_id'] !== null ? (int) $x['project_id'] : null, (string) $x['board_status']);
         $items = array_map(static fn($x) => ['title' => $x['title'], 'project' => $x['project_title'] ?? '—',
-            'status' => $x['blocked_at'] ? 'مسدود' : ($x['archived_at'] ? 'آرشیو' : ($stl[$x['board_status']]['label'] ?? ($x['is_completed'] ? 'انجام‌شده' : 'باز'))),
-            'tone' => $x['blocked_at'] ? 'danger' : ($x['archived_at'] ? 'muted' : ($stl[$x['board_status']]['tone'] ?? 'muted')),
+            'status' => $x['blocked_at'] ? 'مسدود' : ($x['archived_at'] ? 'آرشیو' : ($x['project_id'] !== null ? $stl($x)['label'] : ($x['is_completed'] ? 'انجام‌شده' : 'باز'))),
+            'tone' => $x['blocked_at'] ? 'danger' : ($x['archived_at'] ? 'muted' : $stl($x)['tone']),
             'priority' => $x['priority_percent'] !== null ? fa_num((int) $x['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$x['priority']],
             'due_fa' => $x['due_date'] ? jdate($x['due_date'] . ' 00:00:00', false) : '—', 'late' => !$x['is_completed'] && $x['due_date'] && $x['due_date'] < date('Y-m-d'),
             'created_fa' => jdate((string) $x['created_at']),
@@ -323,16 +338,19 @@ final class AdminController extends Controller
 
     public function support()
     {
+        $this->need('support_view');
         $this->desk(null);
     }
 
     public function supportShow(string $id)
     {
+        $this->need('support_view');
         $this->desk($this->ticket($id));
     }
 
     public function supportReply(string $id)
     {
+        $this->need('support_reply');
         $t = $this->ticket($id);
         [$ok, $msg] = SupportModel::addMessage($t, $this->uid(), 'admin', $this->request->str('message', SupportModel::MSG_MAX), $this->request->file('attachment'));
         $this->respond($ok, $msg, '/admin/support/' . pid('support_tickets', $id));
@@ -340,6 +358,7 @@ final class AdminController extends Controller
 
     public function supportStatus(string $id)
     {
+        $this->need('support_manage');
         $t = $this->ticket($id);
         $s = Validate::enum($this->request->input('status'), ['open', 'in_progress', 'answered', 'closed'], '');
         if ($s === '') {
@@ -352,6 +371,7 @@ final class AdminController extends Controller
 
     public function supportDelete(string $id)
     {
+        $this->need('support_manage');
         SupportModel::delete((int) $this->ticket($id)['id']);
         $this->respond(true, 'تیکت حذف شد.', '/admin/support');
     }
@@ -361,20 +381,21 @@ final class AdminController extends Controller
     /** محتوا ← سایدبار: چیدمان، نام و مقصد (صفحه‌ی پنل یا لینک خارجی) گزینه‌های سایدبار پنل کاربر */
     public function contentSidebar()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         $pages = [];
         foreach (SidebarModel::pages() as $k => [$path, $icon, $label]) {
             $pages[] = ['key' => $k, 'path' => $path, 'icon' => $icon, 'label' => $label];
         }
         $this->view('admin/content_sidebar', [
-            'menu' => SidebarModel::current(), 'pages' => $pages, 'custom' => SidebarModel::isCustom(),
+            'menu' => SidebarModel::currentWithDesc(), 'pages' => $pages, 'custom' => SidebarModel::isCustom(),
+            'options' => SidebarModel::options(), 'maxDesc' => SidebarModel::MAX_DESC, 'defaultDesc' => SidebarModel::descriptions(),
             'linkIcon' => SidebarModel::LINK_ICON, 'supportUnread' => SupportModel::unreadForAdmin(),
         ], ['title' => 'سایدبار', 'page' => 'admin-content-sidebar'], 'admin');
     }
 
     public function contentSidebarSave()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         $data = json_decode((string) $this->request->input('menu', ''), true);
         if (!is_array($data)) {
             $this->respond(false, 'داده‌ی سایدبار نامعتبر است.', '/admin/content/sidebar');
@@ -387,13 +408,14 @@ final class AdminController extends Controller
             $this->respond(false, 'سایدبار نمی‌تواند خالی باشد.', '/admin/content/sidebar');
         }
         SidebarModel::save($menu, $this->uid());
+        SidebarModel::saveOptions(['show_desc' => $this->request->input('show_desc', '1') === '1'], $this->uid());
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user']);
         $this->respond(true, 'سایدبار پنل کاربران ذخیره شد.', '/admin/content/sidebar');
     }
 
     public function contentSidebarReset()
     {
-        $this->need('edit_content');
+        $this->need('edit_sidebar');
         SidebarModel::reset();
         Audit::log($this->uid(), 'content_updated', ['key' => 'sidebar.user', 'reset' => true]);
         $this->respond(true, 'سایدبار به چیدمان پیش‌فرض برگشت.', '/admin/content/sidebar');
@@ -402,14 +424,14 @@ final class AdminController extends Controller
     /** محتوا ← Placeholder: متن راهنمای فیلدهای پنل کاربر با مسیر هر کدام (config/placeholder_texts.php) */
     public function contentPlaceholders()
     {
-        $this->need('edit_content');
+        $this->need('edit_placeholders');
         $this->view('admin/content_placeholders', ['groups' => PlaceholderText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'Placeholder', 'page' => 'admin-content-ph'], 'admin');
     }
 
     public function contentPlaceholderSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_placeholders');
         $err = PlaceholderText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/placeholders');
@@ -421,14 +443,14 @@ final class AdminController extends Controller
     /** محتوا ← خطاها: همه‌ی خطاهای پنل کاربر با توضیح و متن قابل ویرایش (config/error_texts.php) */
     public function contentErrors()
     {
-        $this->need('edit_content');
+        $this->need('edit_errors');
         $this->view('admin/content_errors', ['groups' => ErrorText::forAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'خطاها', 'page' => 'admin-content-errors'], 'admin');
     }
 
     public function contentErrorSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_errors');
         $err = ErrorText::save($id, (string) $this->request->input('body', ''), $this->uid());
         if ($err !== null) {
             $this->respond(false, $err, '/admin/content/errors');
@@ -440,14 +462,40 @@ final class AdminController extends Controller
     /** محتوا ← تور آموزشی: ویرایش متن‌هایی که در تور آموزشی پنل کاربر نمایش داده می‌شوند */
     public function contentTour()
     {
-        $this->need('edit_content');
+        $this->need('edit_tour');
         $this->view('admin/content_tour', ['groups' => ContentModel::tourForAdmin(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'تور آموزشی', 'page' => 'admin-content-tour'], 'admin');
     }
 
+    /** محتوا ← بورد (v6.1): بورد پیش‌فرض پروژه‌هایی که بورد اختصاصی ندارند */
+    public function contentBoard()
+    {
+        $this->need('edit_board');
+        $this->view('admin/content_board', ['custom' => \App\Services\BoardConfig::templateIsCustom(), 'supportUnread' => SupportModel::unreadForAdmin()],
+            ['title' => 'بورد پیش‌فرض', 'page' => 'admin-content-board'], 'admin');
+    }
+
+    public function contentBoardData()
+    {
+        $this->need('edit_board');
+        $this->ok('', \App\Services\BoardConfig::editorData(\App\Services\BoardConfig::template()));
+    }
+
+    public function contentBoardSave()
+    {
+        $this->need('edit_board');
+        $cfg = json_decode((string) $this->request->input('config', ''), true);
+        $reset = (string) $this->request->input('reset', '') === '1';
+        if (!$reset && !is_array($cfg)) {
+            $this->respond(false, 'داده‌ی بورد نامعتبر است.', '/admin/content/board');
+        }
+        [$ok, $msg] = \App\Services\BoardConfig::saveTemplate($this->uid(), is_array($cfg) ? $cfg : [], $reset);
+        $this->respond($ok, $msg, '/admin/content/board');
+    }
+
     public function contentTourSave(string $id)
     {
-        $this->need('edit_content');
+        $this->need('edit_tour');
         if (!array_key_exists($id, ContentModel::tourDefs())) {
             $this->respond(false, 'متن یافت نشد.', '/admin/content/tour');
         }
@@ -464,8 +512,84 @@ final class AdminController extends Controller
     }
 
     /** تنظیمات ← امنیت: لاگ ورود مدیران به پنل کاربر (ورود، خروج، هر تغییر با قبل و بعد) — App\Core\AdminLog */
+    /* ───────── تنظیمات ← دسترسی (v7.4، SEC-001): فقط مدیر کل ───────── */
+
+    private function needSuper(): void
+    {
+        if (!Auth::isSuperAdmin()) {
+            $land = \App\Core\AdminAccess::landing($this->user() ?? []);
+            if ($this->request->method() === 'GET' && !$this->request->wantsJson() && $land !== null) {
+                $this->flash('فقط مدیر کل به بخش «دسترسی» دسترسی دارد.', 'error');
+                $this->redirect($land);
+            }
+            $this->fail('فقط مدیر کل به بخش «دسترسی» دسترسی دارد.', 403);
+        }
+        $this->denyImpersonation('/admin');
+    }
+
+    public function access()
+    {
+        $this->needSuper();
+        $admins = DB::all("SELECT id, pid, first_name, last_name, mobile, avatar, status, role, admin_role, admin_permissions, last_login_at FROM users WHERE role = 'admin' AND is_bot = 0 ORDER BY id ASC");
+        foreach ($admins as &$a) {
+            $a['ar'] = Auth::adminRole($a);
+            $a['custom'] = \App\Core\AdminAccess::custom($a);
+            $a['perms'] = \App\Core\AdminAccess::of($a);
+        }
+        unset($a);
+        $this->view('admin/access', [
+            'admins' => $admins, 'roles' => \App\Core\AdminAccess::roles(), 'defs' => \App\Core\AdminAccess::PERMS, 'groups' => \App\Core\AdminAccess::GROUPS,
+            'defaults' => \App\Core\AdminAccess::DEFAULTS, 'adminRoles' => Auth::ADMIN_ROLES, 'superId' => Auth::superAdminId(), 'supportUnread' => SupportModel::unreadForAdmin(),
+        ], ['title' => 'دسترسی', 'page' => 'admin-access'], 'admin');
+    }
+
+    /** ذخیره‌ی دسترسی نقش‌ها (مدیر داخلی، پشتیبان) */
+    public function accessRolesSave()
+    {
+        $this->needSuper();
+        $map = [];
+        foreach (array_keys(\App\Core\AdminAccess::DEFAULTS) as $role) {
+            $map[$role] = $this->request->arr('perm_' . $role);
+        }
+        \App\Core\AdminAccess::saveRoles($map, $this->uid());
+        Audit::log($this->uid(), 'admin_access_roles', ['roles' => array_map('count', $map)]);
+        $this->respond(true, 'دسترسی نقش‌ها ذخیره شد.', '/admin/access');
+    }
+
+    public function accessRolesReset()
+    {
+        $this->needSuper();
+        \App\Core\AdminAccess::resetRoles();
+        Audit::log($this->uid(), 'admin_access_reset', []);
+        $this->respond(true, 'دسترسی نقش‌ها به پیش‌فرض برگشت.', '/admin/access');
+    }
+
+    /** نقش و دسترسی یک مدیر: role (internal|support|user = برداشتن مدیریت)، mode = role|custom، perms[] */
+    public function accessUserSave(string $id)
+    {
+        $this->needSuper();
+        $t = UserModel::find((int) $id);
+        if ($t === null || $t['role'] !== 'admin' || (int) $t['is_bot'] === 1) {
+            $this->respond(false, 'مدیر یافت نشد.', '/admin/access');
+        }
+        if ((int) $t['id'] === Auth::superAdminId()) {
+            $this->respond(false, 'نقش و دسترسی حساب مدیر کل اصلی تغییر نمی‌کند.', '/admin/access');
+        }
+        $role = $this->request->str('admin_role', 20);
+        if (!isset(Auth::ADMIN_ROLES[$role]) && $role !== 'user') {
+            $this->respond(false, 'نقش انتخاب‌شده معتبر نیست.', '/admin/access');
+        }
+        $custom = $this->request->str('mode', 10) === 'custom' && $role !== 'super' && $role !== 'user'
+            ? json_encode(\App\Core\AdminAccess::clean($this->request->arr('perms'))) : null;
+        $d = $role === 'user' ? ['role' => 'user', 'admin_role' => null, 'admin_permissions' => null] : ['admin_role' => $role, 'admin_permissions' => $custom];
+        DB::update('users', $d, 'id = ?', [(int) $t['id']]);
+        Audit::log($this->uid(), 'admin_access_user', ['id' => (int) $t['id'], 'role' => $role, 'custom' => $custom !== null]);
+        $this->respond(true, $role === 'user' ? 'دسترسی مدیریت این حساب برداشته شد؛ حالا کاربر عادی است.' : 'نقش و دسترسی «' . full_name($t) . '» ذخیره شد.', '/admin/access');
+    }
+
     public function security()
     {
+        $this->need('view_security');
         $this->rateLimit('admin_list', 60);
         $r = $this->request->query;
         $per = (int) ($r['per'] ?? self::USERS_PER_PAGE[0]);
@@ -507,6 +631,7 @@ final class AdminController extends Controller
     /** تنظیمات ← مستندات پنل: محدودیت‌ها و قواعد امنیتی مهم (App\Services\PanelDocs) */
     public function panelDocs()
     {
+        $this->need('view_panel_docs');
         $this->view('admin/panel_docs', ['cards' => \App\Services\PanelDocs::cards(), 'supportUnread' => SupportModel::unreadForAdmin()],
             ['title' => 'مستندات پنل', 'page' => 'admin-panel-docs'], 'admin');
     }
@@ -515,12 +640,12 @@ final class AdminController extends Controller
     private const LISTS = [
         'tasks' => ['همه‌ی تسک‌ها', 'fa-list-check'],
         'projects' => ['همه‌ی پروژه‌ها', 'fa-diagram-project'],
-        'calls' => ['همه‌ی درخواست‌های تماس', 'fa-phone-volume'],
     ];
 
     /** GET /admin/list/{kind}: فهرست صفحه‌بندی‌شده با جستجو و فیلتر وضعیت (کلیک روی کارت‌های پیشخوان مدیر) */
     public function listing(string $kind)
     {
+        $this->need('view_analysis');
         if (!isset(self::LISTS[$kind])) {
             $this->abort(404);
         }
@@ -535,7 +660,6 @@ final class AdminController extends Controller
         $filters = [
             'tasks' => ['all' => 'همه', 'open' => 'باز', 'review' => 'منتظر تأیید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
             'projects' => ['all' => 'همه', 'active' => 'فعال', 'blocked' => 'مسدود'],
-            'calls' => ['all' => 'همه', 'new' => 'جدید', 'done' => 'انجام‌شده', 'blocked' => 'مسدود'],
         ][$kind];
         $st = isset($filters[$r['status'] ?? '']) ? (string) $r['status'] : 'all';
         $w = [];
@@ -545,10 +669,11 @@ final class AdminController extends Controller
             $base = 'FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users ua ON ua.id = t.assignee_id LEFT JOIN users uc ON uc.id = t.user_id';
             $w[] = ['all' => '1', 'open' => 't.is_completed = 0 AND t.blocked_at IS NULL', 'review' => "t.board_status = 'review' AND t.is_completed = 0 AND t.blocked_at IS NULL", 'done' => 't.is_completed = 1 AND t.blocked_at IS NULL', 'blocked' => 't.blocked_at IS NOT NULL'][$st];
             if ($q !== '') {
-                $w[] = "(t.title LIKE ? OR p.title LIKE ? OR CONCAT(ua.first_name, ' ', ua.last_name) LIKE ?)";
-                array_push($p, $like, $like, $like);
+                [$qs, $qp] = \App\Core\Search::sql(['t.title', 'p.title', "CONCAT(ua.first_name, ' ', ua.last_name)"], $q);
+                $w[] = $qs;
+                $p = array_merge($p, $qp);
             }
-            $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
+            $sel = "SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.project_id, t.archived_at, t.blocked_at, t.due_date, t.due_time, t.created_at, t.completed_at,
                     p.title AS project_title, ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
             $order = 't.created_at DESC, t.id DESC';
         } elseif ($kind === 'projects') {
@@ -556,24 +681,15 @@ final class AdminController extends Controller
             $w[] = 'p.is_sample = 0';                        // پروژه‌های نمونه‌ی خودکار ثبت‌نام شمرده نمی‌شوند
             $w[] = ['all' => '1', 'active' => 'p.blocked_at IS NULL', 'blocked' => 'p.blocked_at IS NOT NULL'][$st];
             if ($q !== '') {
-                $w[] = "(p.title LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
-                array_push($p, $like, $like);
+                [$qs, $qp] = \App\Core\Search::sql(['p.title', "CONCAT(u.first_name, ' ', u.last_name)"], $q);
+                $w[] = $qs;
+                $p = array_merge($p, $qp);
             }
             $sel = "SELECT p.id, p.title, p.priority_type, p.blocked_at, p.created_at, p.max_members, u.first_name, u.last_name,
                     (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 AS members,
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks,
                     (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL AND t.is_completed = 1) AS done $base";
             $order = 'p.created_at DESC, p.id DESC';
-        } else {
-            $base = 'FROM call_requests c LEFT JOIN users ua ON ua.id = c.assignee_id LEFT JOIN users uc ON uc.id = c.user_id';
-            $w[] = ['all' => '1', 'new' => 'c.status = 0 AND c.blocked_at IS NULL', 'done' => 'c.status = 1 AND c.blocked_at IS NULL', 'blocked' => 'c.blocked_at IS NOT NULL'][$st];
-            if ($q !== '') {
-                $w[] = "(CONCAT(c.first_name, ' ', c.last_name) LIKE ? OR c.store LIKE ? OR c.mobile LIKE ?)";
-                array_push($p, $like, $like, $like);
-            }
-            $sel = "SELECT c.id, c.first_name, c.last_name, c.mobile, c.store, c.status, c.blocked_at, c.created_at, c.completed_at,
-                    ua.first_name AS a_first, ua.last_name AS a_last, uc.first_name AS c_first, uc.last_name AS c_last $base";
-            $order = 'c.created_at DESC, c.id DESC';
         }
         $where = ' WHERE ' . implode(' AND ', $w);
         $total = (int) DB::value('SELECT COUNT(*) ' . $base . $where, $p);
@@ -589,6 +705,7 @@ final class AdminController extends Controller
     /** پنجره‌ی جزئیات پروژه در فهرست پروژه‌های مدیر: GET /admin/list/projects/{id} */
     public function projectInfo(string $id)
     {
+        $this->need('view_analysis');
         $this->rateLimit('admin_list', 120);
         $p = DB::one('SELECT p.id, p.title, p.description, p.priority_type, p.max_members, p.blocked_at, p.created_at, p.user_id, u.first_name, u.last_name, u.mobile, u.avatar, u.role, u.status
             FROM projects p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [(int) $id]);
@@ -611,6 +728,7 @@ final class AdminController extends Controller
     /** اعضا یا تسک‌های یک پروژه (صفحه‌بندی‌شده) برای همان پنجره: GET /admin/list/projects/{id}/{part} */
     public function projectPart(string $id, string $part)
     {
+        $this->need('view_analysis');
         $this->rateLimit('admin_list', 120);
         $pid = (int) $id;
         if (!in_array($part, ['members', 'tasks'], true) || !DB::value('SELECT 1 FROM projects WHERE id = ?', [$pid])) {
@@ -641,10 +759,10 @@ final class AdminController extends Controller
             $page = min($pages, max(1, (int) ($this->request->query['page'] ?? 1)));
             $rows = DB::all('SELECT t.id, t.title, t.priority, t.priority_percent, t.is_completed, t.board_status, t.archived_at, t.blocked_at, t.due_date, t.created_at, ua.first_name, ua.last_name
                 FROM tasks t LEFT JOIN users ua ON ua.id = t.assignee_id WHERE t.project_id = ? ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?', [$pid, $per, ($page - 1) * $per]);
-            $stl = \App\Services\BoardService::STATUSES;
+            $stl = static fn(array $t): array => \App\Services\BoardConfig::info($pid, (string) $t['board_status']);
             $items = array_map(static fn($t) => ['title' => $t['title'], 'assignee' => $t['first_name'] !== null ? full_name($t) : '—',
-                'status' => $t['blocked_at'] ? 'مسدود' : ($t['archived_at'] ? 'آرشیو' : ($stl[$t['board_status']]['label'] ?? '')),
-                'tone' => $t['blocked_at'] ? 'danger' : ($t['archived_at'] ? 'muted' : ($stl[$t['board_status']]['tone'] ?? 'muted')),
+                'status' => $t['blocked_at'] ? 'مسدود' : ($t['archived_at'] ? 'آرشیو' : $stl($t)['label']),
+                'tone' => $t['blocked_at'] ? 'danger' : ($t['archived_at'] ? 'muted' : $stl($t)['tone']),
                 'priority' => $t['priority_percent'] !== null ? fa_num((int) $t['priority_percent']) . '٪' : ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$t['priority']],
                 'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) : '—', 'late' => !$t['is_completed'] && $t['due_date'] && $t['due_date'] < date('Y-m-d'),
                 'created_fa' => jdate((string) $t['created_at'])], $rows);
@@ -654,15 +772,20 @@ final class AdminController extends Controller
 
     public function analysis()
     {
+        $this->need('view_analysis');
         $c = static fn(string $sql): int => (int) DB::value($sql);
+        $notSample = 'NOT EXISTS (SELECT 1 FROM projects sp WHERE sp.id = t.project_id AND sp.is_sample = 1)';
+        $tw = 't.blocked_at IS NULL AND ' . $notSample;
         $stats = [
             'users' => UserModel::counts(),
-            'tasks' => ['total' => $c('SELECT COUNT(*) FROM tasks'), 'done' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 1'), 'open' => $c('SELECT COUNT(*) FROM tasks WHERE is_completed = 0'), 'high' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'high'"), 'medium' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'medium'"), 'low' => $c("SELECT COUNT(*) FROM tasks WHERE priority = 'low'")],
-            'calls' => ['total' => $c('SELECT COUNT(*) FROM call_requests'), 'new' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 0'), 'done' => $c('SELECT COUNT(*) FROM call_requests WHERE status = 1')],
+            // DATA-008 (v7.7): همان دامنه‌ی پنل کاربر = بدون تسک‌های مسدود و بدون پروژه‌های نمونه (مثل کارت «پروژه‌ها»)؛ مسدودها جدا شمرده می‌شوند
+            'tasks' => array_map('intval', DB::one("SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(" . \App\Models\TaskModel::WAITING . "),0) waiting,
+                COALESCE(SUM(" . \App\Models\TaskModel::UNDELIVERED . "),0) open, COALESCE(SUM(t.priority = 'high'),0) high, COALESCE(SUM(t.priority = 'medium'),0) medium, COALESCE(SUM(t.priority = 'low'),0) low
+                FROM tasks t WHERE $tw") ?? []) + ['blocked' => $c('SELECT COUNT(*) FROM tasks t WHERE t.blocked_at IS NOT NULL AND ' . $notSample)],
             'misc' => ['notes' => $c('SELECT COUNT(*) FROM task_notes'), 'texts' => $c('SELECT COUNT(*) FROM texts'), 'projects' => $c('SELECT COUNT(*) FROM projects WHERE is_sample = 0'), 'members' => $c('SELECT COUNT(*) FROM project_members'), 'messages' => $c('SELECT COUNT(*) FROM chat_messages'), 'tokens' => $c('SELECT COUNT(*) FROM api_tokens WHERE is_active = 1'), 'support_open' => $c("SELECT COUNT(*) FROM support_tickets WHERE status <> 'closed'")],
         ];
         $days = [];
-        $tk = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)'), 'c', 'd');
+        $tk = array_column(DB::all("SELECT DATE(t.created_at) d, COUNT(*) c FROM tasks t WHERE $tw AND t.created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(t.created_at)"), 'c', 'd');
         $us = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM users WHERE is_bot = 0 AND created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)'), 'c', 'd');
         for ($i = 13; $i >= 0; $i--) {
             $d = date('Y-m-d', strtotime("-$i days"));
@@ -670,15 +793,16 @@ final class AdminController extends Controller
             $days['tasks'][] = (int) ($tk[$d] ?? 0);
             $days['users'][] = (int) ($us[$d] ?? 0);
         }
-        $topUsers = DB::all('SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8');
-        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.is_sample = 0 GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
-        $topSubjects = DB::all('SELECT s.title, COUNT(t.id) cnt FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id GROUP BY s.title ORDER BY cnt DESC LIMIT 8');
+        $topUsers = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id AND $tw WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8");
+        $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id AND t.blocked_at IS NULL WHERE p.is_sample = 0 AND p.blocked_at IS NULL GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
+        // لیبل‌های هم‌نام کاربران مختلف (مثل لیبل‌های پیش‌فرض) با هم جمع می‌شوند ولی تعداد کاربرانشان هم نمایش داده می‌شود
+        $topSubjects = DB::all("SELECT s.title, COUNT(t.id) cnt, COUNT(DISTINCT s.user_id) users FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND $tw WHERE s.blocked_at IS NULL GROUP BY s.title ORDER BY cnt DESC LIMIT 8");
         $chatSec = [
             'configured' => Crypto::configured(),
             'total' => (int) DB::value('SELECT COUNT(*) FROM chat_messages'),
             'enc' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE message LIKE 'enc:v1:%'"),
             'plain' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE (message <> '' AND message NOT LIKE 'enc:v1:%') OR (attachment_name IS NOT NULL AND attachment_name <> '' AND attachment_name NOT LIKE 'enc:v1:%')"),
-            'isSuper' => $this->isSuper(),
+            'isSuper' => Auth::adminCan('chat_encrypt'),
         ];
         $audit = DB::all('SELECT a.action, a.ip, a.created_at, a.details, u.first_name, u.last_name, u.mobile FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 15');
         $this->view('admin/analysis', compact('stats', 'days', 'topUsers', 'topProjects', 'topSubjects', 'audit', 'chatSec') + ['supportUnread' => SupportModel::unreadForAdmin()], ['title' => 'تحلیل سیستم', 'page' => 'admin-analysis'], 'admin');
@@ -687,9 +811,7 @@ final class AdminController extends Controller
     /** رمزگذاری پیام‌های متن‌ساده‌ی قبلی (فقط مدیر کل). تا ~۲۰ ثانیه در هر کلیک؛ در صورت باقی‌ماندن، دوباره بزنید. */
     public function chatEncrypt()
     {
-        if (!$this->isSuper()) {
-            $this->fail('فقط مدیر کل می‌تواند این عملیات را انجام دهد.', 403);
-        }
+        $this->need('chat_encrypt');
         if (!Crypto::configured()) {
             $this->fail('ENCODE_PASSWORD در .env تنظیم نشده یا کمتر از ۱۲ نویسه است (یا OpenSSL فعال نیست).');
         }

@@ -20,19 +20,21 @@ final class TaskHistory
         try {
             DB::insert('task_events', ['task_id' => $taskId, 'user_id' => $actor, 'type' => $type, 'data' => $data ? json_encode($data, JSON_UNESCAPED_UNICODE) : null]);
         } catch (\Throwable $e) {
-            error_log('task history: ' . $e->getMessage());
+            \App\Core\Log::error($e, 'tasks', ['step' => 'task history', 'task' => $taskId, 'type' => $type]);
         }
     }
 
     /** مقایسه‌ی ردیف قبلی تسک با تغییرات ذخیره‌شده ($set در TaskService::update) */
-    public static function changes(array $old, array $set, int $actor): void
+    /** $source (v7.10): منبع تغییر برای تاریخچه، مثل suggestion | drag | undo از «بار کاری»، یا karlix (دستیار هوش مصنوعی، v7.19) */
+    public static function changes(array $old, array $set, int $actor, ?string $source = null): void
     {
         $id = (int) $old['id'];
+        $src = $source ? ['source' => $source] : [];          // v7.19: منبع (بار کاری، کارلیکس) روی همه‌ی تغییرها
         if (array_key_exists('title', $set)) {
-            self::log($id, $actor, 'title', ['from' => $old['title'], 'to' => $set['title']]);
+            self::log($id, $actor, 'title', ['from' => $old['title'], 'to' => $set['title']] + $src);
         }
         if (array_key_exists('description', $set)) {
-            self::log($id, $actor, 'description', ['to' => mb_substr((string) $set['description'], 0, 2000)]);
+            self::log($id, $actor, 'description', ['to' => mb_substr((string) $set['description'], 0, 2000)] + $src);
         }
         if (array_key_exists('priority', $set) || array_key_exists('priority_percent', $set)) {
             $pct = $old['project_id'] && DB::value('SELECT priority_type FROM projects WHERE id = ?', [(int) $old['project_id']]) === 'percent';
@@ -40,7 +42,7 @@ final class TaskHistory
             $from = $fmt($old['priority'], $old['priority_percent']);
             $to = $fmt($set['priority'] ?? $old['priority'], $set['priority_percent'] ?? $old['priority_percent']);
             if ($from !== $to) {
-                self::log($id, $actor, 'priority', ['from' => $from, 'to' => $to]);
+                self::log($id, $actor, 'priority', ['from' => $from, 'to' => $to] + $src);
             }
         }
         if (array_key_exists('due_date', $set) || array_key_exists('due_time', $set)) {
@@ -53,19 +55,19 @@ final class TaskHistory
             $from = $fmt($old['due_date'], $old['due_time']);
             $to = $fmt(array_key_exists('due_date', $set) ? $set['due_date'] : $old['due_date'], array_key_exists('due_time', $set) ? $set['due_time'] : $old['due_time']);
             if ($from !== $to) {
-                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to]);
+                self::log($id, $actor, 'due', ['from' => $from, 'to' => $to] + $src);
             }
         }
         if (array_key_exists('subject_id', $set)) {
             $t = static fn($sid) => $sid ? (string) DB::value('SELECT title FROM subjects WHERE id = ?', [(int) $sid]) : '';
-            self::log($id, $actor, 'label', ['from' => $t($old['subject_id']), 'to' => $t($set['subject_id'])]);
+            self::log($id, $actor, 'label', ['from' => $t($old['subject_id']), 'to' => $t($set['subject_id'])] + $src);
         }
         if (array_key_exists('project_id', $set)) {
             $t = static fn($pid) => $pid ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $pid]) : '';
             self::log($id, $actor, 'project', ['from' => $t($old['project_id']), 'to' => $t($set['project_id'])]);
         }
-        if (array_key_exists('assignee_id', $set)) {
-            self::log($id, $actor, 'assignee', ['from' => $old['assignee_id'] ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']]);
+        if (array_key_exists('assignee_id', $set) && $set['assignee_id'] !== null) {
+            self::log($id, $actor, 'assignee', ['from' => !empty($old['assignee_id']) ? (int) $old['assignee_id'] : null, 'to' => (int) $set['assignee_id']] + $src);
         }
     }
 
@@ -87,6 +89,9 @@ final class TaskHistory
         }
         $hasDone = false;
         foreach ($events as $e) {
+            if (strpos((string) $e['type'], 'group') === 0) {
+                continue;                                  // رویدادهای قابلیت حذف‌شده‌ی «دپارتمان / گروه» (تا v6.1)
+            }
             $data = json_decode((string) $e['data'], true) ?: [];
             $hasDone = $hasDone || $e['type'] === 'completed' || ($e['type'] === 'board' && ($data['to'] ?? '') === 'done');
             $add((string) $e['type'], $e['user_id'] !== null ? (int) $e['user_id'] : null, (string) $e['created_at'], $data);
@@ -131,12 +136,23 @@ final class TaskHistory
             }
         }
         $who = static fn($uid) => $uid && isset($users[$uid]) ? $users[$uid] : null;
-        $labels = array_map(static fn($s) => $s['label'], BoardService::STATUSES) + ['archived' => 'آرشیو'];
+        // نام ستون‌ها از بورد همان پروژه (v6.1؛ ستون حذف‌شده با نام پیش‌فرض یا کلید)
+        $bpid = isset($t['project_id']) ? (int) $t['project_id'] : null;
+        $labels = new class ($bpid) implements \ArrayAccess {
+            private ?int $p;
+            public function __construct(?int $p) { $this->p = $p; }
+            public function offsetExists($k): bool { return $k !== ''; }
+            #[\ReturnTypeWillChange]
+            public function offsetGet($k) { return $k === '' ? '' : BoardConfig::label($this->p, (string) $k); }
+            public function offsetSet($k, $v): void {}
+            public function offsetUnset($k): void {}
+        };
         return array_map(static function (array $i) use ($who, $labels) {
             $d = $i['data'];
             if ($i['type'] === 'assignee') {
                 $d['from_user'] = $who($d['from'] ?? null);
                 $d['to_user'] = $who($d['to'] ?? null);
+                unset($d['from'], $d['to']);        // شناسه‌ی عددی کاربر نباید بیرون برود (v5.0)؛ رابط فقط from_user/to_user را می‌خواند
             }
             if ($i['type'] === 'created') {
                 $d['assignee_user'] = $who($d['assignee'] ?? null);

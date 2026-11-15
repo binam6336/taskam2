@@ -29,12 +29,12 @@ document.addEventListener('tk:ready', () => {
   });
 
   /* ستون دسترسی‌ها: سه گروه تسک، پروژه و بورد پروژه */
-  const chips = (keys, defs, empty) => keys.map((k) => `<span class="chip" data-css="margin:2px">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
+  const chips = (keys, defs, empty) => keys.map((k) => `<span class="dc-9a70ac chip">${E(defs[k]?.label || k)}</span>`).join('') || `<span class="faint small">${empty}</span>`;
   const permCell = (m) => `<div class="perm-cell"><span class="perm-cell-l">تسک:</span>${chips(m.task_perms, data().taskPermDefs, 'بدون دسترسی')}</div>
     <div class="perm-cell"><span class="perm-cell-l">پروژه:</span>${chips(m.perms, data().permDefs, 'بدون دسترسی ویژه')}</div>
-    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="chip" data-css="margin:2px"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="chip" data-css="margin:2px">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}${limitChip(m.board_limits)}</div>`;
+    <div class="perm-cell"><span class="perm-cell-l">برد:</span><span class="dc-9a70ac chip"><i class="fa-solid fa-eye"></i> ${E(m.board_view_all ? 'تسک‌های همه‌ی اعضا' : viewSummary(m.board_view.length))}</span>${m.board_perms.map((k) => `<span class="dc-9a70ac chip">${E(data().boardPermDefs[k]?.label || k)}</span>`).join('')}${limitChip(m.board_limits)}</div>`;
   const limitText = (l) => Object.entries(data().limitDefs).filter(([k]) => l && l[k] !== undefined && l[k] !== '').map(([k, d]) => `${d.label}: ${TK.fa(l[k])}`).join('، ');
-  const limitChip = (l) => { const t = limitText(l); return t ? `<span class="chip" data-css="margin:2px" title="سقف تعداد تسک"><i class="fa-solid fa-gauge-high"></i> ${E(t)}</span>` : ''; };
+  const limitChip = (l) => { const t = limitText(l); return t ? `<span class="dc-9a70ac chip" title="سقف تعداد تسک"><i class="fa-solid fa-gauge-high"></i> ${E(t)}</span>` : ''; };
   const viewSummary = (n) => (n ? `تسک‌های خودش + ${TK.fa(n)} نفر` : 'فقط تسک‌های خودش');
   const roleBadge = (k) => { const r = data().roles[k] || data().roles.custom; return `<span class="badge role-badge ${E(r.tone)}" title="${E(r.desc)}"><i class="fa-solid ${E(r.icon)}"></i> ${E(r.label)}</span>`; };
 
@@ -50,7 +50,7 @@ document.addEventListener('tk:ready', () => {
         <div class="flex gap-1 mt-1"><button type="button" class="btn btn-primary btn-sm" id="add-mem-go" disabled><i class="fa-solid fa-check"></i> افزودن انتخاب‌شده‌ها</button><button type="button" class="btn btn-sm" data-add-mem-close>انصراف</button></div>
       </div>
       <div class="table-wrap"><table class="table"><thead><tr><th>عضو</th><th>نقش</th><th></th></tr></thead><tbody>
-      ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
+      ${p.members.map((m) => `<tr><td><div class="flex items-center gap-1"><span class="avatar sm">${m.avatar ? `<img loading="lazy" decoding="async" src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span><div><div>${E(m.name)}</div><div class="xs muted ltr">${E(m.mobile)}</div></div></div></td>
         <td>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</td>
         <td class="nowrap"><button class="btn btn-xs" data-mdetail="${id}:${m.id}" title="جزئیات دسترسی‌ها" aria-label="جزئیات دسترسی‌ها"><i class="fa-solid fa-eye"></i></button>
           ${!m.is_creator && can('manage_permissions') ? `<button class="btn btn-xs" data-mperm="${id}:${m.id}" title="تغییر نقش و دسترسی‌ها" aria-label="تغییر نقش و دسترسی‌ها"><i class="fa-solid fa-key"></i></button>` : ''}
@@ -66,7 +66,7 @@ document.addEventListener('tk:ready', () => {
     const p = data().list[addPid]; if (!p) return;
     const q = TK.qs('#add-mem-q').value.trim().toLowerCase(), have = new Set([...p.members.map((m) => m.id), ...(p.pending || [])]);
     const rows = data().colleagues.filter((c) => !have.has(c.id) && (!q || c.name.toLowerCase().includes(q) || String(c.mobile || '').includes(q)));
-    TK.qs('#add-mem-list').innerHTML = rows.length ? rows.map((c) => `<label class="check"><input type="checkbox" value="${c.id}"><div class="flex items-center gap-1"><span class="avatar xs">${c.avatar ? `<img src="${E(c.avatar)}" alt="">` : E(TK.initial(c.name))}</span><b>${E(c.name)}</b></div></label>`).join('')
+    TK.qs('#add-mem-list').innerHTML = rows.length ? rows.map((c) => `<label class="check"><input type="checkbox" value="${c.id}"><div class="flex items-center gap-1"><span class="avatar xs">${c.avatar ? `<img loading="lazy" decoding="async" src="${E(c.avatar)}" alt="">` : E(TK.initial(c.name))}</span><b>${E(c.name)}</b></div></label>`).join('')
       : `<div class="muted small">${data().colleagues.length ? 'همکاری با این جستجو پیدا نشد یا همه عضو پروژه‌اند.' : 'همکاری ندارید؛ از بخش «همکاران» همکار اضافه کنید.'}</div>`;
     TK.qs('#add-mem-go').disabled = true;
   };
@@ -87,10 +87,10 @@ document.addEventListener('tk:ready', () => {
   TK.on('click', '[data-mdetail]', (e, t) => {
     const [pid, uid] = t.dataset.mdetail.split(':'), p = data().list[pid], m = p.members.find((x) => x.id === uid);
     TK.qs('#md-name').textContent = m.name;
-    TK.qs('#md-body').innerHTML = `<div class="flex items-center gap-1 mb-2"><span class="avatar">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>
+    TK.qs('#md-body').innerHTML = `<div class="flex items-center gap-1 mb-2"><span class="avatar">${m.avatar ? `<img loading="lazy" decoding="async" src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>
         <div><b>${E(m.name)}</b><div class="xs muted ltr">${E(m.mobile)}</div></div><span class="grow"></span>${m.is_creator ? '<span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span>' : roleBadge(m.role)}</div>
       ${m.is_creator ? '<p class="muted small">سازنده‌ی پروژه همه‌ی دسترسی‌ها را دارد.</p>' : `<p class="xs muted mb-1">${E((data().roles[m.role] || data().roles.custom).desc)}</p>${permCell(m)}`}
-      ${!m.is_creator && p.perms.includes('manage_permissions') ? `<div class="mt-2"><button class="btn btn-sm" data-mperm="${pid}:${uid}" data-close-detail><i class="fa-solid fa-key"></i> تغییر نقش و دسترسی‌ها</button></div>` : ''}`;
+      ${!m.is_creator && p.perms.includes('manage_permissions') ? `<div class="mt-2"><button class="btn btn-sm" data-mperm="${pid}:${uid}" data-close-detail aria-label="بستن"><i class="fa-solid fa-key"></i> تغییر نقش و دسترسی‌ها</button></div>` : ''}`;
     TK.modal.open('m-mdetail');
   });
   TK.on('click', '[data-close-detail]', () => TK.modal.close('m-mdetail'));
@@ -167,12 +167,14 @@ document.addEventListener('tk:ready', () => {
       + people.map((x) => {
       const self = x.id === m.id, can = !self && (scope === null || scope.has(x.id));
       return `<label class="check bv-item ${self ? 'bv-self' : 'bv-member'}"><input type="checkbox" name="view_users[]" value="${x.id}" ${self || sel.has(x.id) ? 'checked' : ''} ${can ? '' : 'disabled'}>
-        <span class="avatar sm">${x.avatar ? `<img src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
+        <span class="avatar sm">${x.avatar ? `<img loading="lazy" decoding="async" src="${E(x.avatar)}" alt="">` : E(TK.initial(x.name))}</span>
         <div><b>${E(x.name)}${self ? ' <span class="badge green">خودش</span>' : ''}${x.is_creator ? ' <span class="badge">سازنده</span>' : ''}</b><span class="ltr">${E(x.mobile)}</span></div></label>`;
     }).join('');
     TK.qs('#bv-list').hidden = true; TK.qs('#bv-toggle').setAttribute('aria-expanded', 'false');
     bvSync();
     limits = { ...(m.board_limits || {}) }; blSummary();
+    // ظرفیت هفتگی بار کاری (v7.10): خالی = پیش‌فرض پروژه
+    const wc = TK.qs('#mp-wcap', pf); wc.value = m.weekly_capacity ?? ''; wc.placeholder = 'پیش‌فرض پروژه: ' + TK.fa(p.workload_capacity ?? 12);
     TK.qs('#mp-board-list').innerHTML = Object.entries(data().boardPermDefs).map(([k, d]) => box('board_permissions', k, d, m.board_perms.includes(k), p.board_perms.includes(k))).join('');
     TK.qs('#mp-list').innerHTML = Object.entries(data().permDefs).filter(([k]) => p.perms.includes(k) || m.perms.includes(k)).map(([k, d]) => box('permissions', k, d, m.perms.includes(k), p.perms.includes(k))).join('');
     TK.qs('#mp-role-list').innerHTML = Object.entries(data().roles).filter(([k]) => k !== 'custom').map(([k, r]) => `<label class="check role-opt"><input type="radio" name="role_pick" value="${E(k)}">
@@ -186,8 +188,11 @@ document.addEventListener('tk:ready', () => {
   const blSummary = () => { TK.qs('#bl-summary').textContent = limitText(limits) || 'بدون محدودیت'; };
   TK.on('click', '#bl-open', () => {
     TK.qs('#bl-name').textContent = TK.qs('#mp-name').textContent;
-    TK.qs('#bl-fields').innerHTML = Object.entries(data().limitDefs).map(([k, d]) => `<div class="field bl-row"><label for="bl-${k}"><i class="fa-solid ${E(d.icon)}"></i> ${E(d.label)}</label>
-      <input class="input ltr" type="number" id="bl-${k}" name="${k}" min="0" max="999" step="1" inputmode="numeric" placeholder="${E(TK.ph('project_limit', 'بدون محدودیت'))}" value="${limits[k] ?? ''}"></div>`).join('');
+    // ستون‌های بورد همین پروژه؛ خالی = پیش‌فرض نقش (عضو ۱۰، سرپرست ۲۰، بالاتر نامحدود)
+    const pp = data().list[target.pid] || {}, mm = (pp.members || []).find((x) => String(x.id) === String(target.uid)) || {};
+    const ph = mm.role_limit ? 'پیش‌فرض نقش: ' + TK.fa(mm.role_limit) : TK.ph('project_limit', 'بدون محدودیت');
+    TK.qs('#bl-fields').innerHTML = Object.entries(pp.limit_defs || {}).map(([k, d]) => `<div class="field bl-row"><label for="bl-${k}"><i class="fa-solid ${E(d.icon)}"></i> ${E(d.label)}</label>
+      <input class="input ltr" type="number" id="bl-${k}" name="${k}" min="0" max="999" step="1" inputmode="numeric" placeholder="${E(ph)}" value="${limits[k] ?? ''}"></div>`).join('') || '<p class="muted small">بورد این پروژه ستونی با سقف ندارد.</p>';
     TK.modal.open('m-blimit');
   });
   TK.qs('#f-blimit').addEventListener('submit', (e) => {
@@ -210,7 +215,7 @@ document.addEventListener('tk:ready', () => {
     const base = '/projects/' + target.pid + '/members/' + target.uid;
     const r1 = await TK.post(base + '/task-permissions', { permissions: vals('task_permissions') });
     const r2 = TK.ok(r1) ? await TK.post(base + '/permissions', { permissions: vals('permissions') }) : null;
-    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { limits: JSON.stringify(limits), permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').map(Number).filter((id) => id !== target.uid) }) : null;
+    const r3 = TK.ok(r2) ? await TK.post(base + '/board-permissions', { limits: JSON.stringify(limits), permissions: vals('board_permissions'), view_present: 1, view_all: bvAll()?.checked ? 1 : 0, view_users: vals('view_users').filter((id) => String(id) !== String(target.uid)), weekly_capacity: TK.qs('#mp-wcap', pf).value.trim() }) : null;
     TK.busy(btn, false);
     const ok = TK.ok(r1) && TK.ok(r2) && TK.ok(r3);
     TK.toast(ok ? 'دسترسی‌ها ذخیره شد.' : ((r3 || r2 || r1).message || 'خطا'), ok ? 'success' : 'error');

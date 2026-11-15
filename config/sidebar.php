@@ -8,52 +8,62 @@
  *   ['t' => 'group', 'id' => شناسه، 'icon' => آیکون، 'label' => نام، 'items' => [...]]
  */
 return [
+    // توضیح کوتاه هر صفحه و گروه در پاپ‌آپ زیرمنوهای سایدبار (v5.8)؛ کلید گروه: group:<id>
+    'desc' => [
+        'group:tasks' => 'برنامه‌ریزی و پیگیری کارها',
+        'tasks' => 'لیست تسک‌های من و تیم',
+        'calendar' => 'نمای تقویمی سررسیدها',
+        'board' => 'بورد اختصاصی هر پروژه',
+        'subjects' => 'دسته‌بندی و رنگ‌بندی تسک‌ها',
+        'texts' => 'یادداشت‌های رنگی شخصی',
+        'group:team' => 'همکاران، پروژه‌ها و گفتگو',
+        'colleagues' => 'اعضای تیم و دسترسی‌ها',
+        'projects' => 'ساخت و مدیریت پروژه‌ها',
+        'chat' => 'پیام‌های داخلی تیم',
+        'group:api' => 'اتصال کارلیکس به سیستم‌های دیگر',
+        'tokens' => 'ساخت و مدیریت کلیدهای دسترسی',
+        'docs' => 'راهنمای استفاده از وب‌سرویس',
+        'group:settings' => 'حساب کاربری و نصب',
+        'profile' => 'اطلاعات حساب و امنیت',
+        'install' => 'نصب اپ روی دستگاه',
+        'tour' => 'راهنمای کار با کارلیکس',
+        'group:support' => 'کمک و ارتباط با ما',
+        'support' => 'ارتباط با تیم پشتیبانی',
+        'dashboard' => 'خلاصه‌ی کارهای امروز',
+    ],
+    // v7.18: «پروفایل، نصب، آموزش و پشتیبانی» در منوی حساب (کلیک روی کارت کاربر پایین سایدبار) هستند، نه در سایدبار؛
+    // برای همین در فهرست صفحه‌های قابل انتخاب سایدبار نیستند (چیدمان ذخیره‌شده‌ی قدیمی هم بدون آن‌ها نمایش داده می‌شود).
     'pages' => [
-        'dashboard'  => ['/dashboard', 'fa-gauge-high', 'پیشخوان'],
+        'dashboard'  => ['/dashboard', 'fa-house', 'پیشخوان'],
         'tasks'      => ['/tasks', 'fa-list-check', 'تسک‌ها'],
+        'board'      => ['/board', 'fa-table-columns', 'بورد'],
         'calendar'   => ['/calendar', 'fa-calendar-days', 'تقویم'],
-        'board'      => ['/board', 'fa-table-columns', 'بورد پروژه'],
-        'subjects'   => ['/labels', 'fa-tags', 'لیبل‌ها'],
-        'calls'      => ['/calls', 'fa-phone-volume', 'درخواست تماس'],
-        'texts'      => ['/texts', 'fa-message', 'متن‌های آماده'],
+        'subjects'   => ['/labels', 'fa-tag', 'لیبل‌ها'],
+        'texts'      => ['/notes', 'fa-note-sticky', 'یادداشت‌ها'],
         'colleagues' => ['/colleagues', 'fa-users', 'همکاران'],
-        'projects'   => ['/projects', 'fa-diagram-project', 'پروژه‌ها'],
         'chat'       => ['/chat', 'fa-comments', 'گفتگو'],
+        'projects'   => ['/projects', 'fa-folder', 'پروژه‌ها'],
         'tokens'     => ['/tokens', 'fa-key', 'توکن API'],
         'docs'       => ['/docs', 'fa-book', 'مستندات API'],
-        'profile'    => ['/profile', 'fa-user-gear', 'پروفایل'],
-        'install'    => ['/install', 'fa-download', 'نصب'],
-        'tour'       => ['/tour/start', 'fa-graduation-cap', 'آموزش'],
-        'support'    => ['/support', 'fa-headset', 'تیکت'],
     ],
+    // v7.18: وظایف / مدیریت تیم / وب‌سرویس؛ هر گروه با کلیک روی عنوانش زیرمنوی خود را باز و بسته می‌کند (پاپ‌آپ گروه)
     'default' => [
         ['t' => 'page', 'page' => 'dashboard', 'label' => 'پیشخوان'],
-        ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-layer-group', 'label' => 'وظایف', 'items' => [
+        ['t' => 'group', 'id' => 'tasks', 'icon' => 'fa-list-check', 'label' => 'وظایف', 'items' => [
             ['t' => 'page', 'page' => 'tasks', 'label' => 'تسک‌ها'],
+            ['t' => 'page', 'page' => 'board', 'label' => 'بورد'],
             ['t' => 'page', 'page' => 'calendar', 'label' => 'تقویم'],
-            ['t' => 'page', 'page' => 'board', 'label' => 'بورد پروژه', 'soon' => true],
             ['t' => 'page', 'page' => 'subjects', 'label' => 'لیبل‌ها'],
+            ['t' => 'page', 'page' => 'texts', 'label' => 'یادداشت‌ها'],
         ]],
-        ['t' => 'group', 'id' => 'requests', 'icon' => 'fa-inbox', 'label' => 'درخواست‌ها', 'items' => [
-            ['t' => 'page', 'page' => 'calls', 'label' => 'درخواست تماس'],
-            ['t' => 'page', 'page' => 'texts', 'label' => 'متن‌های آماده'],
-        ]],
-        ['t' => 'group', 'id' => 'team', 'icon' => 'fa-people-group', 'label' => 'مدیریت تیم', 'items' => [
+        ['t' => 'group', 'id' => 'team', 'icon' => 'fa-users', 'label' => 'مدیریت تیم', 'items' => [
             ['t' => 'page', 'page' => 'colleagues', 'label' => 'همکاران'],
-            ['t' => 'page', 'page' => 'projects', 'label' => 'پروژه‌ها'],
             ['t' => 'page', 'page' => 'chat', 'label' => 'گفتگو'],
+            ['t' => 'page', 'page' => 'projects', 'label' => 'پروژه‌ها'],
         ]],
-        ['t' => 'group', 'id' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
+        ['t' => 'group', 'id' => 'api', 'icon' => 'fa-code', 'label' => 'وب‌سرویس', 'items' => [
             ['t' => 'page', 'page' => 'tokens', 'label' => 'توکن API'],
             ['t' => 'page', 'page' => 'docs', 'label' => 'مستندات API'],
-        ]],
-        ['t' => 'group', 'id' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
-            ['t' => 'page', 'page' => 'profile', 'label' => 'پروفایل'],
-            ['t' => 'page', 'page' => 'install', 'label' => 'نصب'],
-            ['t' => 'page', 'page' => 'tour', 'label' => 'آموزش'],
-        ]],
-        ['t' => 'group', 'id' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
-            ['t' => 'page', 'page' => 'support', 'label' => 'تیکت'],
         ]],
     ],
 ];

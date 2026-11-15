@@ -6,6 +6,7 @@ $name = full_name($u);
 $active = $this->page;
 $this->boot['flash'] = Session::pullFlash();
 $this->boot['live'] = ['scope' => $active, 'uid' => pid('users', $u)];
+$this->boot['clock'] = ['now' => time(), 'tz' => (int) date('Z')];   // v7.7: «امروز» در JS = تاریخ سرور (TK.jalali.now)
 $menu = [
     ['admin-analysis', '/admin/analysis', 'fa-gauge-high', 'پیشخوان'],
     ['group' => 'users', 'icon' => 'fa-user-shield', 'label' => 'مدیریت کاربران', 'items' => [
@@ -14,6 +15,7 @@ $menu = [
     ['group' => 'content', 'icon' => 'fa-pen-to-square', 'label' => 'محتوا', 'items' => [
         ['admin-content-sidebar', '/admin/content/sidebar', 'fa-bars-staggered', 'سایدبار'],
         ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
+        ['admin-content-board', '/admin/content/board', 'fa-table-columns', 'بورد'],
         ['admin-content-ph', '/admin/content/placeholders', 'fa-i-cursor', 'Placeholder'],
         ['admin-content-errors', '/admin/content/errors', 'fa-triangle-exclamation', 'خطاها'],
     ]],
@@ -25,40 +27,46 @@ $menu = [
         ['admin-install', '/install', 'fa-download', 'نصب'],
         ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'مستندات پنل'],
         ['admin-security', '/admin/security', 'fa-shield-halved', 'امنیت'],
+        ['admin-access', '/admin/access', 'fa-user-lock', 'دسترسی'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
         ['admin-support', '/admin/support', 'fa-headset', 'تیکت‌ها'],
     ]],
 ];
-if (!\App\Core\Auth::adminCan('edit_content')) {
-    $menu = array_values(array_filter($menu, static fn($m) => ($m['group'] ?? '') !== 'content'));
-}
+// v7.4: هر آیتم فقط با دسترسی مربوطش دیده می‌شود (AdminAccess)؛ «دسترسی» فقط برای مدیر کل؛ گروه خالی حذف می‌شود
+$need = ['admin-analysis' => 'view_analysis', 'admin-users' => 'view_users', 'admin-content-sidebar' => 'edit_sidebar', 'admin-content-tour' => 'edit_tour',
+    'admin-content-board' => 'edit_board', 'admin-content-ph' => 'edit_placeholders', 'admin-content-errors' => 'edit_errors', 'admin-panel-docs' => 'view_panel_docs',
+    'admin-security' => 'view_security', 'admin-support' => 'support_view'];
+$okItem = static fn(array $i) => !isset($i[0]) || ($i[0] === 'admin-access' ? \App\Core\Auth::isSuperAdmin() : (!isset($need[$i[0]]) || \App\Core\Auth::adminCan($need[$i[0]])));
+$menu = array_values(array_filter(array_map(static function ($m) use ($okItem) {
+    if (isset($m['group'])) {
+        $m['items'] = array_values(array_filter($m['items'], $okItem));
+        return $m['items'] ? $m : null;
+    }
+    return $okItem($m) ? $m : null;
+}, $menu)));
 $badges = ['admin-support' => (int) ($supportUnread ?? 0)];
 $badgeAs = ['admin-support' => 'support'];
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
+<html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
 <head><?php require __DIR__ . '/head.php'; ?></head>
 <body class="<?= e($this->bodyClass) ?>" data-layout="admin">
 <div class="app">
-    <aside class="sidebar" id="sidebar">
-        <a href="<?= e(url('/admin')) ?>" class="brand"><span class="logo"><?= logo_svg() ?></span><span>پنل مدیریت<small>تسکام</small></span></a>
-        <?php require __DIR__ . '/../partials/sidebar_nav.php'; ?>
-        <div class="sidebar-foot">
-            <div class="flex items-center gap-2 mb-1">
-                <div class="avatar sm"><?php if ($u['avatar']): ?><img src="<?= e(avatar_url($u['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($name)) ?><?php endif; ?></div>
-                <div class="grow"><div class="truncate bold small"><?= e($name) ?></div><div class="xs muted"><?= e(\App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label']) ?></div></div>
-            </div>
-            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button class="btn btn-ghost btn-sm btn-block"><i class="fa-solid fa-right-from-bracket"></i> خروج</button></form>
-        </div>
-    </aside>
+    <?php $sb = [
+        'home' => url('/admin'), 'title' => 'پنل مدیریت', 'sub' => 'کارلیکس', 'user' => $u, 'user_sub' => \App\Core\Auth::ADMIN_ROLES[\App\Core\Auth::adminRole(\App\Core\Auth::user() ?? []) ?? 'internal']['label'],
+        'logout' => 'خروج از حساب', 'desc' => [], 'admin' => true,
+    ];
+    require __DIR__ . '/../partials/sidebar.php'; ?>
     <div class="overlay"></div>
     <div class="main">
         <header class="topbar">
-            <button class="btn btn-ghost btn-icon menu-btn" data-sidebar aria-label="منو"><i class="fa-solid fa-bars"></i></button>
-            <h1><?= e($this->title) ?></h1>
+            <button type="button" class="tb-ib menu-btn" data-sidebar aria-controls="sidebar" aria-expanded="false" aria-label="باز کردن منو"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+            <div class="tb-title"><h1 class="tb-h"><?= e($this->title) ?></h1></div>
+            <?php require __DIR__ . '/../partials/topbar_search.php'; ?>
+            <div class="tb-acts"><?php $admDark = (themes()[user_theme($u)]['mode'] ?? 'light') === 'dark'; ?><button type="button" class="tb-ib" data-theme-toggle aria-label="<?= $admDark ? 'حالت روشن' : 'حالت تیره' ?>" title="<?= $admDark ? 'حالت روشن' : 'حالت تیره' ?>"><i class="fa-solid <?= $admDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button></div>
         </header>
-        <main class="content"><?= $content ?></main>
+        <main class="content" id="main-content" tabindex="-1"><?= $content ?></main>
     </div>
 </div>
 <?php require __DIR__ . '/../partials/confirm.php'; ?>

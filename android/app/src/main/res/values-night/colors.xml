@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Midnight Violet — تیره» -->
+<resources>
+    <color name="bg">#0E0B17</color>
+    <color name="text">#F0ECFF</color>
+    <color name="muted">#A39BC2</color>
+    <color name="accent">#A78BFA</color>
+    <color name="on_accent">#140F24</color>
+</resources>

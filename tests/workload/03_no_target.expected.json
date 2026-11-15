@@ -1,0 +1,37 @@
+{
+ "loads": [
+  {
+   "member_id": "a",
+   "name": "A",
+   "capacity": 6,
+   "od": 0,
+   "wk": 6,
+   "nd": 1,
+   "load": 7,
+   "pct": 117,
+   "level": "bd",
+   "open": 3
+  },
+  {
+   "member_id": "b",
+   "name": "B",
+   "capacity": 6,
+   "od": 0,
+   "wk": 5,
+   "nd": 0,
+   "load": 5,
+   "pct": 83,
+   "level": "wr",
+   "open": 3
+  }
+ ],
+ "suggestions": [],
+ "unresolved": [
+  {
+   "member_id": "a",
+   "name": "A",
+   "pct": 117,
+   "reason": "no_target"
+  }
+ ]
+}

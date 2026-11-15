@@ -1,16 +1,16 @@
 <?php
-/** @var int $status @var string $message @var ?string $detail */
+/** @var int $status @var string $message @var ?string $detail @var ?string $ref */
 $titles = [403 => 'دسترسی ممنوع', 404 => 'صفحه پیدا نشد', 405 => 'متد مجاز نیست', 419 => 'نشست منقضی شد', 500 => 'خطای سرور'];
 $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 => 'fa-triangle-exclamation'];
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" data-theme="<?= e(user_theme($currentUser ?? null)) ?>">
+<html lang="fa" dir="rtl" <?= theme_attrs($currentUser ?? null) ?>>
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titles[$status] ?? 'خطا') ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri()) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/vazirmatn/Vazirmatn-font-face.css')) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
+<link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri(user_theme($currentUser ?? null))) ?>">
+<link rel="stylesheet" href="<?= e(asset('vendor/noto-sans-arabic/noto-sans-arabic.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/kx-icons.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 </head>
 <body>
@@ -18,6 +18,7 @@ $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 
     <div class="code"><?= e(fa_num($status)) ?></div>
     <h2 class="mt-1"><i class="fa-solid <?= e($icons[$status] ?? 'fa-circle-exclamation') ?> err-ico"></i> <?= e($titles[$status] ?? 'خطا') ?></h2>
     <p class="muted"><?= e($message) ?></p>
+    <?php if (!empty($ref)): ?><p class="small muted">کد پیگیری: <span class="ltr"><?= e($ref) ?></span></p><?php endif; ?>
     <?php if (!empty($detail)): ?><pre class="card flat ltr small err-detail"><?= e($detail) ?></pre><?php endif; ?>
     <div class="flex gap-2 err-actions"><a class="btn btn-primary" href="<?= e(url('/')) ?>"><i class="fa-solid fa-house"></i> صفحه‌ی اصلی</a></div>
 </div></div>

@@ -7,16 +7,16 @@ use App\Core\Controller;
 use App\Services\BlockService;
 
 /**
- * «مسدود کردن» به‌جای حذف (تسک، پروژه، لیبل، درخواست تماس) و پنجره‌ی «مسدودشده‌ها» — منطق در BlockService.
- * آدرس‌ها: POST /block/{kind}/{id}، POST /unblock/{kind}/{id}، GET /blocked/{kind} (kind: tasks|projects|labels|calls)
+ * «مسدود کردن» به‌جای حذف (تسک، پروژه، لیبل) و پنجره‌ی «مسدودشده‌ها» — منطق در BlockService.
+ * آدرس‌ها: POST /block/{kind}/{id}، POST /unblock/{kind}/{id}، GET /blocked/{kind} (kind: tasks|projects|labels)
  */
 final class BlockController extends Controller
 {
     /** سقف مسدود/رفع مسدودی برای هر کاربر در دقیقه (مستندات پنل) */
     public const PER_MIN = 60;
-    private const URL = ['tasks' => 'task', 'projects' => 'project', 'labels' => 'label', 'calls' => 'call'];
-    private const BACK = ['task' => '/tasks', 'project' => '/projects', 'label' => '/labels', 'call' => '/calls'];
-    private const TABLE = ['task' => 'tasks', 'project' => 'projects', 'label' => 'subjects', 'call' => 'call_requests'];
+    private const URL = ['tasks' => 'task', 'projects' => 'project', 'labels' => 'label'];
+    private const BACK = ['task' => '/tasks', 'project' => '/projects', 'label' => '/labels'];
+    private const TABLE = ['task' => 'tasks', 'project' => 'projects', 'label' => 'subjects'];
 
     /** شناسه‌ی عمومی مسیر → id داخلی (ناموجود = ۴۰۴) */
     private function rid(string $kind, string $id): int

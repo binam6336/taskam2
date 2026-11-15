@@ -7,7 +7,7 @@ use App\Core\DB;
 use App\Core\Jalali;
 use App\Models\UserModel;
 
-/** ارسال اعلان‌های سیستمی از طریق «ربات تسکام» در چت. */
+/** ارسال اعلان‌های سیستمی از طریق «ربات کارلیکس» در چت. */
 final class Notifier
 {
     public static function send(int $toUserId, string $text): void
@@ -38,6 +38,11 @@ final class Notifier
         if ($assignee <= 0 || $assignee === $actorId || empty($task['share_token'])) {
             return;
         }
+        self::taskAssignedTo($task, $actorId, $projectTitle, $assignee);
+    }
+
+    private static function taskAssignedTo(array $task, int $actorId, ?string $projectTitle, int $assignee): void
+    {
         $actor = UserModel::find($actorId);
         $pr = ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$task['priority']] ?? $task['priority'];
         if (isset($task['priority_percent']) && Priority::projectType(isset($task['project_id']) ? (int) $task['project_id'] : null) === 'percent') {
@@ -70,24 +75,25 @@ final class Notifier
         self::sendFrom($actorId, $mentionedId, $msg);
     }
 
-    public static function callAssigned(array $call, int $actorId): void
-    {
-        $assignee = (int) ($call['assignee_id'] ?? 0);
-        if ($assignee <= 0 || $assignee === $actorId || empty($call['share_token'])) {
-            return;
-        }
-        $actor = UserModel::find($actorId);
-        $lines = ['📞 درخواست تماس جدیدی برای شما ثبت شد', '', 'نام: ' . trim($call['first_name'] . ' ' . $call['last_name']), 'موبایل: ' . $call['mobile']];
-        if (!empty($call['store'])) {
-            $lines[] = 'فروشگاه: ' . $call['store'];
-        }
-        $lines[] = 'ثبت‌کننده: ' . ($actor ? full_name($actor) : 'کاربر');
-        self::sendFrom($actorId, $assignee, implode("\n", $lines) . "\n\n[[call:" . $call['share_token'] . ']]');
-    }
     /** پیوند اشتراکی تسک برای پیام ربات */
     private static function token(array $task): string
     {
         return (string) ($task['share_token'] ?: \App\Models\TaskModel::ensureShareToken((int) $task['id']));
+    }
+
+    /** مسئول تسک عوض شد (v7.10) → اطلاع به مسئول قبلی که دیگر این کار با او نیست */
+    public static function taskReassignedAway(array $task, int $actorId, int $previousId, ?string $newName): void
+    {
+        if ($previousId <= 0 || $previousId === $actorId || $previousId === (int) ($task['assignee_id'] ?? 0)) {
+            return;
+        }
+        $actor = UserModel::find($actorId);
+        self::sendFrom($actorId, $previousId, '🔁 تسک «' . $task['title'] . '» به ' . ($newName ?: 'عضو دیگری') . ' واگذار شد و دیگر مسئولش شما نیستید.'
+            . "
+
+از طرف: " . ($actor ? full_name($actor) : 'کاربر') . "
+
+[[task:" . self::token($task) . ']]');
     }
 
     /** تسک به «بررسی سرپرست» رسید → برای همه‌ی کسانی که می‌توانند تکمیلش کنند */
@@ -109,13 +115,15 @@ final class Notifier
     /** سرپرست تسک را به «بازبینی مسئول» برگرداند → برای مسئول تسک (یا سازنده اگر مسئول ندارد) */
     public static function taskReturned(array $task, int $actorId, ?string $reason): void
     {
-        $to = (int) ($task['assignee_id'] ?: $task['user_id']);
-        if ($to === $actorId) {
-            return;
-        }
+        $to = [(int) ($task['assignee_id'] ?: $task['user_id'])];
         $actor = UserModel::find($actorId);
         $msg = '↩️ تسک «' . $task['title'] . '» برای اصلاح به «بازبینی مسئول» برگشت' . "\n\nاز طرف: " . ($actor ? full_name($actor) : 'سرپرست')
             . ($reason ? "\nعلت: " . $reason : '') . "\n\nپس از اصلاح، تسک را دوباره به «بررسی سرپرست» بفرستید.\n\n[[task:" . self::token($task) . ']]';
-        self::sendFrom($actorId, $to, $msg);
+        foreach (array_unique($to) as $u) {
+            if ($u > 0 && $u !== $actorId) {
+                self::sendFrom($actorId, $u, $msg);
+            }
+        }
     }
+
 }

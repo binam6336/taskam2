@@ -79,7 +79,7 @@ final class ProjectApi extends ApiController
                 'task_permissions' => $isCreator ? array_keys(Access::TASK_PERMS) : Access::decode($m['task_permissions'], array_keys(Access::TASK_PERMS)),
                 'board_permissions' => $isCreator ? array_keys(Access::BOARD_PERMS) : Access::decode($m['board_permissions'] ?? null, array_keys(Access::BOARD_PERMS)),
                 'board_view_user_ids' => $isCreator || Access::viewAll($m['board_view_users'] ?? null) ? null : Access::ids($m['board_view_users'] ?? null),
-                'board_limits' => (object) ($isCreator ? [] : BoardService::decodeLimits($m['board_limits'] ?? null)),
+                'board_limits' => (object) ($isCreator ? [] : BoardService::decodeLimits($m['board_limits'] ?? null, \App\Services\BoardConfig::limited($id))),
                 'role' => $isCreator ? 'creator' : Access::memberRole($m), 'is_creator' => $isCreator, 'added_at' => $m['added_at'], 'user_status' => $m['user_status']];
         }
         return $out;
@@ -109,6 +109,42 @@ final class ProjectApi extends ApiController
               (SELECT COUNT(*) FROM project_members WHERE user_id = ?) total_memberships,
               (SELECT COUNT(*) FROM project_blocks WHERE user_id = ?) blocked_count', [$u, $u, $u, $u, $u]) ?? [];
         $this->ok(['created' => (int) ($r['created_count'] ?? 0), 'total_projects' => (int) ($r['total_projects'] ?? 0), 'total_members' => (int) ($r['total_memberships'] ?? 0), 'blocked' => (int) ($r['blocked_count'] ?? 0)]);
+    }
+
+    /** «بار کاری» پروژه (v7.10): داده + loads/suggestions/unresolved محاسبه‌شده در سرور */
+    public function workload()
+    {
+        $id = $this->pid();
+        $this->member($id);
+        if (!\App\Core\Throttle::attempt('heavy_analytics', (string) $this->uid, 30, 60)) {
+            $this->err('درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 429, 'RATE_LIMITED');
+        }
+        if (!\App\Services\WorkloadService::canView($id, $this->uid)) {
+            $this->err('دسترسی مشاهده‌ی بار کاری این پروژه را ندارید.', 403, 'FORBIDDEN');
+        }
+        $this->ok(\App\Services\WorkloadService::withAnalysis(\App\Services\WorkloadService::build($id, $this->uid)));
+    }
+
+    public function workloadReassign()
+    {
+        $id = $this->pid();
+        $this->member($id);
+        if (!\App\Core\Throttle::attempt('workload_write', (string) $this->uid, 60, 60)) {
+            $this->err('درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 429, 'RATE_LIMITED');
+        }
+        $in = $this->body();
+        $this->fromService(\App\Services\WorkloadService::reassign($id, $this->uid, (int) ($in['task_id'] ?? 0), (int) ($in['assignee_id'] ?? 0),
+            isset($in['due_date']) ? (string) $in['due_date'] : null, array_key_exists('due_date', $in), (string) ($in['source'] ?? '')));
+    }
+
+    public function workloadCapacity()
+    {
+        $id = $this->pid();
+        $this->member($id);
+        if (!\App\Core\Throttle::attempt('workload_write', (string) $this->uid, 60, 60)) {
+            $this->err('درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 429, 'RATE_LIMITED');
+        }
+        $this->fromService(\App\Services\WorkloadService::setCapacity($id, $this->uid, $this->body()['capacity'] ?? null));
     }
 
     public function create()
@@ -228,19 +264,27 @@ final class ProjectApi extends ApiController
         }
         $perms = is_array($in['permissions'] ?? null) ? array_map('strval', $in['permissions']) : [];
         $view = array_key_exists('view_user_ids', $in) ? (is_array($in['view_user_ids']) ? array_map('intval', $in['view_user_ids']) : ($in['view_user_ids'] === 'all' ? 'all' : [])) : null;
-        if (array_key_exists('board_limits', $in) && ($limErr = ProjectService::cleanBoardLimits(is_array($in['board_limits']) ? $in['board_limits'] : [])[1])) {
+        if (array_key_exists('board_limits', $in) && ($limErr = ProjectService::cleanBoardLimits(is_array($in['board_limits']) ? $in['board_limits'] : [], $id)[1])) {
             $this->err($limErr, 400, 'INVALID_LIMITS');                 // سقف نامعتبر → هیچ چیز ذخیره نمی‌شود
+        }
+        if (array_key_exists('weekly_capacity', $in) && ($wcErr = ProjectService::weeklyCapacityError($in['weekly_capacity'] ?? ''))) {
+            $this->err($wcErr, 400, 'CAPACITY_INVALID');
         }
         [$ok, $msg] = ProjectService::setBoardPermissions($id, $this->uid, $uid, $perms, $view);
         if ($ok && array_key_exists('board_limits', $in)) {
             [$ok, $limMsg] = ProjectService::setBoardLimits($id, $this->uid, $uid, is_array($in['board_limits']) ? $in['board_limits'] : []);
             $msg = $ok ? $msg : $limMsg;
         }
+        if ($ok && array_key_exists('weekly_capacity', $in)) {
+            [$ok, $wcMsg] = ProjectService::setWeeklyCapacity($id, $this->uid, $uid, $in['weekly_capacity'] ?? '');
+            $msg = $ok ? $msg : $wcMsg;
+        }
         if (!$ok) {
             $this->err($msg, str_contains($msg, 'دسترسی') ? 403 : 400, str_contains($msg, 'دسترسی') ? 'FORBIDDEN' : 'PERMISSIONS_FAILED');
         }
         $this->ok(['project_id' => $id, 'user_id' => $uid, 'board_permissions' => Access::projectBoardPerms($id, $uid),
-            'board_view_user_ids' => self::viewIds($id, $uid), 'board_limits' => self::limits($id, $uid)], $msg);
+            'board_view_user_ids' => self::viewIds($id, $uid), 'board_limits' => self::limits($id, $uid),
+            'weekly_capacity' => ($wcv = DB::value('SELECT weekly_capacity FROM project_members WHERE project_id = ? AND user_id = ?', [$id, $uid])) === null ? null : (int) $wcv], $msg);
     }
 
     /** سقف تسک‌های عضو در ستون‌های برد؛ شیء خالی = بدون محدودیت */

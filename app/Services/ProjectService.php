@@ -75,6 +75,7 @@ final class ProjectService
         $id = DB::transaction(static function () use ($uid, $title, $desc, $max, $img, $ptype): int {
             $id = DB::insert('projects', ['user_id' => $uid, 'title' => $title, 'description' => $desc !== '' ? $desc : null, 'max_members' => $max, 'profile_image' => $img, 'priority_type' => $ptype]);
             DB::insert('project_members', ['project_id' => $id, 'user_id' => $uid, 'permissions' => json_encode(array_keys(Access::PROJECT_PERMS))]);
+            \App\Models\SubjectModel::seedProject($id, $uid);       // لیبل‌های پیش‌فرض پروژه (v7.12)
             return $id;
         });
         $requested = 0;
@@ -101,7 +102,7 @@ final class ProjectService
                 DB::run('UPDATE projects SET is_sample = 1 WHERE id = ?', [(int) $id]);   // در فهرست‌ها و آمار پنل مدیر شمرده نمی‌شود
             }
         } catch (\Throwable $e) {
-            error_log('sample project: ' . $e->getMessage()); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
+            \App\Core\Log::error($e, 'projects', ['step' => 'sample project', 'user' => $uid]); // نبودِ پروژه‌ی نمونه نباید ثبت‌نام را خراب کند
         }
     }
 
@@ -225,6 +226,8 @@ final class ProjectService
             return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
         }
         $n = DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
+        if ($n > 0) {
+        }
         return $n > 0 ? [true, 'کاربر از پروژه حذف شد.'] : [false, 'کاربر عضو پروژه نیست.'];
     }
 
@@ -308,16 +311,16 @@ final class ProjectService
     }
 
     /** اعتبارسنجی سقف‌ها (قبل از ذخیره‌ی هر چیز دیگری صدا زده شود): [سقف‌های تمیز، خطا یا null] */
-    public static function cleanBoardLimits(array $limits): array
+    public static function cleanBoardLimits(array $limits, int $projectId = 0): array
     {
         $clean = [];
-        foreach (BoardService::LIMITED as $st) {
+        foreach (BoardConfig::limited($projectId ?: null) as $st) {
             $v = $limits[$st] ?? null;
             if ($v === null || $v === '') {
                 continue;
             }
             if (!is_numeric($v) || (int) $v != $v || (int) $v < 0 || (int) $v > BoardService::MAX_LIMIT) {
-                return [[], 'سقف «' . BoardService::STATUSES[$st]['label'] . '» باید عددی بین ۰ تا ' . fa_num(BoardService::MAX_LIMIT) . ' باشد.'];
+                return [[], 'سقف «' . BoardConfig::label($projectId ?: null, $st) . '» باید عددی بین ۰ تا ' . fa_num(BoardService::MAX_LIMIT) . ' باشد.'];
             }
             $clean[$st] = (int) $v;
         }
@@ -346,12 +349,47 @@ final class ProjectService
         if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
             return [false, 'کاربر عضو پروژه نیست.'];
         }
-        [$clean, $err] = self::cleanBoardLimits($limits);
+        [$clean, $err] = self::cleanBoardLimits($limits, $projectId);
         if ($err !== null) {
             return [false, $err];
         }
         DB::run('UPDATE project_members SET board_limits = ? WHERE project_id = ? AND user_id = ?', [$clean ? json_encode($clean) : null, $projectId, $memberId]);
         return [true, 'سقف تعداد تسک‌ها ذخیره شد.'];
+    }
+
+    /**
+     * ظرفیت هفتگی اختصاصی عضو برای «بار کاری» (v7.10؛ امتیاز ۴ تا ۳۰، null = ظرفیت پیش‌فرض پروژه).
+     * همان قواعد سقف تعداد تسک: manage_permissions + مدیریت عضوی با دسترسی کمتر؛ سازنده فقط برای خودش.
+     */
+    /** خطای مقدار ظرفیت هفتگی (خالی = پیش‌فرض پروژه) یا null */
+    public static function weeklyCapacityError($value): ?string
+    {
+        $v = trim((string) $value);
+        return $v !== '' && (!ctype_digit($v) || (int) $v < WorkloadService::CAP_MIN || (int) $v > WorkloadService::CAP_MAX)
+            ? 'ظرفیت باید عددی بین ' . fa_num(WorkloadService::CAP_MIN) . ' تا ' . fa_num(WorkloadService::CAP_MAX) . ' باشد.' : null;
+    }
+
+    public static function setWeeklyCapacity(int $projectId, int $actorId, int $memberId, $value): array
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($creator === 0) {
+            return [false, 'پروژه یافت نشد.'];
+        }
+        if (!Access::projectCan($projectId, $actorId, 'manage_permissions')) {
+            return [false, 'دسترسی مدیریت مجوزها را ندارید.'];
+        }
+        if ($memberId === $creator ? $actorId !== $creator : !self::canManageMember($projectId, $actorId, $memberId)) {
+            return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
+        }
+        if (!DB::value('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId])) {
+            return [false, 'کاربر عضو پروژه نیست.'];
+        }
+        if ($err = self::weeklyCapacityError($value)) {
+            return [false, $err];
+        }
+        $v = trim((string) $value);
+        DB::run('UPDATE project_members SET weekly_capacity = ? WHERE project_id = ? AND user_id = ?', [$v === '' ? null : (int) $v, $projectId, $memberId]);
+        return [true, 'ظرفیت هفتگی ذخیره شد.'];
     }
 
     /**

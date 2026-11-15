@@ -21,7 +21,7 @@ document.addEventListener('tk:ready', () => {
     // منشن فقط روی بخش‌های متنی (نه داخل HTML لینک‌های ساخته‌شده) اعمال می‌شود
     const list = [...new Set(names.filter(Boolean).map(E))].sort((a, b) => b.length - a.length);
     const mentionRe = list.length ? new RegExp('@(' + list.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g') : null;
-    const txt = (s) => (mentionRe ? E(s).replace(mentionRe, '<span class="mention">@$1</span>') : E(s));
+    const txt = (s) => (mentionRe ? E(s).replace(mentionRe, (m0, n) => `<span class="mention${n === 'کارلیکس' ? ' mention-ai' : ''}">@${n}</span>`) : E(s));
     LINK_RE.lastIndex = 0;
     while ((m = LINK_RE.exec(src))) {
       out += txt(src.slice(last, m.index));
@@ -71,10 +71,22 @@ document.addEventListener('tk:ready', () => {
     if (!form.priority.dataset.locked) { range.disabled = !pct; form.priority.disabled = pct; }
     paintRange();
   };
-  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); });
-
-  /* ───── افزودن سریع لیبل ───── */
+  /* ───── لیبل‌ها مال پروژه‌اند (v7.12): فقط لیبل‌های پروژه‌ی انتخاب‌شده؛ «افزودن لیبل جدید» فقط با «دسترسی ایجاد لیبل» ───── */
   const subjSel = form.subject_id, subjNew = TK.qs('#subj-pick .subj-new'), subjIn = subjNew.querySelector('input');
+  const subjNewOpt = subjSel.querySelector('option[value="__new"]');
+  const renderSubj = (projectId, keep) => {
+    const cur = keep !== undefined ? String(keep ?? '') : subjSel.value;
+    TK.qsa('option[data-project]', subjSel).forEach((o) => o.remove());
+    (cfg.subjects || []).filter((x) => projectId && String(x.project_id) === String(projectId)).forEach((x) => {
+      const o = new Option(x.title, x.id); o.dataset.project = x.project_id; subjSel.insertBefore(o, subjNewOpt);
+    });
+    subjNewOpt.hidden = subjNewOpt.disabled = !projOf(projectId)?.can_label;
+    subjSel.value = [...subjSel.options].some((o) => o.value === cur && o.value !== '__new') ? cur : '';
+  };
+  renderSubj('');
+  rs.project_id.input.addEventListener('change', () => { setPrioMode(projType(rs.project_id.get())); rs.assignee_id.setOptions(assigneeOpts(rs.project_id.get())); renderSubj(rs.project_id.get()); });
+
+  /* ───── افزودن سریع لیبل (به پروژه‌ی انتخاب‌شده) ───── */
   const subjMode = (adding) => { subjSel.classList.toggle('hidden', adding); subjNew.classList.toggle('hidden', !adding); if (adding) { subjIn.value = ''; subjIn.focus(); } };
   subjSel.addEventListener('change', () => { if (subjSel.value === '__new') { subjSel.value = ''; subjMode(true); } });
   const COLORS = cfg.label_colors?.length ? cfg.label_colors : ['#22c55e'];
@@ -82,13 +94,13 @@ document.addEventListener('tk:ready', () => {
     const title = subjIn.value.trim();
     if (!title) { subjIn.focus(); return TK.toast('عنوان لیبل را بنویسید.', 'warning'); }
     const btn = TK.qs('[data-subj-save]', subjNew); TK.busy(btn, true);
-    const r = await TK.post('/labels', { title, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
+    const project = rs.project_id.get();
+    if (!project) { TK.busy(btn, false); return TK.toast('اول پروژه‌ی تسک را انتخاب کنید؛ لیبل مال همان پروژه ساخته می‌شود.', 'warning'); }
+    const r = await TK.post('/labels', { title, project_id: project, color: COLORS[Math.floor(Math.random() * COLORS.length)] });
     TK.busy(btn, false);
     if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد لیبل', 'error');
-    const opt = new Option(title, r.id);
-    subjSel.insertBefore(opt, subjSel.querySelector('option[value="__new"]'));
-    (cfg.subjects = cfg.subjects || []).push({ id: r.id, title });
-    subjSel.value = String(r.id); subjMode(false);
+    (cfg.subjects = cfg.subjects || []).push({ id: r.id, title, color: r.color, project_id: project });
+    renderSubj(project, r.id); subjMode(false);
     TK.toast('لیبل «' + title + '» اضافه شد.', 'success');
   };
   TK.qs('[data-subj-save]', subjNew).addEventListener('click', saveSubject);
@@ -183,6 +195,9 @@ document.addEventListener('tk:ready', () => {
   // گزینه‌های بیشتر (اولویت، لیبل، سررسید، پیوست): پیش‌فرض بسته؛ با کلیک روی فلش/متن باز می‌شود
   const moreBtn = TK.qs('[data-more-toggle]', form), moreBox = TK.qs('#task-more');
   const setMore = (on) => { moreBox.hidden = !on; moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false'); moreBtn.classList.toggle('open', on); };
+  // v7.16 (دمو): Ctrl/⌘+Enter فرم تسک را ثبت می‌کند؛ همان میان‌بر در یادداشت تسک
+  form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.matches?.('#f-note textarea')) { e.preventDefault(); e.target.form.requestSubmit(); } });
   moreBtn.addEventListener('click', () => setMore(moreBox.hidden));
   const setupForm = (title, action, files) => {
     TK.qs('#task-modal-title').textContent = title;
@@ -192,10 +207,25 @@ document.addEventListener('tk:ready', () => {
     subjMode(false); descLinks.reset();
   };
 
-  // گروه «منتظر تأیید سرپرست» لیست: جمع‌شده؛ با کلیک باز/بسته می‌شود (v5.4)
-  TK.on('click', '[data-tgroup]', (e, b) => {
-    const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open));
-    TK.qsa('[data-tgroup-item="' + b.dataset.tgroup + '"]').forEach((x) => { x.hidden = !open; });
+  // سرگروه‌های تاشوی لیست (v5.7): وضعیت هر گروه در localStorage؛ پیش‌فرض از data-tgh-default (منتظر تأیید = بسته)
+  // delegation روی document + اعمال دوباره بعد از هر به‌روزرسانی AJAX (tk:live) — فقط وقتی #task-list هست
+  const grpStore = {
+    get(k) { try { return localStorage.getItem('tk.tgrp.' + k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem('tk.tgrp.' + k, v); } catch { /* حالت خصوصی */ } },
+  };
+  const grpSet = (b, open) => {
+    b.setAttribute('aria-expanded', String(open));
+    const body = document.getElementById(b.getAttribute('aria-controls')); if (body) body.hidden = !open;
+  };
+  const grpApply = () => {
+    if (!TK.qs('#task-list')) return;
+    TK.qsa('#task-list [data-tgh]').forEach((b) => { const v = grpStore.get(b.dataset.tgh); grpSet(b, (v ?? b.dataset.tghDefault) === '1'); });
+  };
+  grpApply();
+  document.addEventListener('tk:live', grpApply);
+  TK.on('click', '#task-list [data-tgh]', (e, b) => {
+    const open = b.getAttribute('aria-expanded') !== 'true';
+    grpSet(b, open); grpStore.set(b.dataset.tgh, open ? '1' : '0');
   });
   // بدون دسترسی «تکمیل تسک»: دکمه دیده می‌شود ولی فقط پیام می‌دهد
   TK.on('click', '[data-no-complete]', (e) => { e.preventDefault(); e.stopPropagation(); TK.toast('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'error'); });
@@ -205,7 +235,7 @@ document.addEventListener('tk:ready', () => {
     // پروژه‌ی پیش‌فرض: فیلتر پروژه‌ی فعلی، یا تنها پروژه‌ی کاربر — تا نوع اولویت (دسته‌ای/درصدی) از همان اول درست باشد
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
-    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me);
+    rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); renderSubj(pid, '');
     dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
@@ -222,7 +252,8 @@ document.addEventListener('tk:ready', () => {
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
     dp.set(d.due_date || ''); tp.set(d.due_time || '');
-    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); rs.assignee_id.set(d.assignee_id ?? cfg.me);
+    rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); renderSubj(d.project_id ?? '', d.subject_id ?? '');
+    rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
     if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
     const c = d._can || {};
@@ -262,8 +293,26 @@ document.addEventListener('tk:ready', () => {
   const tb = TK.qs('#t-toolbar');
   if (tb) {
     const setHidden = (name, v) => { let i = tb.querySelector(`input[type=hidden][name="${name}"]`); if (!v) { i?.remove(); return; } if (!i) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; tb.appendChild(i); } i.value = v; };
-    TK.qs('[data-f-apply]', tb)?.addEventListener('click', () => { TK.qsa('[data-f]', tb).forEach((s) => setHidden(s.dataset.f, s.value)); (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
-    TK.qs('[data-f-clear]', tb)?.addEventListener('click', () => { (tb.elements.scope?.value === 'project' ? ['when', 'prio', 'label'] : ['when', 'prio', 'project', 'label']).forEach((n) => setHidden(n, '')); TK.qs('[name=sort][value=smart]', tb).checked = true; (tb.requestSubmit ? tb.requestSubmit() : tb.submit()); });
+    /* اعمال فوری فیلتر و مرتب‌سازی با AJAX (v7.3، بدون دکمه‌ی «اعمال»): آدرس صفحه عوض می‌شود و فقط فهرست و
+       بخش‌های زنده‌ی صفحه تازه می‌شوند؛ کشوی فیلتر باز می‌ماند تا چند گزینه پشت سر هم عوض شود. */
+    const clearBtn = TK.qs('[data-f-clear]', tb), fBtn = TK.qs('[data-drawer-open]', tb);
+    const applyAjax = () => {
+      TK.qsa('[data-f]', tb).forEach((x) => setHidden(x.dataset.f, x.value));
+      const qs = new URLSearchParams(new FormData(tb));
+      [...qs.keys()].forEach((k) => { if (k !== 'scope' && k !== 'status' && !qs.get(k)) qs.delete(k); });
+      if (qs.get('sort') === 'smart') qs.delete('sort');
+      history.replaceState(history.state, '', location.pathname + '?' + qs.toString());
+      TK.pagePath = location.pathname + location.search;
+      const active = TK.qsa('[data-f]', tb).some((x) => x.value) || qs.has('sort');
+      clearBtn?.toggleAttribute('hidden', !active); fBtn?.classList.toggle('btn-outline', active);
+      TK.live.refresh(true);
+    };
+    TK.qsa('[data-f], [name=sort]', tb).forEach((x) => x.addEventListener('change', applyAjax));
+    clearBtn?.addEventListener('click', () => {
+      TK.qsa('[data-f]', tb).forEach((x) => { if (!(tb.elements.scope?.value === 'project' && x.dataset.f === 'project')) { x.value = ''; x.dispatchEvent(new Event('tk:sync')); } });
+      const sm = TK.qs('[name=sort][value=smart]', tb); if (sm) sm.checked = true;
+      applyAjax();
+    });
     // سایدبار مخفی مرتب‌سازی و فیلتر
     const drawer = TK.qs('#t-drawer'), back = TK.qs('.t-drawer-back', tb), openBtn = TK.qs('[data-drawer-open]', tb);
     const setDrawer = (on) => {
@@ -277,21 +326,26 @@ document.addEventListener('tk:ready', () => {
   }
 
   /* ───── جزئیات ───── */
-  const fileChip = (f) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a></span>`;
-  const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name];
+  // v7.18: پیوست خود تسک با دسترسی edit_info دکمه‌ی حذف دارد (حذف واقعی در سرور: POST /tasks/{id}/attachments/{file}/delete)
+  const fileChip = (f, kind) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a>${kind === 'task' && current?.can?.edit_info && !current?.is_blocked ? `<button type="button" class="file-chip-x" data-file-del="${E(f.id)}" data-file-name="${E(f.file_name)}" aria-label="حذف ${E(f.file_name)}" title="حذف پیوست"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>` : ''}</span>`;
+  const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name, current?.assistant?.visible ? 'کارلیکس' : null];
 
+  // کارلیکس (v7.19): پاسخ‌ها با آواتار مغز و نشان «دستیار هوش مصنوعی»؛ زیر یادداشتی که منشنش کرده تا پایان کار «در حال بررسی…»
+  const AI_WAIT = { pending: 'در صف کارلیکس…', running: 'کارلیکس در حال بررسی و اجرای درخواست است…' };
   const noteHtml = (n) => `
-    <div class="note" id="note-${n.id}">
-      <span class="avatar sm">${n.avatar_url ? `<img src="${E(n.avatar_url)}" alt="">` : E(TK.initial(n.author))}</span>
+    <div class="note${n.is_ai ? ' note-ai' : ''}" id="note-${n.id}">
+      ${n.is_ai ? '<span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>' : `<span class="avatar sm">${n.avatar_url ? `<img loading="lazy" decoding="async" src="${E(n.avatar_url)}" alt="">` : E(TK.initial(n.author))}</span>`}
       <div class="grow">
-        <div class="flex between gap-2"><b class="small">${E(n.author)}</b><span class="xs faint">${E(n.created_fa)}${n.updated_at ? ' (ویرایش‌شده)' : ''}</span></div>
+        <div class="flex between gap-2"><b class="small">${E(n.is_ai ? 'کارلیکس' : n.author)}${n.is_ai ? '<span class="ai-badge">دستیار هوش مصنوعی</span>' : ''}</b><span class="xs faint">${E(n.created_fa)}${n.updated_at ? ' (ویرایش‌شده)' : ''}</span></div>
         <div class="note-body" data-note-text data-raw="${E(n.note)}">${rich(n.note, names())}</div>
         <div>${(n.attachments || []).map((f) => fileChip(f, 'note')).join('')}</div>
+        ${AI_WAIT[n.ai_state] ? `<div class="ai-state" role="status" data-ai-wait="${n.id}"><span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>${AI_WAIT[n.ai_state]}<span class="ai-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>` : ''}
         <div class="flex gap-1 mt-1">${n.can_edit ? `<button class="btn btn-xs btn-ghost" data-edit-note="${n.id}"><i class="fa-solid fa-pen"></i> ویرایش</button>` : ''}</div>
       </div>
     </div>`;
 
-  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id, _id: t.id, _can: t.can });
+  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
+    _id: t.id, _can: t.can });
 
   // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
   /* دکمه‌های انجام (v4.1): «انجام شد» = تحویل برای بررسی سرپرست (برای همه)؛ در بررسی: «تأیید و بستن» / «برگرداندن برای اصلاح» */
@@ -341,7 +395,8 @@ document.addEventListener('tk:ready', () => {
     return qe('priority', c.edit_meta, prioBadge(t), 'اولویت') + stChip + (lbl ? qe('label', c.edit_meta, lbl, 'لیبل') : '')
       + (prj ? qe('project', c.change_project, prj, 'پروژه') : '') + (due ? qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید') : '')
       // ساخته‌شده با «ثبت سریع»؛ با اولین تغییر وضعیت در بورد حذف می‌شود
-      + (t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : '');
+      + (t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : '')
+      + (t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : '');
   };
 
   let qePop = null;
@@ -351,7 +406,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.post(url, data);
     TK.busy(btn, false);
     TK.toast(r.message || (TK.ok(r) ? 'ذخیره شد.' : 'خطا'), TK.ok(r) ? 'success' : 'error');
-    if (TK.ok(r)) { qeClose(); await refresh(); TK.reload(); }
+    if (TK.ok(r)) { qeClose(); Promise.all([refresh(), TK.reload()]); }
   };
   const qeUpdate = (data, btn) => qeSave('/tasks/' + currentId + '/update', data, btn);
   const opt = (attrs, html, on = false) => `<button type="button" class="qe-opt${on ? ' on' : ''}" ${attrs}>${html}</button>`;
@@ -377,9 +432,9 @@ document.addEventListener('tk:ready', () => {
         + '<div class="qe-reason" hidden><input class="input" maxlength="255" placeholder="علت (اختیاری)" data-qe-reason><button type="button" class="btn btn-sm btn-primary" data-qe-block>ثبت</button></div>';
     } else if (key === 'label') {
       body = '<div class="qe-h">لیبل</div><div class="qe-list">' + opt('data-qe-label=""', '<i class="fa-solid fa-ban faint"></i> بدون لیبل', !t.subject_id)
-        + (cfg.subjects || []).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" data-css="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, String(t.subject_id) === String(x.id))).join('') + '</div>';
+        + (cfg.subjects || []).filter((x) => String(x.project_id) === String(t.project_id)).map((x) => opt(`data-qe-label="${x.id}"`, `<i class="fa-solid fa-tag" data-css="color:${E(x.color || 'var(--muted)')}"></i> ${E(x.title)}`, String(t.subject_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'project') {
-      body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, Number(t.project_id) === x.id)).join('') + '</div>';
+      body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img loading="lazy" decoding="async" src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, String(t.project_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'due') {
       body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-date></div><div data-qe-time></div></div>
         <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-due>ذخیره</button>${t.due_date ? '<button type="button" class="btn btn-sm" data-qe-clear-due>حذف سررسید</button>' : ''}</div>`;
@@ -439,64 +494,109 @@ document.addEventListener('tk:ready', () => {
       ? `<button type="button" data-detail-unblock${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-lock-open"></i> رفع مسدودی</button>`
       : `<button type="button" class="text-danger" data-detail-block${t.can.block ? '' : ' disabled'}><i class="fa-solid fa-ban"></i> مسدود کردن</button>`;
     const hint = t.can.block ? '' : '<div class="xs faint dd-hint">دسترسی «مسدود کردن تسک» در این پروژه به شما داده نشده است.</div>';
+    // تسک محرمانه (v6.1): فقط سازنده‌ی تسک
+    const secret = t.confidential?.can_edit ? `<button type="button" data-detail-secret><i class="fa-solid fa-user-secret"></i> ${t.confidential.on ? 'محرمانه (ویرایش بیننده‌ها)' : 'محرمانه'}</button>` : '';
     return `<div class="dropdown detail-more"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-more title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-      <div class="dropdown-menu" role="menu">${item}${hint}</div></div>`;
+      <div class="dropdown-menu" role="menu">${secret}${item}${hint}</div></div>`;
   };
   const render = (t) => {
     qeClose();
     currentId = t.id; current = t;
     const canEdit = t.can.edit;
+    // چیدمان v7.2 (مثل نمونه‌ی «جزئیات تسک»): سربرگ با آیکون و ابزارها، ستون اصلی (برچسب‌ها، شرح، پیوست‌ها، یادداشت‌ها) و ستون کناری (وضعیت، جزئیات)
+    const av = (name, img) => `<span class="avatar xs">${img ? `<img loading="lazy" decoding="async" src="${E(img)}" alt="">` : E(TK.initial(name || '؟'))}</span>`;
+    const b = t.board, pct = b && b.steps ? Math.round((t.is_completed ? b.steps : b.step) * 100 / b.steps) : (t.is_completed ? 100 : 0);
+    // مراحل بورد پروژه (UI-005 v7.3): نام هر مرحله در title و یک متن برای صفحه‌خوان
+    const flow = (b && b.flow) || [];
+    // v7.16 (دموی UI، «Task detail»): نوار بالا (پروژه · زمان ثبت + ابزارها)، عنوان بزرگ، ستون اصلی (شرح، پیوست‌ها، یادداشت‌ها) و ستون کناری
+    // (کارت وضعیت با مراحل، کارت ویژگی‌ها با ویرایش سریع، سازنده/تاریخ) — همچنان پنجره‌ی وسط صفحه (#m-detail)
+    const stepsHtml = flow.length ? `<ol class="td-steps" aria-hidden="true">${flow.map((lbl, i) => `<li class="${i + 1 < b.step || t.is_completed ? 'done' : ''}${i + 1 === b.step && !t.is_completed ? ' cur' : ''}" title="مرحله‌ی ${F(i + 1)}: ${E(lbl)}"><span>${F(i + 1)}</span></li>`).join('')}</ol>
+      <p class="sr-only">${b.step ? `مرحله‌ی ${F(b.step)} از ${F(flow.length)}: ${E(b.label)}` : `${E(b.label)} (خارج از مراحل اصلی بورد)`}. مراحل: ${flow.map((l, i) => F(i + 1) + '. ' + E(l)).join('، ')}</p>` : '';
+    const acts = doneBtns(t) + nextBtn(b);
+    const c = t.can || {};
+    const st = b ? `<span class="chip-s"><i class="fa-solid ${E(b.icon)}"></i>${E(b.label)}</span>` : `<span class="chip-s ${t.is_completed ? 'is-accent' : 'is-warn'}">${t.is_completed ? 'انجام‌شده' : 'در جریان'}</span>`;
+    const stProp = b && b.targets?.length ? qe('status', true, st, 'وضعیت بورد')
+      : b && b.lock && b.status !== 'archived' ? `<button type="button" class="qe-chip" data-lock-reason="${E(b.lock)}" title="چرا نمی‌توانم وضعیت را تغییر دهم؟">${st}<i class="fa-solid fa-lock qe-ic"></i></button>` : st;
+    const lbl = t.subject_title ? `<span class="chip-s is-outline"><span class="dot" data-css="background:${E(t.subject_color || 'var(--muted)')}"></span>${E(t.subject_title)}</span>` : '<span class="faint">بدون لیبل</span>';
+    const due = t.due_fa ? `<span class="chip-s${t.is_overdue ? ' is-danger' : ''}"><i class="fa-regular fa-calendar"></i>${E(t.due_fa)}</span>` : '<span class="faint">بدون سررسید</span>';
+    const prj = t.project_title ? `<span class="tr-proj"><span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span>${E(t.project_title)}</span>` : '<span class="faint">بدون پروژه</span>';
+    const prop = (ic, name, val) => `<div class="td-prop"><span class="td-pl"><i class="fa-solid ${ic}" aria-hidden="true"></i>${name}</span><div class="td-pv">${val}</div></div>`;
     detail.innerHTML = `
-      <div class="flex between gap-2 items-center mb-2">
-        <h3 class="grow" data-css="margin:0">${E(t.title)}</h3>
-        ${moreMenu(t)}
-        ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
-        ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
-        <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
+      <div class="td-head">
+        <div class="td-crumb">${t.project_title ? `<span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span><span class="truncate">${E(t.project_title)}</span><span aria-hidden="true">·</span>` : ''}<span class="nowrap">ثبت ${E(t.created_fa)}</span>
+          ${t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : ''}
+          ${t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : ''}</div>
+        <div class="td-tools">
+          ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
+          ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
+          <button class="btn btn-ghost btn-icon btn-sm" data-detail-share title="کپی لینک تسک" aria-label="کپی لینک تسک"><i class="fa-solid fa-link"></i></button>
+          ${moreMenu(t)}
+          <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
+        </div>
       </div>
-      ${t.is_blocked ? `<div class="alert error mb-2 blk-alert"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
-      <div class="flex wrap gap-1 mb-2 qe-row">
-        ${chipsHtml(t)}
+      <div class="td-scroll">
+      <h2 class="td-title" id="td-title">${E(t.title)}</h2>
+      ${t.is_blocked ? `<div class="alert error blk-alert td-banner"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
+      <div class="td-grid">
+      <div class="td-main">
+      <section class="td-sec"><h3 class="td-h"><i class="fa-solid fa-file"></i> شرح تسک</h3>
+        ${t.description ? `<div class="note-body td-desc">${rich(t.description)}</div>` : '<div class="faint small">توضیحی برای این تسک نوشته نشده است.</div>'}</section>
+      <section class="td-sec"><div class="td-h-row"><h3 class="td-h"><i class="fa-solid fa-paperclip"></i> پیوست‌ها <span class="cnt">${F(t.files.length)}</span></h3>
+        ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row" enctype="multipart/form-data"><span class="file-pick-names faint small" data-file-names></span><label class="btn btn-ghost btn-sm file-pick" title="افزودن فایل به پیوست‌ها"><i class="fa-solid fa-upload"></i> افزودن فایل<input type="file" name="attachments[]" multiple hidden data-auto-upload></label></form>` : ''}</div>
+        <div id="task-files" class="td-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div></section>
+      <section class="td-sec">
+        <div class="utabs td-tabs"><span class="utab active">یادداشت‌ها و گزارش پیشرفت <span class="cnt">${F(t.notes.length)}</span></span><button type="button" class="utab" data-detail-history>تاریخچه‌ی تغییرات</button></div>
+      ${t.can.notes ? `<form id="f-note" class="td-compose" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" data-mention-ta placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن @ بنویسید یا از دکمه‌ی @ استفاده کنید)'))}"></textarea>
+        <div class="td-compose-bar file-pick-row"><button class="btn btn-primary btn-sm">ثبت یادداشت</button>
+          <button type="button" class="btn btn-ghost btn-icon btn-sm mention-btn" data-mention title="منشن کردن اعضای پروژه یا کارلیکس" aria-label="منشن" aria-haspopup="listbox"><i class="fa-solid fa-at"></i></button>
+          <label class="btn btn-ghost btn-icon btn-sm file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label>
+          <span class="file-pick-names faint small grow" data-file-names></span><span class="td-kbd" aria-hidden="true"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ثبت</span></div></form>` : ''}
+      <div class="td-notes-bar"><span class="faint xs">${F(t.notes.length)} یادداشت</span><span class="faint xs">جدیدترین بالا</span></div>
+      <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="td-empty">هنوز یادداشتی ثبت نشده است.</div>'}</div></section>
       </div>
-      ${t.description ? `<div class="card flat mb-2 note-body">${rich(t.description)}</div>` : ''}
-      <dl class="kv small mb-2">
-        <dt>سازنده</dt><dd>${E(t.creator_name)}</dd><dt>مسئول</dt><dd>${E(t.assignee_name || '—')}</dd>
-        <dt>ایجاد</dt><dd>${E(t.created_fa)}</dd>${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
-      </dl>
-      <div class="flex gap-1 wrap mb-2">
-        ${doneBtns(t)}
-        ${nextBtn(t.board)}
-        <button class="btn btn-sm" data-detail-share><i class="fa-solid fa-link"></i> کپی لینک تسک</button>
+      <aside class="td-side">
+        <section class="td-card"><div class="td-card-h"><b>وضعیت</b>${flow.length && b.step ? `<span class="faint xs">مرحله‌ی ${F(b.step)} از ${F(flow.length)}</span>` : `<span class="faint xs">${F(pct)}٪</span>`}</div>
+          ${stepsHtml}
+          <div class="td-st">${b ? `<i class="fa-solid ${E(b.icon)}" aria-hidden="true"></i> ${E(b.label)}` : (t.is_completed ? 'انجام‌شده' : 'در جریان')}</div>
+          <div class="td-acts">${acts}</div>
+        </section>
+        <section class="td-card td-props qe-row">
+          ${prop('fa-layer-group', 'وضعیت', stProp)}
+          ${prop('fa-user', 'مسئول', t.assignee_name ? `<span class="td-who">${av(t.assignee_name, t.assignee_avatar)}${E(t.assignee_name)}</span>` : '—')}
+          ${prop('fa-flag', 'اولویت', qe('priority', c.edit_meta, prioBadge(t), 'اولویت'))}
+          ${prop('fa-calendar', 'سررسید', qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید'))}
+          ${prop('fa-tag', 'لیبل', qe('label', c.edit_meta, lbl, 'لیبل'))}
+          ${prop('fa-folder', 'پروژه', qe('project', c.change_project, prj, 'پروژه'))}
+        </section>
+        <dl class="kv td-meta">
+          <dt>سازنده</dt><dd><span class="td-who">${av(t.creator_name, t.creator_avatar)}${E(t.creator_name)}</span></dd>
+          <dt>تاریخ ایجاد</dt><dd>${E(t.created_fa)}</dd>
+          ${t.completed_fa ? `<dt>تکمیل</dt><dd>${E(t.completed_fa)}</dd>` : ''}
+        </dl>
+      </aside>
       </div>
-      <h4><i class="fa-solid fa-paperclip" data-css="color:var(--g-400)"></i> پیوست‌های تسک</h4>
-      <div id="task-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div>
-      ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row mt-1 mb-2" enctype="multipart/form-data"><label class="btn btn-icon btn-sm file-pick" title="افزودن فایل به پیوست‌ها" aria-label="افزودن فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden data-auto-upload></label><span class="file-pick-names faint small" data-file-names></span></form>` : ''}
-      <hr>
-      <h4><i class="fa-regular fa-comments" data-css="color:var(--g-400)"></i> یادداشت‌ها و گزارش پیشرفت <span class="badge">${F(t.notes.length)}</span> <span class="xs faint">(جدیدترین بالا)</span></h4>
-      ${t.can.notes ? `<form id="f-note" class="mb-2" enctype="multipart/form-data"><textarea class="input" name="note" rows="2" placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن از دکمه‌ی @ استفاده کنید)'))}"></textarea>
-        <div class="flex gap-1 mt-1 wrap items-center file-pick-row"><label class="btn btn-icon file-pick" title="پیوست فایل به یادداشت" aria-label="پیوست فایل"><i class="fa-solid fa-paperclip"></i><input type="file" name="attachments[]" multiple hidden></label><span class="file-pick-names faint small grow" data-file-names></span>
-          <div class="dropdown mention-dd"><button type="button" class="btn btn-icon mention-btn" data-mention title="منشن کردن اعضای پروژه" aria-label="منشن"><i class="fa-solid fa-at"></i></button>
-            <div class="dropdown-menu mention-menu">${(t.mentionable || []).length ? `<div class="xs faint" data-css="padding:.2rem .5rem .4rem">اعضای پروژه‌ی «${E(t.project_title || '')}»</div>` + t.mentionable.map((m) => `<button type="button" data-mention-id="${m.id}" data-mention-name="${E(m.name)}"><span class="avatar sm">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(TK.initial(m.name))}</span>${E(m.name)}</button>`).join('') : '<div class="faint small" data-css="padding:.5rem">عضو دیگری در پروژه‌ی این تسک نیست.</div>'}</div></div>
-          <button class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> ثبت یادداشت</button></div></form>` : ''}
-      <div id="notes">${t.notes.length ? t.notes.map(noteHtml).join('') : '<div class="faint small mb-2">هنوز یادداشتی ثبت نشده است.</div>'}</div>
-      <div class="detail-foot"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچه‌ی تغییرات" aria-label="تاریخچه‌ی تغییرات"><i class="fa-solid fa-clock-rotate-left"></i></button></div>`;
+      </div>`;
     // لینک در یادداشت: همان پاپ‌اور عنوان‌گذاری توضیحات (نمایش [عنوان](لینک) به‌صورت لینک قابل کلیک با rich())
     const noteTa = TK.qs('#f-note textarea', detail);
     if (noteTa) linkify(noteTa);
   };
 
   /* ───── تاریخچه‌ی تغییرات ───── */
-  const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
+  const who = (u) => (u ? `<span class="hist-user"><span class="avatar xs">${u.avatar ? `<img loading="lazy" decoding="async" src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span>${E(u.name)}</span>` : '<span class="hist-user muted">کاربر حذف‌شده</span>');
   const q = (v) => (v ? `«${E(v)}»` : '<span class="muted">(خالی)</span>');
+  // منبع تغییر از صفحه‌ی «بار کاری» (v7.10): پیشنهاد / کشیدن و رها کردن / بازگردانی
+  const wlSrc = (i) => ({ suggestion: ' (پیشنهاد «بار کاری»)', drag: ' (کشیدن در «بار کاری»)', undo: ' (بازگردانی در «بار کاری»)', karlix: ' (با کارلیکس)' })[i.data && i.data.source] || '';
   const HIST = {
     created: ['fa-circle-plus', 'ok', (i) => `تسک توسط ${who(i.actor)} ایجاد شد${i.data.assignee_user && i.data.assignee_user.name !== i.actor?.name ? ` و به ${who(i.data.assignee_user)} واگذار شد` : ''}.`],
-    title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
-    priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
+    confidential_on: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را محرمانه کرد${i.data.count ? ' (' + TK.fa(i.data.count) + ' بیننده‌ی انتخابی)' : ''}`],
+    confidential_off: ['fa-user-secret', 'info', (i) => `${who(i.actor)} تسک را از حالت محرمانه خارج کرد`],
+    title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
+    description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد${wlSrc(i)}.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
+    priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
+    due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
+    label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],
-    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد.`],
+    assignee: ['fa-user-pen', 'purple', (i) => `مسئول انجام تسک توسط ${who(i.actor)} از ${who(i.data.from_user)} به ${who(i.data.to_user)} تغییر کرد${wlSrc(i)}.`],
     completed: ['fa-circle-check', 'ok', (i) => (i.actor ? `${who(i.actor)} تسک را انجام‌شده ثبت کرد.` : 'تسک انجام‌شده ثبت شد.')],
     reopened: ['fa-rotate-left', 'warn', (i) => `${who(i.actor)} تسک را به حالت انجام‌نشده برگرداند.`],
     board: ['fa-table-columns', 'info', (i) => `${who(i.actor)} وضعیت برد را از ${q(i.data.from)} به ${q(i.data.to)} برد.`, (i) => (i.data.reason ? `<div class="hist-box">علت: ${E(i.data.reason)}</div>` : '')],
@@ -530,6 +630,7 @@ document.addEventListener('tk:ready', () => {
     const r = await TK.get('/tasks/' + id);
     if (!TK.ok(r)) { TK.modal.close('m-detail'); return TK.toast(r.message || 'خطا', 'error'); }
     render(r.task);
+    aiResume(r.task);
   };
   const refresh = async () => { const r = await TK.get('/tasks/' + currentId); if (TK.ok(r)) render(r.task); };
 
@@ -546,26 +647,167 @@ document.addEventListener('tk:ready', () => {
     const fd = new FormData(f);
     if (f.id === 'f-note') {
       const text = String(fd.get('note') || '');
-      [...mentioned].filter(([, n]) => text.includes('@' + n)).forEach(([id]) => fd.append('mentions[]', id));
+      mentionIds(text).forEach((id) => fd.append('mentions[]', id));
     }
     const r = await TK.http(url, { method: 'POST', form: fd });
     TK.busy(btn, false); pick?.classList.remove('is-busy');
     TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
-    if (TK.ok(r)) { mentioned.clear(); const errs = r.upload_errors || r.data?.upload_errors; if (errs?.length) TK.toast(errs.join('، '), 'warning', 7000); await after(); TK.reload(); }
+    if (TK.ok(r)) {
+      const errs = r.upload_errors || r.data?.upload_errors; if (errs?.length) TK.toast(errs.join('، '), 'warning', 7000);
+      if (r.assistant_message) TK.toast(r.assistant_message, 'warning', 7000);
+      await after(); TK.reload();
+      if (r.assistant) aiRun(currentId, r.assistant);
+    }
   };
 
-  /* منشن: درج «@نام» در محل نشانگر */
-  const mentioned = new Map();
-  const insertMention = (id, name) => {
-    const ta = TK.qs('#f-note textarea', detail); if (!ta) return;
-    const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;
-    const before = ta.value.slice(0, s), pre = before && !/\s$/.test(before) ? ' ' : '';
-    const ins = `${pre}@${name} `;
-    ta.value = before + ins + ta.value.slice(e);
-    ta.selectionStart = ta.selectionEnd = s + ins.length; ta.focus();
-    mentioned.set(String(id), name);
+  /* کارلیکس: اجرای درخواست بعد از ثبت یادداشت. پاسخ در همان یادداشت‌های تسک ثبت می‌شود؛ تا آماده شدن، هر ۲ ثانیه دوباره می‌پرسد
+     (سرور هر درخواست را فقط یک بار اجرا می‌کند، پس تکرار امن است). */
+  const aiBusy = new Set();
+  const aiRun = async (taskId, noteId) => {
+    if (aiBusy.has(noteId)) return;
+    aiBusy.add(noteId);
+    try {
+      for (let i = 0; i < 60; i++) {
+        const r = await TK.post('/tasks/' + taskId + '/notes/' + noteId + '/karlix', {});
+        if (!TK.ok(r)) { if (r._http !== 429) { TK.toast(r.message || 'اجرای درخواست کارلیکس ناموفق بود.', 'error'); break; } }
+        else if (r.state !== 'pending' && r.state !== 'running') {
+          if (String(currentId) === String(taskId) && TK.qs('#m-detail.open')) await refresh();
+          if (r.state === 'done') TK.toast('کارلیکس درخواست را انجام داد.', 'success');
+          else if (r.state === 'partial') TK.toast('کارلیکس بخشی از درخواست را انجام داد؛ جزئیات در یادداشت‌ها.', 'warning', 6000);
+          else if (r.state === 'failed' || r.state === 'error') TK.toast('کارلیکس نتوانست درخواست را انجام دهد؛ توضیح در یادداشت‌ها.', 'error', 6000);
+          else TK.toast('کارلیکس پاسخ داد.', 'info');
+          TK.live?.refresh?.();
+          break;
+        }
+        await new Promise((ok) => setTimeout(ok, ((r && r.retry) || 2) * 1000));
+      }
+    } finally { aiBusy.delete(noteId); }
   };
+  // جزئیات باز شد و درخواست خود کاربر هنوز تمام نشده (مثلاً صفحه وسط کار بسته شده بود): ادامه‌ی اجرا
+  const aiResume = (t) => (t.notes || []).filter((n) => n.ai_mine && AI_WAIT[n.ai_state]).forEach((n) => aiRun(t.id, n.id));
 
+  /* ───── منشن (v7.19) ─────
+     یک فهرست شناور (#mn-pop، بیرون از ناحیه‌ی اسکرول جزئیات) برای هر textarea[data-mention-ta] (یادداشت جدید و ویرایش یادداشت):
+     با تایپ «@» بعد از فاصله/ابتدای خط یا با دکمه‌ی @ باز می‌شود، با ادامه‌ی تایپ فیلتر می‌شود، ↑/↓ + Enter/Tab انتخاب و Esc بستن.
+     «کارلیکس» (دستیار هوش مصنوعی) اولین گزینه است؛ شناسه‌ی منشن‌ها هنگام ثبت از روی متن (@نام کامل) ساخته می‌شود. */
+  const AI_NAME = 'کارلیکس';
+  const norm = (v) => String(v || '').replace(/[‌‎‏]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLowerCase();
+  const mnItems = () => {
+    const out = [], a = current?.assistant;
+    if (a?.visible) out.push({ id: 'ai', name: AI_NAME, ai: true, off: !a.enabled, hint: a.enabled ? 'دستیار هوش مصنوعی — درخواستتان را بنویسید' : (a.reason || 'فعلاً در دسترس نیست') });
+    (current?.mentionable || []).forEach((m) => out.push({ id: String(m.id), name: m.name, avatar: m.avatar }));
+    return out;
+  };
+  // شناسه‌ی اعضایی که «@نام کامل» آن‌ها در متن آمده (چه از فهرست انتخاب شده باشد، چه دستی تایپ شده)
+  const mentionIds = (text) => (current?.mentionable || []).filter((m) => text.includes('@' + m.name)).map((m) => m.id);
+  let mn = null;   // { ta, start, end, items, idx, btn }
+  const mnPop = () => {
+    let p = TK.qs('#mn-pop');
+    if (!p) {
+      p = document.createElement('div');
+      p.id = 'mn-pop'; p.className = 'mn-pop'; p.setAttribute('role', 'listbox'); p.setAttribute('aria-label', 'افراد قابل منشن'); p.hidden = true;
+      document.body.appendChild(p);
+      p.addEventListener('mousedown', (e) => e.preventDefault());           // فوکوس در textarea بماند
+      p.addEventListener('click', (e) => { const o = e.target.closest('[data-mn-i]'); if (o && mn) mnPick(+o.dataset.mnI); });
+    }
+    return p;
+  };
+  const mnClose = (undoBtn) => {
+    if (!mn) return;
+    const { ta, btn } = mn;
+    // دکمه‌ی @ یک «@» در متن گذاشته بود و چیزی انتخاب نشد: همان را برمی‌داریم
+    if (undoBtn && btn !== null && ta.value.slice(btn.at, btn.at + btn.len) === btn.text && ta.selectionStart === btn.at + btn.len) {
+      ta.value = ta.value.slice(0, btn.at) + ta.value.slice(btn.at + btn.len); ta.setSelectionRange(btn.at, btn.at);
+    }
+    mnPop().hidden = true; ta.setAttribute('aria-expanded', 'false'); ta.removeAttribute('aria-activedescendant');
+    mn = null;
+  };
+  const mnQuery = (ta) => {
+    const s = ta.selectionStart;
+    if (s == null || s !== ta.selectionEnd) return null;
+    const m = /(^|[\s(،,])@([^\s@]{0,40}(?: [^\s@]{0,40})?)$/.exec(ta.value.slice(0, s));
+    return m ? { start: s - m[2].length - 1, end: s, q: m[2] } : null;
+  };
+  const mnUpdate = (ta, btn = null) => {
+    const hit = mnQuery(ta);
+    if (!hit) return mnClose();
+    const all = mnItems(), q = norm(hit.q);
+    // بعد از انتخاب، «@نام » کامل دیگر فهرست را باز نمی‌کند
+    if (/\s$/.test(hit.q) && all.some((i) => norm(i.name) === q)) return mnClose();
+    const list = q ? all.filter((i) => norm(i.name).includes(q)) : all;
+    if (!list.length && (q || !btn)) return mnClose();
+    const keep = mn && mn.ta === ta ? mn.idx : 0;
+    mn = { ta, start: hit.start, end: hit.end, items: list, idx: Math.min(keep, Math.max(0, list.length - 1)), btn: btn || (mn && mn.ta === ta ? mn.btn : null) };
+    if (mn.items[mn.idx]?.off) mn.idx = Math.max(0, mn.items.findIndex((i) => !i.off));
+    mnRender();
+  };
+  const mnRender = () => {
+    const p = mnPop(), ta = mn.ta;
+    const av = (i) => (i.ai ? '<span class="avatar sm mn-ai-av" aria-hidden="true"><i class="fa-solid fa-brain"></i></span>'
+      : `<span class="avatar sm" aria-hidden="true">${i.avatar ? `<img loading="lazy" decoding="async" src="${E(i.avatar)}" alt="">` : E(TK.initial(i.name))}</span>`);
+    let html = '', memberHead = false;
+    mn.items.forEach((i, k) => {
+      if (!i.ai && !memberHead) { memberHead = true; html += `<div class="mn-head">اعضای پروژه${current?.project_title ? '‌ی «' + E(current.project_title) + '»' : ''}</div>`; }
+      html += `<div class="mn-opt${k === mn.idx ? ' is-on' : ''}${i.ai ? ' is-ai' : ''}${i.off ? ' is-off' : ''}" role="option" id="mn-o-${k}" data-mn-i="${k}" aria-selected="${k === mn.idx}"${i.off ? ' aria-disabled="true"' : ''}>${av(i)}<span class="mn-txt"><span class="mn-name">${E(i.name)}${i.ai ? ' <span class="mn-tag">AI</span>' : ''}</span>${i.hint ? `<small>${E(i.hint)}</small>` : ''}</span></div>`;
+    });
+    if (!mn.items.length) html = `<div class="mn-empty">${current?.project_id ? 'عضو دیگری در پروژه‌ی این تسک نیست.' : 'منشن فقط برای تسک‌های پروژه است.'}</div>`;
+    else if (!memberHead && !mn.ta.value.slice(mn.start + 1, mn.end)) html += `<div class="mn-empty">${current?.project_id ? 'عضو دیگری در پروژه‌ی این تسک نیست.' : 'این تسک پروژه ندارد؛ فقط کارلیکس قابل منشن است.'}</div>`;
+    p.innerHTML = html; p.hidden = false;
+    ta.setAttribute('aria-expanded', 'true'); ta.setAttribute('aria-activedescendant', 'mn-o-' + mn.idx);
+    // جای فهرست: زیر textarea اگر جا هست، وگرنه بالای آن؛ هم‌تراز لبه‌ی راست (RTL) و داخل صفحه
+    const r = ta.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    const w = Math.min(320, vw - 16);
+    p.style.width = w + 'px';
+    const h = Math.min(p.scrollHeight, 300);
+    const below = vh - r.bottom - 8, above = r.top - 8;
+    p.style.top = (below >= h || below >= above ? Math.min(r.bottom + 4, vh - h - 8) : Math.max(8, r.top - h - 4)) + 'px';
+    p.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
+    p.querySelector('.is-on')?.scrollIntoView({ block: 'nearest' });
+  };
+  const mnPick = (k) => {
+    const it = mn?.items[k];
+    if (!it) return;
+    if (it.off) { TK.toast(it.hint, 'info'); return; }
+    const ta = mn.ta, ins = '@' + it.name + ' ';
+    ta.value = ta.value.slice(0, mn.start) + ins + ta.value.slice(mn.end);
+    const pos = mn.start + ins.length;
+    mn.btn = null; mnClose();
+    ta.focus(); ta.setSelectionRange(pos, pos);
+  };
+  // دکمه‌ی @: یک «@» در محل نشانگر می‌گذارد و همان فهرست را باز می‌کند (با Esc یا کلیک بیرون برداشته می‌شود)
+  const mnFromButton = () => {
+    const ta = TK.qs('#f-note textarea', detail);
+    if (!ta) return;
+    if (mn && mn.ta === ta) return mnClose(true);
+    ta.focus();
+    const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s, before = ta.value.slice(0, s);
+    const text = (before && !/\s$/.test(before) ? ' ' : '') + '@';
+    ta.value = before + text + ta.value.slice(e);
+    ta.setSelectionRange(s + text.length, s + text.length);
+    mnUpdate(ta, { at: s, len: text.length, text });
+  };
+  detail.addEventListener('input', (e) => { if (e.target.matches('textarea[data-mention-ta]') && !e.isComposing) mnUpdate(e.target); });
+  detail.addEventListener('compositionend', (e) => { if (e.target.matches('textarea[data-mention-ta]')) mnUpdate(e.target); });
+  detail.addEventListener('keydown', (e) => {
+    if (!mn || e.target !== mn.ta || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+    const n = mn.items.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!n) return;
+      e.preventDefault();
+      let i = mn.idx;
+      for (let c = 0; c < n; c++) { i = (i + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; if (!mn.items[i].off) break; }
+      mn.idx = i; mnRender();
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && n && !e.shiftKey) {
+      e.preventDefault(); e.stopPropagation(); mnPick(mn.idx);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); mnClose(true);
+    }
+  });
+  detail.addEventListener('click', (e) => { if (mn && e.target === mn.ta) mnUpdate(mn.ta); });
+  detail.addEventListener('focusout', (e) => { if (mn && e.target === mn.ta) setTimeout(() => { if (mn && document.activeElement !== mn.ta) mnClose(true); }, 120); });
+  detail.addEventListener('scroll', () => { if (mn) mnRender(); }, true);
+  window.addEventListener('resize', () => { if (mn) mnRender(); });
+  TK.qs('#m-detail')?.addEventListener('tk:close', () => mnClose());
   // پیوست تسک: با انتخاب فایل از دکمه‌ی آیکونی، بلافاصله آپلود می‌شود
   detail.addEventListener('change', (e) => {
     if (e.target.matches('[data-auto-upload]') && e.target.files.length) submit(e.target.form, '/tasks/' + currentId + '/attachments', refresh);
@@ -579,34 +821,75 @@ document.addEventListener('tk:ready', () => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-close')) return TK.modal.close('m-detail');
     if (b.hasAttribute('data-detail-history')) return openHistory();
+    if (b.dataset.fileDel) {
+      if (!(await TK.confirm(`پیوست «${b.dataset.fileName}» برای همیشه حذف شود؟`, { okText: 'حذف پیوست' }))) return;
+      b.disabled = true;
+      const r = await TK.post('/tasks/' + currentId + '/attachments/' + encodeURIComponent(b.dataset.fileDel) + '/delete', {});
+      if (TK.ok(r)) { TK.toast(r.message, 'success'); refresh(); TK.live?.refresh?.(); } else { b.disabled = false; TK.toast(r.message || 'حذف پیوست ناموفق بود.', 'error'); }
+      return;
+    }
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
-    if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
-    if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }
-    if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); await refresh(); if (TK.ok(r)) TK.reload(); return; }
+    if (b.hasAttribute('data-mention')) { e.stopPropagation(); return mnFromButton(); }
+    if (b.dataset.detailAdvance) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/advance', { from: b.dataset.detailAdvance }); TK.busy(b, false); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) Promise.all([refresh(), TK.reload()]); else refresh(); return; }
     if (b.hasAttribute('data-detail-toggle')) {
       const r = await TK.post('/tasks/' + currentId + '/toggle');
-      const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) { await refresh(); TK.reload(); } } } : null;
-      TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { await refresh(); TK.reload(); }
+      const undo = TK.ok(r) && r.undo ? { label: 'بازگردانی', onClick: async () => { const u = await TK.post(r.undo); TK.toast(u.message, TK.ok(u) ? 'info' : 'error'); if (TK.ok(u)) { Promise.all([refresh(), TK.reload()]); } } } : null;
+      TK.toast(r.message, TK.ok(r) ? 'success' : 'error', undo ? 5000 : 4200, { action: undo }); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); }
     }
-    if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
-    if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { await refresh(); TK.reload(); } }
+    if (b.hasAttribute('data-detail-approve')) { TK.busy(b, true); const r = await TK.post('/tasks/' + currentId + '/status', { status: 'done' }); TK.busy(b, false); TK.toast(TK.ok(r) ? 'تسک تأیید و بسته شد.' : r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } }
+    if (b.hasAttribute('data-detail-rework')) { const why = await TK.prompt('چه چیزی باید اصلاح شود؟ (اختیاری؛ به‌صورت یادداشت روی تسک ثبت و برای مسئول فرستاده می‌شود)', { title: 'برگرداندن برای اصلاح', okText: 'برگرداندن', multiline: true }); if (why === null) return; const r = await TK.post('/tasks/' + currentId + '/status', { status: 'rework', reason: why }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) { Promise.all([refresh(), TK.reload()]); } }
     if (b.hasAttribute('data-detail-share')) { const r = await TK.get('/tasks/' + currentId + '/share'); if (TK.ok(r)) TK.copy(r.url); else TK.toast(r.message, 'error'); }
     if (b.hasAttribute('data-detail-more')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
+    if (b.hasAttribute('data-detail-secret')) {
+      b.closest('.dropdown')?.classList.remove('open');
+      const r0 = await TK.get('/tasks/' + currentId); if (!TK.ok(r0)) return;
+      const c = r0.task.confidential;
+      let m = TK.qs('#m-secret');
+      if (!m) {
+        m = document.createElement('div'); m.className = 'modal'; m.id = 'm-secret';
+        m.innerHTML = `<div class="modal-box sm"><form id="f-secret"><div class="modal-head"><h3><i class="fa-solid fa-user-secret"></i> تسک محرمانه</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
+          <div class="modal-body"><label class="check mb-1"><input type="checkbox" name="on" value="1" id="secret-on"><div><b>این تسک محرمانه باشد</b><span>فقط شما، مسئول تسک و کسانی که پایین انتخاب می‌کنید آن را می‌بینند؛ بقیه — حتی مدیر پروژه — نه در فهرست و بورد، نه در جستجو و نه با لینک.</span></div></label>
+            <div id="secret-people"><div class="small bold mb-1" id="secret-count"></div><div class="list secret-list" id="secret-list"></div></div></div>
+          <div class="modal-foot"><button type="button" class="btn" data-close>انصراف</button><button class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> ذخیره</button></div></form></div>`;
+        document.body.appendChild(m);
+        const sync = () => {
+          const on = TK.qs('#secret-on', m).checked, picked = TK.qsa('#secret-list input:checked', m).length;
+          TK.qs('#secret-people', m).classList.toggle('dim', !on);
+          TK.qsa('#secret-list input', m).forEach((i) => { i.disabled = !on || (!i.checked && picked >= m._max); });
+          TK.qs('#secret-count', m).textContent = `بیننده‌های انتخابی: ${TK.fa(picked)} از ${TK.fa(m._max)} نفر`;
+        };
+        m.addEventListener('change', sync); m._sync = sync;
+        TK.qs('#f-secret', m).addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          const on = TK.qs('#secret-on', m).checked;
+          const r = await TK.post('/tasks/' + m._task + '/confidential', { on: on ? 1 : 0, viewers: TK.qsa('#secret-list input:checked', m).map((i) => i.value) });
+          TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
+          if (TK.ok(r)) { TK.modal.close('m-secret'); Promise.all([refresh(), TK.reload()]); }
+        });
+      }
+      m._task = currentId; m._max = c.max;
+      const sel = new Set(c.viewers.map((v) => String(v.id)));
+      TK.qs('#secret-on', m).checked = c.on;
+      TK.qs('#secret-list', m).innerHTML = c.candidates.map((u) => `<label class="check secret-item"><input type="checkbox" value="${E(u.id)}" ${sel.has(String(u.id)) ? 'checked' : ''}>
+          <span class="avatar sm">${u.avatar ? `<img loading="lazy" decoding="async" src="${E(u.avatar)}" alt="">` : E(TK.initial(u.name))}</span><div><b>${E(u.name)}</b></div></label>`).join('') || '<div class="faint small">عضو دیگری در این پروژه نیست.</div>';
+      m._sync(); TK.modal.open('m-secret');
+      return;
+    }
     if (b.hasAttribute('data-detail-block') || b.hasAttribute('data-detail-unblock')) {
       const on = b.hasAttribute('data-detail-block');
       b.closest('.dropdown')?.classList.remove('open');
       if (on && !(await TK.confirm('این تسک مسدود شود؟ از فهرست‌ها، بورد و تقویم کنار می‌رود و فقط از «تسک‌های مسدودشده» در صفحه‌ی تسک‌ها برمی‌گردد.', { okText: 'مسدود کن' }))) return;
       const r = await TK.post((on ? '/block/tasks/' : '/unblock/tasks/') + currentId);
       TK.toast(r.message, TK.ok(r) ? 'success' : 'error');
-      if (TK.ok(r)) { if (on) TK.modal.close('m-detail'); else await refresh(); TK.reload(); }
+      if (TK.ok(r)) { if (on) TK.modal.close('m-detail'); else Promise.all([refresh(), TK.reload()]); }
       return;
     }
     if (b.dataset.editNote) {
       const box = TK.qs('#note-' + b.dataset.editNote), p = box.querySelector('[data-note-text]'), old = p.dataset.raw;
-      p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3">${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
+      p.innerHTML = `<div class="note-edit"><textarea class="input" rows="3" data-mention-ta>${E(old)}</textarea></div><div class="flex gap-1 mt-1"><button class="btn btn-sm btn-primary" data-save-note="${b.dataset.editNote}">ذخیره</button><button class="btn btn-sm" data-cancel-note>انصراف</button></div>`;
       linkify(p.querySelector('textarea'));
     }
-    if (b.dataset.saveNote) { const ta = b.closest('.note').querySelector('textarea'); const r = await TK.post('/notes/' + b.dataset.saveNote + '/update', { note: ta.value }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
+    if (b.dataset.saveNote) { const ta = b.closest('.note').querySelector('textarea'); const r = await TK.post('/notes/' + b.dataset.saveNote + '/update', { note: ta.value, mentions: mentionIds(ta.value) }); TK.toast(r.message, TK.ok(r) ? 'success' : 'error'); if (TK.ok(r)) refresh(); }
     if (b.hasAttribute('data-cancel-note')) refresh();
   });
 });

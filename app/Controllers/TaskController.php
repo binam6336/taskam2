@@ -17,6 +17,7 @@ use App\Services\BoardService;
 use App\Services\Priority;
 use App\Services\TaskHistory;
 use App\Services\TaskService;
+use App\Services\Karlix\Assistant;
 
 final class TaskController extends Controller
 {
@@ -79,12 +80,13 @@ final class TaskController extends Controller
         $wf = BoardService::waiting($uid, 500);
         $flowCounts = ['review' => count($wf['review']), 'rework' => count($wf['rework'])];
         $counts = [
-            'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
-            'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 1 AND blocked_at IS NULL', [$uid]),
+            // «وظایف من» شامل تسک‌های گروه‌هایی که عضوشان هستم (v5.10)
+            'mine_open'   => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . TaskModel::mine($uid) . ' AND t.is_completed = 0 AND t.blocked_at IS NULL', [$uid]),
+            'mine_done'   => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . TaskModel::mine($uid) . ' AND t.is_completed = 1 AND t.blocked_at IS NULL', [$uid]),
             'others_open' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL', [$uid, $uid]),
             'others_done' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 1 AND blocked_at IS NULL', [$uid, $uid]),
             // «در جریان» جدا از «منتظر تأیید»: کار تحویل‌داده‌شده دیگر کار مسئول نیست (v5.4)
-            'mine_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid]),
+            'mine_review' => (int) DB::value('SELECT COUNT(*) FROM tasks t WHERE ' . TaskModel::mine($uid) . " AND t.is_completed = 0 AND t.blocked_at IS NULL AND t.project_id IS NOT NULL AND t.archived_at IS NULL AND t.board_status = 'review'", [$uid]),
             'others_review' => (int) DB::value("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (assignee_id IS NULL OR assignee_id <> ?) AND is_completed = 0 AND blocked_at IS NULL AND project_id IS NOT NULL AND archived_at IS NULL AND board_status = 'review'", [$uid, $uid]),
         ];
 
@@ -135,13 +137,19 @@ final class TaskController extends Controller
     {
         $can = TaskService::effective($t, $uid);
         $notes = array_reverse(NoteModel::forTask((int) $t['id']));   // جدیدترین بالا
+        $bot = \App\Models\UserModel::botId();
+        $ai = Assistant::states((int) $t['id']);
         foreach ($notes as &$n) {
+            // کارلیکس (v7.19): پاسخ‌ها یادداشت کاربر ربات‌اند (ویرایش‌نشدنی)؛ ai_state = وضعیت درخواستِ یادداشتی که کارلیکس را منشن کرده
+            $n['is_ai'] = (int) $n['user_id'] === $bot;
+            $n['ai_state'] = $ai[(int) $n['id']] ?? null;
+            $n['ai_mine'] = $n['ai_state'] !== null && (int) $n['user_id'] === $uid;
             $n['id'] = Pid::row('task_notes', $n);
             unset($n['pid']);
             $n['author'] = full_name($n);
             $n['avatar_url'] = avatar_url($n['avatar']);
             $n['mine'] = (int) $n['user_id'] === $uid;
-            $n['can_edit'] = empty($t['blocked_at']) && ($n['mine'] || (int) $t['user_id'] === $uid);
+            $n['can_edit'] = empty($t['blocked_at']) && !$n['is_ai'] && ($n['mine'] || (int) $t['user_id'] === $uid);
             $n['created_fa'] = jdate($n['created_at']);
             $n['attachments'] = array_map(static fn($a) => [
                 'id' => Pid::row('note_attachments', $a), 'file_name' => $a['file_name'], 'file_size' => (int) $a['file_size'], 'file_ext' => $a['file_ext'],
@@ -159,16 +167,19 @@ final class TaskController extends Controller
             'id' => Pid::row('tasks', $t), 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'],
             'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : Priority::PERCENT[$t['priority']] ?? 50,
             'priority_type' => $t['project_priority_type'] ?? 'category',
-            'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid) : [],
+            'mentionable' => $t['project_id'] ? TaskService::mentionablePublic((int) $t['project_id'], $uid, $t) : [],
+            'assistant' => Assistant::info($t, $uid, (bool) ($can['notes'] ?? false)),
             'is_completed' => (int) $t['is_completed'] === 1, 'is_quick' => (int) ($t['is_quick'] ?? 0) === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,
             'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null, 'project_title' => $t['project_title'],
             'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null, 'assignee_name' => $t['assignee_id'] ? full_name($t, 'assignee_') : null,
             'creator_id' => (int) $t['user_id'], 'creator_name' => full_name($t, 'creator_'),
+            'creator_avatar' => avatar_url($t['creator_avatar'] ?? null), 'assignee_avatar' => $t['assignee_id'] ? avatar_url($t['assignee_avatar'] ?? null) : null,
             'created_fa' => jdate($t['created_at']), 'completed_fa' => $t['completed_at'] ? jdate($t['completed_at']) : null,
             'share_token' => $t['share_token'], 'can' => $can, 'on_board' => BoardService::canSee($t, $uid), 'notes' => $notes, 'files' => $files,
             'board' => BoardService::taskState($t, $uid),
+            'confidential' => TaskService::confidentialInfo($t, $uid),          // تسک محرمانه (v6.1)
             // مسدود کردن به‌جای حذف: تسک مسدود فقط‌خواندنی است و از پنجره‌ی «مسدودشده‌ها»ی صفحه‌ی تسک‌ها برمی‌گردد
             'is_blocked' => !empty($t['blocked_at']), 'blocked_fa' => !empty($t['blocked_at']) ? jdate((string) $t['blocked_at']) : null,
             'blocked_by_name' => !empty($t['blocked_by']) ? full_name(DB::one('SELECT first_name, last_name FROM users WHERE id = ?', [(int) $t['blocked_by']]) ?? []) : null,
@@ -187,9 +198,66 @@ final class TaskController extends Controller
     }
 
     /** تغییر وضعیت بورد از جزئیات تسک */
+    /** صندوق بررسی سرپرست (v7.9): تحویل‌های منتظر تأیید کاربر جاری + خلاصه (بیشترین انتظار اول) */
+    public function reviewPending()
+    {
+        $this->rateLimit('review_inbox', 60);
+        $this->ok('', \App\Services\ReviewService::pending($this->uid()));
+    }
+
+    /** صندوق بررسی (v7.9): تأیید گروهی — برای هر تسک همان تأیید تکی؛ موفق‌ها و ناموفق‌ها جدا */
+    public function reviewBulkApprove()
+    {
+        $this->rateLimit('review_inbox', 60);
+        $raw = $this->request->input('ids');
+        $list = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $res = \App\Services\ReviewService::bulkApprove($this->uid(), \App\Core\Pid::ids('tasks', array_slice($list, 0, \App\Services\ReviewService::BULK_MAX)));
+        $res['ok'] ? $this->ok($res['message'], $res['data']) : $this->fail($res['message'], (int) $res['http'], $res['data'] + ['error_code' => $res['code']]);
+    }
+
+    /** «تغییر گروهی» (v7.8): گزینه‌های پنجره برای تسک‌های انتخاب‌شده (ids = شناسه‌های عمومی با کاما) */
+    public function bulkOptions()
+    {
+        $this->rateLimit('task_bulk', 60);
+        $ids = \App\Core\Pid::ids('tasks', array_slice(explode(',', (string) ($this->request->query['ids'] ?? '')), 0, TaskService::BULK_MAX));
+        $res = TaskService::bulkOptions($this->uid(), $ids);
+        $res['ok'] ? $this->ok('', $res['data']) : $this->fail($res['message'], $res['http'] ?? 422);
+    }
+
+    /** «تغییر گروهی» (v7.8): اعمال یک یا چند پارامتر روی همه‌ی تسک‌های انتخاب‌شده */
+    public function bulk()
+    {
+        $this->rateLimit('task_bulk', 30);
+        $ids = \App\Core\Pid::ids('tasks', array_slice(explode(',', $this->request->str('ids', 2000)), 0, TaskService::BULK_MAX));
+        $in = [];
+        foreach (['priority', 'status', 'due_date', 'due_time', 'clear_due'] as $k) {
+            $v = $this->request->input($k);
+            if ($v !== null && $v !== '') {
+                $in[$k] = (string) $v;
+            }
+        }
+        foreach (['assignee_id', 'project_id', 'subject_id'] as $k) {
+            $v = $this->request->input($k);
+            if ($v !== null && $v !== '') {
+                $in[$k] = (int) $v;                // Request شناسه‌ی عمومی را به عددی برگردانده (نامعتبر = -1)
+            }
+        }
+        if (($this->request->input('subject_none') ?? '') === '1') {
+            $in['subject_id'] = 0;                  // حذف لیبل
+        }
+        if (isset($in['assignee_id']) && $in['assignee_id'] < 0 || isset($in['project_id']) && $in['project_id'] < 0 || isset($in['subject_id']) && $in['subject_id'] < 0) {
+            $this->fail('مقدار انتخاب‌شده معتبر نیست.');
+        }
+        $res = TaskService::bulk($this->uid(), $ids, $in);
+        $d = $res['data'] ?? [];
+        $this->respond($res['ok'], $res['message'], '/tasks', $d);
+    }
+
     public function status(string $id)
     {
-        $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255));
+        // v7.9: دسته‌های علت برگشت (reason_category: آرایه یا رشته‌ی جداشده با کاما)
+        $cats = $this->request->input('reason_category');
+        $res = BoardService::setStatus($this->uid(), (int) $id, $this->request->str('status', 20), $this->request->str('reason', 255), BoardService::reworkCategories(is_array($cats) ? $cats : (string) $cats));
         $d = $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : [];
         // «تأیید و بستن» (جزئیات / پیشخوان): پیام با دکمه‌ی «بازگردانی» چند دقیقه‌ای (v5.4)
         if ($res['ok'] && ($d['status'] ?? '') === 'done') {
@@ -278,8 +346,17 @@ final class TaskController extends Controller
         $undo = ($d['status'] ?? '') === 'review' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/withdraw')
             : (($d['status'] ?? '') === 'done' && isset($d['from']) ? url('/tasks/' . Pid::of('tasks', $id) . '/undo-done')   // تکمیل مستقیم با تیک (دسترسی تأیید)
             : (!empty($d['is_completed']) && !isset($d['status']) ? url('/tasks/' . Pid::of('tasks', $id) . '/toggle') : null));
-        $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) : [];
+        // board_status (v5.13.1): کلید status پاسخ JSON با «success» پر می‌شود؛ وضعیت تازه‌ی تسک جدا برای به‌روزرسانی فوری تیک
+        $extra = $res['ok'] ? Pid::tag($d, 'tasks') + ($undo ? ['undo' => $undo] : []) + (isset($d['status']) ? ['board_status' => $d['status']] : []) : [];
         $this->respond($res['ok'], $res['message'], '/tasks', $extra);
+    }
+
+    /** تسک محرمانه (v6.1): on=1|0 و viewers[] (شناسه‌ی عمومی کاربران، حداکثر ۳) */
+    public function confidential(string $task)
+    {
+        $viewers = array_map(static fn($v) => (int) \App\Core\Pid::id('users', (string) $v), $this->request->arr('viewers'));
+        $res = TaskService::setConfidential($this->uid(), (int) $task, (string) $this->request->input('on', '0') === '1', $viewers);
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? (array) $res['data'] : []);
     }
 
     /** «بازگردانی» بعد از تکمیل مستقیم یا تأیید (v5.4) */
@@ -309,13 +386,34 @@ final class TaskController extends Controller
 
     public function addNote(string $id)
     {
-        $res = TaskService::addNote($this->uid(), (int) $id, $this->request->str('note', 5000), Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
-        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'task_notes') : []);
+        $uid = $this->uid();
+        $text = $this->request->str('note', 5000);
+        $res = TaskService::addNote($uid, (int) $id, $text, Uploader::normalize($this->request->files['attachments'] ?? null), array_map('intval', $this->request->arr('mentions')));
+        $extra = [];
+        // کارلیکس (v7.19): یادداشتی که «@کارلیکس» دارد در صف دستیار قرار می‌گیرد؛ مرورگر بعد از ثبت، اجرا را صدا می‌زند
+        if ($res['ok']) {
+            $q = Assistant::queue((int) $id, (int) $res['data']['id'], $uid, $text);
+            if ($q !== null) {
+                $extra = $q['queued'] ? ['assistant' => Pid::of('task_notes', (int) $res['data']['id'])] : ['assistant_message' => $q['message']];
+            }
+        }
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'task_notes') + $extra : []);
+    }
+
+    /** اجرای درخواست کارلیکس روی یک یادداشت (فقط درخواست‌کننده؛ تکرارش امن است) */
+    public function assistantRun(string $task, string $note)
+    {
+        $this->rateLimit('karlix_run', 40);
+        $res = Assistant::run($this->uid(), (int) $task, (int) $note);
+        if (!$res['ok']) {
+            $this->fail($res['message'], $res['http']);
+        }
+        $this->ok('', (array) $res['data']);
     }
 
     public function updateNote(string $id)
     {
-        $res = TaskService::updateNote($this->uid(), (int) $id, $this->request->str('note', 5000));
+        $res = TaskService::updateNote($this->uid(), (int) $id, $this->request->str('note', 5000), array_map('intval', $this->request->arr('mentions')));
         $this->respond($res['ok'], $res['message'], '/tasks');
     }
 
@@ -323,6 +421,13 @@ final class TaskController extends Controller
     {
         $res = TaskService::addTaskFiles($this->uid(), (int) $id, Uploader::normalize($this->request->files['attachments'] ?? null));
         $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
+    }
+
+    /** حذف یک پیوست تسک (v7.18)؛ $file = شناسه‌ی عمومی پیوست */
+    public function removeFile(string $id, string $file)
+    {
+        $res = TaskService::removeTaskFile($this->uid(), (int) $id, (int) (Pid::id('task_attachments', $file) ?? 0));
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['data'] ?? []);
     }
 
     /** اعلان سررسید برای مرورگر (polling). */

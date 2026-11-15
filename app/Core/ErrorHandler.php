@@ -5,7 +5,7 @@ namespace App\Core;
 
 use Throwable;
 
-/** مدیریت متمرکز خطا: لاگ در storage/logs و پاسخ امن (بدون نشت جزئیات). */
+/** مدیریت متمرکز خطا: لاگ تفکیک‌شده در storage/logs/<بخش>/ (App\Core\Log) و پاسخ امن (بدون نشت جزئیات). */
 final class ErrorHandler
 {
     public static function register(): void
@@ -50,20 +50,8 @@ final class ErrorHandler
                 break;
             }
         }
-        $dir = STORAGE_PATH . '/logs';
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0750, true);
-        }
-        $line = sprintf(
-            "[%s] %s: %s in %s:%d\n%s\n\n",
-            date('Y-m-d H:i:s'),
-            get_class($e),
-            $e->getMessage(),
-            $e->getFile(),
-            $e->getLine(),
-            $e->getTraceAsString()
-        );
-        @file_put_contents($dir . '/app-' . date('Y-m-d') . '.log', $line, FILE_APPEND | LOCK_EX);
+        // ثبت در storage/logs/<بخش>/YYYY-MM-DD.log + یک خط در لاگ عمومی روز (App\Core\Log)
+        Log::error($e);
     }
 
     private static function respond(int $status, string $message, string $code, ?Throwable $debug): void
@@ -90,6 +78,9 @@ final class ErrorHandler
                 header('Content-Type: application/json; charset=utf-8');
             }
             $out = ['success' => false, 'status' => 'error', 'message' => $message, 'error_code' => $code];
+            if ($status >= 500) {
+                $out['ref'] = Log::requestId();                // کد پیگیری = شناسه‌ی درخواست در لاگ
+            }
             if ($debug) {
                 $out['debug'] = $debug->getMessage() . ' @ ' . basename($debug->getFile()) . ':' . $debug->getLine();
             }
@@ -101,7 +92,8 @@ final class ErrorHandler
         }
         $detail = $debug ? ($debug->getMessage() . ' — ' . basename($debug->getFile()) . ':' . $debug->getLine()) : null;
         $view = APP_PATH . '/Views/errors/error.php';
-        (static function () use ($view, $status, $message, $detail): void {
+        $ref = $status >= 500 ? Log::requestId() : null;
+        (static function () use ($view, $status, $message, $detail, $ref): void {
             require $view;
         })();
     }

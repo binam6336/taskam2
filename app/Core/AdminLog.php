@@ -16,13 +16,14 @@ final class AdminLog
 {
     /** جدول ← [نام فارسی، ستون عنوان] */
     public const TRACK = [
-        'tasks' => ['تسک', 'title'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'], 'call_requests' => ['درخواست تماس', null],
+        'tasks' => ['تسک', 'title'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'],
         'task_notes' => ['یادداشت تسک', null], 'task_attachments' => ['پیوست تسک', 'file_name'], 'note_attachments' => ['پیوست یادداشت', 'file_name'],
         'project_members' => ['عضویت پروژه', null], 'project_join_requests' => ['دعوت به پروژه', null], 'project_blocks' => ['مسدودی دعوت پروژه', null],
         'project_leave_history' => ['خروج از پروژه', null], 'colleagues' => ['همکار', null], 'colleague_requests' => ['درخواست همکاری', null],
         'colleague_blocks' => ['مسدودی کاربر', null], 'colleague_block_ghosts' => ['مسدودی کاربر', null], 'chat_messages' => ['پیام گفتگو', null],
         'chat_requests' => ['درخواست گفتگو', null], 'chat_history_clears' => ['پاک کردن تاریخچه‌ی گفتگو', null], 'support_tickets' => ['تیکت پشتیبانی', 'subject'],
-        'support_messages' => ['پیام تیکت', null], 'texts' => ['متن آماده', 'title'], 'users' => ['پروفایل کاربر', null],
+        'support_messages' => ['پیام تیکت', null], 'texts' => ['یادداشت', 'title'], 'users' => ['پروفایل کاربر', null],
+        'task_viewers' => ['بیننده‌ی تسک محرمانه', null], 'ai_requests' => ['درخواست کارلیکس', null],
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */
@@ -245,8 +246,6 @@ final class AdminLog
             return (string) $r[$col];
         }
         switch ($table) {
-            case 'call_requests':
-                return trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
             case 'task_notes':
                 return (string) DB::value('SELECT title FROM tasks WHERE id = ?', [(int) ($r['task_id'] ?? 0)]);
             case 'project_members':
@@ -301,14 +300,14 @@ final class AdminLog
         'first_name' => 'نام', 'last_name' => 'نام خانوادگی', 'mobile' => 'موبایل', 'email' => 'ایمیل', 'store' => 'فروشگاه', 'website' => 'وب‌سایت', 'status' => 'وضعیت',
         'max_members' => 'سقف اعضا', 'priority_type' => 'نوع اولویت', 'profile_image' => 'تصویر پروژه', 'permissions' => 'دسترسی‌های پروژه', 'task_permissions' => 'دسترسی تسک‌ها',
         'board_permissions' => 'دسترسی بورد', 'board_view_users' => 'مشاهده‌ی تسک‌های اعضا', 'board_limits' => 'سقف تعداد تسک ستون‌ها', 'user_id' => 'کاربر', 'colleague_user_id' => 'همکار',
-        'theme' => 'تم ظاهری', 'tour' => 'تور آموزشی', 'board_order' => 'ترتیب ستون‌های بورد', 'file_name' => 'نام فایل', 'file_size' => 'حجم فایل', 'file_ext' => 'نوع فایل',
+        'theme' => 'تم ظاهری', 'tour' => 'تور آموزشی', 'board_order' => 'ترتیب ستون‌های بورد (منسوخ)', 'board_config' => 'ستون‌های بورد پروژه', 'is_confidential' => 'محرمانه', 'file_name' => 'نام فایل', 'file_size' => 'حجم فایل', 'file_ext' => 'نوع فایل',
         'content' => 'متن', 'sort_order' => 'ترتیب', 'subject' => 'موضوع', 'task_id' => 'تسک', 'note_id' => 'یادداشت', 'invited_by' => 'دعوت‌کننده', 'requester_id' => 'درخواست‌دهنده',
         'target_id' => 'گیرنده', 'sender_id' => 'فرستنده', 'receiver_id' => 'گیرنده', 'blocked_user_id' => 'کاربر مسدودشده', 'blocker_user_id' => 'مسدودکننده',
         'is_edited' => 'ویرایش‌شده', 'edited_at' => 'زمان ویرایش', 'is_read' => 'خوانده‌شده', 'read_at' => 'زمان خواندن', 'forwarded_from' => 'بازارسال از', 'responded_at' => 'زمان پاسخ',
         'task_link_access' => 'دسترسی لینک تسک', 'avatar' => 'تصویر پروفایل', 'other_user_id' => 'طرف گفتگو', 'cleared_at' => 'زمان پاک کردن', 'cleared_upto_id' => 'تا پیام',
         'added_at' => 'زمان عضویت', 'left_at' => 'زمان خروج', 'closed_at' => 'زمان بستن', 'sender_role' => 'نقش فرستنده', 'attachment_size' => 'حجم پیوست', 'attachment_type' => 'نوع پیوست',
     ];
-    private const USER_COLS = ['assignee_id', 'delivered_by', 'approved_by', 'blocked_by', 'user_id', 'colleague_user_id', 'invited_by', 'requester_id', 'target_id', 'sender_id',
+    private const USER_COLS = ['assignee_id', 'head_id', 'created_by', 'delivered_by', 'approved_by', 'blocked_by', 'user_id', 'colleague_user_id', 'invited_by', 'requester_id', 'target_id', 'sender_id',
         'receiver_id', 'blocked_user_id', 'blocker_user_id', 'forwarded_from', 'other_user_id'];
     public const REASONS = [
         'exit' => 'خودش پنجره را بست', 'admin_end' => 'بستن از پنل مدیر', 'end_all' => '«بستن همه» در پنل مدیر', 'logout' => 'خروج مدیر از پنل',
@@ -441,7 +440,7 @@ final class AdminLog
             case 'task_id':
                 return (string) (DB::value('SELECT title FROM tasks WHERE id = ?', [(int) $v]) ?? 'تسک حذف‌شده');
             case 'board_status':
-                return \App\Services\BoardService::STATUSES[$v]['label'] ?? (string) $v;
+                return \App\Services\BoardConfig::label(null, (string) $v);   // نام از بورد پیش‌فرض یا کلید
             case 'priority':
                 return ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'][$v] ?? (string) $v;
             case 'priority_type':

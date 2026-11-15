@@ -14,12 +14,12 @@ $who = static function (?array $p, string $cls = ''): string {
     if ($p === null) {
         return '<span class="muted">کاربر حذف‌شده</span>';
     }
-    $av = $p['avatar'] ? '<img src="' . e($p['avatar']) . '" alt="">' : e(initial($p['name']));
+    $av = $p['avatar'] ? '<img loading="lazy" decoding="async" src="' . e($p['avatar']) . '" alt="">' : e(initial($p['name']));
     return '<button type="button" class="sl-who ' . $cls . '" data-user-details="' . e($p['id']) . '" title="نمایش پروفایل و جزئیات"><span class="avatar xs">' . $av . '</span><b>' . e($p['name']) . '</b> <span class="ltr small muted">' . e($p['mobile']) . '</span></button>';
 };
 $icons = ['enter' => ['fa-right-to-bracket', 'green'], 'exit' => ['fa-right-from-bracket', 'muted'], 'create' => ['fa-plus', 'blue'], 'update' => ['fa-pen', 'yellow'], 'delete' => ['fa-trash', 'red']];
 ?>
-<div class="page-head"><div><h2><i class="fa-solid fa-shield-halved" data-css="color:var(--g-400)"></i> امنیت <span class="badge"><?= e(fa_num($total)) ?></span></h2>
+<div class="page-head"><div><h2><i class="dc-961bcb fa-solid fa-shield-halved"></i> امنیت <span class="badge"><?= e(fa_num($total)) ?></span></h2>
     <p class="small muted mt-1">لاگ ورود مدیران به پنل کاربر: زمان ورود و خروج و هر تغییری که مدیر داخل پنل کاربر داده است (با مقدار قبل و بعد).</p></div></div>
 
 <div class="flex between items-center wrap gap-2 mb-2">

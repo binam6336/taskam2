@@ -33,10 +33,10 @@ $badgeHtml = static function (array $t) use ($admin): string {
     <aside class="desk-side" id="desk-side" aria-label="تاریخچه تیکت‌ها">
         <div class="desk-side-head">
             <div class="flex between gap-1">
-                <div class="grow" data-css="min-width:0"><h3 class="desk-h">تاریخچه تیکت‌ها</h3>
+                <div class="dc-3f9f96 grow"><h3 class="desk-h">تاریخچه تیکت‌ها</h3>
                     <div class="xs muted"><?= $admin ? 'تیکت‌های ثبت‌شده‌ی همه‌ی کاربران' : 'تیکت‌های ثبت‌شده‌ی شما' ?></div></div>
                 <span class="badge" data-live="desk-count"><?= e(fa_num($list['total'])) ?> تیکت</span>
-                <?php if (!$admin): ?><button class="btn btn-primary btn-sm" data-modal="m-support" type="button"><i class="fa-solid fa-plus"></i> <span class="hide-xs">تیکت جدید</span></button><?php endif; ?>
+                <?php if (!$admin): ?><button class="btn btn-primary btn-sm" data-modal="m-support" type="button" data-create-default><i class="fa-solid fa-plus"></i> <span class="hide-xs">تیکت جدید</span></button><?php endif; ?>
                 <?php if ($ticket): ?><button type="button" class="btn btn-ghost btn-icon btn-sm desk-side-close" data-desk-list="close" aria-label="بستن فهرست"><i class="fa-solid fa-xmark"></i></button><?php endif; ?>
             </div>
             <form class="desk-search search" method="get" action="<?= e(url($base)) ?>" role="search">
@@ -104,14 +104,14 @@ $badgeHtml = static function (array $t) use ($admin): string {
         </div>
     <?php else: ?>
         <header class="desk-head" data-live="desk-head">
-            <button type="button" class="btn btn-icon btn-sm desk-list-toggle" data-desk-list="toggle" aria-controls="desk-side" title="فهرست تیکت‌ها"><i class="fa-solid fa-list-ul"></i></button>
+            <button type="button" class="btn btn-icon btn-sm desk-list-toggle" data-desk-list="toggle" aria-controls="desk-side" title="فهرست تیکت‌ها" aria-label="فهرست تیکت‌ها"><i class="fa-solid fa-list-ul"></i></button>
             <a class="btn btn-ghost btn-icon desk-back" href="<?= e(url($base) . $qs()) ?>" aria-label="بازگشت به فهرست"><i class="fa-solid fa-arrow-right"></i></a>
             <span class="desk-head-ico"><i class="fa-solid <?= $admin ? 'fa-id-card' : 'fa-headset' ?>"></i></span>
             <div class="grow desk-head-txt">
                 <div class="desk-title"><?php if ($admin): ?><b><?= e(full_name($ticket)) ?></b> <span class="muted">(<?= e($ticket['subject']) ?>)</span><?php else: ?><b><?= e($ticket['subject']) ?></b><?php endif; ?></div>
                 <div class="desk-sub">
                     <span class="ltr">#<?= e($tid) ?></span>
-                    <?php if ($admin): ?><span class="ltr"><?= e($ticket['mobile']) ?></span><?php endif; ?>
+                    <?php if ($admin): ?><span class="ltr"><?= e(fa_num((string) $ticket['mobile'])) ?></span><?php endif; ?>
                     <span>اولویت <?= e($priorities[$ticket['priority']] ?? '—') ?></span>
                     <span class="hide-sm">ثبت: <?= e(jdate($ticket['created_at'])) ?></span>
                     <span class="tcard-badges"><?= $badgeHtml($ticket) ?></span>
@@ -121,15 +121,15 @@ $badgeHtml = static function (array $t) use ($admin): string {
                 <?php if ($admin && !$closed): $ip = $ticket['status'] === 'in_progress'; ?>
                     <button type="button" class="btn btn-sm desk-check <?= $ip ? 'on' : '' ?>" data-post="<?= e(url($base . '/' . $tid . '/status')) ?>" data-data='{"status":"<?= $ip ? 'open' : 'in_progress' ?>"}' aria-pressed="<?= $ip ? 'true' : 'false' ?>" title="علامت «در حال انجام» برای این تیکت"><i class="fa-<?= $ip ? 'solid fa-square-check' : 'regular fa-square' ?>"></i> <span class="hide-sm">در حال انجام</span></button>
                 <?php endif; ?>
-                <?php if ($closed): ?>
+                <?php if ($closed && $admin): // v7.8: تیکت بسته را فقط پنل مدیریت دوباره باز می‌کند ?>
                     <button type="button" class="btn btn-sm desk-reopen" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($admin ? $base . '/' . $tid . '/status' : $base . '/' . $tid . '/reopen')) ?>" <?= $admin ? 'data-data=\'{"status":"open"}\'' : '' ?>><i class="fa-solid fa-lock-open"></i> <span class="hide-sm">باز کردن تیکت</span></button>
-                <?php else: ?>
+                <?php elseif (!$closed): ?>
                     <button type="button" class="btn btn-sm desk-close" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($admin ? $base . '/' . $tid . '/status' : $base . '/' . $tid . '/close')) ?>" <?= $admin ? 'data-data=\'{"status":"closed"}\'' : '' ?> data-confirm="تیکت بسته شود؟" data-danger="0" data-ok="بستن تیکت"><i class="fa-solid fa-lock"></i> <span class="hide-sm">بستن تیکت</span></button>
                 <?php endif; ?>
-                <?php if ($canWrite): ?><button type="button" class="btn btn-icon btn-sm" id="desk-texts-btn" aria-haspopup="true" title="پاسخ‌های آماده (متن‌های آماده)"><i class="fa-solid fa-keyboard"></i></button><?php endif; ?>
-                <button type="button" class="btn btn-icon btn-sm hide-sm" id="desk-help-btn" aria-haspopup="true" title="راهنما"><i class="fa-solid fa-question"></i></button>
-                <button type="button" class="btn btn-icon btn-sm" id="desk-refresh" title="به‌روزرسانی"><i class="fa-solid fa-rotate-right"></i></button>
-                <?php if ($admin): // کاربر تیکت را حذف نمی‌کند (v4.0)؛ فقط مدیر ?><button type="button" class="btn btn-icon btn-sm btn-danger" data-post="<?= e(url($base . '/' . $tid . '/delete')) ?>" data-confirm="تیکت و همه‌ی پیام‌ها و فایل‌هایش حذف شود؟" data-after="redirect:<?= e($base . $qs()) ?>" title="حذف تیکت"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
+                <?php if ($canWrite): ?><button type="button" class="btn btn-icon btn-sm" id="desk-texts-btn" aria-haspopup="true" title="پاسخ‌های آماده (متن‌های آماده)" aria-label="پاسخ‌های آماده (متن‌های آماده)"><i class="fa-solid fa-keyboard"></i></button><?php endif; ?>
+                <button type="button" class="btn btn-icon btn-sm hide-sm" id="desk-help-btn" aria-haspopup="true" title="راهنما" aria-label="راهنما"><i class="fa-solid fa-question"></i></button>
+                <button type="button" class="btn btn-icon btn-sm" id="desk-refresh" title="به‌روزرسانی" aria-label="به‌روزرسانی"><i class="fa-solid fa-rotate-right"></i></button>
+                <?php if ($admin): // کاربر تیکت را حذف نمی‌کند (v4.0)؛ فقط مدیر ?><button type="button" class="btn btn-icon btn-sm btn-danger" data-post="<?= e(url($base . '/' . $tid . '/delete')) ?>" data-confirm="تیکت و همه‌ی پیام‌ها و فایل‌هایش حذف شود؟" data-after="redirect:<?= e($base . $qs()) ?>" title="حذف تیکت" aria-label="حذف تیکت"><i class="fa-solid fa-trash"></i></button><?php endif; ?>
             </div>
         </header>
 
@@ -146,7 +146,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
                     <?php if ((string) $m['message'] !== ''): ?><div class="dmsg-body"><?= e($m['message']) ?></div><?php endif; ?>
                     <?php if (!empty($m['attachment'])): $ext = strtolower(pathinfo((string) $m['attachment'], PATHINFO_EXTENSION)); $fu = url('/files/support_files/' . $m['attachment']); ?>
                         <?php if (in_array($ext, $imgExt, true)): ?>
-                            <a class="dmsg-img" href="<?= e($fu) ?>" target="_blank" rel="noopener"><img src="<?= e($fu) ?>" alt="<?= e($m['attachment_name']) ?>" loading="lazy"></a>
+                            <a class="dmsg-img" href="<?= e($fu) ?>" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="<?= e($fu) ?>" alt="<?= e($m['attachment_name']) ?>" loading="lazy"></a>
                         <?php endif; ?>
                         <a class="dmsg-file" href="<?= e($fu . '?dl=1') ?>"><i class="fa-solid <?= e(file_icon($ext)) ?>"></i><span class="truncate"><?= e($m['attachment_name'] ?: $m['attachment']) ?></span><small class="faint"><?= e(human_size((int) $m['attachment_size'])) ?></small><i class="fa-solid fa-download xs"></i></a>
                     <?php endif; ?>
@@ -171,21 +171,26 @@ $badgeHtml = static function (array $t) use ($admin): string {
             </div>
         </form>
         <?php else: ?>
+        <?php if ($admin): ?>
         <div class="desk-locked"><span><i class="fa-solid fa-lock"></i> این تیکت بسته شده است. برای ادامه‌ی گفتگو آن را دوباره باز کنید.</span>
-            <button type="button" class="btn btn-primary btn-sm" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($base . '/' . $tid . '/reopen')) ?>"><i class="fa-solid fa-lock-open"></i> باز کردن تیکت</button></div>
+            <button type="button" class="btn btn-primary btn-sm" data-after="redirect:<?= e($base . '/' . $tid . $qs()) ?>" data-post="<?= e(url($base . '/' . $tid . '/status')) ?>" data-data='{"status":"open"}'><i class="fa-solid fa-lock-open"></i> باز کردن تیکت</button></div>
+        <?php else: ?>
+        <div class="desk-locked"><span><i class="fa-solid fa-lock"></i> این تیکت بسته شده است و دیگر پیامی نمی‌پذیرد. اگر هنوز مشکلی دارید، یک تیکت جدید ثبت کنید.</span>
+            <button type="button" class="btn btn-primary btn-sm" data-modal="m-support"><i class="fa-solid fa-plus"></i> تیکت جدید</button></div>
+        <?php endif; ?>
         <?php endif; ?>
 
         <div class="desk-pop" id="desk-texts" hidden>
             <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input input-sm" id="desk-texts-q" placeholder="<?= e(ph('support_texts')) ?>" autocomplete="off"></div>
             <div class="desk-pop-list" id="desk-texts-list"></div>
-            <a class="xs" href="<?= e(url('/texts')) ?>"><i class="fa-solid fa-gear"></i> مدیریت متن‌های آماده</a>
+            <a class="xs" href="<?= e(url('/notes')) ?>"><i class="fa-solid fa-gear"></i> مدیریت یادداشت‌ها</a>
         </div>
         <div class="desk-pop" id="desk-help" hidden>
             <b class="small">راهنما</b>
             <ul class="small muted">
                 <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>: ارسال پیام</li>
                 <li><i class="fa-solid fa-paperclip"></i> پیوست: تصویر، PDF، ورد، اکسل، ZIP (حداکثر ۱۰ مگابایت)</li>
-                <li><i class="fa-solid fa-keyboard"></i> درج سریع از «متن‌های آماده»</li>
+                <li><i class="fa-solid fa-keyboard"></i> درج سریع از «یادداشت‌ها»</li>
                 <?php if ($admin): ?><li><i class="fa-regular fa-square-check"></i> «در حال انجام»: به کاربر نشان می‌دهد تیکت در دست بررسی است</li><?php endif; ?>
                 <li>گفتگو هر چند ثانیه خودکار به‌روز می‌شود.</li>
             </ul>
@@ -196,7 +201,7 @@ $badgeHtml = static function (array $t) use ($admin): string {
 
 <?php if (!$admin): ?>
 <div class="modal" id="m-support" data-guard><div class="modal-box"><form method="post" action="<?= e(url('/support')) ?>" enctype="multipart/form-data" data-ajax><?= csrf_field() ?>
-    <div class="modal-head"><h3><i class="fa-solid fa-headset"></i> تیکت پشتیبانی جدید</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-head"><h3><i class="fa-solid fa-headset"></i> تیکت پشتیبانی جدید</h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
         <div class="field"><label>موضوع *</label><input class="input" name="subject" maxlength="255" required placeholder="<?= e(ph('support_subject')) ?>"></div>
         <div class="field"><label>اولویت</label><select class="input" name="priority"><?php foreach ($priorities as $k => $v): ?><option value="<?= e($k) ?>" <?= $k === 'medium' ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select></div>

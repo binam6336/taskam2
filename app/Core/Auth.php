@@ -188,6 +188,19 @@ final class Auth
         return $u ? (int) $u['id'] : null;
     }
 
+    /** شناسه‌ی کاربرِ همین درخواست فقط اگر قبلاً بارگذاری شده (برای لاگ: بدون باز کردن نشست یا کوئری) */
+    public static function loadedId(): ?int
+    {
+        if (!self::$loaded || self::$user === null) {
+            return null;
+        }
+        try {
+            return Impersonation::active() ? (int) (Impersonation::current()['target']['id'] ?? self::$user['id']) : (int) self::$user['id'];
+        } catch (\Throwable $e) {
+            return (int) self::$user['id'];
+        }
+    }
+
     public static function check(): bool
     {
         return self::user() !== null;
@@ -198,6 +211,21 @@ final class Auth
         $u ??= self::user();
         return $u !== null && $u['role'] === 'admin';
     }
+
+    /**
+     * حساب «غیرفعال» (deactivated، v7.8): کاربر وارد می‌شود و همه‌چیز را می‌بیند (فقط خواندنی) ولی هیچ تغییری نمی‌تواند بدهد
+     * (Authenticate / ApiAuth همه‌ی درخواست‌های تغییر‌دهنده را با ACCOUNT_INACTIVE رد می‌کنند). «مسدود» و «در انتظار تأیید» اصلاً وارد پنل نمی‌شوند.
+     */
+    public static function isReadOnly(?array $u = null): bool
+    {
+        $u ??= self::user();
+        return $u !== null && $u['status'] === 'deactivated' && !self::isImpersonating();
+    }
+
+    /** درخواست‌های تغییر‌دهنده‌ای که حساب غیرفعال هم مجاز است (خروج، تم دستگاه، دیده‌شدن یادآوری) */
+    public const READ_ONLY_ALLOWED = ['/logout', '/profile/appearance', '/notifications/ack', '/notifications/read', '/reauth'];
+
+    public const INACTIVE_MSG = 'حساب کاربری شما غیرفعال است؛ فقط می‌توانید اطلاعات را ببینید و امکان ثبت یا تغییر ندارید. برای فعال‌سازی با مدیر تماس بگیرید.';
 
     public static function isActive(?array $u = null): bool
     {
@@ -216,8 +244,10 @@ final class Auth
         return Impersonation::active() ? Impersonation::current()['admin'] : null;
     }
 
-    /** دسترسی‌های مدیران (مدیر کل همه را دارد). impersonate و edit_content از v3.25 جدا شدند. */
-    public const ADMIN_PERMS = ['add_user', 'delete_user', 'toggle_status', 'edit_user', 'impersonate', 'edit_content'];
+    /** همه‌ی دسترسی‌های پنل مدیر (فهرست و توضیح در AdminAccess::PERMS؛ v7.4) */
+    public const ADMIN_PERMS = ['view_analysis', 'view_users', 'add_user', 'edit_user', 'toggle_status', 'delete_user', 'manage_admins', 'impersonate',
+        'manage_impersonations', 'edit_sidebar', 'edit_tour', 'edit_board', 'edit_placeholders', 'edit_errors', 'support_view', 'support_reply',
+        'support_manage', 'view_security', 'view_panel_docs', 'chat_encrypt'];
 
     /** مدیر کل = اولین کاربر admin. */
     public static function superAdminId(): int
@@ -247,11 +277,18 @@ final class Auth
     }
 
     /**
-     * دسترسی‌های مدیر. فعلاً (v4.4) همه‌ی نقش‌ها همه‌ی دسترسی‌ها را دارند تا محدودسازی بر اساس نقش بعداً اضافه شود.
+     * دسترسی‌های مدیر (v7.4، SEC-001): مدیر کل همه؛ بقیه طبق نقش (قابل تنظیم در «تنظیمات ← دسترسی») یا دسترسی اختصاصی خودشان.
      */
     public static function adminPermissions(array $u): array
     {
-        return self::adminRole($u) === null ? [] : self::ADMIN_PERMS;
+        return AdminAccess::of($u);
+    }
+
+    /** نقش مدیر کل (نه فقط «هر مدیری») */
+    public static function isSuperAdmin(?array $u = null): bool
+    {
+        $u ??= self::user();
+        return $u !== null && self::adminRole($u) === 'super';
     }
 
     public static function adminCan(string $perm): bool
@@ -269,7 +306,8 @@ final class Auth
         #[\SensitiveParameter]
         string $password,
         Request $req,
-        bool $remember = false
+        bool $remember = false,
+        bool $session = true
     ): array
     {
         $ip = $req->rateIp();                                  // IPv6: پیشوند ‎/64
@@ -330,8 +368,10 @@ final class Auth
             $u['password_hash'] = self::hash($password);      // مهم: هش جدید باید در همان $u باشد وگرنه نسخه‌ی رمز در سشن ناهمگام می‌شود و کاربر بلافاصله خارج می‌شود
             DB::update('users', ['password_hash' => $u['password_hash']], 'id = ?', [(int) $u['id']]);
         }
-        self::login($u, $req, $remember);
-        self::trustDevice($mobile, $u);
+        if ($session) {                                        // $session = false: فقط بررسی رمز (ساخت توکن در «تست API»)، بدون ورود به پنل
+            self::login($u, $req, $remember);
+            self::trustDevice($mobile, $u);
+        }
         return ['ok' => true, 'message' => '', 'user' => $u];
     }
 
@@ -506,7 +546,6 @@ final class Auth
             'role'          => $d['role'] ?? 'user',
             'admin_permissions' => $d['admin_permissions'] ?? null,
         ]);
-        \App\Models\SubjectModel::seedDefaults($id);
         return $id;
     }
 }

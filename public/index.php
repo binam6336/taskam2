@@ -64,7 +64,18 @@ register_shutdown_function(function () use ($root) {
         return;
     }
     $line = '[' . date('Y-m-d H:i:s') . '] ' . $e['message'] . ' in ' . $e['file'] . ':' . $e['line'] . "\n";
-    @file_put_contents($root . '/storage/logs/fatal-' . date('Y-m-d') . '.log', $line, FILE_APPEND);
+    // لاگ تفکیک‌شده (storage/logs/<بخش>/تاریخ.log)؛ اگر خود کلاس لاگ در دسترس نبود، پوشه‌ی system
+    if (class_exists('App\\Core\\Log', false) || (is_file($root . '/app/Core/Log.php') && function_exists('env'))) {
+        try {
+            App\Core\Log::fatal($e);
+        } catch (Throwable $x) {
+            @mkdir($root . '/storage/logs/system', 0750, true);
+            @file_put_contents($root . '/storage/logs/system/' . date('Y-m-d') . '.log', $line, FILE_APPEND);
+        }
+    } else {
+        @mkdir($root . '/storage/logs/system', 0750, true);
+        @file_put_contents($root . '/storage/logs/system/' . date('Y-m-d') . '.log', $line, FILE_APPEND);
+    }
     $env = @file_get_contents($root . '/.env');
     if ($env && preg_match('/^\s*APP_DEBUG\s*=\s*true/mi', $env)) {
         if (!headers_sent()) {

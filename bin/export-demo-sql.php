@@ -83,7 +83,7 @@ $pass = Auth::hash('Demo12345');
 $o = fopen('php://stdout', 'w');
 $w = static fn(string $s) => fwrite($o, $s . "\n");
 $w('-- ============================================================================');
-$w('--  داده‌ی نمونه‌ی تسکام: شرکت ' . count($users) . ' نفره، ' . count($tasks) . ' تسک در ' . count($projects) . ' پروژه (ساخته‌شده ' . date('Y-m-d H:i') . ')');
+$w('--  داده‌ی نمونه‌ی کارلیکس: شرکت ' . count($users) . ' نفره، ' . count($tasks) . ' تسک در ' . count($projects) . ' پروژه (ساخته‌شده ' . date('Y-m-d H:i') . ')');
 $w('--  ایمپورت: phpMyAdmin ← دیتابیس برنامه ← Import (charset: utf8mb4). ساختار دیتابیس باید نسخه‌ی 5.0 به بعد باشد (ستون pid).');
 $w('--  کاربران با موبایل پیدا می‌شوند؛ کاربر موجود تغییر نمی‌کند، کاربر ناموجود با رمز Demo12345 ساخته می‌شود.');
 $w('--  حذف: پروژه‌هایی که توضیحشان «' . MARK . '» دارد (با تسک‌ها) و کاربران 0999100xxxx — یا php bin/seed-demo.php --clean --yes');
@@ -121,16 +121,17 @@ foreach ($members as $m) {
         . ', ' . $q($m['permissions']) . ', ' . $q($m['task_permissions']) . ', ' . $q($m['board_permissions']) . ', ' . $q($m['board_view_users']) . ', ' . $q($m['added_at']) . ');');
 }
 $w('');
-$w('-- لیبل‌ها (اگر صاحب لیبل از قبل همین عنوان را دارد، همان استفاده می‌شود)');
+$w('-- لیبل‌ها (v7.12: مال پروژه؛ اگر پروژه از قبل همین عنوان را دارد، همان استفاده می‌شود)');
 foreach ($subjects as $s) {
-    $w('INSERT INTO subjects (pid, user_id, title, color) SELECT ' . $q(Pid::new()) . ', ' . $uv($s['user_id']) . ', ' . $q($s['title']) . ', ' . $q($s['color'])
-        . ' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ');');
-    $w('SET @s' . (int) $s['id'] . ' = (SELECT id FROM subjects WHERE user_id = ' . $uv($s['user_id']) . ' AND title = ' . $q($s['title']) . ' ORDER BY id LIMIT 1);');
+    $pv = $s['project_id'] !== null ? '@p' . (int) $s['project_id'] : 'NULL';
+    $w('INSERT INTO subjects (pid, user_id, project_id, title, color) SELECT ' . $q(Pid::new()) . ', ' . $uv($s['user_id']) . ', ' . $pv . ', ' . $q($s['title']) . ', ' . $q($s['color'])
+        . ' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE project_id <=> ' . $pv . ' AND title = ' . $q($s['title']) . ');');
+    $w('SET @s' . (int) $s['id'] . ' = (SELECT id FROM subjects WHERE project_id <=> ' . $pv . ' AND title = ' . $q($s['title']) . ' ORDER BY id LIMIT 1);');
 }
 $w('');
 $w('-- تسک‌ها + تاریخچه + یادداشت‌ها');
 $cols = ['user_id', 'assignee_id', 'subject_id', 'project_id', 'title', 'description', 'priority', 'priority_percent', 'is_completed', 'is_quick', 'board_status', 'blocked_reason', 'board_moved_at',
-    'archived_at', 'blocked_at', 'blocked_by', 'due_date', 'due_time', 'notified_at', 'share_token', 'created_at', 'completed_at', 'delivered_at', 'delivered_by', 'approved_by'];
+    'archived_at', 'blocked_at', 'blocked_by', 'due_date', 'due_time', 'notified_at', 'share_token', 'created_at', 'completed_at', 'delivered_at', 'delivered_by', 'approved_by', 'first_delivered_at', 'rework_count'];
 foreach ($tasks as $t) {
     $vals = [];
     foreach ($cols as $c) {

@@ -1,0 +1,355 @@
+{
+ "today": "2026-11-11",
+ "project": {
+  "id": "vz4sucpz94n3",
+  "title": "اپلیکیشن فروشگاه آنلاین",
+  "board_url": "/taskam/board?project=vz4sucpz94n3",
+  "analytics_url": "/taskam/projects/vz4sucpz94n3/analytics"
+ },
+ "can_manage": true,
+ "settings": {
+  "capacity": 12
+ },
+ "members": [
+  {
+   "id": 1,
+   "name": "الهام کریمی"
+  },
+  {
+   "id": 2,
+   "name": "مریم حسینی"
+  },
+  {
+   "id": 3,
+   "name": "سینا محمدی"
+  },
+  {
+   "id": 4,
+   "name": "آرش رضایی"
+  },
+  {
+   "id": 5,
+   "name": "نیلوفر احمدی"
+  },
+  {
+   "id": 6,
+   "name": "کیان اکبری",
+   "wip_limit": 8
+  },
+  {
+   "id": 7,
+   "name": "ترانه امینی",
+   "capacity": 8
+  }
+ ],
+ "tasks": [
+  {
+   "id": "t1",
+   "assignee_id": 1,
+   "title": "باگ آپلود تصویر محصول",
+   "priority": "medium",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": "2026-10-20",
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t2",
+   "assignee_id": 1,
+   "title": "مرتب‌سازی اشتباه جستجو",
+   "priority": "low",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-10-29",
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t3",
+   "assignee_id": 1,
+   "title": "جلسه‌ی برنامه‌ریزی اسپرینت",
+   "priority": "high",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-01",
+   "label": "جلسه و هماهنگی",
+   "url": "#"
+  },
+  {
+   "id": "t4",
+   "assignee_id": 1,
+   "title": "طراحی ایمیل تأیید سفارش",
+   "priority": "low",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-12",
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  },
+  {
+   "id": "t5",
+   "assignee_id": 1,
+   "title": "مستند API سبد خرید",
+   "priority": "medium",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": null,
+   "label": "مستندسازی",
+   "url": "#"
+  },
+  {
+   "id": "t6",
+   "assignee_id": 1,
+   "title": "تست صفحه‌ی پرداخت",
+   "priority": "high",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-14",
+   "label": "تست و کنترل کیفیت",
+   "url": "#"
+  },
+  {
+   "id": "t7",
+   "assignee_id": 1,
+   "title": "بازطراحی فرم ثبت‌نام",
+   "priority": "medium",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": null,
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  },
+  {
+   "id": "t8",
+   "assignee_id": 1,
+   "title": "به‌روزرسانی کتابخانه‌ها",
+   "priority": "medium",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": "2026-11-15",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t9",
+   "assignee_id": 2,
+   "title": "اتصال به درگاه پرداخت",
+   "priority": "high",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-05",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t10",
+   "assignee_id": 2,
+   "title": "API لیست محصولات",
+   "priority": "medium",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-07",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t11",
+   "assignee_id": 2,
+   "title": "خطای ۵۰۰ هنگام ثبت سفارش",
+   "priority": "high",
+   "status": "rework",
+   "status_label": "بازبینی مسئول",
+   "due_date": "2026-11-11",
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t12",
+   "assignee_id": 2,
+   "title": "کش جستجو",
+   "priority": "medium",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": "2026-11-13",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t13",
+   "assignee_id": 2,
+   "title": "وب‌هوک انبار",
+   "priority": "medium",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": null,
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t14",
+   "assignee_id": 2,
+   "title": "لاگ خطاها",
+   "priority": "low",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": "2026-11-22",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t15",
+   "assignee_id": 2,
+   "title": "صفحه‌ی مقایسه‌ی محصولات",
+   "priority": "high",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": null,
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  },
+  {
+   "id": "t16",
+   "assignee_id": 3,
+   "title": "رفع باگ صفحه‌ی پرداخت",
+   "priority": "high",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-08",
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t17",
+   "assignee_id": 3,
+   "title": "تاریخ شمسی در فاکتور",
+   "priority": "medium",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-10",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t18",
+   "assignee_id": 3,
+   "title": "بهینه‌سازی تصاویر",
+   "priority": "medium",
+   "status": "rework",
+   "status_label": "بازبینی مسئول",
+   "due_date": "2026-11-12",
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t19",
+   "assignee_id": 3,
+   "title": "گزارش فروش هفتگی",
+   "priority": "high",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-15",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t20",
+   "assignee_id": 3,
+   "title": "بازبینی کد ماژول سفارش",
+   "priority": "medium",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": null,
+   "label": "تست و کنترل کیفیت",
+   "url": "#"
+  },
+  {
+   "id": "t21",
+   "assignee_id": 3,
+   "title": "رفع نشت حافظه",
+   "priority": "high",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": null,
+   "label": "رفع باگ",
+   "url": "#"
+  },
+  {
+   "id": "t22",
+   "assignee_id": 4,
+   "title": "جلسه‌ی دمو با مشتری",
+   "priority": "medium",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-11",
+   "label": "جلسه و هماهنگی",
+   "url": "#"
+  },
+  {
+   "id": "t23",
+   "assignee_id": 4,
+   "title": "محدودیت نرخ درخواست",
+   "priority": "medium",
+   "status": "in_progress",
+   "status_label": "در حال انجام",
+   "due_date": "2026-11-13",
+   "label": "بک‌اند و API",
+   "url": "#"
+  },
+  {
+   "id": "t24",
+   "assignee_id": 4,
+   "title": "تست بار سرور",
+   "priority": "low",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": "2026-11-19",
+   "label": "تست و کنترل کیفیت",
+   "url": "#"
+  },
+  {
+   "id": "t25",
+   "assignee_id": 5,
+   "title": "طراحی حالت آفلاین",
+   "priority": "medium",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-12",
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  },
+  {
+   "id": "t26",
+   "assignee_id": 5,
+   "title": "پیام‌های خطای فرم",
+   "priority": "low",
+   "status": "backlog",
+   "status_label": "برنامه‌ریزی‌نشده",
+   "due_date": null,
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  },
+  {
+   "id": "t27",
+   "assignee_id": 6,
+   "title": "تست رگرسیون نسخه ۲",
+   "priority": "low",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-16",
+   "label": "تست و کنترل کیفیت",
+   "url": "#"
+  },
+  {
+   "id": "t28",
+   "assignee_id": 7,
+   "title": "آیکن‌های جدید اپ",
+   "priority": "low",
+   "status": "todo",
+   "status_label": "آماده انجام",
+   "due_date": "2026-11-14",
+   "label": "طراحی رابط کاربری",
+   "url": "#"
+  }
+ ]
+}

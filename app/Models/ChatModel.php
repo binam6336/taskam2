@@ -296,16 +296,18 @@ final class ChatModel
 
         if (!Crypto::configured()) {
             // پیام‌ها متن‌ساده‌اند → جستجوی SQL
-            $like = DB::like($q);
-            $found = DB::all('SELECT ' . $cols . $from . $where . ' AND (cm.message LIKE ? OR cm.attachment_name LIKE ?) ORDER BY cm.id DESC LIMIT ?', array_merge([$me], $wp, [$like, $like, $limit]));
+            [$qs, $qp] = \App\Core\Search::sql(['cm.message', 'cm.attachment_name'], $q);
+            $found = DB::all('SELECT ' . $cols . $from . $where . ' AND ' . $qs . ' ORDER BY cm.id DESC LIMIT ?', array_merge([$me], $wp, $qp, [$limit]));
             $rows = array_map([self::class, 'normalize'], $found);
         } else {
             // متن در دیتابیس رمزشده است و با LIKE جستجو نمی‌شود → آخرین پیام‌های کاربر دیکد و در PHP فیلتر می‌شوند
             $all = DB::all('SELECT ' . $cols . $from . $where . ' ORDER BY cm.id DESC LIMIT ?', array_merge([$me], $wp, [self::SEARCH_SCAN]));
             $rows = [];
+            $tokens = \App\Core\Search::tokens($q);
             foreach ($all as $r) {
                 $r = self::normalize($r);
-                if (mb_stripos((string) $r['message'] . ' ' . (string) $r['attachment_name'], $q, 0, 'UTF-8') !== false) {
+                $txt = \App\Core\Search::norm((string) $r['message'] . ' ' . (string) $r['attachment_name']);
+                if ($tokens && !array_filter($tokens, static fn($t) => mb_strpos($txt, $t) === false)) {   // v5.14: همه‌ی کلمه‌ها
                     $rows[] = $r;
                     if (count($rows) >= $limit) {
                         break;

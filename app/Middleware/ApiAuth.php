@@ -66,8 +66,9 @@ final class ApiAuth
                 Throttle::hit('api_bad_token', $ip);
                 throw new HttpException(401, 'توکن نامعتبر یا غیرفعال است.', 'TOKEN_INVALID');
             }
-            if ($row['status'] !== 'active') {
-                throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
+            // v7.8: حساب غیرفعال با توکن هم فقط خواندنی است
+            if ($row['status'] !== 'active' && !($row['status'] === 'deactivated' && $r->isSafe())) {
+                throw new HttpException(403, $row['status'] === 'deactivated' ? \App\Core\Auth::INACTIVE_MSG : 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
             }
             if (($row['scope'] ?? 'write') === 'read' && !$r->isSafe()) {
                 throw new HttpException(403, 'این توکن فقط خواندنی است و اجازه‌ی تغییر داده ندارد.', 'TOKEN_READ_ONLY');
@@ -86,8 +87,8 @@ final class ApiAuth
             }
             throw new HttpException(401, 'دسترسی غیرمجاز. توکن ارسال کنید یا وارد شوید.', 'UNAUTHORIZED');
         }
-        if ($u['status'] !== 'active') {
-            throw new HttpException(403, 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
+        if ($u['status'] !== 'active' && !($u['status'] === 'deactivated' && $r->isSafe())) {
+            throw new HttpException(403, $u['status'] === 'deactivated' ? Auth::INACTIVE_MSG : 'حساب کاربری فعال نیست.', 'ACCOUNT_INACTIVE');
         }
         if (!$r->isSafe() && !Csrf::verify($r)) {
             throw new HttpException(419, 'توکن CSRF نامعتبر است (برای نشست مرورگر هدر X-CSRF-Token لازم است).', 'CSRF_MISMATCH');

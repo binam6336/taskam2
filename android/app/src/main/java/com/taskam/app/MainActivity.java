@@ -38,7 +38,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 
 /**
- * پوسته‌ی اندروید تسکام: همان پنل وب (بدون تغییر فرانت) داخل WebView.
+ * پوسته‌ی اندروید کارلیکس (تسکام): همان پنل وب (بدون تغییر فرانت) داخل WebView.
  * - لینک‌های همان سرور داخل برنامه، بقیه (tel:، mailto:، سایت‌های دیگر) در برنامه‌ی مربوط باز می‌شوند.
  * - window.open / target=_blank (مثل «ورود به پنل کاربر» مدیر) یک لایه‌ی جدید روی صفحه باز می‌کند؛ دکمه‌ی بازگشت آن را می‌بندد.
  * - آدرس سرور ثابت است (SERVER_URL)؛ زنجیره‌ی گواهی ناقص سرور مثل کروم تکمیل می‌شود (AiaTrust).
@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
         server = SERVER;
         serverHost = Uri.parse(server).getHost();
         setContentView(R.layout.activity_main);
+        applyBars(getColor(R.color.bg));   // تا بارگذاری صفحه: رنگ تم پیش‌فرض (روشن/تیره‌ی گوشی)؛ بعد از آن theme-color خود صفحه
         stack = findViewById(R.id.web_stack);
         progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
@@ -367,15 +368,20 @@ public class MainActivity extends Activity {
             if (!c.startsWith("#")) return;
             int color;
             try { color = Color.parseColor(c); } catch (IllegalArgumentException e) { return; }
-            Window win = getWindow();
-            win.setStatusBarColor(color);
-            win.setNavigationBarColor(color);
-            findViewById(R.id.root).setBackgroundColor(color);
-            double lum = (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
-            int flags = win.getDecorView().getSystemUiVisibility();
-            int light = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
-            win.getDecorView().setSystemUiVisibility(lum > 0.6 ? flags | light : flags & ~light);
+            applyBars(color);
         });
+    }
+
+    /** رنگ نوار وضعیت و ناوبری؛ روی رنگ روشن آیکن‌های تیره */
+    private void applyBars(int color) {
+        Window win = getWindow();
+        win.setStatusBarColor(color);
+        win.setNavigationBarColor(color);
+        findViewById(R.id.root).setBackgroundColor(color);
+        double lum = (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+        int flags = win.getDecorView().getSystemUiVisibility();
+        int light = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
+        win.getDecorView().setSystemUiVisibility(lum > 0.6 ? flags | light : flags & ~light);
     }
 
     /** بازگشت: اول پنجره‌ی باز (modal) یا منوی کناری بسته می‌شود، بعد صفحه‌ی قبل، بعد لایه‌ی جدید، بعد خروج. */

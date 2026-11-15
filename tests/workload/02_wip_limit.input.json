@@ -1,0 +1,84 @@
+{
+ "today": "2026-11-11",
+ "settings": {
+  "capacity": 10
+ },
+ "can_manage": true,
+ "project": {
+  "id": "p",
+  "title": "p"
+ },
+ "members": [
+  {
+   "id": "a",
+   "name": "A"
+  },
+  {
+   "id": "b",
+   "name": "B",
+   "wip_limit": 1
+  },
+  {
+   "id": "c",
+   "name": "C"
+  }
+ ],
+ "tasks": [
+  {
+   "id": "1",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "todo",
+   "due_date": "2026-11-12",
+   "title": "t1"
+  },
+  {
+   "id": "2",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "todo",
+   "due_date": "2026-11-13",
+   "title": "t2"
+  },
+  {
+   "id": "3",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "in_progress",
+   "due_date": "2026-11-14",
+   "title": "t3"
+  },
+  {
+   "id": "4",
+   "assignee_id": "a",
+   "priority": "high",
+   "status": "backlog",
+   "due_date": null,
+   "title": "t4"
+  },
+  {
+   "id": "5",
+   "assignee_id": "b",
+   "priority": "low",
+   "status": "todo",
+   "due_date": "2026-11-12",
+   "title": "t5"
+  },
+  {
+   "id": "6",
+   "assignee_id": "c",
+   "priority": "medium",
+   "status": "todo",
+   "due_date": "2026-11-12",
+   "title": "t6"
+  },
+  {
+   "id": "7",
+   "assignee_id": "c",
+   "priority": "medium",
+   "status": "todo",
+   "due_date": "2026-11-13",
+   "title": "t7"
+  }
+ ]
+}

@@ -144,15 +144,43 @@ final class Push
         }
     }
 
+    /** مدت توقف تلاش برای میزبانی که پاسخ نداد (ثانیه) */
+    public const HOST_DOWN_TTL = 300;
+    private static array $down = [];
+
+    private static function hostFile(string $host): string
+    {
+        return STORAGE_PATH . '/cache/push_down_' . substr(hash('sha256', $host), 0, 16);
+    }
+
+    private static function hostDown(string $host): bool
+    {
+        if (isset(self::$down[$host])) {
+            return true;
+        }
+        $f = self::hostFile($host);
+        return is_file($f) && time() - (int) @filemtime($f) < self::HOST_DOWN_TTL;
+    }
+
+    private static function markDown(string $host): void
+    {
+        self::$down[$host] = true;
+        @touch(self::hostFile($host));
+    }
+
+    /** آیا اعلانی برای ارسال بعد از پاسخ در صف است؟ */
+    public static function pending(): bool
+    {
+        return self::$queue !== [];
+    }
+
     /** ارسال صف؛ ابتدا پاسخ HTTP بسته می‌شود تا کاربر منتظر سرویس push نماند. */
     public static function flush(): void
     {
         if (!self::$queue) {
             return;
         }
-        if (PHP_SAPI !== 'cli' && function_exists('fastcgi_finish_request')) {
-            @fastcgi_finish_request();
-        }
+        \App\Core\Response::finish();      // fastcgi / litespeed / بستن اتصال (v5.13.1)
         $q = self::$queue;
         self::$queue = [];
         foreach ($q as [$uid, $n]) {
@@ -186,7 +214,16 @@ final class Push
         ];
         $ok = 0;
         foreach ($subs as $s) {
+            // سرویس push در دسترس نیست (مثلاً قطع/کند بودن ارتباط سرور با آن): چند دقیقه برای آن میزبان تلاش نمی‌شود (v5.13.1)
+            $host = strtolower((string) parse_url((string) $s['endpoint'], PHP_URL_HOST));
+            if (self::hostDown($host)) {
+                continue;
+            }
             $code = WebPush::send($s, $payload, 86400, 'high', $payload['tag'] ?: null);
+            if ($code === 0) {
+                self::markDown($host);
+                continue;
+            }
             if ($code >= 200 && $code < 300) {
                 $ok++;
                 DB::run('UPDATE push_subscriptions SET last_ok_at = NOW(), fail_count = 0 WHERE id = ?', [(int) $s['id']]);
@@ -206,7 +243,7 @@ final class Push
         if (!self::enabled()) {
             return 0;
         }
-        return self::deliver($uid, ['title' => 'تسکام ✅', 'body' => 'اعلان‌های این دستگاه فعال است؛ پیام‌ها و یادآوری‌ها حتی وقتی برنامه بسته است می‌رسند.', 'url' => 'dashboard', 'tag' => 'test', 'kind' => 'test']);
+        return self::deliver($uid, ['title' => 'کارلیکس ✅', 'body' => 'اعلان‌های این دستگاه فعال است؛ پیام‌ها و یادآوری‌ها حتی وقتی برنامه بسته است می‌رسند.', 'url' => 'dashboard', 'tag' => 'test', 'kind' => 'test']);
     }
 
     // ───── رویدادها ─────
@@ -226,13 +263,13 @@ final class Push
         }
         $link = null;
         if (preg_match('/\[\[(task|call):([a-f0-9]{16,64})\]\]/i', $text, $m)) {
-            $link = $m[1] === 'task' ? 'tasks?task=' . $m[2] : 'calls?call=' . $m[2];
+            $link = $m[1] === 'task' ? 'tasks?task=' . $m[2] : null;      // درخواست تماس از v6.0 حذف شد
         }
         $clean = trim((string) preg_replace('/\[\[(?:task|call):[a-f0-9]+\]\]/i', '', $text));
         if ($senderIsBot) {
             // اعلان سیستمی: خط اول عنوان، بقیه متن
             $lines = array_values(array_filter(array_map('trim', explode("\n", $clean)), static fn($l) => $l !== ''));
-            $title = $lines[0] ?? 'تسکام';
+            $title = $lines[0] ?? 'کارلیکس';
             $body = implode(' • ', array_slice($lines, 1, 4));
             self::toUser($receiver, ['title' => $title, 'body' => $body, 'url' => $link ?? 'chat?user=' . pid('users', $sender), 'tag' => 'n' . pid('chat_messages', $msgId), 'kind' => 'system']);
             return;

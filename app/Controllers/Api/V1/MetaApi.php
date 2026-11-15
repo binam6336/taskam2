@@ -19,7 +19,7 @@ final class MetaApi extends ApiController
                 $endpoints[$g['id']][] = ['method' => $e['method'], 'url' => '/api/v1' . $e['path'], 'desc' => $e['summary']];
             }
         }
-        $this->ok(['name' => 'Taskam API', 'version' => 'v1', 'base_url' => rtrim(full_url('api/v1'), '/'), 'auth' => ['type' => 'Bearer Token', 'header' => 'Authorization: Bearer <token>'], 'docs' => full_url('docs'), 'endpoints' => $endpoints]);
+        $this->ok(['name' => 'Karlix API', 'version' => 'v1', 'base_url' => rtrim(full_url('api/v1'), '/'), 'auth' => ['type' => 'Bearer Token', 'header' => 'Authorization: Bearer <token>'], 'docs' => full_url('docs'), 'endpoints' => $endpoints]);
     }
 
     public function me()

@@ -1,5 +1,5 @@
 -- ============================================================================
---  Taskam (تسکام) — Database Schema v2.0
+--  Karlix (کارلیکس، نام قبلی: تسکام) — Database Schema v2.0
 --  ساخت دیتابیس خام و بدون داده. سازگار با MySQL 5.7+ / 8.x و MariaDB 10.3+
 --
 --  استفاده:
@@ -31,7 +31,7 @@ CREATE TABLE `users` (
   `password_hash`                   VARCHAR(255) NOT NULL                COMMENT 'Argon2id / bcrypt',
   `role`                            ENUM('admin','user') NOT NULL DEFAULT 'user',
   `status`                          ENUM('pending','active','deactivated','blocked') NOT NULL DEFAULT 'pending',
-  `admin_permissions`               TEXT NULL DEFAULT NULL               COMMENT 'منسوخ از v4.4 (نقش در admin_role)؛ JSON: add_user, delete_user, toggle_status, edit_user',
+  `admin_permissions`               TEXT NULL DEFAULT NULL               COMMENT 'دسترسی اختصاصی مدیر (v7.4، JSON کلیدهای AdminAccess::PERMS)؛ NULL = طبق نقش admin_role',
   `admin_role`                      VARCHAR(20)  NULL DEFAULT NULL       COMMENT 'نقش مدیر: super | internal | support (فقط برای role = admin)',
   `is_bot`                          TINYINT(1) NOT NULL DEFAULT 0        COMMENT '1 = ربات اطلاع‌رسانی (امکان ورود ندارد)',
   `allow_colleague_requests`        TINYINT(1) NOT NULL DEFAULT 1,
@@ -133,6 +133,8 @@ CREATE TABLE `projects` (
   `description`   TEXT NULL DEFAULT NULL,
   `max_members`   SMALLINT UNSIGNED NOT NULL DEFAULT 10,
   `priority_type` ENUM('category','percent') NOT NULL DEFAULT 'category' COMMENT 'نحوه‌ی ثبت/نمایش اولویت تسک‌ها',
+  `board_config` TEXT NULL DEFAULT NULL COMMENT 'ستون‌های بورد اختصاصی پروژه (JSON؛ NULL = بورد پیش‌فرض)',
+  `workload_capacity` INT NOT NULL DEFAULT 12 COMMENT 'ظرفیت هفتگی پیش‌فرض هر نفر در «بار کاری» (امتیاز، ۴ تا ۳۰)',
   `profile_image` VARCHAR(255) NULL DEFAULT NULL,
   `status`        TINYINT(1) NOT NULL DEFAULT 1      COMMENT '1=فعال 0=غیرفعال',
   `is_sample`     TINYINT(1) NOT NULL DEFAULT 0      COMMENT '1 = پروژه‌ی نمونه‌ی خودکار ثبت‌نام (در پنل مدیر شمرده نمی‌شود)',
@@ -155,6 +157,7 @@ CREATE TABLE `project_members` (
   `board_permissions` TEXT NULL DEFAULT NULL         COMMENT 'JSON: دسترسی عضو در برد تیمی همین پروژه (to_todo, to_progress, to_review, to_done, block, unblock, move_back, move_any)',
   `board_view_users`  TEXT NULL DEFAULT NULL         COMMENT 'JSON: شناسه‌ی اعضایی که تسک‌هایشان در برد این عضو دیده می‌شود (پیش‌فرض فقط خودش)',
   `board_limits`      TEXT NULL DEFAULT NULL         COMMENT 'JSON: سقف تسک‌های این عضو در هر ستون برد ({"todo":5,...})؛ نبودن = بدون محدودیت',
+  `weekly_capacity`   INT NULL DEFAULT NULL          COMMENT 'ظرفیت هفتگی اختصاصی عضو در «بار کاری» (امتیاز)؛ NULL = ظرفیت پروژه',
   `added_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_project_members_pid` (`pid`),
@@ -210,7 +213,8 @@ CREATE TABLE `project_leave_history` (
 CREATE TABLE `subjects` (
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`        CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
-  `user_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL                 COMMENT 'سازنده‌ی لیبل',
+  `project_id` INT UNSIGNED NULL DEFAULT NULL        COMMENT 'پروژه‌ی صاحب لیبل (v7.12)؛ NULL = لیبل شخصی قدیمی',
   `title`      VARCHAR(150) NOT NULL,
   `color`      VARCHAR(20) NOT NULL DEFAULT '#22c55e',
   `blocked_at` TIMESTAMP NULL DEFAULT NULL           COMMENT 'لیبل مسدودشده (به‌جای حذف)',
@@ -219,6 +223,7 @@ CREATE TABLE `subjects` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_subjects_pid` (`pid`),
   KEY `idx_subjects_user` (`user_id`),
+  KEY `idx_subjects_project` (`project_id`),
   CONSTRAINT `fk_subjects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -226,7 +231,7 @@ CREATE TABLE `tasks` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`      INT UNSIGNED NOT NULL               COMMENT 'سازنده',
-  `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول انجام',
+  `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول انجام (NULL وقتی تسک به گروه داده شده)',
   `subject_id`   INT UNSIGNED NULL DEFAULT NULL,
   `project_id`   INT UNSIGNED NULL DEFAULT NULL,
   `title`        VARCHAR(255) NOT NULL,
@@ -235,7 +240,8 @@ CREATE TABLE `tasks` (
   `priority_percent` TINYINT UNSIGNED NULL DEFAULT NULL COMMENT '۰ تا ۱۰۰، مضرب ۵',
   `is_completed` TINYINT(1) NOT NULL DEFAULT 0,
   `is_quick`     TINYINT(1) NOT NULL DEFAULT 0       COMMENT '1 = با «ثبت سریع» ساخته شده و هنوز وضعیتش در بورد تغییر نکرده',
-  `board_status` ENUM('backlog','todo','in_progress','blocked','review','rework','done') NOT NULL DEFAULT 'backlog' COMMENT 'وضعیت در برد تیمی (تسک جدید: backlog؛ blocked از v4.0 استفاده نمی‌شود)',
+  `is_confidential` TINYINT(1) NOT NULL DEFAULT 0    COMMENT '1 = محرمانه: فقط سازنده، مسئول و task_viewers',
+  `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog' COMMENT 'کلید ستون بورد پروژه (BoardConfig)؛ rework/review/done ثابت؛ تسک جدید = ستون شروع پروژه',
   `blocked_reason` VARCHAR(255) NULL DEFAULT NULL,
   `board_moved_at` TIMESTAMP NULL DEFAULT NULL,
   `archived_at`  TIMESTAMP NULL DEFAULT NULL          COMMENT 'زمان انتقال به آرشیو برد',
@@ -250,6 +256,9 @@ CREATE TABLE `tasks` (
   `delivered_at` TIMESTAMP NULL DEFAULT NULL          COMMENT 'آخرین تحویل برای بررسی سرپرست',
   `delivered_by` INT UNSIGNED NULL DEFAULT NULL,
   `approved_by`  INT UNSIGNED NULL DEFAULT NULL        COMMENT 'تأییدکننده در بررسی سرپرست',
+  `first_delivered_at` TIMESTAMP NULL DEFAULT NULL    COMMENT 'اولین تحویل برای بررسی (KPI؛ با برگشت پاک نمی‌شود)',
+  `rework_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0  COMMENT 'تعداد برگشت برای اصلاح (بازبینی مسئول)',
+  `rework_category` VARCHAR(120) NULL DEFAULT NULL    COMMENT 'دسته‌های علت آخرین برگشت (unclear,quality,incomplete,no_attachment,out_of_scope)',
   `updated_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tasks_pid` (`pid`),
@@ -265,6 +274,18 @@ CREATE TABLE `tasks` (
   CONSTRAINT `fk_tasks_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `users` (`id`)    ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_subject`  FOREIGN KEY (`subject_id`)  REFERENCES `subjects` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_project`  FOREIGN KEY (`project_id`)  REFERENCES `projects` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- تسک محرمانه (v6.1): کاربرانی که علاوه بر سازنده و مسئول، تسک محرمانه را می‌بینند (حداکثر ۳)
+CREATE TABLE `task_viewers` (
+  `task_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL,
+  `added_by`   INT UNSIGNED NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`task_id`, `user_id`),
+  KEY `idx_task_viewers_user` (`user_id`),
+  CONSTRAINT `fk_task_viewers_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_task_viewers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_notes` (
@@ -309,6 +330,30 @@ CREATE TABLE `task_mentions` (
   CONSTRAINT `fk_tm_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_tm_note` FOREIGN KEY (`note_id`) REFERENCES `task_notes` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_tm_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- دستیار هوش مصنوعی کارلیکس (v7.19): هر یادداشت دارای @کارلیکس = یک درخواست
+CREATE TABLE `ai_requests` (
+  `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `task_id`       INT UNSIGNED NOT NULL,
+  `note_id`       INT UNSIGNED NOT NULL              COMMENT 'یادداشت کاربر که کارلیکس در آن منشن شده (هر یادداشت یک درخواست)',
+  `user_id`       INT UNSIGNED NOT NULL              COMMENT 'درخواست‌کننده؛ همه‌ی عملیات با دسترسی همین کاربر اجرا می‌شود',
+  `status`        VARCHAR(16) NOT NULL DEFAULT 'pending' COMMENT 'pending | running | done | partial | failed | clarify | refused | error',
+  `reply_note_id` INT UNSIGNED NULL DEFAULT NULL     COMMENT 'یادداشت پاسخ کارلیکس',
+  `actions`       TEXT NULL                          COMMENT 'JSON: عملیات معتبر پیشنهادی مدل و نتیجه‌ی واقعی اجرای هرکدام',
+  `error`         VARCHAR(255) NULL DEFAULT NULL     COMMENT 'کد خطای سرویس هوش مصنوعی یا اعتبارسنجی (بدون اطلاعات حساس)',
+  `model`         VARCHAR(64) NULL DEFAULT NULL,
+  `tokens`        INT UNSIGNED NULL DEFAULT NULL     COMMENT 'مصرف توکن گزارش‌شده‌ی سرویس',
+  `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `started_at`    TIMESTAMP NULL DEFAULT NULL,
+  `finished_at`   TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_ai_note` (`note_id`),
+  KEY `idx_ai_task` (`task_id`, `created_at`),
+  KEY `idx_ai_user` (`user_id`, `created_at`),
+  CONSTRAINT `fk_ai_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ai_note` FOREIGN KEY (`note_id`) REFERENCES `task_notes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ai_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_attachments` (
@@ -455,40 +500,14 @@ CREATE TABLE `chat_history_clears` (
   CONSTRAINT `fk_chc_other` FOREIGN KEY (`other_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ─────────────────────────────  تماس / متن‌های آماده  ─────────────────────────────
-
-CREATE TABLE `call_requests` (
-  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
-  `user_id`      INT UNSIGNED NOT NULL               COMMENT 'ثبت‌کننده',
-  `assignee_id`  INT UNSIGNED NULL DEFAULT NULL      COMMENT 'مسئول پیگیری',
-  `first_name`   VARCHAR(150) NOT NULL,
-  `last_name`    VARCHAR(150) NOT NULL,
-  `mobile`       VARCHAR(20) NOT NULL,
-  `email`        VARCHAR(150) NULL DEFAULT NULL,
-  `store`        VARCHAR(255) NULL DEFAULT NULL,
-  `website`      VARCHAR(255) NULL DEFAULT NULL,
-  `description`  TEXT NULL DEFAULT NULL,
-  `status`       TINYINT(1) NOT NULL DEFAULT 0       COMMENT '0=جدید 1=انجام‌شده',
-  `share_token`  VARCHAR(64) NULL DEFAULT NULL,
-  `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `completed_at` TIMESTAMP NULL DEFAULT NULL,
-  `blocked_at`   TIMESTAMP NULL DEFAULT NULL         COMMENT 'درخواست مسدودشده (به‌جای حذف)',
-  `blocked_by`   INT UNSIGNED NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_call_requests_pid` (`pid`),
-  UNIQUE KEY `uq_calls_share_token` (`share_token`),
-  KEY `idx_calls_user` (`user_id`, `status`),
-  KEY `idx_calls_assignee` (`assignee_id`, `status`),
-  CONSTRAINT `fk_calls_user`     FOREIGN KEY (`user_id`)     REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_calls_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ─────────────────────────────  یادداشت‌ها (متن‌های آماده‌ی قدیمی)  ─────────────────────────────
 
 CREATE TABLE `texts` (
   `id`         VARCHAR(50) NOT NULL                  COMMENT '<hex>_<hex> — برای سازگاری با API نسخه‌ی ۱ رشته است',
   `user_id`    INT UNSIGNED NOT NULL,
   `title`      VARCHAR(255) NOT NULL,
   `content`    TEXT NOT NULL,
+  `color`      VARCHAR(12) NOT NULL DEFAULT 'yellow'  COMMENT 'رنگ یادداشت: yellow|green|blue|red|purple',
   `sort_order` INT NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

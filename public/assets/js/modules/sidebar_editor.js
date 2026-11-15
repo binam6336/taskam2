@@ -6,6 +6,9 @@ document.addEventListener('tk:ready', () => {
   const E = TK.esc;
   const pages = Object.fromEntries(cfg.pages.map((p) => [p.key, p]));
   const pageOpts = (sel) => cfg.pages.map((p) => `<option value="${E(p.key)}"${p.key === sel ? ' selected' : ''}>${E(p.label)} — ${E(p.path)}</option>`).join('');
+  const maxD = cfg.maxDesc || 80, defD = cfg.defaultDesc || {};
+  // توضیح زیر نام (v5.9): در پاپ‌آپ زیرمنوی سایدبار نمایش داده می‌شود
+  const descInput = (v, ph) => `<input class="input sb-desc" maxlength="${maxD}" value="${E(v || '')}" placeholder="${E(ph)}" aria-label="توضیح زیر نام">`;
   const handle = '<button type="button" class="sb-handle" aria-label="جابه‌جایی" title="بکشید تا جابه‌جا شود"><i class="fa-solid fa-grip-vertical"></i></button>';
 
   const leaf = (i) => {
@@ -22,6 +25,7 @@ document.addEventListener('tk:ready', () => {
         <input class="input sb-url ltr${isLink ? '' : ' hidden'}" maxlength="300" value="${E(i.url || '')}" placeholder="https://example.com" aria-label="لینک">
         <label class="sb-soon${isLink ? ' hidden' : ''}" title="نمایش با برچسب «به‌زودی» و غیرقابل کلیک"><input type="checkbox"${i.soon ? ' checked' : ''}> به‌زودی</label>
         <button type="button" class="btn btn-ghost btn-icon btn-sm sb-del" aria-label="حذف" title="حذف"><i class="fa-solid fa-trash"></i></button>
+        ${descInput(i.desc, 'توضیح کوتاه زیر نام (اختیاری)')}
       </div>`;
     return li;
   };
@@ -35,6 +39,7 @@ document.addEventListener('tk:ready', () => {
         <span class="sb-ico"><i class="fa-solid ${E(g.icon)}"></i></span>
         <input class="input sb-label" maxlength="40" value="${E(g.label)}" placeholder="نام گروه" aria-label="نام گروه">
         <span class="badge">گروه</span>
+        ${descInput(g.desc, 'توضیح گروه (زیر عنوان پنجره‌ی زیرمنو)')}
       </div><ul class="sb-list sb-children"></ul>`;
     const ul = li.querySelector('.sb-children');
     g.items.forEach((c) => ul.appendChild(leaf(c)));
@@ -54,7 +59,9 @@ document.addEventListener('tk:ready', () => {
       if (link) li.querySelector('.sb-url').focus();
     }
     if (e.target.matches('.sb-page')) {
-      const p = pages[e.target.value], lab = li.querySelector('.sb-label');
+      const p = pages[e.target.value], lab = li.querySelector('.sb-label'), d = li.querySelector('.sb-desc');
+      // توضیح خالی یا پیش‌فرضِ یک صفحه → توضیح پیش‌فرض صفحه‌ی جدید
+      if (d && (!d.value.trim() || Object.values(defD).includes(d.value.trim()))) d.value = defD[e.target.value] || '';
       li.querySelector('.sb-ico i').className = 'fa-solid ' + p.icon;
       // نام پیش‌فرض صفحه‌ی قبلی (یا خالی) → نام پیش‌فرض صفحه‌ی جدید
       if (!lab.value.trim() || cfg.pages.some((x) => x.label === lab.value.trim())) lab.value = p.label;
@@ -74,18 +81,18 @@ document.addEventListener('tk:ready', () => {
   /* ذخیره */
   const serialize = () => TK.qsa(':scope > .sb-node', root).map((li) => {
     const label = li.querySelector('.sb-label').value.trim();
-    if (li.dataset.t === 'group') return { t: 'group', id: li.dataset.id, label, items: TK.qsa(':scope > .sb-children > .sb-node', li).map(leafData) };
+    if (li.dataset.t === 'group') return { t: 'group', id: li.dataset.id, label, desc: li.querySelector(':scope > .sb-row .sb-desc').value.trim(), items: TK.qsa(':scope > .sb-children > .sb-node', li).map(leafData) };
     return leafData(li);
   });
   const leafData = (li) => {
-    const label = li.querySelector('.sb-label').value.trim();
-    if (li.querySelector('.sb-type').value === 'link') return { t: 'link', label, url: li.querySelector('.sb-url').value.trim() };
-    return { t: 'page', page: li.querySelector('.sb-page').value, label, soon: li.querySelector('.sb-soon input').checked };
+    const label = li.querySelector('.sb-label').value.trim(), desc = li.querySelector('.sb-desc').value.trim();
+    if (li.querySelector('.sb-type').value === 'link') return { t: 'link', label, desc, url: li.querySelector('.sb-url').value.trim() };
+    return { t: 'page', page: li.querySelector('.sb-page').value, label, desc, soon: li.querySelector('.sb-soon input').checked };
   };
   TK.qs('#sb-save').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     TK.busy(btn, true);
-    const r = await TK.post('/admin/content/sidebar', { menu: JSON.stringify(serialize()) });
+    const r = await TK.post('/admin/content/sidebar', { menu: JSON.stringify(serialize()), show_desc: TK.qs('#sb-show-desc')?.checked ? '1' : '0' });
     TK.busy(btn, false);
     TK.toast(r.message || (TK.ok(r) ? 'ذخیره شد' : 'خطا'), TK.ok(r) ? 'success' : 'error');
     if (TK.ok(r)) setTimeout(() => location.reload(), 600);

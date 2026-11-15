@@ -1,10 +1,10 @@
-/* پنجره‌ی «مسدودشده‌ها»: مسدود کردن به‌جای حذف (تسک، پروژه، لیبل، درخواست تماس).
-   دکمه‌ی [data-blocked-list="tasks|projects|labels|calls"] فهرست را از GET /blocked/{kind} می‌گیرد؛ «رفع مسدودی» = POST /unblock/{kind}/{id}. */
+/* پنجره‌ی «مسدودشده‌ها»: مسدود کردن به‌جای حذف (تسک، پروژه، لیبل).
+   دکمه‌ی [data-blocked-list="tasks|projects|labels"] فهرست را از GET /blocked/{kind} می‌گیرد؛ «رفع مسدودی» = POST /unblock/{kind}/{id}. */
 document.addEventListener('tk:ready', () => {
   const m = TK.qs('#m-blocked'); if (!m) return;
   const list = TK.qs('#blk-list'), title = TK.qs('#blk-title'), E = TK.esc;
-  const ICON = { tasks: 'fa-list-check', projects: 'fa-diagram-project', labels: 'fa-tag', calls: 'fa-phone' };
-  const EMPTY = { tasks: 'تسک مسدودشده‌ای ندارید.', projects: 'پروژه‌ی مسدودشده‌ای ندارید.', labels: 'لیبل مسدودشده‌ای ندارید.', calls: 'درخواست تماس مسدودشده‌ای ندارید.' };
+  const ICON = { tasks: 'fa-list-check', projects: 'fa-diagram-project', labels: 'fa-tag' };
+  const EMPTY = { tasks: 'تسک مسدودشده‌ای ندارید.', projects: 'پروژه‌ی مسدودشده‌ای ندارید.', labels: 'لیبل مسدودشده‌ای ندارید.' };
   let kind = '', changed = false;
 
   const row = (it) => {

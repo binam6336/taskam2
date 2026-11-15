@@ -3,7 +3,7 @@
  * یادآوری مهلت تسک‌ها با اعلان PWA (Web Push).
  * سایت این کار را با هر بازدید حداکثر دقیقه‌ای یک‌بار خودش انجام می‌دهد؛ برای دقت کامل حتی وقتی کسی سایت را باز نکرده،
  * این اسکریپت را هر دقیقه با کران‌جاب اجرا کنید:
- *     * * * * * php /path/to/taskam/bin/push-cron.php >/dev/null 2>&1
+ *     * * * * * php /path/to/karlix/bin/push-cron.php >/dev/null 2>&1
  */
 declare(strict_types=1);
 

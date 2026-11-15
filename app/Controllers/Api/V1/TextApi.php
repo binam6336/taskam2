@@ -20,7 +20,7 @@ final class TextApi extends ApiController
 
     private static function format(array $t): array
     {
-        return ['id' => $t['id'], 'title' => $t['title'], 'content' => $t['content'], 'sort_order' => (int) $t['sort_order'], 'created_at' => $t['created_at'], 'updated_at' => $t['updated_at']];
+        return ['id' => $t['id'], 'title' => $t['title'], 'content' => $t['content'], 'color' => TextModel::color($t['color'] ?? null), 'sort_order' => (int) $t['sort_order'], 'created_at' => $t['created_at'], 'updated_at' => $t['updated_at']];
     }
 
     public function list()
@@ -34,7 +34,7 @@ final class TextApi extends ApiController
     public function show()
     {
         $t = TextModel::owned($this->tid(), $this->uid);
-        $t === null ? $this->err('متن یافت نشد.', 404, 'TEXT_NOT_FOUND') : $this->ok(self::format($t));
+        $t === null ? $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND') : $this->ok(self::format($t));
     }
 
     public function stats()
@@ -48,8 +48,8 @@ final class TextApi extends ApiController
         $in = $this->body();
         $title = trim((string) ($in['title'] ?? ''));
         $content = trim((string) ($in['content'] ?? ''));
-        if ($title === '' || $content === '') {
-            $this->err('عنوان و متن الزامی هستند.', 400, 'FIELDS_REQUIRED');
+        if ($content === '') {
+            $this->err('متن یادداشت الزامی است.', 400, 'FIELDS_REQUIRED');
         }
         if (mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
             $this->err('عنوان یا متن بیش از حد طولانی است.', 400, 'TOO_LONG');
@@ -57,12 +57,12 @@ final class TextApi extends ApiController
         if ($lim = \App\Services\Limits::create('text', $this->uid)) {
             $this->err($lim, 429, 'LIMIT_REACHED');
         }
-        $row = TextModel::create($this->uid, $title, $content);
+        $row = TextModel::create($this->uid, $title, $content, (string) ($in['color'] ?? TextModel::DEFAULT_COLOR));
         if (isset($in['sort_order']) && is_numeric($in['sort_order'])) {
             DB::run('UPDATE texts SET sort_order = ? WHERE id = ? AND user_id = ?', [(int) $in['sort_order'], $row['id'], $this->uid]);
             $row = TextModel::owned($row['id'], $this->uid) ?? $row;
         }
-        $this->ok(self::format($row), 'متن با موفقیت ایجاد شد.');
+        $this->ok(self::format($row), 'یادداشت ایجاد شد.');
     }
 
     public function update()
@@ -70,29 +70,29 @@ final class TextApi extends ApiController
         $id = $this->tid();
         $t = TextModel::owned($id, $this->uid);
         if ($t === null) {
-            $this->err('متن یافت نشد.', 404, 'TEXT_NOT_FOUND');
+            $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND');
         }
         $in = $this->body();
         $title = trim((string) ($in['title'] ?? $t['title']));
         $content = trim((string) ($in['content'] ?? $t['content']));
-        if ($title === '' || $content === '' || mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
+        if ($content === '' || mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
             $this->err('عنوان یا متن نامعتبر است.', 400, 'FIELDS_INVALID');
         }
-        $set = ['title' => $title, 'content' => $content];
+        $set = ['title' => $title, 'content' => $content, 'color' => isset($in['color']) ? TextModel::color((string) $in['color']) : TextModel::color($t['color'] ?? null)];
         if (isset($in['sort_order']) && is_numeric($in['sort_order'])) {
             $set['sort_order'] = (int) $in['sort_order'];
         }
         DB::update('texts', $set, 'id = ? AND user_id = ?', [$id, $this->uid]);
-        $this->ok(self::format(TextModel::owned($id, $this->uid) ?? []), 'متن با موفقیت ویرایش شد.');
+        $this->ok(self::format(TextModel::owned($id, $this->uid) ?? []), 'یادداشت ویرایش شد.');
     }
 
     public function delete()
     {
         $id = $this->tid();
         if (TextModel::owned($id, $this->uid) === null) {
-            $this->err('متن یافت نشد.', 404, 'TEXT_NOT_FOUND');
+            $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND');
         }
         DB::run('DELETE FROM texts WHERE id = ? AND user_id = ?', [$id, $this->uid]);
-        $this->ok(['id' => $id], 'متن حذف شد.');
+        $this->ok(['id' => $id], 'یادداشت حذف شد.');
     }
 }

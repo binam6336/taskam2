@@ -18,7 +18,7 @@ document.addEventListener('tk:ready', () => {
   const assignable = () => {
     const p = project(); const all = opt?.people || [];
     if (!p) return all.filter((x) => x.me);
-    return all.filter((x) => x.me || (p.can_assign && p.members.includes(x.id)));
+    return [...all.filter((x) => x.me || (p.can_assign && p.members.includes(x.id)))];
   };
 
   const chip = (icon, label, value, kind, extra = '') => `<span class="qk-chip ${extra}"><i class="fa-solid ${icon}"></i> ${label}: <b>${E(value)}</b>${kind ? `<button type="button" class="qk-x" data-qk-clear="${kind}" aria-label="حذف ${label}"><i class="fa-solid fa-xmark"></i></button>` : ''}</span>`;
@@ -48,8 +48,8 @@ document.addEventListener('tk:ready', () => {
       return;
     }
     menu.innerHTML = ac.items.map((it, i) => `<div class="qk-opt${i === ac.idx ? ' active' : ''}" role="option" id="qk-o${i}" aria-selected="${i === ac.idx}" data-i="${i}">`
-      + (ac.type === '@' ? `<span class="avatar xs">${it.avatar ? `<img src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>` : '<i class="fa-solid fa-diagram-project"></i>')
-      + `<span>${E(ac.type === '@' ? it.name : it.title)}</span></div>`).join('');
+      + (ac.type === '@' ? (`<span class="avatar xs">${it.avatar ? `<img loading="lazy" decoding="async" src="${E(it.avatar)}" alt="">` : E(TK.initial(it.name))}</span>`) : '<i class="fa-solid fa-diagram-project"></i>')
+      + `<span>${E(ac.type === '@' ? it.name : it.title)}${it.note ? ` <small class="faint">${E(it.note)}</small>` : ''}</span></div>`).join('');
     menu.hidden = false; inp.setAttribute('aria-expanded', 'true'); inp.setAttribute('aria-activedescendant', 'qk-o' + ac.idx);
   };
   const detect = async () => {

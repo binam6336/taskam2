@@ -1,4 +1,4 @@
-/* Taskam — ویجت‌های مشترک: تقویم شمسی، ساعت آنالوگ (AM/PM)، فیلد موبایل. فضای نام TK (بعد از app.js). */
+/* Karlix — ویجت‌های مشترک: تقویم شمسی، ساعت آنالوگ (AM/PM)، فیلد موبایل. فضای نام TK (بعد از app.js). */
 (() => {
   'use strict';
   const TK = window.TK;
@@ -38,7 +38,16 @@
     parseIso(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? [+m[1], +m[2], +m[3]] : null; },
     /** روز هفته‌ی یک تاریخ شمسی؛ شنبه = 0 */
     weekday(jy, jm, jd) { const [y, m, d] = J.j2g(jy, jm, jd); return (new Date(y, m - 1, d).getDay() + 1) % 7; },
-    today() { const n = new Date(); return J.g2j(n.getFullYear(), n.getMonth() + 1, n.getDate()); },
+    /** «اکنون» به وقت سرور (v7.7، DATA-009): ساعت دستگاه یا منطقه‌ی زمانی مرورگر روی «امروز» اثر نمی‌گذارد؛
+        getterهای محلی همین Date ساعت دیواری سرور (تهران) را نشان می‌دهند. boot.clock = {now: ثانیه‌ی یونیکس سرور، tz: اختلاف ثانیه‌ای منطقه‌ی سرور} */
+    now() {
+      const ck = TK.boot().clock;
+      if (!ck || !Number.isFinite(+ck.now)) return new Date();
+      if (J._skew === undefined || J._ck !== ck.now) { J._ck = ck.now; J._skew = ck.now * 1000 - Date.now(); }
+      const t = Date.now() + J._skew + (+ck.tz || 0) * 1000;
+      return new Date(t + new Date(t).getTimezoneOffset() * 60000);
+    },
+    today() { const n = J.now(); return J.g2j(n.getFullYear(), n.getMonth() + 1, n.getDate()); },
   };
   J.MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
   J.WD = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
@@ -65,17 +74,18 @@
       let head = '', body = '';
       if (view.mode === 'days') {
         const first = J.weekday(view.y, view.m, 1), len = J.monthLen(view.y, view.m);
+        // v7.18.1 (درخواست کاربر): فلش راست = ماه بعد، فلش چپ = ماه قبل (سال‌ها هم همین‌طور)
         head = `<button type="button" data-nav="1" aria-label="ماه بعد"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="months">${J.MONTHS[view.m - 1]} ${FA(view.y)}</button><button type="button" data-nav="-1" aria-label="ماه قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-wd">${J.WD.map((d) => `<span>${d}</span>`).join('')}</div><div class="jcal-grid">${'<i></i>'.repeat(first)}${Array.from({ length: len }, (_, i) => {
           const d = i + 1, isT = t[0] === view.y && t[1] === view.m && t[2] === d, isS = sel && sel[0] === view.y && sel[1] === view.m && sel[2] === d;
           return `<button type="button" class="jcal-day${isT ? ' today' : ''}${isS ? ' sel' : ''}${(first + i) % 7 === 6 ? ' fri' : ''}" data-d="${d}">${FA(d)}</button>`;
         }).join('')}</div>`;
       } else if (view.mode === 'months') {
-        head = `<button type="button" data-ynav="1"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="years">${FA(view.y)}</button><button type="button" data-ynav="-1"><i class="fa-solid fa-chevron-left"></i></button>`;
+        head = `<button type="button" data-ynav="1" aria-label="سال بعد"><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="jcal-title" data-mode="years">${FA(view.y)}</button><button type="button" data-ynav="-1" aria-label="سال قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-months">${J.MONTHS.map((n, i) => `<button type="button" class="${t[0] === view.y && t[1] === i + 1 ? 'today' : ''}${sel && sel[0] === view.y && sel[1] === i + 1 ? ' sel' : ''}" data-m="${i + 1}">${n}</button>`).join('')}</div>`;
       } else {
         const base = view.y - (view.y % 12);
-        head = `<button type="button" data-yrange="12"><i class="fa-solid fa-chevron-right"></i></button><span class="jcal-title">${FA(base)} – ${FA(base + 11)}</span><button type="button" data-yrange="-12"><i class="fa-solid fa-chevron-left"></i></button>`;
+        head = `<button type="button" data-yrange="12" aria-label="سال‌های بعد"><i class="fa-solid fa-chevron-right"></i></button><span class="jcal-title">${FA(base)} – ${FA(base + 11)}</span><button type="button" data-yrange="-12" aria-label="سال‌های قبل"><i class="fa-solid fa-chevron-left"></i></button>`;
         body = `<div class="jcal-months">${Array.from({ length: 12 }, (_, i) => base + i).map((y) => `<button type="button" class="${t[0] === y ? 'today' : ''}${sel && sel[0] === y ? ' sel' : ''}" data-y="${y}">${FA(y)}</button>`).join('')}</div>`;
       }
       pop.innerHTML = `<div class="jcal-head">${head}</div>${body}<div class="jcal-foot"><button type="button" class="btn btn-xs btn-primary" data-today>امروز</button><button type="button" class="btn btn-xs" data-clear>پاک کردن</button></div>`;
@@ -115,7 +125,7 @@
     let draft = null, mode = 'h';
     const to24 = (c) => (c.h % 12) + (c.pm ? 12 : 0);
     const from24 = (h24, m) => ({ h: h24 % 12 === 0 ? 12 : h24 % 12, m, pm: h24 >= 12 });
-    const paintVal = () => { val.innerHTML = cur ? `<span class="ltr">${FA(`${p2(cur.h)}:${p2(cur.m)}`)}</span> <b class="xs" data-css="color:var(--g-300)">${cur.pm ? 'PM' : 'AM'}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
+    const paintVal = () => { val.innerHTML = cur ? `<span class="ltr">${FA(`${p2(cur.h)}:${p2(cur.m)}`)}</span> <b class="dc-13fd80 xs">${cur.pm ? 'PM' : 'AM'}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
     const set = (hhmm) => {
       const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
       if (m) { cur = from24(+m[1], +m[2]); inp.value = `${p2(to24(cur))}:${p2(cur.m)}`; } else { cur = null; inp.value = ''; }
@@ -159,14 +169,14 @@
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.mode) { mode = b.dataset.mode; return draw(); }
       if (b.dataset.ap) { draft.pm = b.dataset.ap === 'pm'; return draw(); }
-      if (b.hasAttribute('data-now')) { const n = new Date(); draft = from24(n.getHours(), n.getMinutes()); return draw(); }
+      if (b.hasAttribute('data-now')) { const n = J.now(); draft = from24(n.getHours(), n.getMinutes()); return draw(); }
       if (b.hasAttribute('data-clear')) { cur = null; inp.value = ''; paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); return; }
       if (b.hasAttribute('data-ok')) { cur = { ...draft }; inp.value = `${p2(to24(cur))}:${p2(cur.m)}`; paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); }
     });
     btn.addEventListener('click', (e) => {
       e.stopPropagation(); if (btn.disabled) return;
       if (host.classList.contains('open')) return close();
-      const n = new Date(); draft = cur ? { ...cur } : from24(n.getHours(), n.getMinutes()); mode = 'h'; draw();
+      const n = J.now(); draft = cur ? { ...cur } : from24(n.getHours(), n.getMinutes()); mode = 'h'; draw();
       TK.qsa('.picker.open').forEach((x) => x !== host && x.classList.remove('open'));
       host.classList.add('open'); pop.hidden = false;
     });
@@ -200,8 +210,8 @@
       const check = () => {
         if (!el.value) { h.textContent = ''; h.className = 'hint pw-match'; el.setCustomValidity(''); return; }
         const ok = el.value === target.value;
-        h.textContent = ok ? '✓ تکرار رمز درست است.' : 'تکرار رمز با رمز جدید یکی نیست.'; h.className = 'hint pw-match ' + (ok ? 'ok' : 'bad');
-        el.setCustomValidity(ok ? '' : 'تکرار رمز با رمز جدید یکی نیست.');
+        h.textContent = ok ? '✓ تکرار رمز درست است.' : 'تکرار رمز با رمز واردشده یکی نیست.'; h.className = 'hint pw-match ' + (ok ? 'ok' : 'bad');
+        el.setCustomValidity(ok ? '' : 'تکرار رمز با رمز واردشده یکی نیست.');
       };
       el.addEventListener('input', check); target.addEventListener('input', check);
     }
@@ -218,7 +228,7 @@
     host.innerHTML = `<input type="hidden" name="${E(dateName)}" value=""><input type="hidden" name="${E(timeName)}" value="">`
       + '<button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar-check"></i></button><div class="picker-pop dp-pop" hidden></div>';
     const [dIn, tIn] = host.querySelectorAll('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
-    const isoOf = (offset) => { const n = new Date(); n.setDate(n.getDate() + offset); return J.iso(n.getFullYear(), n.getMonth() + 1, n.getDate()); };
+    const isoOf = (offset) => { const n = J.now(); n.setDate(n.getDate() + offset); return J.iso(n.getFullYear(), n.getMonth() + 1, n.getDate()); };
     const DAYS = [['today', 0, 'امروز', 'fa-sun'], ['tomorrow', 1, 'فردا', 'fa-cloud-sun'], ['after', 2, 'پس‌فردا', 'fa-calendar-day']];
     const jLabel = (iso) => { const g = J.parseIso(iso); if (!g) return ''; const [jy, jm, jd] = J.g2j(...g); return `${WD_FULL[J.weekday(jy, jm, jd)]} ${FA(jd)} ${J.MONTHS[jm - 1]}`; };
     const rel = (iso) => (DAYS.find(([, off]) => isoOf(off) === iso) || [])[2] || '';
@@ -232,13 +242,13 @@
     const fire = () => { dIn.dispatchEvent(new Event('change', { bubbles: true })); };
     const setBoth = (d, t) => { dIn.value = d || ''; tIn.value = d ? (t || '') : ''; paint(); };
     const close = () => { host.classList.remove('open'); pop.hidden = true; };
-    const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+    const nowMin = () => { const n = J.now(); return n.getHours() * 60 + n.getMinutes(); };
     const mins = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
     // پیش‌فرض ساعت با کلیک روی خود روز: ساعت فعلیِ انتخاب‌شده، وگرنه برای امروز ساعت کامل بعدی و برای بقیه ۰۹:۰۰
     const defTime = (off) => {
       if (tIn.value) return tIn.value;
       if (off > 0) return '09:00';
-      const h = new Date().getHours() + 1;
+      const h = J.now().getHours() + 1;
       return h <= 23 ? `${p2(h)}:00` : '';
     };
     let openRow = null;

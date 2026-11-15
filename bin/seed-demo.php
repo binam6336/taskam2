@@ -181,14 +181,14 @@ foreach ($projects as $p) {
 }
 $out('پروژه‌ها: ' . count($projects) . ' تیم ساخته شد.');
 
-/* ───────────── لیبل‌ها (هر سازنده لیبل‌های تیم خودش) ───────────── */
+/* ───────────── لیبل‌ها (v7.12: لیبل‌های هر پروژه، ساخته‌ی سرپرست تیم) ───────────── */
 $labelCache = [];
-$labelOf = static function (int $uid, string $title) use (&$labelCache): int {
-    $k = $uid . '|' . $title;
+$labelOf = static function (int $uid, int $projectId, string $title) use (&$labelCache): int {
+    $k = $projectId . '|' . $title;
     if (!isset($labelCache[$k])) {
         $colors = \App\Models\SubjectModel::COLORS;
-        $id = (int) DB::value('SELECT id FROM subjects WHERE user_id = ? AND title = ? LIMIT 1', [$uid, $title]);
-        $labelCache[$k] = $id ?: DB::insert('subjects', ['user_id' => $uid, 'title' => $title, 'color' => $colors[crc32($title) % count($colors)]]);
+        $id = (int) DB::value('SELECT id FROM subjects WHERE project_id = ? AND title = ? LIMIT 1', [$projectId, $title]);
+        $labelCache[$k] = $id ?: DB::insert('subjects', ['user_id' => $uid, 'project_id' => $projectId, 'title' => $title, 'color' => $colors[crc32($title) % count($colors)]]);
     }
     return $labelCache[$k];
 };
@@ -236,7 +236,7 @@ for ($n = 0; $n < $taskCount; $n++) {
     $prio = $pick(['high', 'medium', 'medium', 'medium', 'low', 'high', 'low', 'medium']);
     $pct = $p['type'] === 'percent' ? ['high' => mt_rand(14, 20), 'medium' => mt_rand(8, 13), 'low' => mt_rand(1, 7)][$prio] * 5 : null;
     $title = $pick($p['verbs']) . ' ' . $pick($p['objects']) . (mt_rand(1, 100) <= 35 ? ' — فاز ' . mt_rand(1, 3) : '');
-    $label = mt_rand(1, 100) <= 82 ? $labelOf($p['sup'], $pick($p['labels'])) : null;   // لیبل‌های تیم = لیبل‌های سرپرست
+    $label = mt_rand(1, 100) <= 82 ? $labelOf($p['sup'], (int) $p['id'], $pick($p['labels'])) : null;   // لیبل‌های تیم = لیبل‌های سرپرست
     // سررسید
     $due = null;
     $dueTime = null;
@@ -318,6 +318,16 @@ for ($n = 0; $n < $taskCount; $n++) {
         'completed_at' => $isDone ? $ts($approved) : null, 'delivered_at' => $deliveredAt ? $ts($deliveredAt) : null, 'delivered_by' => $deliveredBy,
         'approved_by' => $isDone ? $reviewer : null,
     ]);
+    // v7.7: اولین تحویل و تعداد برگشت برای اصلاح (KPI) از همان تاریخچه
+    $firstDel = null;
+    $reworks = 0;
+    foreach ($past as [$et, , $to]) {
+        if (($to === 'review' || $to === 'done') && $firstDel === null) {
+            $firstDel = $et;
+        }
+        $reworks += $to === 'rework' ? 1 : 0;
+    }
+    DB::run('UPDATE tasks SET first_delivered_at = ?, rework_count = ? WHERE id = ?', [$firstDel !== null ? $ts($firstDel) : ($deliveredAt ? $ts($deliveredAt) : null), $reworks, $tid]);
     // تاریخچه
     DB::insert('task_events', ['task_id' => $tid, 'user_id' => $creator, 'type' => 'created', 'data' => json_encode(['title' => $title], JSON_UNESCAPED_UNICODE), 'created_at' => $ts($created)]);
     foreach ($past as [$et, $from, $to, $by, $why]) {

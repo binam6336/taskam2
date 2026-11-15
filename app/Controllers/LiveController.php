@@ -38,11 +38,14 @@ final class LiveController extends Controller
 
         $counts = [
             'chat'       => ChatModel::totalUnread($uid),
+            'notifs'     => $notifs = \App\Services\NotificationCenter::unread($uid),   // v7.15 زنگ اعلان‌ها (پیام‌های ربات)
+            'chat_people' => 0,                                                  // v7.15 آیکون گفتگوی نوار بالا: بدون پیام‌های ربات (آن‌ها در زنگ‌اند)
             'support'    => SupportModel::unreadForUser($uid),
             'colleagues' => (int) DB::value("SELECT COUNT(*) FROM colleague_requests WHERE target_id = ? AND status = 'pending'", [$uid]),
             'projects'   => (int) DB::value("SELECT COUNT(*) FROM project_join_requests WHERE user_id = ? AND status = 'pending'", [$uid]),
-            'tasks'      => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
+            'tasks'      => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE ' . \App\Models\TaskModel::mine($uid, 'tasks') . ' AND is_completed = 0 AND blocked_at IS NULL', [$uid]),
         ];
+        $counts['chat_people'] = max(0, $counts['chat'] - $notifs);
 
         // ── پیام‌های جدید برای اعلان ──
         $messages = [];
@@ -110,7 +113,7 @@ final class LiveController extends Controller
             return implode('.', array_map('strval', $r));
         };
         $p = [];
-        $mine = 'SELECT id FROM tasks WHERE user_id = ? OR assignee_id = ?';
+        $mine = 'SELECT id FROM tasks WHERE user_id = ? OR ' . \App\Models\TaskModel::mine($uid, 'tasks');
 
         if ($admin) {
             if ($scope === 'admin-users') {
@@ -125,19 +128,17 @@ final class LiveController extends Controller
         switch ($scope) {
             case 'tasks':
             case 'subjects':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR " . \App\Models\TaskModel::mine($uid, 'tasks'), [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(MAX(id), 0) m, COALESCE(SUM(CRC32(note)), 0) h FROM task_notes WHERE task_id IN ($mine)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c FROM task_attachments WHERE task_id IN ($mine)", [$uid, $uid]);
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, color))), 0) h FROM subjects WHERE user_id = ?", [$uid]);
+                // لیبل‌های پروژه‌های کاربر (v7.12) + لیبل‌های شخصی قدیمی خودش
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, color, project_id, blocked_at))), 0) h FROM subjects WHERE user_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ? UNION SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image, p.blocked_at))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 break;
             case 'board':
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, blocked_at, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
-                    WHERE user_id = ? OR assignee_id = ? OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
+                    WHERE user_id = ? OR " . \App\Models\TaskModel::mine($uid, 'tasks') . " OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.user_id, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
-                break;
-            case 'calls':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, status, assignee_id, first_name, last_name, mobile, email, store, website, description, blocked_at))), 0) h FROM call_requests WHERE user_id = ? OR assignee_id = ?", [$uid, $uid]);
                 break;
             case 'colleagues':
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', c.id, c.permissions, u.first_name, u.last_name, u.status))), 0) h FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id WHERE c.user_id = ?", [$uid]);
