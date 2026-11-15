@@ -49,7 +49,6 @@ public class MainActivity extends Activity {
     private static final int REQ_STORAGE = 11;
     /** آدرس ثابت سرور (app/build.gradle → SERVER_URL)؛ کاربر آن را نمی‌بیند و عوض نمی‌کند. */
     private static final String SERVER = BuildConfig.SERVER_URL.replaceAll("/+$", "");
-    private static final String UA_SUFFIX = " TaskamAndroid/" + BuildConfig.VERSION_NAME;
 
     private FrameLayout stack;
     private ProgressBar progress;
@@ -104,7 +103,8 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setTextZoom(100);   // اندازه‌ی فونت سیستم چیدمان پنل را به هم نریزد
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        s.setUserAgentString(s.getUserAgentString() + UA_SUFFIX);
+        // User-Agent عمداً دست‌نخورده می‌ماند: سرور نشست را به UA گره می‌زند و درخواست‌های service worker در WebView
+        // همیشه UA پیش‌فرض را می‌فرستند (setUserAgentString روی آن‌ها اثر ندارد)؛ UA متفاوت = باطل شدن نشست و خروج کاربر.
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true);
         w.setWebViewClient(new Client());
         w.setWebChromeClient(new Chrome());
