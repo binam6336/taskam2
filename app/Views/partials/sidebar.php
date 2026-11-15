@@ -1,8 +1,8 @@
 <?php
 /**
  * سایدبار مشترک پنل کاربر و ادمین (v5.8، ظاهر کارتی v7.1، بخش‌بندی v7.15): برند + جمع کردن (rail)، کارت کاربر و خروج.
- * v7.15: هر گروه یک «بخش» باز (عنوان + آیتم‌ها) است؛ سایدبار هرگز اسکرول داخلی ندارد: اگر ارتفاع کم باشد app.js (sbFit) بخش‌ها را
- * از پایین به بالا (بخش صفحه‌ی فعلی آخر از همه) به دکمه‌ی گروه با پاپ‌آپ زیرمنو تا می‌کند (li.sb-grp.is-folded)؛ در حالت rail همه تاشده‌اند.
+ * v7.18: مثل ساختار v5.8 هر گروه دکمه‌ی عنوانی است که زیرمنوی خود را در پاپ‌آپ (.sb-pop) باز/بسته می‌کند؛ سایدبار هرگز اسکرول داخلی ندارد
+ * (اگر جا نشود app.js/sbFit چگالی فشرده می‌گذارد). پروفایل، نصب، آموزش و پشتیبانی در منوی حساب (کارت کاربر) هستند + دکمه‌ی خروج کنارش.
  * دکمه‌ی جستجو/پالت (Ctrl+K) از v7.1 در نوار بالاست (partials/topbar_search.php)؛ خود پالت همین‌جاست.
  * رفتار در app.js (بخش «سایدبار v5.8»)، کلاس sb-rail روی <html> را assets/js/rail.js پیش از رندر می‌گذارد.
  * @var array  $menu    آیتم‌ها: [key, path, icon, label] | ['group' => id, 'icon', 'label', 'items' => [...]] | ['soon' => true, …] | ['link' => url, …]
@@ -52,20 +52,8 @@ $pops = [];
     $gid = 'sb-pop-' . preg_replace('/[^a-z0-9_-]/i', '', (string) $item['group']);
     $pops[] = ['id' => $gid, 'item' => $item];
 ?>
-            <li class="sb-grp<?= $current ? ' has-current' : '' ?>" data-sb-grp>
+            <li class="sb-grp is-folded<?= $current ? ' has-current' : '' ?>" data-sb-grp>
                 <button type="button" class="sb-it sb-grp-btn<?= $current ? ' is-current-group' : '' ?>" aria-expanded="false" aria-haspopup="dialog" aria-controls="<?= e($gid) ?>"><span class="sb-ic"><i class="fa-solid <?= e($item['icon']) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($item['label']) ?></span><?php if ($sum): ?><span class="sb-badge<?= $sumInit > 0 ? '' : ' zero' ?>" data-badge-sum="<?= e(implode(',', $sum)) ?>" aria-hidden="true"><?= e(fa_num($sumInit)) ?></span><span class="sr-only sb-sr"><?= e($cnt($sumInit)) ?></span><?php endif; ?><?php if ($current): ?><span class="sr-only">، بخش فعلی</span><?php endif; ?><i class="fa-solid fa-chevron-left sb-chev" aria-hidden="true"></i></button>
-                <div class="sb-sec" role="group" aria-labelledby="<?= e($gid) ?>-st">
-                    <span class="sb-sec-t" id="<?= e($gid) ?>-st"><?= e($item['label']) ?></span>
-                    <ul class="sb-sub">
-                    <?php foreach ($item['items'] as $c): if (isset($c['link'])): ?>
-                        <li><a class="sb-it" href="<?= e($c['link']) ?>" target="_blank" rel="noopener noreferrer"><span class="sb-ic"><i class="fa-solid <?= e($c['icon']) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($c['label']) ?></span></a></li>
-                    <?php elseif (isset($c['soon'])): ?>
-                        <li><span class="sb-it is-soon" aria-disabled="true"><span class="sb-ic"><i class="fa-solid <?= e($c['icon']) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($c['label']) ?> <small class="soon-chip">به‌زودی</small></span></span></li>
-                    <?php else: [$ck, $cp, $ci, $cl] = $c; $con = $active === $ck; ?>
-                        <li><a class="sb-it<?= $con ? ' active' : '' ?>" href="<?= e(url($cp)) ?>"<?= $con ? ' aria-current="page"' : '' ?><?= $ck === 'board' ? ' data-board-pick' : '' ?><?= ($c['desc'] ?? ($desc[$ck] ?? '')) !== '' ? ' title="' . e($c['desc'] ?? $desc[$ck]) . '"' : '' ?>><span class="sb-ic"><i class="fa-solid <?= e($ci) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($cl) ?></span><?= $badge($ck) ?></a></li>
-                    <?php endif; endforeach; ?>
-                    </ul>
-                </div>
             </li>
 <?php endif; ?>
 <?php endforeach; ?>
@@ -76,16 +64,24 @@ $pops = [];
         <button type="button" class="sb-me" data-user-menu aria-haspopup="menu" aria-expanded="false" aria-controls="sb-user-menu" aria-label="منوی حساب کاربری">
             <span class="avatar sm sb-av"><?php if (!empty($su['avatar'])): ?><img loading="lazy" decoding="async" src="<?= e(avatar_url($su['avatar'])) ?>" alt=""><?php else: ?><?= e(initial($suName)) ?><?php endif; ?></span>
             <span class="sb-me-t"><b class="truncate"><?= e($suName) ?></b><small<?= !empty($sb['user_sub_ltr']) ? ' dir="ltr"' : '' ?>><?= e((string) $sb['user_sub']) ?></small></span>
+            <?php if (empty($sb['admin']) && array_key_exists('support', $badges)): ?><span class="sb-me-dot<?= (int) $badges['support'] > 0 ? '' : ' zero' ?>" data-badge="support" aria-hidden="true"></span><?php endif; ?>
             <i class="fa-solid fa-chevron-up sb-me-chev" aria-hidden="true"></i>
         </button>
+        <form method="post" action="<?= e(url('/logout')) ?>" class="sb-out" data-no-nav><?= csrf_field() ?><button type="submit" class="sb-icon-btn sb-out-btn" aria-label="<?= e($sb['logout']) ?>" data-tip="<?= e($sb['logout']) ?>"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></button></form>
         <div class="tb-menu sb-user-menu" id="sb-user-menu" role="menu" aria-label="حساب کاربری" hidden>
             <div class="menu-label"><?= e($suName) ?></div>
             <a role="menuitem" href="<?= e(url('/profile')) ?>"><i class="fa-solid fa-user" aria-hidden="true"></i><span>پروفایل و تنظیمات</span></a>
             <a role="menuitem" href="<?= e(url('/profile#appearance')) ?>"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>تنظیمات ظاهری</span></a>
+            <?php if (empty($sb['admin'])): ?><a role="menuitem" href="<?= e(url('/profile#security')) ?>"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>امنیت و نشست‌ها</span></a><?php endif; ?>
             <button type="button" role="menuitem" data-theme-toggle><i class="fa-solid fa-moon" aria-hidden="true"></i><span data-theme-label>حالت تیره</span></button>
-            <?php if (empty($sb['admin'])): ?><a role="menuitem" href="<?= e(url('/tour/start')) ?>"><i class="fa-solid fa-compass" aria-hidden="true"></i><span>راهنمای کار با کارلیکس</span></a><?php endif; ?>
+            <?php if (empty($sb['admin'])): /* v7.18: گروه‌های «تنظیمات» و «پشتیبانی» سایدبار قبلی به این منو منتقل شدند */ ?>
             <div class="menu-sep" role="separator"></div>
-            <form method="post" action="<?= e(url('/logout')) ?>"><?= csrf_field() ?><button type="submit" role="menuitem" class="danger"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span><?= e($sb['logout']) ?></span></button></form>
+            <a role="menuitem" href="<?= e(url('/support')) ?>"<?= $active === 'support' ? ' aria-current="page"' : '' ?>><i class="fa-solid fa-life-ring" aria-hidden="true"></i><span>پشتیبانی و تیکت‌ها</span><?= array_key_exists('support', $badges) ? '<span class="sb-badge is-alert' . ((int) $badges['support'] > 0 ? '' : ' zero') . '" data-badge="support" aria-hidden="true">' . e(fa_num((int) $badges['support'])) . '</span>' : '' ?></a>
+            <a role="menuitem" href="<?= e(url('/install')) ?>"<?= $active === 'install' ? ' aria-current="page"' : '' ?>><i class="fa-solid fa-download" aria-hidden="true"></i><span>نصب اپلیکیشن</span></a>
+            <a role="menuitem" href="<?= e(url('/tour/start')) ?>"><i class="fa-solid fa-compass" aria-hidden="true"></i><span>راهنمای کار با کارلیکس</span></a>
+            <?php endif; ?>
+            <div class="menu-sep" role="separator"></div>
+            <form method="post" action="<?= e(url('/logout')) ?>" data-no-nav><?= csrf_field() ?><button type="submit" role="menuitem" class="danger"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span><?= e($sb['logout']) ?></span></button></form>
         </div>
     </div>
 

@@ -575,6 +575,32 @@ final class TaskService
         return self::res(true, 'فایل‌ها پیوست شد.', '', 201, ['attachments' => $saved, 'upload_errors' => $errors]);
     }
 
+    /**
+     * حذف یک پیوست تسک (v7.18): فقط با دسترسی edit_info همان تسک (همان دسترسی افزودن پیوست)، تسک مسدود نباشد و پیوست مال همین تسک باشد.
+     * ردیف و فایل روی دیسک حذف می‌شوند و در تاریخچه‌ی تسک (file_deleted) ثبت می‌شود.
+     */
+    public static function removeTaskFile(int $actor, int $taskId, int $fileId): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی حذف پیوست ندارید.', 'FORBIDDEN', 403);
+        }
+        $f = $fileId > 0 ? DB::one('SELECT id, file_name, file_path FROM task_attachments WHERE id = ? AND task_id = ?', [$fileId, $taskId]) : null;
+        if (!$f) {
+            return self::err('پیوست یافت نشد.', 'FILE_NOT_FOUND', 404);
+        }
+        DB::run('DELETE FROM task_attachments WHERE id = ?', [(int) $f['id']]);
+        \App\Core\Uploader::delete('task_attachments', (string) $f['file_path']);
+        TaskHistory::log($taskId, $actor, 'file_deleted', ['name' => (string) $f['file_name']]);
+        return self::res(true, 'پیوست حذف شد.', '', 200, ['count' => (int) DB::value('SELECT COUNT(*) FROM task_attachments WHERE task_id = ?', [$taskId])]);
+    }
+
     /** اعضای پروژه (سازنده + اعضا) به‌جز خود کاربر — برای منشن در یادداشت‌ها. */
     public static function mentionable(int $projectId, int $exceptUid): array
     {

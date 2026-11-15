@@ -9,7 +9,7 @@ $icons = [403 => 'fa-lock', 404 => 'fa-compass', 419 => 'fa-hourglass-end', 500 
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titles[$status] ?? 'خطا') ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri(user_theme($currentUser ?? null))) ?>">
-<link rel="stylesheet" href="<?= e(asset('vendor/sahel/sahel-font-face.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('vendor/noto-sans-arabic/noto-sans-arabic.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/kx-icons.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 </head>

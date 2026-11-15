@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FAF9FF"><title>آفلاین • کارلیکس</title>
 <link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri('violet-light')) ?>">
+<link rel="stylesheet" href="<?= e(url('assets/vendor/noto-sans-arabic/noto-sans-arabic.css')) ?>">
 <link rel="stylesheet" href="<?= e(url('assets/css/offline.css')) ?>">
 </head>
 <body><div class="w"><div>

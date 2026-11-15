@@ -91,6 +91,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/tasks/{task}/status', [TaskController::class, 'status']);
     $r->post('/tasks/{task}/notes', [TaskController::class, 'addNote']);
     $r->post('/tasks/{task}/attachments', [TaskController::class, 'addFiles']);
+    $r->post('/tasks/{task}/attachments/{file}/delete', [TaskController::class, 'removeFile']);
     $r->post('/notes/{note}/update', [TaskController::class, 'updateNote']);
     $r->get('/notifications/due', [TaskController::class, 'due']);
     $r->post('/notifications/ack', [TaskController::class, 'dueAck']);

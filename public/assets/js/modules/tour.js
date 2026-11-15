@@ -8,9 +8,10 @@
   const mobile = window.matchMedia('(max-width: 960px)');
   const sidebarOpen = () => TK.qs('.sidebar')?.classList.contains('open');
   // جای «تسک‌ها» در سایدبار را ادمین تعیین می‌کند (محتوا ← سایدبار): داخل هر گروهی یا بیرون از گروه‌ها
-  const TASKS_LINK = '#sidebar a[href$="/tasks"]';
+  // (v7.18: فقط لینک داخل پاپ‌آپ گروه یا لینک سطح اول؛ نسخه‌ی 7.15–7.17 یک کپی پنهان هم داشت که تور را در مرحله‌ی سایدبار متوقف می‌کرد)
+  const TASKS_LINK = '#sidebar .sb-pop a[href$="/tasks"], #sidebar .sb-list > li > a[href$="/tasks"]';
   // سایدبار v5.8: زیرمنو پاپ‌آپ .sb-pop است و دکمه‌ی گروه با aria-controls به آن اشاره می‌کند
-  const tasksGroup = () => TK.qs(TASKS_LINK)?.closest('.sb-pop');
+  const tasksGroup = () => TK.qs('#sidebar .sb-pop a[href$="/tasks"]')?.closest('.sb-pop');
   const groupBtn = () => { const p = tasksGroup(); return p ? TK.qs(`.sb-it[aria-controls="${p.id}"]`) : null; };
   const hasLabels = () => !!TK.qs('#f-task [name=subject_id] option:not([value=""]):not([value="__new"])');
   // v7.12: لیبل مال پروژه است؛ بدون «دسترسی ایجاد لیبل» گزینه‌ی ساخت مخفی است و مرحله‌ی ۱۱ رد می‌شود

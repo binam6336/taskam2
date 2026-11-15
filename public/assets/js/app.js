@@ -501,18 +501,13 @@
     sbRailSync();
     sbFit();
   };
-  // v7.15: سایدبار بدون اسکرول داخلی — بخش‌ها (li.sb-grp) اگر جا نشوند از پایین به بالا به دکمه‌ی گروه + پاپ‌آپ تا می‌شوند
-  // (بخش صفحه‌ی فعلی آخر از همه)؛ اگر همه تا شدند و باز هم جا نشد، چگالی فشرده (sb-dense). هیچ آیتمی حذف نمی‌شود.
+  // v7.18: مثل ساختار قبلی (v5.8) هر گروه یک دکمه‌ی عنوان است که با کلیک زیرمنوی خود را در پاپ‌آپ باز/بسته می‌کند (li.sb-grp.is-folded)؛
+  // سایدبار هرگز اسکرول داخلی ندارد: اگر باز هم جا نشد، چگالی فشرده (sb-dense). هیچ آیتمی حذف نمی‌شود.
   function sbFit() {
     const nav = TK.qs('#sidebar .sb-nav'); if (!nav) return;
-    const grps = TK.qsa('[data-sb-grp]', nav);
-    grps.forEach((g) => g.classList.remove('is-folded')); nav.classList.remove('sb-dense');
-    if (sbRail()) return;                                   // rail: CSS همه را تا می‌کند
-    const over = () => nav.scrollHeight > nav.clientHeight + 1;
-    if (!over()) return;
-    const cur = grps.filter((g) => g.classList.contains('has-current'));
-    for (const g of grps.filter((x) => !cur.includes(x)).reverse().concat(cur)) { g.classList.add('is-folded'); if (!over()) return; }
-    nav.classList.add('sb-dense');
+    TK.qsa('[data-sb-grp]', nav).forEach((g) => g.classList.add('is-folded'));
+    nav.classList.remove('sb-dense');
+    if (nav.scrollHeight > nav.clientHeight + 1) nav.classList.add('sb-dense');
   }
   let sbFitT = 0;
   window.addEventListener('resize', () => { clearTimeout(sbFitT); sbFitT = setTimeout(sbFit, 80); }, { passive: true });

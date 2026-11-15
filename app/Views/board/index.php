@@ -7,23 +7,26 @@ $this->scripts[] = 'board';
 $total = array_sum(array_map('count', $columns));
 $ppid = pid('projects', (int) $filters['project']);
 ?>
-<div class="kb-top">
-    <div class="kb-proj-switch">
-        <span class="avatar sq"><?php if (!empty($project['profile_image'])): ?><img loading="lazy" decoding="async" src="<?= e((string) project_image_url($project['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial((string) ($project['title'] ?? '؟'))) ?><?php endif; ?></span>
-        <label class="sr-only" for="kb-project">پروژه</label>
-        <select class="input kb-project-sel" id="kb-project" data-kb-project aria-label="انتخاب پروژه">
+<?php // v7.18: نوار ابزار مثل صفحه‌ی کانبان دمو — پروژه، جستجو، «فقط مسئولیت من»، ابزارها و تسک جدید در یک ردیف ?>
+<div class="kb-bar">
+    <label class="kb-proj" for="kb-project">
+        <span class="proj-ic sm kb-proj-ic"><?php if (!empty($project['profile_image'])): ?><img loading="lazy" decoding="async" src="<?= e((string) project_image_url($project['profile_image'])) ?>" alt=""><?php else: ?><?= e(initial((string) ($project['title'] ?? '؟'))) ?><?php endif; ?></span>
+        <span class="sr-only">پروژه</span>
+        <select class="kb-project-sel" id="kb-project" data-kb-project aria-label="انتخاب پروژه">
             <?php foreach ($projects as $p): ?><option value="<?= e(pid('projects', $p)) ?>" <?= (int) $p['id'] === (int) $filters['project'] ? 'selected' : '' ?>><?= e($p['title']) ?></option><?php endforeach; ?>
         </select>
-    </div>
-    <form class="kb-filters" id="kb-filters" method="get" action="<?= e(url('/board')) ?>">
+        <i class="fa-solid fa-chevron-down kb-proj-chev" aria-hidden="true"></i>
+    </label>
+    <form class="kb-filters" id="kb-filters" method="get" action="<?= e(url('/board')) ?>" role="search">
         <input type="hidden" name="project" value="<?= e($ppid) ?>">
-        <div class="search kb-q"><i class="fa-solid fa-magnifying-glass"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>" aria-label="جستجو در همه‌ی تسک‌های پروژه"></div>
-        <label class="check kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><div><b>فقط مسئولیت من</b></div></label>
+        <div class="kb-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="<?= e(ph('board_search')) ?>" aria-label="جستجو در همه‌ی تسک‌های پروژه" autocomplete="off"></div>
+        <label class="kb-mine"><input type="checkbox" name="mine" value="1" <?= $filters['mine'] ? 'checked' : '' ?> data-autosubmit><i class="fa-solid fa-user" aria-hidden="true"></i><span>فقط مسئولیت من</span></label>
     </form>
-    <div class="kb-top-acts">
-        <?php if ($canManage): ?><button type="button" class="btn btn-icon" id="kb-settings" data-project="<?= e($ppid) ?>" title="تنظیمات بورد" aria-label="تنظیمات بورد"><i class="fa-solid fa-gear"></i></button><?php endif; ?>
-        <button type="button" class="btn" data-bulk-toggle aria-pressed="false" title="انتخاب چند کارت و تغییر هم‌زمان (وضعیت، اولویت، مسئول، …)"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="hide-sm">تغییر گروهی</span></button>
-        <button type="button" class="btn btn-primary" id="btn-new-task"><i class="fa-solid fa-plus"></i> <span>تسک جدید</span></button>
+    <span class="kb-bar-gap"></span>
+    <div class="kb-bar-acts">
+        <button type="button" class="kb-ib" data-bulk-toggle aria-pressed="false" aria-label="تغییر گروهی" title="انتخاب چند کارت و تغییر هم‌زمان (وضعیت، اولویت، مسئول، …)"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></button>
+        <?php if ($canManage): ?><button type="button" class="kb-ib" id="kb-settings" data-project="<?= e($ppid) ?>" aria-label="تنظیمات بورد" title="تنظیمات ستون‌های بورد"><i class="fa-solid fa-gear" aria-hidden="true"></i></button><?php endif; ?>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-task" data-create-default><i class="fa-solid fa-plus" aria-hidden="true"></i> <span>تسک جدید</span></button>
     </div>
 </div>
 <?php if ($filters['q'] !== ''): ?><p class="kb-search-note small muted"><i class="fa-solid fa-circle-info"></i> جستجو در همه‌ی تسک‌های این پروژه (هر مسئول و سازنده‌ای؛ جز تسک‌های محرمانه‌ای که به شما مربوط نیست).</p><?php endif; ?>
@@ -32,26 +35,21 @@ $ppid = pid('projects', (int) $filters['project']);
 <?php if ($total === 0 && !$archive['total']): ?>
 <div class="card empty kb-empty-board"><i class="fa-solid fa-table-columns"></i><p><?= $filters['q'] !== '' ? 'تسکی با این جستجو در این پروژه پیدا نشد.' : 'هنوز تسکی در بورد این پروژه نیست.' ?></p></div>
 <?php endif; ?>
-<?php // نوار ستون‌ها با تعداد کارت: پرش به هر ستون (موبایل و وقتی ستون‌ها بیرون از دید هستند) ?>
-<nav class="kb-tabs" id="kb-tabs" aria-label="ستون‌های بورد">
-<?php foreach ($order as $key): $n = $key === 'archived' ? (int) $archive['total'] : count($columns[$key] ?? []); $lbl = $key === 'archived' ? 'آرشیو' : $statuses[$key]['label']; ?>
-    <button type="button" class="kb-tab<?= $n ? '' : ' empty' ?>" data-kb-goto="<?= e($key) ?>"><?= e($lbl) ?> <span><?= e(fa_num($n)) ?></span></button>
-<?php endforeach; ?>
-</nav>
 <div class="kb-wrap" id="kb-wrap">
-<button type="button" class="kb-nav kb-nav-start" data-kb-scroll="-1" aria-label="ستون‌های قبلی" hidden><i class="fa-solid fa-chevron-right"></i></button>
-<button type="button" class="kb-nav kb-nav-end" data-kb-scroll="1" aria-label="ستون‌های بعدی" hidden><i class="fa-solid fa-chevron-left"></i></button>
-<div class="kb-board" id="kb-board" data-kb-start="<?= e($startCol) ?>" data-project="<?= e($ppid) ?>">
+<div class="kb-board" id="kb-board" tabindex="0" aria-label="ستون‌های بورد (برای پیمایش افقی از کلیدهای جهت استفاده کنید)" data-kb-start="<?= e($startCol) ?>" data-project="<?= e($ppid) ?>">
 <?php foreach ($order as $key): if ($key === 'archived'): ?>
     <section class="kb-col tone-archive<?= $archive['total'] ? '' : ' kb-collapsed' ?>" data-col="archived" aria-label="آرشیو">
+        <button type="button" class="kb-col-strip" data-kb-expand aria-label="باز کردن ستون آرشیو"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span class="kb-strip-t">آرشیو</span><span class="kb-count"><?= e(fa_num($archive['total'])) ?></span></button>
         <header class="kb-col-head" title="تسک‌های انجام‌شده‌ای که بایگانی شده‌اند">
-            <i class="fa-solid fa-box-archive"></i>
-            <div class="grow"><b>آرشیو</b><span>Archived</span></div>
+            <span class="kb-col-ic"><i class="fa-solid fa-box-archive" aria-hidden="true"></i></span>
+            <h2 class="kb-col-t">آرشیو</h2>
             <span class="kb-count"><?= e(fa_num($archive['total'])) ?></span>
+            <span class="kb-grow"></span>
+            <button type="button" class="kb-ib xs" data-kb-collapse aria-label="جمع کردن ستون آرشیو" title="جمع کردن ستون"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
         </header>
         <div class="kb-list" data-drop="archived">
         <?php foreach ($archive['cards'] as $t) { $this->partial('kb_card', ['t' => $t, 'key' => 'archived', 'filters' => $filters]); } ?>
-        <?php if (!$archive['total']): ?><div class="kb-empty xs faint">آرشیو خالی است.</div><?php endif; ?>
+        <div class="kb-empty">آرشیو خالی است</div>
         </div>
         <?php if ($archive['total'] > 0): ?>
         <footer class="kb-col-foot"><button type="button" class="btn btn-sm kb-more" data-kb-archive-more><i class="fa-solid fa-angles-down"></i> مشاهده بیشتر <span class="faint">(<?= e(fa_num($archive['total'])) ?>)</span></button></footer>
@@ -59,9 +57,11 @@ $ppid = pid('projects', (int) $filters['project']);
     </section>
 <?php continue; endif; $s = $statuses[$key]; $cards = $columns[$key] ?? []; $ov = $over[$key] ?? []; ?>
     <section class="kb-col tone-<?= e($s['tone']) ?><?= $ov ? ' kb-limit-over' : '' ?><?= $cards ? '' : ' kb-collapsed' ?>" data-col="<?= e($key) ?>" aria-label="<?= e($s['label']) ?>">
+        <button type="button" class="kb-col-strip" data-kb-expand aria-label="باز کردن ستون <?= e($s['label']) ?>"><i class="fa-solid <?= e($s['icon']) ?>" aria-hidden="true"></i><span class="kb-strip-t"><?= e($s['label']) ?></span><span class="kb-count"><?= e(fa_num(count($cards))) ?></span></button>
         <header class="kb-col-head" title="<?= e($s['label'] . ($s['desc'] !== '' ? ' — ' . $s['desc'] : '')) ?>">
-            <i class="fa-solid <?= e($s['icon']) ?>"></i>
-            <div class="grow min0"><b class="truncate"><?= e($s['label']) ?></b></div>
+            <span class="kb-col-ic"><i class="fa-solid <?= e($s['icon']) ?>" aria-hidden="true"></i></span>
+            <h2 class="kb-col-t truncate"><?= e($s['label']) ?></h2>
+            <span class="kb-count"><?= e(fa_num(count($cards))) ?></span>
             <?php if ($ov): ?>
             <button type="button" class="kb-limit-btn" data-kb-limit aria-expanded="false" aria-label="بیشتر از سقف تعداد تسک"><i class="fa-solid fa-exclamation"></i></button>
             <div class="kb-limit-pop" role="tooltip" hidden>
@@ -70,11 +70,13 @@ $ppid = pid('projects', (int) $filters['project']);
                 <p>تا وقتی تعدادشان کمتر از سقف نشود، نمی‌توانی تسک دیگری به «<?= e($s['label']) ?>» منتقل کنی.</p>
             </div>
             <?php endif; ?>
-            <?php if ($key === 'done'): ?><button type="button" class="btn btn-sm kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" <?= $archivable ? '' : 'disabled' ?> title="<?= $archivable ? 'انتقال همه‌ی تسک‌های انجام‌شده به آرشیو (فقط در برد؛ روی خود تسک‌ها اثری ندارد)' : 'تسک انجام‌شده‌ای برای آرشیو نیست' ?>" aria-label="آرشیو انجام‌شده‌ها"><i class="fa-solid fa-box-archive"></i></button><?php endif; ?>
-            <span class="kb-count"><?= e(fa_num(count($cards))) ?></span>
+            <span class="kb-grow"></span>
+            <?php if ($key === 'done'): ?><button type="button" class="kb-ib xs kb-archive-all" data-kb-archive-all="<?= (int) $archivable ?>" <?= $archivable ? '' : 'disabled' ?> title="<?= $archivable ? 'انتقال همه‌ی تسک‌های انجام‌شده به آرشیو (فقط در برد؛ روی خود تسک‌ها اثری ندارد)' : 'تسک انجام‌شده‌ای برای آرشیو نیست' ?>" aria-label="آرشیو انجام‌شده‌ها"><i class="fa-solid fa-box-archive"></i></button><?php endif; ?>
+            <button type="button" class="kb-ib xs" data-kb-collapse aria-label="جمع کردن ستون <?= e($s['label']) ?>" title="جمع کردن ستون"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
         </header>
         <div class="kb-list" data-drop="<?= e($key) ?>">
         <?php foreach ($cards as $t) { $this->partial('kb_card', ['t' => $t, 'key' => $key, 'filters' => $filters]); } ?>
+        <div class="kb-empty">کارتی اینجا نیست</div>
         </div>
     </section>
 <?php endforeach; ?>

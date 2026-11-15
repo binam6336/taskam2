@@ -326,7 +326,8 @@ document.addEventListener('tk:ready', () => {
   }
 
   /* ───── جزئیات ───── */
-  const fileChip = (f) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a></span>`;
+  // v7.18: پیوست خود تسک با دسترسی edit_info دکمه‌ی حذف دارد (حذف واقعی در سرور: POST /tasks/{id}/attachments/{file}/delete)
+  const fileChip = (f, kind) => `<span class="file-chip"><a href="${E(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-1"><i class="fa-solid ${E(f.icon)}"></i>${E(f.file_name)} <span class="faint xs">${E(f.size_fa)}</span></a>${kind === 'task' && current?.can?.edit_info && !current?.is_blocked ? `<button type="button" class="file-chip-x" data-file-del="${E(f.id)}" data-file-name="${E(f.file_name)}" aria-label="حذف ${E(f.file_name)}" title="حذف پیوست"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>` : ''}</span>`;
   const names = () => [...(current?.mentionable || []).map((m) => m.name), cfg.me_name, current?.creator_name, current?.assignee_name];
 
   const noteHtml = (n) => `
@@ -683,6 +684,13 @@ document.addEventListener('tk:ready', () => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-close')) return TK.modal.close('m-detail');
     if (b.hasAttribute('data-detail-history')) return openHistory();
+    if (b.dataset.fileDel) {
+      if (!(await TK.confirm(`پیوست «${b.dataset.fileName}» برای همیشه حذف شود؟`, { okText: 'حذف پیوست' }))) return;
+      b.disabled = true;
+      const r = await TK.post('/tasks/' + currentId + '/attachments/' + encodeURIComponent(b.dataset.fileDel) + '/delete', {});
+      if (TK.ok(r)) { TK.toast(r.message, 'success'); refresh(); TK.live?.refresh?.(); } else { b.disabled = false; TK.toast(r.message || 'حذف پیوست ناموفق بود.', 'error'); }
+      return;
+    }
     if (b.hasAttribute('data-detail-edit')) { TK.modal.close('m-detail'); return openEdit(editPayload(current)); }
     if (b.hasAttribute('data-mention')) { e.stopPropagation(); b.parentElement.classList.toggle('open'); return; }
     if (b.dataset.mentionId) { b.closest('.dropdown').classList.remove('open'); return insertMention(b.dataset.mentionId, b.dataset.mentionName); }

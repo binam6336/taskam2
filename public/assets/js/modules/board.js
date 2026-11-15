@@ -43,9 +43,9 @@ document.addEventListener('tk:ready', () => {
 
   /* شمارنده‌ی ستون‌ها بعد از هر جابه‌جایی */
   const recount = () => TK.qsa('.kb-col:not([data-col="archived"])').forEach((c) => {
-    const n = c.querySelectorAll('.kb-card').length; c.querySelector('.kb-count').textContent = TK.fa(n);
+    const n = c.querySelectorAll('.kb-card').length;
+    c.querySelectorAll('.kb-count').forEach((x) => { x.textContent = TK.fa(n); });
     if (n) c.classList.remove('kb-collapsed');
-    const tab = TK.qs(`[data-kb-goto="${c.dataset.col}"]`); if (tab) { tab.querySelector('span').textContent = TK.fa(n); tab.classList.toggle('empty', !n); }
   });
 
   /* انتقال: جابه‌جایی فوری در صفحه، اگر سرور رد کرد برمی‌گردد */
@@ -107,36 +107,38 @@ document.addEventListener('tk:ready', () => {
     request(dragged, col.dataset.col);
   });
 
-  /* ───── پیمایش افقی: سایه/فلش لبه‌ها وقتی ستون‌ها بیرون از دید هستند، نوار ستون‌ها با تعداد و پرش به هر ستون ───── */
+  /* ───── ستون‌ها (v7.18، مثل کانبان دمو): جمع/باز کردن هر ستون با دکمه‌ی سربرگ، به تفکیک پروژه در localStorage
+     (پیش‌فرض: ستون خالی جمع است، جز ستون شروع)؛ بعد از تازه‌سازی زنده (tk:live) دوباره اعمال می‌شود ───── */
   const kbRtl = () => getComputedStyle(TK.qs('#kb-board')).direction === 'rtl';
-  const navState = () => {
-    const b = TK.qs('#kb-board'), w = TK.qs('#kb-wrap'); if (!b || !w) return;
-    const max = b.scrollWidth - b.clientWidth, pos = Math.abs(b.scrollLeft);
-    const atStart = pos <= 2, atEnd = pos >= max - 2;
-    w.classList.toggle('more-start', max > 2 && !atStart); w.classList.toggle('more-end', max > 2 && !atEnd);
-    TK.qs('.kb-nav-start', w).hidden = max <= 2 || atStart; TK.qs('.kb-nav-end', w).hidden = max <= 2 || atEnd;
-    // ستون‌هایی که الان دیده می‌شوند در نوار ستون‌ها پررنگ
-    const r = b.getBoundingClientRect();
-    TK.qsa('#kb-board > .kb-col').forEach((c) => {
-      const cr = c.getBoundingClientRect(), vis = Math.min(cr.right, r.right) - Math.max(cr.left, r.left) > cr.width * 0.5;
-      TK.qs(`[data-kb-goto="${c.dataset.col}"]`)?.classList.toggle('on', vis);
-    });
-  };
-  document.addEventListener('scroll', (e) => { if (e.target.id === 'kb-board') navState(); }, true);
-  window.addEventListener('resize', navState);
-  document.addEventListener('tk:live', () => setTimeout(navState, 0));
-  TK.on('click', '[data-kb-scroll]', (e, btn) => {
-    const b = TK.qs('#kb-board'), step = b.clientWidth * 0.8 * Number(btn.dataset.kbScroll);
-    b.scrollBy({ left: kbRtl() ? -step : step, behavior: 'smooth' });
+  const colKey = (c) => 'kx.kb.col.' + (TK.qs('#kb-board')?.dataset.project || '') + '.' + c.dataset.col;
+  const pref = (c) => { try { return localStorage.getItem(colKey(c)); } catch { return null; } };
+  const setPref = (c, v) => { try { localStorage.setItem(colKey(c), v ? '1' : '0'); } catch { /* حالت خصوصی */ } };
+  const applyCols = () => TK.qsa('#kb-board > .kb-col').forEach((c) => {
+    const p = pref(c);
+    if (p !== null) c.classList.toggle('kb-collapsed', p === '1');
+    c.querySelector('.kb-col-strip')?.setAttribute('aria-expanded', String(!c.classList.contains('kb-collapsed')));
   });
-  TK.on('click', '[data-kb-goto]', (e, btn) => {
-    const c = TK.qs(`#kb-board > .kb-col[data-col="${btn.dataset.kbGoto}"]`); if (!c) return;
-    c.classList.remove('kb-collapsed');            // زبانه‌ی ستون خالی: ستون باز شود تا خالی بودنش دیده شود
-    c.scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });
+  applyCols();
+  document.addEventListener('tk:live', applyCols);
+  TK.on('click', '[data-kb-collapse]', (e, b) => {
+    const c = b.closest('.kb-col'); c.classList.add('kb-collapsed'); setPref(c, true);
+    c.querySelector('[data-kb-expand]')?.focus();
   });
-  // ستون جمع‌شده (خالی): کلیک روی آن بازش می‌کند؛ کشیدن کارت رویش هم کار می‌کند
-  TK.on('click', '.kb-col.kb-collapsed', (e, c) => { if (!e.target.closest('button:not(.kb-col-head *)')) { c.classList.remove('kb-collapsed'); setTimeout(navState, 50); } });
+  TK.on('click', '[data-kb-expand]', (e, b) => {
+    const c = b.closest('.kb-col'); c.classList.remove('kb-collapsed'); setPref(c, false);
+    c.querySelector('[data-kb-collapse]')?.focus();
+  });
+  // کشیدن کارت روی ستون جمع‌شده آن را باز می‌کند (بدون ذخیره)
   document.addEventListener('dragenter', (e) => { const c = e.target.closest?.('.kb-col.kb-collapsed'); if (c && !c.classList.contains('kb-deny')) c.classList.remove('kb-collapsed'); });
+  // پیمایش افقی با صفحه‌کلید روی خود بورد (فوکوس‌پذیر)
+  document.addEventListener('keydown', (e) => {
+    if (e.target.id !== 'kb-board' || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const b = e.target, step = 300;
+    if (e.key === 'Home') return b.scrollTo({ left: 0, behavior: 'smooth' });
+    if (e.key === 'End') return b.scrollTo({ left: kbRtl() ? -b.scrollWidth : b.scrollWidth, behavior: 'smooth' });
+    b.scrollBy({ left: e.key === 'ArrowLeft' ? -step : step, behavior: 'smooth' });
+  });
   // ستون شروع (مگر کارت برجسته‌ای باشد): تأییدکننده «بررسی سرپرست»، بقیه ستون شروع بورد پروژه؛ اگر خالی بود اولین ستون دارای کارت
   if (!TK.qs('.kb-card.kb-focus')) {
     const b = TK.qs('#kb-board');
@@ -147,11 +149,7 @@ document.addEventListener('tk:ready', () => {
       // RTL: ستون را به لبه‌ی شروع (راست) بیاور
       b.scrollLeft += kbRtl() ? fr.right - br.right : fr.left - br.left;
     }
-    // نوار ستون‌ها (موبایل): زبانه‌ی همان ستون دیده شود
-    const tab = first && TK.qs(`[data-kb-goto="${first.dataset.col}"]`), bar = TK.qs('#kb-tabs');
-    if (tab && bar) { const tr = tab.getBoundingClientRect(), r2 = bar.getBoundingClientRect(); bar.scrollLeft += kbRtl() ? tr.right - r2.right + 8 : tr.left - r2.left - 8; }
   }
-  setTimeout(navState, 50);
 
   /* منوی «انتقال به…» (لمسی و صفحه‌کلید) */
   const closeMenu = () => { TK.qsa('.kb-menu').forEach((m) => m.remove()); TK.qsa('.kb-handle[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false')); };

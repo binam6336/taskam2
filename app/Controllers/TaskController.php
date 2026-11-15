@@ -394,6 +394,13 @@ final class TaskController extends Controller
         $this->respond($res['ok'], $res['message'], '/tasks', $res['ok'] ? Pid::tag((array) $res['data'], 'tasks') : []);
     }
 
+    /** حذف یک پیوست تسک (v7.18)؛ $file = شناسه‌ی عمومی پیوست */
+    public function removeFile(string $id, string $file)
+    {
+        $res = TaskService::removeTaskFile($this->uid(), (int) $id, (int) (Pid::id('task_attachments', $file) ?? 0));
+        $this->respond($res['ok'], $res['message'], '/tasks', $res['data'] ?? []);
+    }
+
     /** اعلان سررسید برای مرورگر (polling). */
     /** یادآوری‌هایی که مرورگر نمایش داد: ثبت notified_at (POST + CSRF) */
     public function dueAck()

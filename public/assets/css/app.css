@@ -39,7 +39,7 @@
   --shadow: 0 4px 14px -8px rgba(0, 0, 0, .65);
   --glow: 0 6px 18px -8px rgba(var(--accent-rgb), .55);
   --glow-hover: 0 8px 22px -8px rgba(var(--accent-2-rgb), .7);
-  --font: 'Sahel', 'Vazirmatn', Tahoma, 'Segoe UI', system-ui, sans-serif;
+  --font: 'Noto Sans Arabic', Tahoma, 'Segoe UI', system-ui, sans-serif;
   --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
   --sidebar-w: 252px;
   --topbar-h: 64px;
@@ -751,7 +751,7 @@ body.docs { background: var(--bg); --muted: var(--docs-muted); --faint: var(--do
 .swatch span { display: block; width: 100%; height: 100%; border-radius: 10px; background: var(--sw); border: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--surface); transition: transform .12s; }
 .swatch:hover span { transform: scale(1.08); }
 .swatch input:checked + span { border-color: var(--sw); box-shadow: inset 0 0 0 3px var(--surface); }
-.swatch input:checked + span::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: .8rem; color: #fff; display: grid; place-items: center; height: 100%; }
+.swatch input:checked + span::after { content: '✓'; font-family: var(--font); font-weight: 900; font-size: .8rem; color: #fff; display: grid; place-items: center; height: 100%; }
 .swatch input:focus-visible + span { outline: 2px solid var(--g-400); outline-offset: 2px; }
 .label-icon { font-size: 1.1rem; flex: none; }
 .t-label i { margin-inline-end: .1rem; }

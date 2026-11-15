@@ -80,7 +80,7 @@ final class SidebarModel
     public static function saveOptions(array $o, int $uid): void
     {
         DB::run('INSERT INTO content_texts (`key`, body, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body), updated_by = VALUES(updated_by)',
-            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc']), 'known_pages' => array_merge(array_keys(self::pages()), array_map(static fn($p) => 'moved:' . $p, array_keys(self::MOVED_PAGES)))]), $uid]);
+            [self::OPTS_KEY, json_encode(['show_desc' => !empty($o['show_desc']), 'known_pages' => array_merge(array_keys(self::pages()), array_map(static fn($p) => 'moved:' . $p, array_keys(self::MOVED_PAGES)), ['order:718'])]), $uid]);
     }
 
     /** صفحه‌های قابل انتخاب: کلید => [مسیر، آیکون، نام پیش‌فرض] */
@@ -174,10 +174,79 @@ final class SidebarModel
         return array_values(array_filter($menu, static fn($g) => ($g['t'] ?? '') !== 'group' || !empty($g['items'])));
     }
 
+    /**
+     * v7.18: ترتیب و گروه صفحه‌ها در چیدمانِ ذخیره‌شده‌ی قبلی (تا ادمین دوباره ذخیره کند؛ نشانه‌ی order:718 در known_pages):
+     * هر صفحه‌ی این فهرست به گروه مقصدش (اگر در چیدمان هست) و به همین ترتیب می‌رود؛ نام سفارشی ادمین حفظ می‌شود.
+     * نام‌های پیش‌فرض نسخه‌ی 7.16 گروه‌ها («کار من/تیم/توسعه‌دهندگان») هم با نام‌های جدید عوض می‌شوند.
+     */
+    private const ORDER = ['tasks' => ['tasks', 'board', 'calendar', 'subjects', 'texts'], 'team' => ['colleagues', 'chat', 'projects'], 'api' => ['tokens', 'docs']];
+    private const OLD_GROUP_LABELS = ['tasks' => ['کار من', 'وظایف'], 'team' => ['تیم', 'مدیریت تیم'], 'api' => ['توسعه‌دهندگان', 'وب سرویس', 'وب‌سرویس']];
+
+    private static function withOrder(array $menu, ?array $known): array
+    {
+        if (is_array($known) && in_array('order:718', $known, true)) {
+            return $menu;
+        }
+        $gIdx = [];
+        foreach ($menu as $gi => $g) {
+            if (($g['t'] ?? '') === 'group' && isset(self::ORDER[$g['id']])) {
+                $gIdx[$g['id']] = $gi;
+            }
+        }
+        $target = [];
+        foreach (self::ORDER as $gid => $pages) {
+            if (isset($gIdx[$gid])) {
+                foreach ($pages as $p) {
+                    $target[$p] = $gid;
+                }
+            }
+        }
+        $picked = [];
+        foreach ($menu as $gi => $g) {
+            if (($g['t'] ?? '') === 'page' && isset($target[$g['page']])) {
+                $picked[$g['page']] = $g;
+                unset($menu[$gi]);
+            } elseif (($g['t'] ?? '') === 'group') {
+                foreach ($g['items'] as $ii => $c) {
+                    if (($c['t'] ?? '') === 'page' && isset($target[$c['page']])) {
+                        $picked[$c['page']] = $c;
+                        unset($menu[$gi]['items'][$ii]);
+                    }
+                }
+            }
+        }
+        foreach ($gIdx as $gid => $gi) {
+            $head = [];
+            foreach (self::ORDER[$gid] as $p) {
+                if (isset($picked[$p])) {
+                    $head[] = $picked[$p];
+                }
+            }
+            $menu[$gi]['items'] = array_merge($head, array_values($menu[$gi]['items']));
+            $default = array_values(array_filter(self::defaults(), static fn($d) => ($d['id'] ?? '') === $gid))[0]['label'] ?? null;
+            if ($default !== null && in_array($menu[$gi]['label'], self::OLD_GROUP_LABELS[$gid], true)) {
+                $menu[$gi]['label'] = $default;
+            }
+        }
+        // گروه‌های پیش‌فرض بعد از پیشخوان به ترتیب «وظایف، مدیریت تیم، وب‌سرویس»
+        $order = array_flip(array_keys(self::ORDER));
+        $menu = array_values($menu);
+        $rank = static function (array $g, int $i) use ($order): array {
+            return [($g['t'] ?? '') === 'group' && isset($order[$g['id']]) ? 1 : (($g['page'] ?? '') === 'dashboard' ? 0 : 2), ($g['t'] ?? '') === 'group' ? ($order[$g['id']] ?? 0) : 0, $i];
+        };
+        $keys = [];
+        foreach ($menu as $i => $g) {
+            $keys[$i] = $rank($g, $i);
+        }
+        uksort($menu, static fn($a, $b) => $keys[$a] <=> $keys[$b]);
+        return array_values($menu);
+    }
+
     private static function withNewPages(array $menu): array
     {
         $known = self::options()['known_pages'] ?? null;
         $menu = self::withMoves($menu, $known);
+        $menu = self::withOrder($menu, $known);
         $has = static function (array $items, string $page) use (&$has): bool {
             foreach ($items as $i) {
                 if (($i['t'] ?? '') === 'page' && $i['page'] === $page) {
