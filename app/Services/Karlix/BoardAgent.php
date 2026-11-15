@@ -201,10 +201,11 @@ final class BoardAgent
         $tokens = 0;
         $finalText = '';
         $error = null;
+        $callNo = 0;                                            // شمارنده‌ی فراخوانی مدل (جدا از حلقه‌ی ابزارها: foreach … as $call)
         for ($step = 1; $step <= self::MAX_STEPS; $step++) {
-            // هر گام یک فراخوانی جدا با کلید یکتای خودش (پیام + گام + تلاش)؛ سهمیه پیش از هر گام دوباره بررسی می‌شود
-            $call = isset($call) ? $call + 1 : 1;
-            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $call, 'real_user' => $c->realUid]);
+            // هر گام یک فراخوانی جدا با کلید یکتای خودش (پیام + شماره‌ی فراخوانی)؛ سهمیه پیش از هر گام دوباره بررسی می‌شود
+            $callNo++;
+            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $callNo, 'real_user' => $c->realUid]);
             $tokens += (int) $ai['tokens'];
             if (!$ai['ok']) {
                 $error = (string) $ai['error'];
