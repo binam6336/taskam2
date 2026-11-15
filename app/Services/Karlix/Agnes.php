@@ -56,7 +56,8 @@ final class Agnes
 
     /**
      * یک درخواست چت — تنها مسیر فراخوانی مدل در کل برنامه و همیشه با سهمیه (Quota): پیش از ارسال رزرو، بعد از پاسخ ثبت مصرف واقعی.
-     * $meta: user (الزامی؛ کاربری که مصرف به سهمیه‌اش نوشته می‌شود)، feature (task_note|board)، key (شناسه‌ی یکتای این فراخوانی)، real_user (مدیر در ورود به پنل کاربر).
+     * $meta: user (الزامی؛ کاربری که مصرف به سهمیه‌اش نوشته می‌شود)، feature (task_note|board)، key (شناسه‌ی یکتای این فراخوانی)، real_user (مدیر در ورود به پنل کاربر)،
+     *        prompt (پیام خود کاربر، فقط برای لاگ خطا)، attempt (شماره‌ی تلاش، فقط برای لاگ).
      * خروجی: ['ok', 'content', 'tokens', 'usage' => [input, output, total], 'error', 'message' (متن کاربرپسند خطا)، 'http']
      * $messages = [['role' => 'system'|'user'|'assistant', 'content' => string], …]
      */
@@ -81,8 +82,16 @@ final class Agnes
         }
         $payload = json_encode($body, JSON_UNESCAPED_UNICODE);
         $key = (string) ($meta['key'] ?? ('x:' . bin2hex(random_bytes(8))));
+        // v7.23: هر فراخوانی ناموفق در storage/logs/AI (پیام کاربر، درخواست، جواب خام، علت، زمان)
+        $logFail = static fn(string $err, int $http, string $msg, ?string $body, int $ms) => AiLog::failure([
+            'feature' => $meta['feature'] ?? 'other', 'user' => $uid, 'real_user' => $meta['real_user'] ?? null, 'key' => $key,
+            'attempt' => $meta['attempt'] ?? null, 'error' => $err, 'http' => $http, 'message' => $msg, 'ms' => $ms, 'prompt' => $meta['prompt'] ?? null,
+            'request' => ['model' => self::model(), 'max_tokens' => $maxTokens, 'bytes' => strlen((string) $payload), 'messages' => $messages],
+            'response' => $body,
+        ]);
         $q = Quota::reserve($uid, (string) ($meta['feature'] ?? 'other'), $key, self::model(), Quota::estimate((string) $payload, $maxTokens), isset($meta['real_user']) ? (int) $meta['real_user'] : null);
         if (!$q['ok']) {
+            $logFail((string) $q['code'], 0, (string) $q['message'], null, 0);
             return $fail($q['code'], 0, $q['message']);
         }
         $started = microtime(true);
@@ -99,7 +108,9 @@ final class Agnes
         $err = $res['error'] ?? ($ok ? null : 'bad_response');
         $charged = Quota::settle((int) $q['id'], $usage, $ok, $res['http'] > 0, $err);
         if (!$ok) {
-            Log::warning('karlix.api_error', ['error' => $err, 'http' => $res['http'], 'ms' => (int) ((microtime(true) - $started) * 1000), 'charged' => $charged]);
+            $ms = (int) ((microtime(true) - $started) * 1000);
+            Log::warning('karlix.api_error', ['error' => $err, 'http' => $res['http'], 'ms' => $ms, 'charged' => $charged]);
+            $logFail((string) $err, (int) $res['http'], self::ERRORS[$err] ?? '', $res['body'], $ms);
             return $fail((string) $err, $res['http']) + ['charged' => $charged];
         }
         return ['ok' => true, 'content' => $content, 'tokens' => $usage['total'] ?? null, 'usage' => $usage, 'charged' => $charged, 'error' => null, 'message' => null, 'http' => $res['http']];

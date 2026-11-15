@@ -295,6 +295,8 @@ final class BoardAgent
             $msg = self::loop($c, $text, $set, $mid);
         } catch (\Throwable $e) {
             Log::error($e, 'karlix', ['session' => $sid]);
+            AiLog::failure(['feature' => 'board', 'user' => $c->uid, 'real_user' => $c->realUid, 'key' => isset($mid) ? 'board:' . $mid : null, 'error' => 'exception',
+                'message' => 'خطای داخلی هنگام پردازش', 'prompt' => $text, 'exception' => $e, 'context' => ['session' => $c->session['pid'], 'project' => $c->projectId]]);
             $msg = self::finish($c, 'هنگام پردازش خطای داخلی رخ داد؛ هیچ تغییری روی تسک‌ها اعمال نشد.', [], [], null, 'exception', 0);
         } finally {
             $c->saveRefs();
@@ -319,7 +321,8 @@ final class BoardAgent
         for ($step = 1; $step <= self::MAX_STEPS; $step++) {
             // هر گام یک فراخوانی جدا با کلید یکتای خودش (پیام + شماره‌ی فراخوانی)؛ سهمیه پیش از هر گام دوباره بررسی می‌شود
             $callNo++;
-            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $callNo, 'real_user' => $c->realUid]);
+            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $callNo, 'real_user' => $c->realUid,
+                'prompt' => $text, 'attempt' => $callNo]);
             $tokens += (int) $ai['tokens'];
             if (!$ai['ok']) {
                 $error = (string) $ai['error'];
@@ -332,6 +335,13 @@ final class BoardAgent
             }
             $plan = Common::json($ai['content']);
             $retries = $retries ?? 0;
+            if ($plan === null) {
+                // v7.23: خروجی خراب مدل در storage/logs/AI (با پیام کاربر، درخواست و جواب خام)
+                AiLog::failure(['feature' => 'board', 'user' => $c->uid, 'real_user' => $c->realUid, 'key' => 'board:' . $mid . ':' . $callNo, 'attempt' => $callNo,
+                    'error' => 'bad_json', 'message' => $retries < 2 ? 'یادآوری قالب و تلاش دوباره' : 'پاسخ قابل فهمی آماده نشد', 'prompt' => $text,
+                    'request' => ['model' => Agnes::model(), 'max_tokens' => 1400, 'messages' => array_slice($messages, -2)], 'response' => (string) $ai['content'],
+                    'context' => ['session' => $c->session['pid'], 'project' => $c->projectId, 'step' => $step, 'format_retry' => $retries]]);
+            }
             if ($plan === null && $retries < 2) {
                 // یادآوری قالب (مدل گاهی متن آزاد یا JSON ناقص می‌دهد) — حداکثر دو بار در هر پیام
                 $retries++;

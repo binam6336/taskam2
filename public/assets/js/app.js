@@ -1053,6 +1053,8 @@
       const dueNew = (r.due || []).filter((t) => { const k = 'tk_due_' + t.id; if (ls.get(k)) return false; ls.set(k, '1'); return true; });
       dueNew.forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
       if (dueNew.length) TK.post('/notifications/ack', { ids: dueNew.map((t) => t.id) });
+      // v7.23: تلاش مجدد خودکار کارلیکس وقتی صفحه‌ی تسک باز نیست (نتیجه در یادداشت‌های تسک و در صورت خطای نهایی پیام کارلیکس در گفتگو)
+      (r.karlix || []).forEach((k) => { if (!TK.karlixBusy?.has(String(k.note))) TK.post('/tasks/' + k.task + '/notes/' + k.note + '/karlix', {}); });
       if (r.sig) {
         if (TK.live.sig !== null && r.sig !== TK.live.sig && !TK.live.skip && !TK.live.busy) TK.live.refresh();
         TK.live.skip = false;

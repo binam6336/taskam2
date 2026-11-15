@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '050';
+    public const VERSION = '051';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -92,6 +92,9 @@ final class Schema
         // ۰۴۰ بورد اختصاصی هر پروژه و تسک محرمانه
         ['projects', 'board_config', 'ADD COLUMN `board_config` TEXT NULL DEFAULT NULL AFTER `priority_type`', null],
         ['tasks', 'is_confidential', 'ADD COLUMN `is_confidential` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_quick`', null],
+        // ۰۵۱ تلاش مجدد خودکار کارلیکس
+        ['ai_requests', 'attempts', 'ADD COLUMN `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER `tokens`', null],
+        ['ai_requests', 'retry_at', 'ADD COLUMN `retry_at` TIMESTAMP NULL DEFAULT NULL AFTER `attempts`', null],
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */

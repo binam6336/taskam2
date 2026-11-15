@@ -663,12 +663,18 @@ document.addEventListener('tk:ready', () => {
   /* کارلیکس: اجرای درخواست بعد از ثبت یادداشت. پاسخ در همان یادداشت‌های تسک ثبت می‌شود؛ تا آماده شدن، هر ۲ ثانیه دوباره می‌پرسد
      (سرور هر درخواست را فقط یک بار اجرا می‌کند، پس تکرار امن است). */
   const aiBusy = new Set();
+  TK.karlixBusy = aiBusy;   // v7.23: نظرسنجی سراسری (app.js) درخواستی را که همین‌جا در حال پیگیری است دوباره صدا نمی‌زند
   const aiRun = async (taskId, noteId) => {
-    if (aiBusy.has(noteId)) return;
-    aiBusy.add(noteId);
+    if (aiBusy.has(String(noteId))) return;
+    aiBusy.add(String(noteId));
+    let attempt = 1;
     try {
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 90; i++) {
         const r = await TK.post('/tasks/' + taskId + '/notes/' + noteId + '/karlix', {});
+        if (TK.ok(r) && r.state === 'pending' && r.attempt > attempt) {
+          attempt = r.attempt;
+          TK.toast('کارلیکس با خطای موقت روبه‌رو شد؛ تلاش مجدد خودکار (' + TK.fa(attempt - 1) + ' از ' + TK.fa(2) + ')…', 'warning', 5000);
+        }
         if (!TK.ok(r)) { if (r._http !== 429) { TK.toast(r.message || 'اجرای درخواست کارلیکس ناموفق بود.', 'error'); break; } }
         else if (r.state !== 'pending' && r.state !== 'running') {
           if (String(currentId) === String(taskId) && TK.qs('#m-detail.open')) await refresh();
@@ -681,7 +687,7 @@ document.addEventListener('tk:ready', () => {
         }
         await new Promise((ok) => setTimeout(ok, ((r && r.retry) || 2) * 1000));
       }
-    } finally { aiBusy.delete(noteId); }
+    } finally { aiBusy.delete(String(noteId)); }
   };
   // جزئیات باز شد و درخواست خود کاربر هنوز تمام نشده (مثلاً صفحه وسط کار بسته شده بود): ادامه‌ی اجرا
   const aiResume = (t) => (t.notes || []).filter((n) => n.ai_mine && AI_WAIT[n.ai_state]).forEach((n) => aiRun(t.id, n.id));

@@ -41,6 +41,12 @@ final class Assistant
     /** درخواست در حال اجرا بعد از این چند ثانیه «گیرکرده» حساب می‌شود */
     private const STALE_SECONDS = 150;
 
+    /** v7.23: تلاش مجدد خودکار بعد از خطای موقت — تعداد تلاش‌های اضافه و فاصله‌ی هرکدام (ثانیه) */
+    public const RETRIES = 2;
+    private const RETRY_DELAYS = [5, 20];
+    /** خطاهای موقت که دوباره امتحان می‌شوند (کلید نامعتبر، پیکربندی، سهمیه و دسترسی تکرار نمی‌شوند) */
+    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'bad_json', 'stale', 'exception'];
+
     /** نویسه‌های عربی/فاصله‌ی مجازی را یکسان می‌کند (تشخیص منشن و تطبیق نام) */
     public static function norm(string $s): string
     {
@@ -126,13 +132,15 @@ final class Assistant
         $id = (int) $req['id'];
         // درخواست گیرکرده (مثلاً قطع شدن پردازش): خطا ثبت می‌شود تا کاربر بداند
         if ($req['status'] === 'running' && strtotime((string) $req['started_at']) < time() - self::STALE_SECONDS) {
-            if (DB::run("UPDATE ai_requests SET status = 'error', error = 'stale', finished_at = NOW() WHERE id = ? AND status = 'running'", [$id]) === 1) {
-                self::reply($req, $actor, self::who($actor) . '، پردازش این درخواست نیمه‌کاره ماند. لطفاً دوباره کارلیکس را منشن کنید و پیش از آن تغییرات تسک را بررسی کنید.', 'error', null, 'stale');
-            }
-            return self::res(true, '', '', 200, ['state' => 'error']);
+            $state = self::fail($req, $actor, 'stale', 'پردازش این درخواست نیمه‌کاره ماند.', null, true);
+            return self::res(true, '', '', 200, ['state' => $state, 'retry' => $state === 'pending' ? self::wait($id) : null]);
         }
         if ($req['status'] !== 'pending') {
             return self::res(true, '', '', 200, ['state' => $req['status'], 'retry' => $req['status'] === 'running' ? 2 : null]);
+        }
+        // تلاش مجدد زمان‌بندی‌شده هنوز نرسیده
+        if (!empty($req['retry_at']) && strtotime((string) $req['retry_at']) > time()) {
+            return self::res(true, '', '', 200, ['state' => 'pending', 'retry' => self::wait($id), 'attempt' => (int) $req['attempts'] + 1]);
         }
         // یک درخواست در حال اجرا برای هر تسک (درخواست‌های پشت‌سرهم به ترتیب)
         $busy = DB::value("SELECT COUNT(*) FROM ai_requests WHERE task_id = ? AND status = 'running' AND id <> ? AND started_at > (NOW() - INTERVAL " . self::STALE_SECONDS . ' SECOND)', [$taskId, $id]);
@@ -148,11 +156,80 @@ final class Assistant
             $state = self::process($req, $actor);
         } catch (\Throwable $e) {
             Log::error($e, 'karlix', ['request' => $id]);
-            DB::run("UPDATE ai_requests SET status = 'error', error = 'exception', finished_at = NOW() WHERE id = ? AND status = 'running'", [$id]);
-            self::reply($req, $actor, self::who($actor) . '، هنگام اجرای درخواست خطای داخلی رخ داد. تغییرات تسک را بررسی کنید و در صورت نیاز دوباره درخواست دهید.', 'error', null, 'exception');
-            $state = 'error';
+            AiLog::failure(['feature' => 'task_note', 'user' => $actor, 'key' => self::key($req), 'attempt' => (int) $req['attempts'] + 1, 'error' => 'exception',
+                'prompt' => self::askOf($req), 'exception' => $e, 'context' => ['request' => $id, 'task' => (int) $req['task_id']]]);
+            $state = self::fail($req, $actor, 'exception', 'هنگام اجرای درخواست خطای داخلی رخ داد.', null, true);
         }
-        return self::res(true, '', '', 200, ['state' => $state]);
+        return self::res(true, '', '', 200, ['state' => $state, 'retry' => $state === 'pending' ? self::wait($id) : null]
+            + ($state === 'pending' ? ['attempt' => (int) DB::value('SELECT attempts FROM ai_requests WHERE id = ?', [$id]) + 1] : []));
+    }
+
+    /** ثانیه تا تلاش بعدی (حداقل ۲) */
+    private static function wait(int $id): int
+    {
+        $s = (int) DB::value('SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), retry_at)) FROM ai_requests WHERE id = ?', [$id]);
+        return max(2, min(60, $s));
+    }
+
+    /** کلید سهمیه/لاگ هر تلاش: تلاش اول note:<id> (مثل قبل)، بعدی‌ها note:<id>:<n> (هر تلاش رزرو جدا) */
+    private static function key(array $req): string
+    {
+        $n = (int) ($req['attempts'] ?? 0);
+        return 'note:' . (int) $req['id'] . ($n > 0 ? ':' . ($n + 1) : '');
+    }
+
+    /** متن درخواست کاربر (یادداشت بدون منشن) */
+    private static function askOf(array $req): string
+    {
+        return self::stripMention((string) DB::value('SELECT note FROM task_notes WHERE id = ?', [(int) $req['note_id']]));
+    }
+
+    /**
+     * خطای یک تلاش (v7.23): اگر خطا موقت است و هنوز تلاش اضافه مانده ⇐ دوباره pending با retry_at (پاسخی ثبت نمی‌شود)؛
+     * وگرنه پاسخ خطا در یادداشت‌های تسک + پیام «کارلیکس» در گفتگو (فقط وقتی دوباره تلاش شده بود) و وضعیت نهایی error.
+     * $fromRunning: ردیف هنوز running است (ادعای اتمی با شرط وضعیت)
+     */
+    private static function fail(array $req, int $actor, string $code, string $msg, ?array $actions, bool $fromRunning): string
+    {
+        $id = (int) $req['id'];
+        $attempts = (int) ($req['attempts'] ?? 0);
+        if (in_array($code, self::RETRYABLE, true) && $attempts < self::RETRIES) {
+            $delay = self::RETRY_DELAYS[$attempts] ?? 20;
+            $delay = $code === 'rate_limited' ? max($delay, 30) : $delay;
+            $n = DB::run("UPDATE ai_requests SET status = 'pending', attempts = attempts + 1, error = ?, retry_at = (NOW() + INTERVAL " . (int) $delay . " SECOND), started_at = NULL
+                WHERE id = ? AND status = 'running'", [$code, $id]);
+            if ($n === 1) {
+                Log::info('karlix.retry', ['request' => $id, 'attempt' => $attempts + 2, 'error' => $code, 'in' => $delay]);
+                return 'pending';
+            }
+            return (string) DB::value('SELECT status FROM ai_requests WHERE id = ?', [$id]);
+        }
+        if ($fromRunning && DB::run("UPDATE ai_requests SET status = 'error', error = ? WHERE id = ? AND status = 'running'", [$code, $id]) !== 1) {
+            return (string) DB::value('SELECT status FROM ai_requests WHERE id = ?', [$id]);
+        }
+        $tried = $attempts > 0 ? ' (بعد از ' . fa_num($attempts + 1) . ' بار تلاش خودکار)' : '';
+        $state = self::reply($req, $actor, self::who($actor) . '، ' . rtrim($msg, '. ') . $tried . '؛ هیچ تغییری روی تسک اعمال نشد. می‌توانید دوباره کارلیکس را منشن کنید.', 'error', $actions, $code);
+        if ($attempts > 0 || in_array($code, self::RETRYABLE, true)) {
+            self::notifyFailure($req, $actor, $code, $msg, $attempts + 1);
+        }
+        return $state;
+    }
+
+    /** پیام ربات «کارلیکس» در گفتگوی کاربر: درخواست شما با خطا روبه‌رو شد + دکمه‌ی «مشاهده‌ی تسک» */
+    private static function notifyFailure(array $req, int $actor, string $code, string $msg, int $tries): void
+    {
+        $t = TaskModel::raw((int) $req['task_id']);
+        if ($t === null) {
+            return;
+        }
+        $ask = mb_substr(self::askOf($req), 0, 300);
+        $tok = (string) ($t['share_token'] ?: TaskModel::ensureShareToken((int) $t['id']));
+        \App\Services\Notifier::send($actor, '⚠️ درخواست شما به کارلیکس با خطا روبه‌رو شد'
+            . "\n\nدرخواست شما: «" . ($ask !== '' ? $ask : '—') . '»'
+            . "\nتسک: «" . $t['title'] . '»'
+            . "\nعلت: " . rtrim($msg, '. ') . ($tries > 1 ? ' (' . fa_num($tries) . ' بار تلاش شد)' : '')
+            . "\n\nهیچ تغییری روی تسک اعمال نشد؛ می‌توانید از جزئیات تسک دوباره کارلیکس را منشن کنید."
+            . "\n\n[[task:" . $tok . ']]');
     }
 
     /** پردازش یک درخواست ادعاشده؛ خروجی = وضعیت نهایی */
@@ -175,16 +252,18 @@ final class Assistant
         $ai = Agnes::chat([
             ['role' => 'system', 'content' => self::systemPrompt()],
             ['role' => 'user', 'content' => self::userPrompt($ctx, $ask, $taskId)],
-        ], 700, ['user' => $actor, 'feature' => 'task_note', 'key' => 'note:' . (int) $req['id'],
+        ], 700, ['user' => $actor, 'feature' => 'task_note', 'key' => self::key($req), 'prompt' => $ask, 'attempt' => (int) $req['attempts'] + 1,
             'real_user' => $real !== null && (int) $real['id'] !== $actor ? (int) $real['id'] : null]);
         DB::run('UPDATE ai_requests SET model = ?, tokens = ? WHERE id = ?', [Agnes::model(), $ai['tokens'], (int) $req['id']]);
         if (!$ai['ok']) {
-            $msg = (string) $ai['message'];                       // متن خطا یا پایان سهمیه (Quota) — بدون جزئیات فنی
-            return self::reply($req, $actor, $name . '، ' . $msg . ' هیچ تغییری روی تسک اعمال نشد.', 'error', null, (string) $ai['error']);
+            // متن خطا یا پایان سهمیه (Quota) — بدون جزئیات فنی؛ خطای موقت تا RETRIES بار خودکار دوباره امتحان می‌شود (لاگ در Agnes)
+            return self::fail($req, $actor, (string) $ai['error'], (string) $ai['message'], null, true);
         }
         $plan = self::parse($ai['content']);
         if ($plan === null) {
-            return self::reply($req, $actor, $name . '، درخواست را متوجه نشدم و هیچ تغییری اعمال نشد. لطفاً واضح‌تر بنویسید چه چیزی از این تسک تغییر کند.', 'error', null, 'bad_json');
+            AiLog::failure(['feature' => 'task_note', 'user' => $actor, 'key' => self::key($req), 'attempt' => (int) $req['attempts'] + 1, 'error' => 'bad_json',
+                'prompt' => $ask, 'response' => (string) $ai['content'], 'context' => ['request' => (int) $req['id'], 'task' => $taskId, 'tokens' => $ai['tokens']]]);
+            return self::fail($req, $actor, 'bad_json', 'پاسخ هوش مصنوعی قابل فهم نبود', null, true);
         }
         $kind = is_string($plan['reply_type'] ?? null) ? $plan['reply_type'] : '';
         $msg = Actions::text($plan['message'] ?? null, 600, true);

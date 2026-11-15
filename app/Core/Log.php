@@ -150,6 +150,22 @@ final class Log
             . ' @ ' . self::rel($file) . ':' . (int) ($err['line'] ?? 0) . ' → logs/' . $section . '/' . date('Y-m-d') . '.log');
     }
 
+    /**
+     * لاگ اختصاصی خطاهای هوش مصنوعی (v7.23): storage/logs/AI/YYYY-MM-DD.log — متن آماده‌ی Karlix\AiLog (پاک‌سازی‌شده)
+     * + یک خط خلاصه در لاگ عمومی. نام پوشه عمداً «AI» با حروف بزرگ است (درخواست کاربر).
+     */
+    public static function ai(string $text, string $summary): void
+    {
+        self::write('AI', $text);
+        self::general('ERROR', 'ai ' . mb_substr(self::scrub($summary), 0, 300) . ' → logs/AI/' . date('Y-m-d') . '.log');
+    }
+
+    /** اطلاعات درخواست HTTP فعلی (متد + مسیر، کاربر، IP) برای لاگ‌های اختصاصی */
+    public static function request(): array
+    {
+        return self::requestInfo() + ['id' => self::requestId(), 'time' => self::now()];
+    }
+
     /** شناسه‌ی این درخواست (در لاگ عمومی، لاگ خطا و پاسخ خطای ۵۰۰ به‌عنوان «کد پیگیری») */
     public static function requestId(): string
     {

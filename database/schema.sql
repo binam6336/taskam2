@@ -344,6 +344,8 @@ CREATE TABLE `ai_requests` (
   `error`         VARCHAR(255) NULL DEFAULT NULL     COMMENT 'کد خطای سرویس هوش مصنوعی یا اعتبارسنجی (بدون اطلاعات حساس)',
   `model`         VARCHAR(64) NULL DEFAULT NULL,
   `tokens`        INT UNSIGNED NULL DEFAULT NULL     COMMENT 'مصرف توکن گزارش‌شده‌ی سرویس',
+  `attempts`      TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'تعداد تلاش‌های ناموفق قبلی (تلاش مجدد خودکار، حداکثر ۲)',
+  `retry_at`      TIMESTAMP NULL DEFAULT NULL        COMMENT 'زمان تلاش مجدد بعدی (NULL = بدون انتظار)',
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `started_at`    TIMESTAMP NULL DEFAULT NULL,
   `finished_at`   TIMESTAMP NULL DEFAULT NULL,
