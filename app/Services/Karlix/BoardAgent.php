@@ -26,7 +26,22 @@ final class BoardAgent
 {
     public const MAX_STEPS = 4;
     private const MAX_TOOLS_PER_STEP = 3;
-    private const BUSY_SECONDS = 150;
+    private const BUSY_SECONDS = 300;
+
+    /**
+     * v7.24: تلاش مجدد هر فراخوانی مدل بعد از خطای موقت — حداکثر RETRIES بار با فاصله‌ی RETRY_DELAYS (ثانیه، + کمی تصادفی تا
+     * درخواست‌های هم‌زمان چند کاربر دوباره هم‌زمان نشوند؛ برای 429 حداقل هدر Retry-After تا ۱۵ ثانیه). در این مدت progress = retry:N
+     * و رابط «در حال تلاش مجدد (N از ۳)…» نشان می‌دهد. خطای کلید/پیکربندی/سهمیه تکرار نمی‌شود. BUDGET = سقف کل زمان یک پیام.
+     */
+    public const RETRIES = 3;
+    private const RETRY_DELAYS = [1, 3, 6];
+    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy'];
+    private const BUDGET = 240;
+    /** متنی که به‌جای هر خطای اتصال/سرویس (از جمله کلید نامعتبر) به کاربر نشان داده می‌شود */
+    public const CONNECT_ERROR = 'خطا در اتصال به کارلیکس';
+
+    /** شناسه‌ی مرورگر پیام در حال پردازش (روی پیام کاربر و پاسخ دستیار) */
+    private static ?string $ref = null;
 
     /** نام ابزار ⇐ [کلاس، متد] — فهرست سفید */
     private const TOOLS = [
@@ -251,8 +266,9 @@ final class BoardAgent
      * پردازش یک پیام. $filters: mine/q فعال بورد؛ $selection: ['set' => pid, 'tasks' => [task pid]] از جدول‌های گفتگو.
      * خروجی res با data = ['message' => پیام دستیار برای رابط]
      */
-    public static function message(BoardContext $c, string $text, array $filters, array $selection): array
+    public static function message(BoardContext $c, string $text, array $filters, array $selection, ?string $ref = null): array
     {
+        $ref = $ref !== null && preg_match('/^[A-Za-z0-9]{16}$/', $ref) ? $ref : null;
         $text = trim(mb_substr(preg_replace('/[\x00-\x09\x0B-\x1F\x7F]/u', ' ', $text) ?? '', 0, 4000));
         if ($text === '') {
             return self::res(false, 'پیام خالی است.', 'EMPTY', 422);
@@ -271,10 +287,13 @@ final class BoardAgent
         }
         $sid = (int) $c->session['id'];
         // یک پیام در حال پردازش برای هر گفتگو (جلوگیری از پاسخ تکراری با دوبار ارسال)
-        if (DB::run('UPDATE ai_board_sessions SET busy_at = NOW() WHERE id = ? AND (busy_at IS NULL OR busy_at < (NOW() - INTERVAL ' . self::BUSY_SECONDS . ' SECOND))', [$sid]) !== 1) {
+        if (DB::run('UPDATE ai_board_sessions SET busy_at = NOW(), progress = ?, pending_ref = ? WHERE id = ? AND (busy_at IS NULL OR busy_at < (NOW() - INTERVAL ' . self::BUSY_SECONDS . ' SECOND))', ['think', $ref, $sid]) !== 1) {
             return self::res(false, 'پیام قبلی هنوز در حال پردازش است.', 'AI_BUSY', 409);
         }
-        @set_time_limit(Agnes::timeout() * (self::MAX_STEPS + 3) + 30);   // گام‌ها + یادآوری قالب و بررسی پیش‌نمایش
+        // پردازش با قطع اتصال مرورگر (Timeout پراکسی، بستن پنل) متوقف نمی‌شود؛ پاسخ با client_ref از /board/ai/status بازیابی می‌شود
+        @ignore_user_abort(true);
+        @set_time_limit(self::BUDGET + Agnes::timeout() + 30);
+        self::$ref = $ref;
         try {
             $c->filters = ['mine' => !empty($filters['mine']), 'q' => mb_substr(trim((string) ($filters['q'] ?? '')), 0, 100)];
             $set = isset($selection['set']) && is_string($selection['set']) && Pid::valid($selection['set'])
@@ -288,7 +307,7 @@ final class BoardAgent
             }
             $c->selection = ['set' => $set !== null ? (int) $set['id'] : null, 'tasks' => $sel];
             $ctxLog = ['filters' => $c->filters, 'selection' => ['set' => $set !== null ? 'R' . $set['seq'] : null, 'count' => count($sel)]];
-            $mid = DB::insert('ai_board_messages', ['session_id' => $sid, 'role' => 'user', 'content' => $text, 'context' => json_encode($ctxLog, JSON_UNESCAPED_UNICODE), 'real_user_id' => $c->realUid]);
+            $mid = DB::insert('ai_board_messages', ['session_id' => $sid, 'role' => 'user', 'content' => $text, 'context' => json_encode($ctxLog, JSON_UNESCAPED_UNICODE), 'real_user_id' => $c->realUid, 'client_ref' => $ref]);
             if (empty($c->session['title'])) {
                 DB::run('UPDATE ai_board_sessions SET title = ? WHERE id = ?', [mb_substr($text, 0, 120), $sid]);
             }
@@ -297,12 +316,96 @@ final class BoardAgent
             Log::error($e, 'karlix', ['session' => $sid]);
             AiLog::failure(['feature' => 'board', 'user' => $c->uid, 'real_user' => $c->realUid, 'key' => isset($mid) ? 'board:' . $mid : null, 'error' => 'exception',
                 'message' => 'خطای داخلی هنگام پردازش', 'prompt' => $text, 'exception' => $e, 'context' => ['session' => $c->session['pid'], 'project' => $c->projectId]]);
-            $msg = self::finish($c, 'هنگام پردازش خطای داخلی رخ داد؛ هیچ تغییری روی تسک‌ها اعمال نشد.', [], [], null, 'exception', 0);
+            $msg = self::finish($c, self::CONNECT_ERROR . '؛ هیچ تغییری روی تسک‌ها اعمال نشد. کمی بعد دوباره امتحان کنید.', [], [], null, 'exception', 0);
         } finally {
             $c->saveRefs();
-            DB::run('UPDATE ai_board_sessions SET busy_at = NULL WHERE id = ?', [$sid]);
+            DB::run('UPDATE ai_board_sessions SET busy_at = NULL, progress = NULL, pending_ref = NULL WHERE id = ?', [$sid]);
+            self::$ref = null;
         }
         return self::res(true, '', '', 200, ['reply' => $msg]);
+    }
+
+    /**
+     * وضعیت پیام در حال پردازش برای مرورگر (v7.24، GET /board/ai/status): done + پاسخ (با client_ref)، busy + مرحله، یا none
+     * (پیامی با این شناسه نرسیده یا پردازش بدون پاسخ تمام شده).
+     */
+    public static function status(BoardContext $c, string $ref): array
+    {
+        if (!preg_match('/^[A-Za-z0-9]{16}$/', $ref)) {
+            return ['state' => 'none'];
+        }
+        $sid = (int) $c->session['id'];
+        $m = DB::one("SELECT id, blocks, created_at FROM ai_board_messages WHERE session_id = ? AND role = 'assistant' AND client_ref = ? ORDER BY id DESC LIMIT 1", [$sid, $ref]);
+        if ($m !== null) {
+            $blocks = json_decode((string) $m['blocks'], true);
+            return ['state' => 'done', 'reply' => ['id' => (int) $m['id'], 'role' => 'assistant', 'text' => '', 'blocks' => is_array($blocks) ? $blocks : [], 'at' => jdate((string) $m['created_at'])]];
+        }
+        $s = DB::one('SELECT progress, pending_ref, busy_at > (NOW() - INTERVAL ' . self::BUSY_SECONDS . ' SECOND) AS live FROM ai_board_sessions WHERE id = ?', [$sid]);
+        if ($s !== null && (int) $s['live'] === 1 && $s['pending_ref'] === $ref) {
+            return ['state' => 'busy', 'progress' => (string) ($s['progress'] ?? 'think')];
+        }
+        return ['state' => 'none'];
+    }
+
+    /** پیام در حال پردازش این گفتگو برای بازگشایی پنل (ادامه‌ی نمایش وضعیت) — null اگر آزاد است */
+    public static function pending(BoardContext $c): ?array
+    {
+        $s = DB::one('SELECT progress, pending_ref FROM ai_board_sessions WHERE id = ? AND busy_at > (NOW() - INTERVAL ' . self::BUSY_SECONDS . ' SECOND)', [(int) $c->session['id']]);
+        return $s !== null && $s['pending_ref'] !== null ? ['ref' => (string) $s['pending_ref'], 'progress' => (string) ($s['progress'] ?? 'think')] : null;
+    }
+
+    private static function progress(BoardContext $c, string $p): void
+    {
+        try {
+            DB::run('UPDATE ai_board_sessions SET progress = ? WHERE id = ?', [$p, (int) $c->session['id']]);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * یک فراخوانی مدل با تلاش مجدد خودکار (حداکثر RETRIES بار) برای خطاهای موقت. هر تلاش کلید سهمیه‌ی جدا دارد
+     * (board:<پیام>:<گام>، …:r1، …:r2، …:r3) و جداگانه در storage/logs/AI ثبت می‌شود. خروجی همان Agnes::chat + retried (تعداد تکرار).
+     */
+    private static function ask(BoardContext $c, array $messages, string $text, int $mid, int $callNo, float $t0): array
+    {
+        $tokens = 0;
+        $max = 1400;
+        for ($try = 0; ; $try++) {
+            $ai = Agnes::chat($messages, $max, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $callNo . ($try ? ':r' . $try : ''),
+                'real_user' => $c->realUid, 'prompt' => $text, 'attempt' => $callNo . ($try ? '.r' . $try : ''), 'retry' => false]);
+            $tokens += (int) $ai['tokens'];
+            if ($ai['ok'] || $try >= self::RETRIES || !in_array((string) $ai['error'], self::RETRYABLE, true)) {
+                break;
+            }
+            // پاسخ خالی معمولاً یعنی مدل استدلالی سقف توکن را برای فکر کردن مصرف کرده (finish_reason = length): تلاش بعد با سقف بیشتر
+            if ($ai['error'] === 'bad_response') {
+                $max = min(3200, $max + 900);
+            }
+            $wait = self::RETRY_DELAYS[$try] + random_int(0, 800) / 1000;
+            if ($ai['error'] === 'rate_limited') {
+                $wait = max($wait, min(15, (int) ($ai['retry_after'] ?? 0)));
+            }
+            // تلاش بعدی فقط اگر در بودجه‌ی زمانی پیام جا شود (انتظار + یک Timeout کامل)
+            if (microtime(true) - $t0 + $wait + Agnes::timeout() > self::BUDGET) {
+                break;
+            }
+            self::progress($c, 'retry:' . ($try + 1));
+            Log::warning('karlix.board_retry', ['error' => $ai['error'], 'http' => $ai['http'] ?? 0, 'try' => $try + 1, 'call' => $callNo]);
+            usleep((int) ($wait * 1000000));
+        }
+        $ai['tokens'] = $tokens;
+        $ai['retried'] = $try;
+        return $ai;
+    }
+
+    /** متن خطای مدل برای کاربر: سهمیه و پیکربندی همان پیام خودشان؛ هر خطای اتصال/سرویس (از جمله کلید نامعتبر) = «خطا در اتصال به کارلیکس» */
+    private static function failText(array $ai): string
+    {
+        $e = (string) $ai['error'];
+        if (strpos($e, 'quota_') === 0 || $e === 'not_configured') {
+            return (string) $ai['message'];
+        }
+        return self::CONNECT_ERROR . ((int) ($ai['retried'] ?? 0) > 0 ? '؛ ' . fa_num((int) $ai['retried']) . ' بار دوباره تلاش شد ولی پاسخی دریافت نشد.' : '.') . ' کمی بعد دوباره امتحان کنید.';
     }
 
     private static function loop(BoardContext $c, string $text, ?array $set, int $mid): array
@@ -318,18 +421,20 @@ final class BoardAgent
         $error = null;
         $callNo = 0;                                            // شمارنده‌ی فراخوانی مدل (جدا از حلقه‌ی ابزارها: foreach … as $call)
         $lastResults = [];                                      // نتیجه‌ی ابزارهای گام قبل (برای خطای گام بعد)
+        $t0 = microtime(true);
         for ($step = 1; $step <= self::MAX_STEPS; $step++) {
             // هر گام یک فراخوانی جدا با کلید یکتای خودش (پیام + شماره‌ی فراخوانی)؛ سهمیه پیش از هر گام دوباره بررسی می‌شود
             $callNo++;
-            $ai = Agnes::chat($messages, 1400, ['user' => $c->uid, 'feature' => 'board', 'key' => 'board:' . $mid . ':' . $callNo, 'real_user' => $c->realUid,
-                'prompt' => $text, 'attempt' => $callNo]);
+            self::progress($c, $callNo === 1 ? 'think' : 'tools');
+            $ai = self::ask($c, $messages, $text, $mid, $callNo, $t0);
             $tokens += (int) $ai['tokens'];
             if (!$ai['ok']) {
                 $error = (string) $ai['error'];
-                $finalText = (string) $ai['message'] . ' هیچ تغییری روی تسک‌ها اعمال نشد.';
+                $why = self::failText($ai);
+                $finalText = $why . ' هیچ تغییری روی تسک‌ها اعمال نشد.';
                 // گام بعد از خواندن داده ناموفق شد (سهمیه، Timeout، …): نتیجه‌ی واقعی گام قبل از دست نرود
                 if ($lastResults) {
-                    $finalText = self::summary($lastResults) . "\n(تحلیل تکمیلی انجام نشد: " . (string) $ai['message'] . ')';
+                    $finalText = self::summary($lastResults) . "\n(تحلیل تکمیلی انجام نشد: " . $why . ')';
                 }
                 break;
             }
@@ -486,7 +591,7 @@ final class BoardAgent
         $all = $segs ? array_merge([['type' => 'text', 'segs' => $segs] + ($error ? ['error' => true] : [])], $blocks) : $blocks;
         $id = DB::insert('ai_board_messages', ['session_id' => (int) $c->session['id'], 'role' => 'assistant', 'content' => mb_substr($text, 0, 4000),
             'blocks' => json_encode($all, JSON_UNESCAPED_UNICODE), 'tools' => $log ? json_encode($log, JSON_UNESCAPED_UNICODE) : null,
-            'model' => $model, 'tokens' => $tokens ?: null, 'error' => $error, 'real_user_id' => $c->realUid]);
+            'model' => $model, 'tokens' => $tokens ?: null, 'error' => $error, 'real_user_id' => $c->realUid, 'client_ref' => self::$ref]);
         DB::run('UPDATE ai_board_sessions SET updated_at = NOW() WHERE id = ?', [(int) $c->session['id']]);
         Audit::log($c->uid, 'ai.board.message', ['session' => $c->session['pid'], 'project' => $c->projectId,
             'tools' => array_values(array_filter(array_map(static fn($l) => $l['tool'] ?? null, $log))), 'error' => $error, 'tokens' => $tokens]

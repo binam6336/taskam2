@@ -31,7 +31,8 @@ final class AdminLog
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */
     private const SKIP = ['id', 'pid', 'updated_at', 'created_at', 'last_active_at', 'last_seen', 'notified_at', 'share_token', 'token_hash', 'password_hash',
-        'file_path', 'file_mime', 'attachment', 'message', 'attachment_name', 'board_moved_at', 'last_reply_at', 'is_read_by_user', 'is_read_by_admin', 'quick_links'];
+        'file_path', 'file_mime', 'attachment', 'message', 'attachment_name', 'board_moved_at', 'last_reply_at', 'is_read_by_user', 'is_read_by_admin', 'quick_links',
+        'progress', 'pending_ref', 'client_ref'];
 
     private static bool $watch = false;
     private static bool $busy = false;

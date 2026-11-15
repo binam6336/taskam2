@@ -229,6 +229,8 @@
     showCtx(); selBar();
     TK.applyCss && TK.applyCss(panel);
     if (d.messages.length) scrollEnd(); else log().scrollTop = 0;
+    // پیامی که هنوز در سرور در حال پردازش است (پنل یا صفحه وسط کار بسته شده بود): ادامه‌ی نمایش وضعیت تا رسیدن پاسخ
+    if (d.pending && d.pending.ref && !state.sending) resume(d.pending.ref, d.pending.progress);
   };
 
   const load = async (session) => {
@@ -271,25 +273,80 @@
     scrollEnd();
   };
 
+  // ───────── ارسال پیام و وضعیت زنده (v7.24) ─────────
+  // سرور مرحله را در progress می‌نویسد: think | tools | retry:N (تلاش مجدد خودکار بعد از خطای موقت، حداکثر ۳ بار).
+  // پاسخ با شناسه‌ی ref هم از خود درخواست و هم از GET /board/ai/status می‌رسد؛ اگر اتصال درخواست اصلی قطع شود
+  // (Timeout پراکسی، قطعی شبکه) پردازش در سرور ادامه دارد و پاسخ از status گرفته می‌شود.
+  const CONNECT_ERR = 'خطا در اتصال به کارلیکس؛ کمی بعد دوباره امتحان کنید.';
+  const PROG = { think: 'در حال تحلیل داده‌های بورد…', tools: 'در حال اجرای ابزارها و آماده‌سازی پاسخ…' };
+  const progText = (p) => {
+    const m = /^retry:(\d)$/.exec(p || '');
+    return m ? 'در حال تلاش مجدد (' + TK.fa(m[1]) + ' از ۳)…' : (PROG[p] || PROG.think);
+  };
+  const newRef = () => {
+    const abc = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const a = new Uint8Array(16);
+    crypto.getRandomValues(a);
+    return Array.from(a, (b) => abc[b % abc.length]).join('');
+  };
+  const errMsg = (text) => append({ id: 'e' + Date.now(), role: 'assistant', blocks: [{ type: 'text', error: true, segs: [{ t: 's', v: text }] }] });
+
+  /** پیگیری یک پیام تا پاسخ؛ post = Promise درخواست اصلی (یا null برای ادامه‌ی پیام قبلی بعد از باز شدن دوباره‌ی پنل) */
+  const track = (ref, session, post) => new Promise((resolve) => {
+    let over = false, postDead = !post, misses = 0, timer = 0;
+    const end = (v) => { if (over) return; over = true; clearTimeout(timer); resolve(v); };
+    const tick = async () => {
+      if (over) return;
+      const r = await TK.get('/board/ai/status', { project, session, ref });
+      if (over) return;
+      if (r.status === 'success') {
+        if (r.state === 'done') return end({ reply: r.reply });
+        if (r.state === 'busy') { misses = 0; if (state.session === session) $('[data-ai-status-t]').textContent = progText(r.progress); }
+        // none: تا وقتی درخواست اصلی باز است طبیعی است (هنوز به سرور نرسیده)؛ بعد از قطع آن یعنی پاسخی در راه نیست
+        else if (postDead && ++misses >= 2) return end({ error: CONNECT_ERR });
+      } else if (postDead && ++misses >= 4) return end({ error: CONNECT_ERR });
+      timer = setTimeout(tick, 1500);
+    };
+    timer = setTimeout(tick, post ? 1200 : 0);
+    if (post) post.then((r) => {
+      if (r.status === 'success') return end({ reply: r.reply });
+      // خطای واقعی درخواست (سهمیه، سقف، پیام خالی، پیام قبلی در حال پردازش، …) همان پیام سرور؛
+      // قطع اتصال / 5xx / Timeout پراکسی: پردازش شاید هنوز در سرور ادامه دارد ⇐ ادامه با status
+      if (r._http && r._http >= 400 && r._http < 500 && r._http !== 408 && r.code) return end({ error: r.message || CONNECT_ERR });
+      postDead = true;
+    });
+  });
+
+  const settle = (session, res) => {
+    busy(false);
+    state.pending = null;
+    if (state.session !== session) return;              // کاربر به گفتگوی دیگری رفته؛ پاسخ در تاریخچه‌ی همان گفتگو هست
+    if (res.reply) { append(res.reply); return; }
+    errMsg(res.error || CONNECT_ERR);
+  };
+
+  const resume = async (ref, progress) => {
+    if (state.pending === ref) return;
+    state.pending = ref;
+    busy(true, progText(progress));
+    const session = state.session;
+    settle(session, await track(ref, session, null));
+  };
+
   const send = async (text) => {
     text = (text || '').trim();
     if (!text || state.sending) return;
     append({ id: 'u' + Date.now(), role: 'user', text });
     $('[data-ai-input]').value = '';
-    busy(true, 'در حال تحلیل داده‌های بورد…');
-    const t2 = setTimeout(() => state.sending && ($('[data-ai-status-t]').textContent = 'در حال اجرای ابزارها و آماده‌سازی پاسخ…'), 6000);
+    busy(true, progText('think'));
+    const ref = newRef();
+    const session = state.session;
+    state.pending = ref;
     const sel = state.sel.tasks.size ? { set: state.sel.set, tasks: [...state.sel.tasks] } : {};
-    const r = await TK.post('/board/ai/message', { project, session: state.session, text, filters: JSON.stringify(filters()), selection: JSON.stringify(sel) });
-    clearTimeout(t2);
-    busy(false);
-    if (r.status !== 'success') {
-      append({ id: 'e' + Date.now(), role: 'assistant', blocks: [{ type: 'text', error: true, segs: [{ t: 's', v: r.message || 'ارتباط برقرار نشد؛ دوباره امتحان کنید.' }] }] });
-      return;
-    }
-    state.sel = { set: null, tasks: new Set() };
-    selBar();
-    append(r.reply);
-    // آخرین پیام را دوباره برای بروز بودن وضعیت انتخاب‌ها رسم کن
+    const post = TK.post('/board/ai/message', { project, session, text, ref, filters: JSON.stringify(filters()), selection: JSON.stringify(sel) });
+    const res = await track(ref, session, post);
+    if (res.reply) { state.sel = { set: null, tasks: new Set() }; selBar(); }
+    settle(session, res);
   };
 
   // ───────── رویدادها ─────────

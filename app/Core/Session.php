@@ -282,6 +282,17 @@ final class Session
         return self::$started && session_status() === PHP_SESSION_ACTIVE;
     }
 
+    /**
+     * آزاد کردن قفل نشست پیش از کار طولانی (v7.24، مثل فراخوانی هوش مصنوعی): داده‌ی نشست همچنان خواندنی است ولی نوشتن بعدی ذخیره نمی‌شود.
+     * بدون این، درخواست‌های دیگر همین کاربر (poll، جزئیات تسک، وضعیت پردازش) تا پایان کار پشت GET_LOCK نشست می‌مانند.
+     */
+    public static function release(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+    }
+
     /** خواندن بدون کوکی نشست، نشست (و فایل) جدید نمی‌سازد */
     private static function lazy(): bool
     {

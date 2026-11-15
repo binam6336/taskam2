@@ -45,7 +45,7 @@ final class Assistant
     public const RETRIES = 2;
     private const RETRY_DELAYS = [5, 20];
     /** خطاهای موقت که دوباره امتحان می‌شوند (کلید نامعتبر، پیکربندی، سهمیه و دسترسی تکرار نمی‌شوند) */
-    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'bad_json', 'stale', 'exception'];
+    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy', 'bad_json', 'stale', 'exception'];
 
     /** نویسه‌های عربی/فاصله‌ی مجازی را یکسان می‌کند (تشخیص منشن و تطبیق نام) */
     public static function norm(string $s): string

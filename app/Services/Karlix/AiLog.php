@@ -29,6 +29,7 @@ final class AiLog
         'bad_json'       => 'خروجی مدل JSON قابل فهم نبود',
         'exception'      => 'خطای داخلی برنامه هنگام پردازش',
         'stale'          => 'پردازش نیمه‌کاره ماند (بیش از ۱۵۰ ثانیه)',
+        'busy'           => 'صف فراخوانی هم‌زمان پر بود (AI_MAX_CONCURRENT / AI_QUEUE_SECONDS)',
         'AI_QUOTA'       => 'سهمیه‌ی مصرف کاربر کافی نبود',
     ];
 
@@ -48,7 +49,7 @@ final class AiLog
             $out[] = 'time:      ' . $tehran . ' (Asia/Tehran)' . (isset($e['ms']) ? '  duration ' . (int) $e['ms'] . ' ms' : '');
             $out[] = 'request:   ' . $req['id'] . ($req['line'] !== '' ? '  ' . $req['line'] : '') . ($req['ip'] !== '' ? '  ip ' . $req['ip'] : '');
             $out[] = 'user:      ' . ($uid ? $uid . ' (' . Common::who($uid) . ')' : 'unknown') . (!empty($e['real_user']) ? '  real admin ' . (int) $e['real_user'] : '');
-            $out[] = 'feature:   ' . ($e['feature'] ?? '-') . '  key ' . ($e['key'] ?? '-') . (isset($e['attempt']) ? '  attempt ' . (int) $e['attempt'] : '');
+            $out[] = 'feature:   ' . ($e['feature'] ?? '-') . '  key ' . ($e['key'] ?? '-') . (isset($e['attempt']) ? '  attempt ' . preg_replace('/[^0-9a-z.:]/', '', (string) $e['attempt']) : '');
             $out[] = 'error:     ' . $code . ' — ' . (self::CAUSES[$code] ?? self::CAUSES[preg_replace('/_.*$/', '', $code)] ?? 'نامشخص')
                 . (!empty($e['http']) ? '  (HTTP ' . (int) $e['http'] . ')' : '');
             if (!empty($e['message'])) {

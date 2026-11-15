@@ -114,6 +114,7 @@ $router->group(['panel'], function ($r) {
     $r->post('/board/ai/session/new', [BoardAiController::class, 'newSession']);
     $r->post('/board/ai/session/delete', [BoardAiController::class, 'deleteSession']);
     $r->post('/board/ai/message', [BoardAiController::class, 'message']);
+    $r->get('/board/ai/status', [BoardAiController::class, 'status']);
     $r->get('/board/ai/set', [BoardAiController::class, 'setPage']);
     $r->post('/board/ai/quick', [BoardAiController::class, 'quick']);
     $r->post('/board/ai/apply', [BoardAiController::class, 'apply']);

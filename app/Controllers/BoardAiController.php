@@ -58,7 +58,7 @@ final class BoardAiController extends Controller
         $list = BoardAgent::sessions($c->uid, $c->projectId);
         $data = ['session' => $c->session['pid'], 'project' => ['id' => pid('projects', $c->projectId), 'title' => (string) $c->project['title']],
             'user' => \App\Services\Karlix\Common::who($c->uid), 'enabled' => Agnes::enabled(), 'reason' => Agnes::enabled() ? null : Agnes::ERRORS['not_configured'],
-            'prompts' => BoardAgent::prompts($c), 'messages' => BoardAgent::transcript($c), 'sessions' => $list,
+            'prompts' => BoardAgent::prompts($c), 'messages' => BoardAgent::transcript($c), 'sessions' => $list, 'pending' => BoardAgent::pending($c),
             'impersonating' => $c->realUid !== null];
         $c->saveRefs();
         return $data;
@@ -96,14 +96,24 @@ final class BoardAiController extends Controller
         $this->ok($others ? fa_num($n) . ' گفتگو حذف شد.' : 'گفتگو حذف شد.', $this->sessionData($c) + ['deleted' => $n]);
     }
 
-    /** POST /board/ai/message — {project, session, text, filters (JSON), selection (JSON)} */
+    /** POST /board/ai/message — {project, session, text, filters (JSON), selection (JSON), ref (شناسه‌ی ۱۶ نویسه‌ای مرورگر)} */
     public function message()
     {
         $this->rateLimit('board_ai_msg', 20);
         $c = $this->ctx();
         $f = json_decode((string) $this->request->input('filters', ''), true);
         $s = json_decode((string) $this->request->input('selection', ''), true);
-        $this->out(BoardAgent::message($c, (string) $this->request->input('text', ''), is_array($f) ? $f : [], is_array($s) ? $s : []));
+        // v7.24: قفل نشست پیش از فراخوانی طولانی مدل آزاد می‌شود تا درخواست‌های دیگر همین کاربر (وضعیت پردازش، poll، بورد) معطل نمانند
+        \App\Core\Session::release();
+        $this->out(BoardAgent::message($c, (string) $this->request->input('text', ''), is_array($f) ? $f : [], is_array($s) ? $s : [], (string) $this->request->input('ref', '')));
+    }
+
+    /** GET /board/ai/status?project=&session=&ref= — وضعیت پیام در حال پردازش (v7.24): done + reply | busy + progress | none */
+    public function status()
+    {
+        $this->rateLimit('board_ai_status', 120);
+        $c = $this->ctx();
+        $this->ok('', BoardAgent::status($c, (string) ($this->request->query['ref'] ?? '')));
     }
 
     /** GET /board/ai/set?project=&session=&set=&page= — صفحه‌ی دیگر یک لیست */

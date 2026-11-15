@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '051';
+    public const VERSION = '052';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -95,6 +95,9 @@ final class Schema
         // ۰۵۱ تلاش مجدد خودکار کارلیکس
         ['ai_requests', 'attempts', 'ADD COLUMN `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER `tokens`', null],
         ['ai_requests', 'retry_at', 'ADD COLUMN `retry_at` TIMESTAMP NULL DEFAULT NULL AFTER `attempts`', null],
+        ['ai_board_sessions', 'progress', 'ADD COLUMN `progress` VARCHAR(20) NULL DEFAULT NULL AFTER `busy_at`', null],
+        ['ai_board_sessions', 'pending_ref', 'ADD COLUMN `pending_ref` CHAR(16) NULL DEFAULT NULL AFTER `progress`', null],
+        ['ai_board_messages', 'client_ref', 'ADD COLUMN `client_ref` CHAR(16) NULL DEFAULT NULL AFTER `real_user_id`', null],
     ];
 
     /** مقدارهای تازه‌ی ENUM: [جدول، ستون، مقداری که باید باشد، DDL] */

@@ -404,6 +404,7 @@ final class TaskController extends Controller
     public function assistantRun(string $task, string $note)
     {
         $this->rateLimit('karlix_run', 40);
+        \App\Core\Session::release();                       // v7.24: بقیه‌ی درخواست‌های کاربر پشت قفل نشست نمانند
         $res = Assistant::run($this->uid(), (int) $task, (int) $note);
         if (!$res['ok']) {
             $this->fail($res['message'], $res['http']);
