@@ -55,6 +55,14 @@ final class Throttle
         return self::count($bucket, $key, $windowSeconds) <= $max;
     }
 
+    /** ثانیه تا آزاد شدن یک جا در پنجره (قدیمی‌ترین ثبتِ داخل پنجره خارج شود)؛ حداقل ۱ */
+    public static function retryIn(string $bucket, string $key, int $windowSeconds): int
+    {
+        $s = DB::value('SELECT TIMESTAMPDIFF(SECOND, NOW(), MIN(created_at) + INTERVAL ? SECOND) FROM rate_limits WHERE bucket = ? AND `key` = ? AND created_at >= (NOW() - INTERVAL ? SECOND)',
+            [$windowSeconds, $bucket, self::k($key), $windowSeconds]);
+        return max(1, min($windowSeconds, (int) $s));
+    }
+
     /** برداشتن آخرین ثبت (مثلاً تلاشی که موفق شد و نباید از سهمیه کم کند) */
     public static function undo(string $bucket, string $key): void
     {

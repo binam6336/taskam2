@@ -116,23 +116,47 @@ final class DB
         return self::run($sql, array_merge(array_values($data), $whereParams));
     }
 
-    public static function transaction(callable $fn)
+    /**
+     * اجرای $fn در یک تراکنش. $retries (v7.26، AI-03): تعداد تکرار بعد از بن‌بست (1213) یا انتظار قفل (1205) با تأخیر تصادفی
+     * — فقط برای تابع‌هایی که اثر بیرون از دیتابیس ندارند (کل تابع دوباره اجرا می‌شود). در تراکنش تودرتو تکرار نمی‌شود.
+     */
+    public static function transaction(callable $fn, int $retries = 0)
     {
         $pdo = self::pdo();
         if ($pdo->inTransaction()) {
             return $fn();
         }
-        $pdo->beginTransaction();
-        try {
-            $r = $fn();
-            $pdo->commit();
-            return $r;
-        } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
+        for ($try = 0; ; $try++) {
+            $pdo->beginTransaction();
+            try {
+                $r = $fn();
+                $pdo->commit();
+                return $r;
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                if ($try < $retries && self::isLockError($e)) {
+                    usleep(random_int(30000, 120000) * ($try + 1));
+                    continue;
+                }
+                throw $e;
             }
-            throw $e;
         }
+    }
+
+    /** خطای بن‌بست (1213) یا پایان زمان انتظار قفل (1205) */
+    public static function isLockError(\Throwable $e): bool
+    {
+        for (; $e !== null; $e = $e->getPrevious()) {
+            if ($e instanceof \PDOException) {
+                $code = (int) ($e->errorInfo[1] ?? 0);
+                if ($code === 1213 || $code === 1205 || preg_match('/\b(1213|1205)\b|Deadlock found/i', $e->getMessage())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** رشته‌ی placeholder برای IN (...) */

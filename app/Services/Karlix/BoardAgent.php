@@ -35,7 +35,7 @@ final class BoardAgent
      */
     public const RETRIES = 3;
     private const RETRY_DELAYS = [1, 3, 6];
-    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy'];
+    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy', 'quota_error'];
     private const BUDGET = 240;
     /** متنی که به‌جای هر خطای اتصال/سرویس (از جمله کلید نامعتبر) به کاربر نشان داده می‌شود */
     public const CONNECT_ERROR = 'خطا در اتصال به کارلیکس';
@@ -283,11 +283,12 @@ final class BoardAgent
             return self::res(false, 'به سقف روزانه‌ی درخواست از هوش مصنوعی (' . fa_num(Assistant::perDay()) . ') رسیده‌اید.', 'AI_DAILY_LIMIT', 429);
         }
         if (!Common::minuteOk($c->uid)) {
-            return self::res(false, 'درخواست‌ها بیش از حد سریع است؛ یک دقیقه بعد دوباره امتحان کنید.', 'AI_RATE_LIMIT', 429);
+            return self::res(false, Common::minuteMessage($c->uid), 'AI_RATE_LIMIT', 429);
         }
         $sid = (int) $c->session['id'];
         // یک پیام در حال پردازش برای هر گفتگو (جلوگیری از پاسخ تکراری با دوبار ارسال)
         if (DB::run('UPDATE ai_board_sessions SET busy_at = NOW(), progress = ?, pending_ref = ? WHERE id = ? AND (busy_at IS NULL OR busy_at < (NOW() - INTERVAL ' . self::BUSY_SECONDS . ' SECOND))', ['think', $ref, $sid]) !== 1) {
+            Common::minuteUndo($c->uid);                        // v7.26 (AI-08): پیام ردشده از سقف دقیقه‌ای کم نکند
             return self::res(false, 'پیام قبلی هنوز در حال پردازش است.', 'AI_BUSY', 409);
         }
         // پردازش با قطع اتصال مرورگر (Timeout پراکسی، بستن پنل) متوقف نمی‌شود؛ پاسخ با client_ref از /board/ai/status بازیابی می‌شود

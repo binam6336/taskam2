@@ -153,4 +153,16 @@ final class Common
     {
         return Throttle::attempt('karlix', (string) $uid, Assistant::perMinute(), 60);
     }
+
+    /** v7.26 (AI-08): درخواستی که بعد از ثبت در سقف دقیقه‌ای به دلیل دیگری رد شد (مثلاً پیام قبلی هنوز در حال پردازش) شمرده نشود */
+    public static function minuteUndo(int $uid): void
+    {
+        Throttle::undo('karlix', (string) $uid);
+    }
+
+    /** پیام سقف دقیقه‌ای با زمان باقی‌مانده تا آزاد شدن (AI-08) */
+    public static function minuteMessage(int $uid): string
+    {
+        return 'درخواست‌ها بیش از حد سریع است؛ ' . fa_num(Throttle::retryIn('karlix', (string) $uid, 60)) . ' ثانیه دیگر دوباره امتحان کنید.';
+    }
 }

@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '052';
+    public const VERSION = '053';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -124,10 +124,16 @@ final class Schema
         ['tasks', 'group_head_approval', 'DROP COLUMN `group_head_approval`', null],
     ];
 
+    /** ایندکس جدید روی جدول موجود (v7.26): [جدول، نام ایندکس، DDL]؛ اگر ایندکس نیست اعمال می‌شود */
+    private const INDEXES = [
+        ['ai_usage', 'idx_ai_usage_user_status', 'ADD KEY `idx_ai_usage_user_status` (`user_id`, `status`, `created_at`)'],
+    ];
+
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
     /** اصلاح داده‌ی یک‌باره با کد PHP (وقتی SQL خالی کافی نیست)؛ نشانه‌ی storage/cache/data-<id> */
     private const PHP_DATA = [
         ['047', [\App\Models\SubjectModel::class, 'migrateToProjects']],     // لیبل‌ها در سطح پروژه (v7.12)
+        ['053', [\App\Services\Karlix\Quota::class, 'refundFailed']],         // برگرداندن سهمیه‌ی خطاهای 429/5xx (v7.26، AI-01)
     ];
 
     private const DATA = [
@@ -167,6 +173,7 @@ final class Schema
         ['ai_quotas', '050_ai_quota.sql'],
         ['ai_usage', '050_ai_quota.sql'],
         ['ai_usage_counters', '050_ai_quota.sql'],
+        ['ai_queue', '053_ai_queue.sql'],
     ];
 
     /** تغییرات دیتابیس این نسخه هنوز کامل اعمال نشده؟ (برای مستندات پنل وقتی SCHEMA_AUTO خاموش است) */
@@ -195,6 +202,11 @@ final class Schema
             foreach (self::COLUMNS as [$table, $col]) {
                 if (!isset($cols[$table . '.' . $col])) {
                     $out[] = $table . '.' . $col;
+                }
+            }
+            foreach (self::INDEXES as [$table, $index]) {
+                if (isset($cols[$table . '.id']) && (int) DB::value('SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?', [$table, $index]) === 0) {
+                    $out[] = $table . ' (ایندکس ' . $index . ')';
                 }
             }
             foreach (self::TABLES as [$table]) {
@@ -288,6 +300,19 @@ final class Schema
                 } catch (\Throwable $e) {
                     $ok = false;
                     $fail('مقدار ENUM ' . $table . '.' . $col, $e);
+                }
+            }
+            foreach (self::INDEXES as [$table, $index, $ddl]) {
+                if ((int) DB::value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$table]) === 0
+                    || (int) DB::value('SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?', [$table, $index]) > 0) {
+                    continue;
+                }
+                try {
+                    DB::run('ALTER TABLE `' . $table . '` ' . $ddl);
+                    $say('✓ ایندکس ' . $table . '.' . $index . ' اضافه شد');
+                } catch (\Throwable $e) {
+                    $ok = false;
+                    $fail('ایندکس ' . $table . '.' . $index, $e);
                 }
             }
             // ساخت pid ردیف‌های بدون شناسه‌ی عمومی (v5.0)

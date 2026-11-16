@@ -28,6 +28,8 @@ final class Quota
     private const COL = ['daily' => 'daily_limit', 'monthly' => 'monthly_limit', 'total' => 'total_limit'];
     /** رزرو در جریان بعد از این چند ثانیه رها می‌شود (فرایند قطع شده) */
     public const STALE_SECONDS = 600;
+    /** v7.26 (AI-03): خطای موقت دیتابیس هنگام رزرو (نه کمبود سهمیه) */
+    public const TEMP_ERROR = 'خطای موقت در ثبت درخواست هوش مصنوعی؛ چند لحظه بعد دوباره امتحان کنید.';
     public const FEATURES = ['task_note' => 'کارلیکس در یادداشت تسک', 'board' => 'دستیار بورد'];
 
     // ───────── پیش‌فرض و سهمیه‌ی کاربر ─────────
@@ -224,16 +226,18 @@ final class Quota
                     DB::run('INSERT INTO ai_usage_counters (user_id, period, used, reserved) VALUES (?, ?, 0, ?) ON DUPLICATE KEY UPDATE reserved = reserved + VALUES(reserved)', [$uid, $period, $tokens]);
                 }
                 return ['ok' => true, 'id' => $id];
-            });
+            }, 3);                                              // v7.26 (AI-03): بن‌بست/انتظار قفل ⇐ تا ۳ بار دوباره
         } catch (\Throwable $e) {
-            Log::error($e, 'karlix', ['quota' => 'reserve']);
-            return ['ok' => false, 'code' => 'quota_error', 'message' => 'بررسی سهمیه‌ی هوش مصنوعی ممکن نشد؛ کمی بعد دوباره امتحان کنید.'];
+            Log::error($e, 'karlix', ['quota' => 'reserve', 'lock' => DB::isLockError($e)]);
+            // v7.26 (AI-03): خطای موقت دیتابیس است نه سهمیه؛ quota_error در بورد و یادداشت قابل تکرار است
+            return ['ok' => false, 'code' => 'quota_error', 'message' => self::TEMP_ERROR];
         }
     }
 
     /**
      * ثبت مصرف واقعی و برداشتن رزرو (فقط یک بار برای هر ردیف).
-     * $usage = ['input' => ?int, 'output' => ?int, 'total' => ?int] یا null وقتی سرویس usage نداد؛ $reached = پاسخی از سرویس رسید.
+     * $usage = ['input' => ?int, 'output' => ?int, 'total' => ?int] یا null وقتی سرویس usage نداد؛
+     * $reached = پاسخ موفق 2xx از سرویس رسید (v7.26، AI-01: پاسخ 429/5xx/401 و هر پاسخ غیر 2xx بدون usage = صفر، چون هزینه‌ای ندارد).
      * خروجی: توکنی که به سهمیه نوشته شد.
      */
     public static function settle(int $id, ?array $usage, bool $ok, bool $reached, ?string $error = null): int
@@ -250,7 +254,7 @@ final class Quota
                 DB::run('UPDATE ai_usage SET status = ?, input_tokens = ?, output_tokens = ?, total_tokens = ?, cost = ?, currency = ?, error = ?, finished_at = NOW() WHERE id = ?',
                     [$status, $in, $out, $total, $cost, $cost !== null ? self::currency() : null, $error !== null ? mb_substr($error, 0, 32) : null, $id]);
                 return $total;
-            });
+            }, 3);
         } catch (\Throwable $e) {
             Log::error($e, 'karlix', ['quota' => 'settle', 'usage' => $id]);
             return 0;
@@ -267,9 +271,9 @@ final class Quota
             return [$in, $out, $total, $ok ? 'ok' : 'error'];
         }
         if (!$reached) {
-            return [0, 0, 0, 'error'];                          // پاسخی نرسید (شبکه/زمان): مصرفی گزارش نشده
+            return [0, 0, 0, 'error'];                          // پاسخی نرسید (شبکه/زمان) یا پاسخ خطای غیر 2xx (429/5xx): مصرفی نیست
         }
-        // پاسخ بدون usage: حدس نمی‌زنیم؛ طبق سیاست تنظیم‌شده
+        // پاسخ موفق 2xx بدون usage: حدس نمی‌زنیم؛ طبق سیاست تنظیم‌شده
         $charged = self::missingPolicy() === 'zero' ? 0 : (int) $row['reserved_tokens'];
         return [0, 0, $charged, 'no_usage'];
     }
@@ -291,13 +295,41 @@ final class Quota
         }
     }
 
-    /** رزروهای رهاشده (فرایند قطع شده) — سیاست پاسخ بدون usage روی آن‌ها اعمال می‌شود */
+    /**
+     * رزروهای رهاشده (فرایند قطع شده) — سیاست پاسخ بدون usage روی آن‌ها اعمال می‌شود.
+     * v7.26 (AI-03): خواندن بدون FOR UPDATE (ایندکس (status, created_at) ردیف‌های همه‌ی کاربران و gap آن‌ها را قفل می‌کرد و با INSERT
+     * هم‌زمان دیگران بن‌بست می‌ساخت)؛ هر ردیف فقط با UPDATE روی کلید اصلی و شرط status ادعا می‌شود، پس دو فرایند یک ردیف را دو بار حساب نمی‌کنند.
+     */
     private static function expireStale(int $uid): void
     {
-        foreach (DB::all("SELECT * FROM ai_usage WHERE user_id = ? AND status = 'reserved' AND created_at < (NOW() - INTERVAL " . self::STALE_SECONDS . ' SECOND) FOR UPDATE', [$uid]) as $row) {
+        $ids = DB::column("SELECT id FROM ai_usage WHERE user_id = ? AND status = 'reserved' AND created_at < (NOW() - INTERVAL " . self::STALE_SECONDS . ' SECOND) LIMIT 50', [$uid]);
+        foreach ($ids as $rid) {
+            $row = DB::one('SELECT * FROM ai_usage WHERE id = ?', [(int) $rid]);
+            if ($row === null) {
+                continue;
+            }
             $total = self::missingPolicy() === 'zero' ? 0 : (int) $row['reserved_tokens'];
-            self::apply($row, $total);
-            DB::run("UPDATE ai_usage SET status = 'expired', total_tokens = ?, error = 'stale', finished_at = NOW() WHERE id = ?", [$total, (int) $row['id']]);
+            if (DB::run("UPDATE ai_usage SET status = 'expired', total_tokens = ?, error = 'stale', finished_at = NOW() WHERE id = ? AND status = 'reserved'", [$total, (int) $rid]) === 1) {
+                self::apply($row, $total);
+            }
+        }
+    }
+
+    /**
+     * اصلاح یک‌باره (v7.26، Schema::PHP_DATA 053، AI-01): فراخوانی‌هایی که با خطای سرویس (429/5xx/401، زمان یا شبکه) و بدون usage
+     * با کل رزرو (no_usage) حساب شده بودند ⇐ صفر و status = error؛ همان مقدار از شمارنده‌های روز/ماه/کل همان ردیف برگردانده می‌شود.
+     * bad_response کنار گذاشته می‌شود (ممکن است پاسخ 2xx واقعی بوده باشد).
+     */
+    public static function refundFailed(): void
+    {
+        foreach (DB::all("SELECT * FROM ai_usage WHERE status = 'no_usage' AND total_tokens > 0 AND error IN ('rate_limited', 'server', 'auth', 'timeout', 'network', 'busy')") as $row) {
+            if (DB::run("UPDATE ai_usage SET status = 'error', total_tokens = 0 WHERE id = ? AND status = 'no_usage'", [(int) $row['id']]) !== 1) {
+                continue;
+            }
+            [$jy, $jm] = explode('-', (string) $row['month']);
+            foreach (['d:' . $row['day'], 'm:' . $jy . '-' . $jm, 'total'] as $p) {
+                DB::run('UPDATE ai_usage_counters SET used = IF(used >= ?, used - ?, 0) WHERE user_id = ? AND period = ?', [(int) $row['total_tokens'], (int) $row['total_tokens'], (int) $row['user_id'], $p]);
+            }
         }
     }
 

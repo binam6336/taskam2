@@ -667,16 +667,18 @@ document.addEventListener('tk:ready', () => {
   const aiRun = async (taskId, noteId) => {
     if (aiBusy.has(String(noteId))) return;
     aiBusy.add(String(noteId));
-    let attempt = 1;
+    let attempt = 1, final = false;
+    const until = Date.now() + 4 * 60 * 1000;      // v7.26 (AI-02): پیگیری تا ۴ دقیقه، بعد پیام «هنوز در صف است» (نه توقف بی‌صدا)
     try {
-      for (let i = 0; i < 90; i++) {
+      while (Date.now() < until) {
         const r = await TK.post('/tasks/' + taskId + '/notes/' + noteId + '/karlix', {});
         if (TK.ok(r) && r.state === 'pending' && r.attempt > attempt) {
           attempt = r.attempt;
           TK.toast('کارلیکس با خطای موقت روبه‌رو شد؛ تلاش مجدد خودکار (' + TK.fa(attempt - 1) + ' از ' + TK.fa(2) + ')…', 'warning', 5000);
         }
-        if (!TK.ok(r)) { if (r._http !== 429) { TK.toast(r.message || 'اجرای درخواست کارلیکس ناموفق بود.', 'error'); break; } }
+        if (!TK.ok(r)) { if (r._http !== 429) { final = true; TK.toast(r.message || 'اجرای درخواست کارلیکس ناموفق بود.', 'error'); break; } }
         else if (r.state !== 'pending' && r.state !== 'running') {
+          final = true;
           if (String(currentId) === String(taskId) && TK.qs('#m-detail.open')) await refresh();
           if (r.state === 'done') TK.toast('کارلیکس درخواست را انجام داد.', 'success');
           else if (r.state === 'partial') TK.toast('کارلیکس بخشی از درخواست را انجام داد؛ جزئیات در یادداشت‌ها.', 'warning', 6000);
@@ -685,8 +687,11 @@ document.addEventListener('tk:ready', () => {
           TK.live?.refresh?.();
           break;
         }
-        await new Promise((ok) => setTimeout(ok, ((r && r.retry) || 2) * 1000));
+        // AI-08: فاصله‌ی پرسیدن با تعداد درخواست‌های در انتظار همین صفحه بیشتر می‌شود؛ 429 = کمی بیشتر صبر
+        const base = r && r._http === 429 ? 6 : ((r && r.retry) || 2);
+        await new Promise((ok) => setTimeout(ok, (base + Math.max(0, aiBusy.size - 1)) * 1000 + Math.random() * 400));
       }
+      if (!final) TK.toast('درخواست کارلیکس هنوز در صف است؛ نتیجه بعداً در یادداشت‌های همین تسک ثبت می‌شود.', 'info', 7000);
     } finally { aiBusy.delete(String(noteId)); }
   };
   // جزئیات باز شد و درخواست خود کاربر هنوز تمام نشده (مثلاً صفحه وسط کار بسته شده بود): ادامه‌ی اجرا

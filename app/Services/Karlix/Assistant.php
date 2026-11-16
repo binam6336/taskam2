@@ -45,7 +45,7 @@ final class Assistant
     public const RETRIES = 2;
     private const RETRY_DELAYS = [5, 20];
     /** خطاهای موقت که دوباره امتحان می‌شوند (کلید نامعتبر، پیکربندی، سهمیه و دسترسی تکرار نمی‌شوند) */
-    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy', 'bad_json', 'stale', 'exception'];
+    private const RETRYABLE = ['timeout', 'network', 'server', 'rate_limited', 'bad_response', 'busy', 'bad_json', 'stale', 'exception', 'quota_error'];
 
     /** نویسه‌های عربی/فاصله‌ی مجازی را یکسان می‌کند (تشخیص منشن و تطبیق نام) */
     public static function norm(string $s): string
@@ -102,7 +102,7 @@ final class Assistant
             return ['queued' => false, 'message' => 'به سقف روزانه‌ی درخواست از کارلیکس (' . fa_num(self::perDay()) . ') رسیده‌اید؛ یادداشت ثبت شد ولی اجرا نمی‌شود.'];
         }
         if (!Common::minuteOk($uid)) {
-            return ['queued' => false, 'message' => 'درخواست‌ها از کارلیکس بیش از حد سریع است؛ یادداشت ثبت شد ولی اجرا نمی‌شود. یک دقیقه بعد دوباره منشن کنید.'];
+            return ['queued' => false, 'message' => 'درخواست‌ها از کارلیکس بیش از حد سریع است؛ یادداشت ثبت شد ولی اجرا نمی‌شود. ' . fa_num(\App\Core\Throttle::retryIn('karlix', (string) $uid, 60)) . ' ثانیه دیگر دوباره منشن کنید.'];
         }
         DB::run('INSERT IGNORE INTO ai_requests (task_id, note_id, user_id, status) VALUES (?, ?, ?, ?)', [$taskId, $noteId, $uid, 'pending']);
         return ['queued' => true];
@@ -123,13 +123,18 @@ final class Assistant
      * درخواست تمام‌شده همان نتیجه را برمی‌گرداند و درخواست در حال اجرا دوباره اجرا نمی‌شود.
      * خروجی res: data = ['state' => pending|running|<نهایی>, 'retry' => ثانیه (برای در حال اجرا)]
      */
-    public static function run(int $actor, int $taskId, int $noteId): array
+    public static function run(int $actor, int $taskId, int $noteId, ?callable $gate = null, bool $worker = false): array
     {
         $req = DB::one('SELECT * FROM ai_requests WHERE note_id = ? AND task_id = ?', [$noteId, $taskId]);
         if ($req === null || (int) $req['user_id'] !== $actor) {
             return self::res(false, 'درخواستی برای کارلیکس پیدا نشد.', 'AI_REQUEST_NOT_FOUND', 404);
         }
         $id = (int) $req['id'];
+        // v7.26 (AI-07): اجراکننده‌ی سمت سرور (bin/ai-worker.php) فعال است ⇐ مرورگر فقط وضعیت را می‌پرسد و worker وب اشغال نمی‌شود (AI-04)
+        if (!$worker && in_array($req['status'], ['pending', 'running'], true) && self::workerAlive()) {
+            return self::res(true, '', '', 200, ['state' => $req['status'], 'retry' => 3, 'server' => true]
+                + (!empty($req['retry_at']) && strtotime((string) $req['retry_at']) > time() ? ['attempt' => (int) $req['attempts'] + 1] : []));
+        }
         // درخواست گیرکرده (مثلاً قطع شدن پردازش): خطا ثبت می‌شود تا کاربر بداند
         if ($req['status'] === 'running' && strtotime((string) $req['started_at']) < time() - self::STALE_SECONDS) {
             $state = self::fail($req, $actor, 'stale', 'پردازش این درخواست نیمه‌کاره ماند.', null, true);
@@ -138,15 +143,26 @@ final class Assistant
         if ($req['status'] !== 'pending') {
             return self::res(true, '', '', 200, ['state' => $req['status'], 'retry' => $req['status'] === 'running' ? 2 : null]);
         }
+        // v7.26 (AI-07): درخواستی که بیش از AI_REQUEST_EXPIRE_MINUTES در صف مانده اجرا نمی‌شود (وضعیت تسک ممکن است عوض شده باشد)
+        if (strtotime((string) $req['created_at']) < time() - self::expireMinutes() * 60) {
+            if (DB::run("UPDATE ai_requests SET status = 'running', started_at = NOW() WHERE id = ? AND status = 'pending'", [$id]) !== 1) {
+                return self::res(true, '', '', 200, ['state' => 'running', 'retry' => 2]);
+            }
+            $state = self::fail($req, $actor, 'expired', 'این درخواست بیش از ' . fa_num(self::expireMinutes()) . ' دقیقه در صف ماند و منقضی شد', null, true);
+            return self::res(true, '', '', 200, ['state' => $state, 'retry' => null]);
+        }
         // تلاش مجدد زمان‌بندی‌شده هنوز نرسیده
         if (!empty($req['retry_at']) && strtotime((string) $req['retry_at']) > time()) {
             return self::res(true, '', '', 200, ['state' => 'pending', 'retry' => self::wait($id), 'attempt' => (int) $req['attempts'] + 1]);
         }
-        // یک درخواست در حال اجرا برای هر تسک (درخواست‌های پشت‌سرهم به ترتیب)
+        // یک درخواست در حال اجرا برای هر تسک (درخواست‌های پشت‌سرهم به ترتیب).
+        // v7.26 (AI-02): فقط درخواست running مانع است؛ قبلاً pending قدیمی‌ترِ رهاشده (مرورگر بسته) درخواست بقیه را روی همان تسک تا ۱۰ دقیقه نگه می‌داشت
         $busy = DB::value("SELECT COUNT(*) FROM ai_requests WHERE task_id = ? AND status = 'running' AND id <> ? AND started_at > (NOW() - INTERVAL " . self::STALE_SECONDS . ' SECOND)', [$taskId, $id]);
-        $older = DB::value("SELECT COUNT(*) FROM ai_requests WHERE task_id = ? AND status = 'pending' AND id < ? AND created_at > (NOW() - INTERVAL 10 MINUTE)", [$taskId, $id]);
-        if ((int) $busy > 0 || (int) $older > 0) {
+        if ((int) $busy > 0) {
             return self::res(true, '', '', 200, ['state' => 'pending', 'retry' => 2]);
+        }
+        if ($gate !== null) {
+            $gate();                                            // سقف اجرای واقعی (rateLimit karlix_run) فقط همین‌جا شمرده می‌شود (AI-08)
         }
         if (DB::run("UPDATE ai_requests SET status = 'running', started_at = NOW() WHERE id = ? AND status = 'pending'", [$id]) !== 1) {
             return self::res(true, '', '', 200, ['state' => 'running', 'retry' => 2]);
@@ -162,6 +178,52 @@ final class Assistant
         }
         return self::res(true, '', '', 200, ['state' => $state, 'retry' => $state === 'pending' ? self::wait($id) : null]
             + ($state === 'pending' ? ['attempt' => (int) DB::value('SELECT attempts FROM ai_requests WHERE id = ?', [$id]) + 1] : []));
+    }
+
+    /** v7.26 (AI-07): درخواست قدیمی‌تر از این (دقیقه) دیگر اجرا نمی‌شود و «منقضی شد» می‌گیرد */
+    public static function expireMinutes(): int
+    {
+        return max(2, min(1440, (int) env('AI_REQUEST_EXPIRE_MINUTES', 15)));
+    }
+
+    /** فایل تپش اجراکننده‌ی سمت سرور (bin/ai-worker.php) */
+    public static function workerBeatFile(): string
+    {
+        return STORAGE_PATH . '/cache/ai-worker.beat';
+    }
+
+    /** اجراکننده‌ی سمت سرور در ۹۰ ثانیه‌ی اخیر زنده بوده؟ (اگر نه، مثل قبل مرورگر اجرا را صدا می‌زند) */
+    public static function workerAlive(): bool
+    {
+        if (!filter_var(env('AI_WORKER', true), FILTER_VALIDATE_BOOLEAN)) {
+            return false;
+        }
+        clearstatcache(true, self::workerBeatFile());
+        $t = @filemtime(self::workerBeatFile());
+        return $t !== false && time() - $t < 90;
+    }
+
+    /**
+     * v7.26 (AI-07): یک دور اجراکننده‌ی سمت سرور — درخواست‌های در صف (pending سررسیده) و گیرکرده (running کهنه) به ترتیب ورود.
+     * هر درخواست با همان دسترسی خود درخواست‌کننده اجرا می‌شود (run با $worker = true). خروجی: تعداد درخواستی که اجرا/بسته شد.
+     */
+    public static function workerTick(int $limit = 5): int
+    {
+        @touch(self::workerBeatFile());
+        $rows = DB::all("SELECT id, task_id, note_id, user_id FROM ai_requests
+            WHERE (status = 'pending' AND (retry_at IS NULL OR retry_at <= NOW()))
+               OR (status = 'running' AND started_at < (NOW() - INTERVAL " . self::STALE_SECONDS . ' SECOND))
+            ORDER BY id LIMIT ' . max(1, min(50, $limit)));
+        $n = 0;
+        foreach ($rows as $r) {
+            $res = self::run((int) $r['user_id'], (int) $r['task_id'], (int) $r['note_id'], null, true);
+            $state = (string) ($res['data']['state'] ?? '');
+            if ($res['ok'] && $state !== 'pending' && $state !== 'running') {
+                $n++;
+            }
+            @touch(self::workerBeatFile());
+        }
+        return $n;
     }
 
     /** ثانیه تا تلاش بعدی (حداقل ۲) */
@@ -196,6 +258,7 @@ final class Assistant
         if (in_array($code, self::RETRYABLE, true) && $attempts < self::RETRIES) {
             $delay = self::RETRY_DELAYS[$attempts] ?? 20;
             $delay = $code === 'rate_limited' ? max($delay, 30) : $delay;
+            $delay = in_array($code, ['busy', 'quota_error'], true) ? 2 + $attempts * 2 : $delay;   // v7.26 (AI-05): صف شلوغ/خطای موقت دیتابیس = تلاش زود
             $n = DB::run("UPDATE ai_requests SET status = 'pending', attempts = attempts + 1, error = ?, retry_at = (NOW() + INTERVAL " . (int) $delay . " SECOND), started_at = NULL
                 WHERE id = ? AND status = 'running'", [$code, $id]);
             if ($n === 1) {
@@ -209,7 +272,7 @@ final class Assistant
         }
         $tried = $attempts > 0 ? ' (بعد از ' . fa_num($attempts + 1) . ' بار تلاش خودکار)' : '';
         $state = self::reply($req, $actor, self::who($actor) . '، ' . rtrim($msg, '. ') . $tried . '؛ هیچ تغییری روی تسک اعمال نشد. می‌توانید دوباره کارلیکس را منشن کنید.', 'error', $actions, $code);
-        if ($attempts > 0 || in_array($code, self::RETRYABLE, true)) {
+        if ($attempts > 0 || $code === 'expired' || in_array($code, self::RETRYABLE, true)) {
             self::notifyFailure($req, $actor, $code, $msg, $attempts + 1);
         }
         return $state;
@@ -248,7 +311,7 @@ final class Assistant
             return self::reply($req, $actor, $name . '، درخواستتان را بعد از @' . self::NAME . ' بنویسید؛ مثلاً: «@' . self::NAME . ' سررسید را بگذار فردا ساعت ۱۰ و اولویت را زیاد کن».', 'clarify', null, null);
         }
         $ctx = self::context($t, $actor);
-        $real = \App\Core\Auth::realUser();
+        $real = PHP_SAPI === 'cli' ? null : \App\Core\Auth::realUser();     // اجراکننده‌ی سمت سرور نشست ندارد
         $ai = Agnes::chat([
             ['role' => 'system', 'content' => self::systemPrompt()],
             ['role' => 'user', 'content' => self::userPrompt($ctx, $ask, $taskId)],

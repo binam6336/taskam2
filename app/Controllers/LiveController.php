@@ -92,7 +92,8 @@ final class LiveController extends Controller
         // v7.23: درخواست‌های کارلیکسِ همین کاربر که منتظر تلاش (دوباره) هستند ولی صفحه‌ی تسکشان باز نیست — مرورگر از هر صفحه‌ی پنل
         // (مثلاً پیشخوان) اجرا را صدا می‌زند؛ اجرا اتمی است پس صدا زدن هم‌زمان از چند تب امن است. در ورود مدیر به پنل کاربر اجرا نمی‌شود.
         $karlix = [];
-        if (!Auth::isImpersonating()) {
+        // v7.26 (AI-07): وقتی اجراکننده‌ی سمت سرور زنده است، مرورگر لازم نیست اجرا را صدا بزند
+        if (!Auth::isImpersonating() && !\App\Services\Karlix\Assistant::workerAlive()) {
             foreach (DB::all("SELECT r.task_id, r.note_id FROM ai_requests r WHERE r.user_id = ? AND r.created_at > (NOW() - INTERVAL 1 DAY)
                     AND ((r.status = 'pending' AND (r.retry_at IS NULL OR r.retry_at <= NOW()) AND r.created_at < (NOW() - INTERVAL 20 SECOND))
                       OR (r.status = 'running' AND r.started_at < (NOW() - INTERVAL 150 SECOND)))

@@ -11,8 +11,8 @@ use App\Core\Log;
  * کلید در .env (AGNES_API_KEY) است و هرگز در خروجی، لاگ یا JS نمی‌آید. خطاها به کدهای ثابت تبدیل می‌شوند:
  * not_configured | timeout | network | auth | rate_limited | server | bad_response | busy.
  *
- * v7.24 (هم‌زمانی): حداکثر AI_MAX_CONCURRENT فراخوانی هم‌زمان در کل سرور (قفل‌های نام‌دار MySQL، بدون جدول)؛ بقیه حداکثر
- * AI_QUEUE_SECONDS در صف می‌مانند تا جا باز شود (وگرنه busy). این جلوی هجوم هم‌زمان چند کاربر به سرویس و خطای 429 را می‌گیرد.
+ * v7.24 (هم‌زمانی): حداکثر AI_MAX_CONCURRENT فراخوانی هم‌زمان در کل سرور؛ بقیه حداکثر AI_QUEUE_SECONDS در صف می‌مانند تا جا باز شود
+ * (وگرنه busy). v7.26: صف نوبتی FIFO روی جدول ai_queue (به‌جای قفل‌های نام‌دار) و سقف منتظرها AI_MAX_WAITING.
  * پیام خطای «کلید نامعتبر» هرگز به کاربر گفته نمی‌شود («خطا در اتصال به کارلیکس»)؛ علت واقعی فقط در storage/logs/AI.
  */
 final class Agnes
@@ -38,42 +38,85 @@ final class Agnes
         return max(0, min(64, (int) env('AI_MAX_CONCURRENT', 8)));
     }
 
+    /** حداکثر درخواست منتظر در صف (v7.26، AI-04): بیشتر از این ⇐ فوراً busy تا worker های وب پشت صف پر نشوند (۰ = بدون سقف) */
+    public static function maxWaiting(): int
+    {
+        return max(0, min(500, (int) env('AI_MAX_WAITING', 16)));
+    }
+
     /**
-     * گرفتن یک جای خالی از AI_MAX_CONCURRENT جای سراسری (GET_LOCK نام‌دار روی اتصال همین درخواست؛ با پایان درخواست یا قطع اتصال خودکار آزاد می‌شود).
-     * '' = بدون محدودیت (یا پشتیبانی نشدن)، null = تا AI_QUEUE_SECONDS جایی باز نشد.
+     * v7.26 (AI-05): صف نوبتی FIFO روی جدول ai_queue به‌جای چرخش تصادفی روی GET_LOCK.
+     * هر فراخوانی یک نوبت (id افزایشی) می‌گیرد و فقط وقتی اجرا می‌شود که کمتر از AI_MAX_CONCURRENT نوبتِ زنده‌ی قبل از آن مانده باشد
+     * (اجرا یا انتظار) — پس زودتر آمده زودتر اجرا می‌شود، روی چند سرور با یک دیتابیس هم سراسری است و قفل دیتابیسی نگه داشته نمی‌شود.
+     * منتظرها هر ۰٫۴ ثانیه beat_at را تازه می‌کنند؛ نوبت منتظری که ۱۰ ثانیه تازه نشده یا نوبت اجرایی بیش از Timeout + ۶۰ ثانیه (فرایند مرده) حذف می‌شود.
+     * خروجی: 0 = بدون صف (خاموش یا جدول در دسترس نیست)، null = تا AI_QUEUE_SECONDS نوبت نرسید یا صف پر است، عدد = نوبت گرفته‌شده.
      */
-    private static function acquire(): ?string
+    private static function acquire(int $uid, string $feature): ?int
     {
         $n = self::concurrency();
         if ($n === 0) {
-            return '';
+            return 0;
         }
         try {
-            $base = 'kx_ai_' . substr(md5((string) env('DB_NAME', 'taskam') . '|' . (string) env('DB_HOST', '')), 0, 10) . '_';
-            $deadline = microtime(true) + max(1, min(60, (int) env('AI_QUEUE_SECONDS', 20)));
-            $slots = range(0, $n - 1);
-            do {
-                shuffle($slots);
-                foreach ($slots as $i) {
-                    if ((int) DB::value('SELECT GET_LOCK(?, 0)', [$base . $i]) === 1) {
-                        return $base . $i;
-                    }
+            self::sweep();
+            $cap = self::maxWaiting();
+            if ($cap > 0 && (int) DB::value("SELECT COUNT(*) FROM ai_queue WHERE state = 'wait'") >= $cap) {
+                return null;
+            }
+            $id = DB::insert('ai_queue', ['user_id' => $uid, 'feature' => mb_substr($feature, 0, 24), 'state' => 'wait', 'beat_at' => date('Y-m-d H:i:s')]);
+            register_shutdown_function(static function () use ($id): void {   // فرایند وسط کار تمام شد: نوبت آزاد شود
+                try {
+                    DB::run('DELETE FROM ai_queue WHERE id = ?', [$id]);
+                } catch (\Throwable $e) {
                 }
-                usleep(random_int(150000, 400000));
-            } while (microtime(true) < $deadline);
-            return null;
+            });
+            $deadline = microtime(true) + max(1, min(60, (int) env('AI_QUEUE_SECONDS', 20)));
+            $lastSweep = microtime(true);
+            while (true) {
+                if ((int) DB::value('SELECT COUNT(*) FROM ai_queue WHERE id < ?', [$id]) < $n) {
+                    DB::run("UPDATE ai_queue SET state = 'run', beat_at = NOW() WHERE id = ?", [$id]);
+                    return $id;
+                }
+                if (microtime(true) >= $deadline) {
+                    DB::run('DELETE FROM ai_queue WHERE id = ?', [$id]);
+                    return null;
+                }
+                usleep(400000);
+                DB::run('UPDATE ai_queue SET beat_at = NOW() WHERE id = ?', [$id]);
+                if (microtime(true) - $lastSweep > 3) {
+                    self::sweep();
+                    $lastSweep = microtime(true);
+                }
+            }
         } catch (\Throwable $e) {
-            return '';                                          // قفل نام‌دار در دسترس نیست: بدون صف ادامه
+            return 0;                                           // جدول صف هنوز ساخته نشده/در دسترس نیست: بدون صف ادامه
         }
     }
 
-    private static function releaseSlot(?string $lock): void
+    /** حذف نوبت‌های رهاشده (منتظر بی‌تپش، یا اجرای خیلی طولانی‌تر از Timeout) */
+    private static function sweep(): void
     {
-        if ($lock !== null && $lock !== '') {
+        DB::run("DELETE FROM ai_queue WHERE (state = 'wait' AND beat_at < (NOW() - INTERVAL 10 SECOND)) OR (state = 'run' AND beat_at < (NOW() - INTERVAL " . (self::timeout() * 2 + 60) . ' SECOND))');
+    }
+
+    private static function releaseSlot(?int $id): void
+    {
+        if ($id !== null && $id > 0) {
             try {
-                DB::value('SELECT RELEASE_LOCK(?)', [$lock]);
+                DB::run('DELETE FROM ai_queue WHERE id = ?', [$id]);
             } catch (\Throwable $e) {
             }
+        }
+    }
+
+    /** وضعیت صف برای مستندات پنل: [running, waiting] */
+    public static function queueState(): array
+    {
+        try {
+            $r = DB::one("SELECT SUM(state = 'run') r, SUM(state = 'wait') w FROM ai_queue");
+            return [(int) ($r['r'] ?? 0), (int) ($r['w'] ?? 0)];
+        } catch (\Throwable $e) {
+            return [0, 0];
         }
     }
 
@@ -146,7 +189,7 @@ final class Agnes
             return $fail($q['code'], 0, $q['message']);
         }
         $started = microtime(true);
-        $slot = self::acquire();
+        $slot = self::acquire($uid, (string) ($meta['feature'] ?? 'other'));
         if ($slot === null) {
             $res = ['body' => '', 'http' => 0, 'error' => 'busy', 'retry_after' => 0];
         } else {
@@ -166,7 +209,8 @@ final class Agnes
         $content = $res['error'] === null && is_array($j) ? ($j['choices'][0]['message']['content'] ?? null) : null;
         $ok = $res['error'] === null && is_string($content) && trim($content) !== '';
         $err = $res['error'] ?? ($ok ? null : 'bad_response');
-        $charged = Quota::settle((int) $q['id'], $usage, $ok, $res['http'] > 0, $err);
+        // v7.26 (AI-01): فقط پاسخ 2xx بدون usage طبق AI_USAGE_MISSING حساب می‌شود؛ 429/5xx/401 بدون usage = صفر
+        $charged = Quota::settle((int) $q['id'], $usage, $ok, $res['http'] >= 200 && $res['http'] < 300, $err);
         if (!$ok) {
             $ms = (int) ((microtime(true) - $started) * 1000);
             Log::warning('karlix.api_error', ['error' => $err, 'http' => $res['http'], 'ms' => $ms, 'charged' => $charged]);

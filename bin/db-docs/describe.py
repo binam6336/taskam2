@@ -16,7 +16,7 @@ GROUPS = [
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
     ('تسک‌ها', ['subjects', 'tasks', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'ai_requests', 'task_attachments', 'note_attachments']),
     ('دستیار هوش مصنوعی بورد', ['ai_board_sessions', 'ai_board_messages', 'ai_result_sets', 'ai_actions', 'ai_exports']),
-    ('سهمیه‌ی مصرف هوش مصنوعی', ['ai_quotas', 'ai_usage', 'ai_usage_counters']),
+    ('سهمیه‌ی مصرف هوش مصنوعی', ['ai_quotas', 'ai_usage', 'ai_usage_counters', 'ai_queue']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
     ('یادداشت‌ها و پشتیبانی', ['texts', 'support_tickets', 'support_messages']),
 ]
@@ -379,6 +379,7 @@ TABLES = {
         'زمینه‌ی مجاز تسک (عنوان، توضیح کوتاه‌شده، وضعیت، سررسید، اولویت، لیبل‌ها و اعضای پروژه با ارجاع کوتاه L1/U1، بدون موبایل و شناسه) + ۴ گفت‌وگوی قبلی همین تسک به مدل می‌رود.',
         'خروجی JSON مدل از فهرست سفید Actions::validate می‌گذرد؛ هر عملیات با TaskService::update / BoardService (همان دسترسی‌های پنل) اجرا و بعد ردیف تسک دوباره بررسی می‌شود. خطای سرویس هوش مصنوعی = هیچ تغییری روی تسک.',
         'پاسخ از روی نتیجه‌ی واقعی ساخته و به‌صورت یادداشت کاربر ربات ثبت می‌شود (reply_note_id). درخواست running بیش از ۱۵۰ ثانیه = stale.',
+        'v7.26 (AI-02، AI-07): فقط درخواست running روی همان تسک مانع اجرای درخواست بعدی است (pending قدیمیِ رهاشده دیگر کسی را معطل نمی‌کند). اجراکننده‌ی سمت سرور bin/ai-worker.php (cron هر دقیقه، Assistant::workerTick) درخواست‌های pending سررسیده و running کهنه را به ترتیب id اجرا می‌کند؛ وقتی تپش آن (storage/cache/ai-worker.beat) تازه است مرورگر فقط وضعیت را می‌پرسد. درخواست pending قدیمی‌تر از AI_REQUEST_EXPIRE_MINUTES (پیش‌فرض ۱۵) اجرا نمی‌شود: status = error با error = expired، یادداشت پاسخ «منقضی شد…» و پیام ربات. خطای busy/quota_error با فاصله‌ی کوتاه (۲ و ۴ ثانیه) دوباره امتحان می‌شود.',
         'تلاش مجدد خودکار (v7.23): خطای موقت (timeout, network, server, rate_limited, bad_response, bad_json, stale, exception) ← ردیف دوباره pending با attempts + 1 و retry_at (۵ و ۲۰ ثانیه بعد؛ rate_limited حداقل ۳۰) — حداکثر ۲ تلاش اضافه، هر تلاش با رزرو سهمیه‌ی جدا (request_key = note:<id> سپس note:<id>:2 و note:<id>:3). تلاش را مرورگر صدا می‌زند: صفحه‌ی تسک (aiRun) یا اگر بسته است نظرسنجی سراسری پنل (/live/poll ← karlix) از هر صفحه، مثل پیشخوان. کلید نامعتبر، پیکربندی، سهمیه و دسترسی تکرار نمی‌شوند.',
         'بعد از آخرین تلاش ناموفق ← status = error، یادداشت پاسخ خطا روی تسک و پیام ربات «کارلیکس» در گفتگوی کاربر: «درخواست شما: «متن» با خطا روبه‌رو شد» + علت + دکمه‌ی «مشاهده‌ی تسک». جزئیات هر خطا در storage/logs/AI.',
     ],
@@ -535,7 +536,9 @@ TABLES = {
     'flow': [
         'پیش از ارسال: Quota::reserve ← ردیف reserved با reserved_tokens = بایت ورودی ÷ AI_RESERVE_BYTES_PER_TOKEN + max_tokens؛ فقط اگر مصرف + رزروهای در جریان + این رزرو از هیچ سقفی نگذرد. request_key یکتاست (note:<ai_requests.id> یا board:<پیام>:<گام>) پس یک فراخوانی دو بار ثبت نمی‌شود.',
         'بعد از پاسخ: Quota::settle ← input/output/total از usage سرویس (prompt_tokens، completion_tokens، total_tokens)؛ status = ok یا error (خطا با usage هم حساب می‌شود). فقط ردیف reserved به‌روز می‌شود (ثبت تکراری ندارد).',
-        'بدون پاسخ (شبکه/زمان) = صفر و error. پاسخ بدون usage = no_usage با سیاست AI_USAGE_MISSING (reserved = همان رزرو، zero = صفر). رزروی که بیش از ۱۰ دقیقه بماند (فرایند قطع شده) با همان سیاست expired می‌شود.',
+        'بدون پاسخ (شبکه/زمان) = صفر و error. از v7.26 (AI-01) پاسخ خطای سرویس غیر 2xx (۴۲۹، ۵xx، ۴۰۱، …) بدون usage هم صفر و error است (سرویس هزینه‌ای نمی‌گیرد)؛ فقط پاسخ موفق 2xx بدون usage = no_usage با سیاست AI_USAGE_MISSING (reserved = همان رزرو، zero = صفر). رزروی که بیش از ۱۰ دقیقه بماند (فرایند قطع شده) با همان سیاست expired می‌شود.',
+        'اصلاح داده‌ی ۰۵۳ (v7.26): ردیف‌های قدیمی no_usage با خطای rate_limited/server/auth/timeout/network/busy صفر و error شدند و مقدارشان از شمارنده‌های روز/ماه/کل همان ردیف برگشت (Quota::refundFailed).',
+        'هم‌زمانی (v7.26، AI-03): رزرو در تراکنش با قفل ردیف ai_quotas همان کاربر؛ رزروهای رهاشده بدون FOR UPDATE و با ایندکس (user_id, status, created_at) فقط برای همان کاربر خوانده و هر کدام با UPDATE شرطی روی کلید اصلی ادعا می‌شوند (قبلاً ایندکس (status, created_at) ردیف‌های همه‌ی کاربران را قفل می‌کرد و بن‌بست می‌ساخت). بن‌بست/انتظار قفل (1213/1205) تا ۳ بار خودکار تکرار می‌شود؛ خطای نهایی quota_error («خطای موقت در ثبت درخواست…») برای دستیارها قابل تلاش مجدد است.',
         'درخواست چندمرحله‌ای دستیار بورد = چند ردیف (هر گام جدا) که همه در سهمیه جمع می‌شوند؛ همه‌ی مدل‌ها در یک سهمیه‌ی مشترک.',
     ],
     'cols': {
@@ -570,6 +573,25 @@ TABLES = {
         'period': 'd:YYYY-MM-DD (روز تهران) | m:YYYY-MM (ماه شمسی) | total.',
         'used': 'توکن مصرف‌شده‌ی ثبت‌شده در این دوره.',
         'reserved': 'توکن رزروشده‌ی درخواست‌های در حال اجرا.',
+    },
+},
+'ai_queue': {
+    'title': 'صف نوبتی فراخوانی مدل',
+    'desc': 'v7.26 (AI-05): صف سراسری FIFO فراخوانی‌های مدل هوش مصنوعی (Agnes::acquire) به‌جای چرخش تصادفی روی قفل‌های نام‌دار. ردیف فقط در مدت انتظار یا فراخوانی وجود دارد، پس جدول همیشه کوچک است.',
+    'flow': [
+        'هر فراخوانی Agnes::chat (بعد از رزرو سهمیه) یک ردیف wait می‌سازد؛ شماره‌ی id ترتیب ورود است.',
+        'وقتی تعداد ردیف‌های قبل از آن (wait یا run) کمتر از AI_MAX_CONCURRENT باشد ⇐ state = run و فراخوانی مدل انجام می‌شود؛ پس هر درخواستی که زودتر آمده زودتر اجرا می‌شود. روی چند سرور با یک دیتابیس هم سراسری است.',
+        'منتظر هر ۰٫۴ ثانیه beat_at را تازه می‌کند و حداکثر AI_QUEUE_SECONDS صبر می‌کند (بعد ردیف حذف و خطای موقت busy). اگر AI_MAX_WAITING ردیف wait وجود داشته باشد، ردیف تازه ساخته نمی‌شود و فوراً busy (تا worker های PHP پشت صف پر نشوند).',
+        'پایان فراخوانی (یا پایان فرایند) ⇐ حذف ردیف. ردیف رهاشده: wait بی‌تپش بیش از ۱۰ ثانیه یا run بیش از ۲ × AI_TIMEOUT + ۶۰ ثانیه حذف می‌شود.',
+        'مستندات پنل تعداد در حال اجرا و منتظر را نشان می‌دهد (Agnes::queueState).',
+    ],
+    'cols': {
+        'id': 'شماره‌ی نوبت (ترتیب ورود).',
+        'user_id': 'کاربر درخواست‌کننده (فقط برای گزارش؛ کلید خارجی ندارد چون ردیف کوتاه‌عمر است).',
+        'feature': 'task_note | board.',
+        'state': 'wait = در صف | run = در حال فراخوانی مدل.',
+        'beat_at': 'آخرین نشانه‌ی زنده بودن (منتظر هر ۰٫۴ ثانیه؛ اجرا هنگام شروع).',
+        'created_at': 'زمان ورود به صف.',
     },
 },
 'task_attachments': {

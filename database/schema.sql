@@ -503,7 +503,20 @@ CREATE TABLE `ai_usage` (
   UNIQUE KEY `uq_ai_usage_key` (`request_key`),
   KEY `idx_ai_usage_user` (`user_id`, `day`),
   KEY `idx_ai_usage_status` (`status`, `created_at`),
+  KEY `idx_ai_usage_user_status` (`user_id`, `status`, `created_at`),
   CONSTRAINT `fk_ai_usage_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- صف نوبتی FIFO فراخوانی‌های مدل (v7.26): ردیف فقط در مدت انتظار/فراخوانی وجود دارد
+CREATE TABLE `ai_queue` (
+  `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'شماره‌ی نوبت (ترتیب ورود)',
+  `user_id`    INT UNSIGNED NULL DEFAULT NULL       COMMENT 'کاربر درخواست‌کننده (فقط برای گزارش)',
+  `feature`    VARCHAR(24) NOT NULL DEFAULT 'other'  COMMENT 'task_note | board',
+  `state`      VARCHAR(8) NOT NULL DEFAULT 'wait'    COMMENT 'wait = در صف | run = در حال فراخوانی مدل',
+  `beat_at`    DATETIME NOT NULL                     COMMENT 'آخرین نشانه‌ی زنده بودن',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_queue_state` (`state`, `beat_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- شمارنده‌های تجمیعی مصرف هر کاربر در هر دوره (بررسی سهمیه بدون جمع زدن کل سوابق)

@@ -403,9 +403,10 @@ final class TaskController extends Controller
     /** اجرای درخواست کارلیکس روی یک یادداشت (فقط درخواست‌کننده؛ تکرارش امن است) */
     public function assistantRun(string $task, string $note)
     {
-        $this->rateLimit('karlix_run', 40);
+        // v7.26 (AI-08): پرسیدن وضعیت (هر ۲ ثانیه برای هر درخواست در انتظار) سقف جدا و بزرگ‌تری دارد؛ karlix_run فقط اجرای واقعی را می‌شمارد
+        $this->rateLimit('karlix_poll', 150);
         \App\Core\Session::release();                       // v7.24: بقیه‌ی درخواست‌های کاربر پشت قفل نشست نمانند
-        $res = Assistant::run($this->uid(), (int) $task, (int) $note);
+        $res = Assistant::run($this->uid(), (int) $task, (int) $note, fn() => $this->rateLimit('karlix_run', 40));
         if (!$res['ok']) {
             $this->fail($res['message'], $res['http']);
         }
