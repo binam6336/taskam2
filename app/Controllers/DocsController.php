@@ -67,7 +67,7 @@ final class DocsController extends Controller
     }
 
     /**
-     * ساخت توکن موقت برای «تست API» (v7.8): با نشست پنل (کاربر واردشده) یا موبایل + رمز (+ کپچا)، با همان سقف تلاش و قفل حساب صفحه‌ی ورود.
+     * ساخت توکن موقت برای «تست API» (v7.8): با نشست پنل و تأیید رمز یا موبایل + رمز (+ کپچا)، با همان سقف تلاش و قفل حساب صفحه‌ی ورود.
      * توکن «Swagger (تست API)» یک روزه است؛ توکن قبلی همین نام حذف می‌شود. حساب غیرفعال فقط توکن خواندنی می‌گیرد.
      */
     public function swaggerToken(): void
@@ -90,6 +90,8 @@ final class DocsController extends Controller
                 $this->fail($r['message']);
             }
             $u = $r['user'];
+        } elseif ($error = Auth::confirmTokenPassword((int) $u['id'], (string) $this->request->input('password', ''))) {
+            $this->fail($error);
         }
         if ((int) ($u['is_bot'] ?? 0) === 1 || !in_array($u['status'], ['active', 'deactivated'], true)) {
             $this->fail('حساب کاربری شما فعال نیست.', 403);

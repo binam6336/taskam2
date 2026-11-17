@@ -35,6 +35,7 @@
       const res = await fetch(box.dataset.tokenUrl, { method: 'POST', body: new FormData(f), credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
       j = await res.json();
     } catch (err) { j = { status: 'error', message: 'ارتباط با سرور برقرار نشد.' }; }
+    const password = f.querySelector('[name=password]'); if (password) password.value = '';
     btn.disabled = false;
     if (j.status === 'success' && j.token) { apply(j.token, false); show((j.message || 'توکن ساخته شد.') + ' (…' + j.token.slice(-6) + '، تا ۲۴ ساعت)', true); f.reset(); }
     else { show(j.message || 'خطا', false); newCap(); const c = f.querySelector('[name=captcha]'); if (c) c.value = ''; }

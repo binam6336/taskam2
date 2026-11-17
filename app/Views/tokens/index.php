@@ -19,6 +19,7 @@ $base = rtrim(full_url('api/v1'), '/');
             <div class="field"><label for="tok-name">نام توکن <span class="req" aria-hidden="true">*</span></label><input class="input" id="tok-name" name="name" maxlength="100" required placeholder="<?= e(ph('token_name')) ?>"></div>
             <div class="field"><label>انقضا</label><select class="input" name="expires_days"><option value="0">بدون انقضا</option><option value="30">۳۰ روز</option><option value="90" selected>۹۰ روز</option><option value="365">۱ سال</option></select></div>
             <div class="field"><label>سطح دسترسی</label><select class="input" name="scope"><option value="write" selected>خواندن و نوشتن</option><option value="read">فقط خواندن (فقط درخواست‌های GET)</option></select></div>
+            <div class="field"><label for="tok-password">رمز عبور حساب کاربری <span class="req" aria-hidden="true">*</span></label><input class="input ltr" id="tok-password" name="password" type="password" autocomplete="current-password" required></div>
             <button class="btn btn-primary"><i class="fa-solid fa-key"></i> ساخت توکن</button></form>
         <div class="callout warn mt-2 small"><i class="fa-solid fa-shield-halved"></i> توکن مانند رمز عبور است. فقط هش آن در سرور ذخیره می‌شود و بعد از ساخت قابل بازیابی نیست.</div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-terminal"></i> شروع سریع</h3></div>

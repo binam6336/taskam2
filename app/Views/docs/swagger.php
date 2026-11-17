@@ -1,7 +1,7 @@
 <?php
 /**
  * «تست API» (v7.8): Swagger UI روی سند /docs/openapi.json. صفحه‌ی مستقل با swagger-ui.css (بدون app.css برای جلوگیری از تداخل کلاس‌ها).
- * نوار بالا: وارد کردن توکن، یا ساخت توکن موقت با نشست پنل / موبایل + رمز (+ کپچا) ← POST /docs/swagger/token.
+ * نوار بالا: وارد کردن توکن، یا ساخت توکن موقت با نشست پنل و تأیید رمز / موبایل + رمز (+ کپچا) ← POST /docs/swagger/token.
  * @var ?array $me @var bool $captcha @var string $csrf
  */
 ?>
@@ -31,8 +31,8 @@
     <div class="sw-card">
         <h2>۲) یا توکن موقت بسازید</h2>
         <?php if ($me): ?>
-            <p>با حساب «<?= e(full_name($me)) ?>» وارد پنل هستید؛ یک توکن تست یک‌روزه بسازید.</p>
-            <form id="sw-gen" class="sw-row"><button type="submit">ساخت توکن با حساب فعلی</button></form>
+            <p>با حساب «<?= e(full_name($me)) ?>» وارد پنل هستید؛ برای ساخت توکن تست یک‌روزه، رمز حساب خود را وارد کنید.</p>
+            <form id="sw-gen" class="sw-row"><input name="password" type="password" dir="ltr" autocomplete="current-password" aria-label="رمز عبور حساب کاربری" required><button type="submit">ساخت توکن با حساب فعلی</button></form>
         <?php else: ?>
             <p>با موبایل و رمز پنل یک توکن تست یک‌روزه بگیرید (همان محدودیت‌های صفحه‌ی ورود).</p>
             <form id="sw-gen" class="sw-row sw-wrap">

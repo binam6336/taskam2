@@ -25,6 +25,9 @@ final class TokenController extends Controller
     {
         $this->denyImpersonation('/tokens');
         $uid = $this->uid();
+        if ($error = \App\Core\Auth::confirmTokenPassword($uid, (string) $this->request->input('password', ''))) {
+            $this->respond(false, $error, '/tokens');
+        }
         $name = trim($this->request->str('name', 100));
         if ($name === '') {
             $this->respond(false, 'برای توکن یک نام بنویسید (مثلاً «ربات تلگرام») تا بعداً بشناسیدش.', '/tokens');

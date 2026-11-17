@@ -12,6 +12,22 @@ namespace App\Core;
  */
 final class Auth
 {
+    public const TOKEN_PASSWORD_MAX = 5;
+    public const TOKEN_PASSWORD_WINDOW = 900;
+
+    /** تأیید رمز برای صدور توکن؛ سقف مشترک پنل و Swagger به ازای حساب. */
+    public static function confirmTokenPassword(int $uid, string $password): ?string
+    {
+        if (!Throttle::attempt('token_password', (string) $uid, self::TOKEN_PASSWORD_MAX, self::TOKEN_PASSWORD_WINDOW)) {
+            return 'تعداد تلاش‌های تأیید رمز برای ساخت توکن زیاد است؛ ۱۵ دقیقه بعد دوباره تلاش کنید.';
+        }
+        $hash = DB::value('SELECT password_hash FROM users WHERE id = ?', [$uid]);
+        if ($password === '' || strlen($password) > 200 || !$hash || !password_verify($password, (string) $hash)) {
+            return 'برای ساخت توکن، رمز عبور حساب خود را درست وارد کنید.';
+        }
+        return null;
+    }
+
     private static ?array $user = null;
     private static bool $loaded = false;
 
