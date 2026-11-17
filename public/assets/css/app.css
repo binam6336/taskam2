@@ -3035,6 +3035,15 @@ html[data-mode="dark"] .wl,html[data-mode="dark"] .wl-host{
 .sb-gsearch { width: min(640px, calc(100vw - 32px)); }
 .sb-gsearch .sb-pal-list { max-height: min(62vh, 520px); }
 .sb-pal-gh { padding: .55rem .7rem .25rem !important; font-size: 11px; font-weight: 700; color: var(--faint); cursor: default !important; background: none !important; }
+.sb-pal-list li.sb-pal-fold { cursor: pointer !important; }
+.sb-pal-fold button { display: flex; align-items: center; gap: .65rem; width: 100%; padding: .3rem 0; border: 0; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.sb-pal-list .sb-pal-fold i { flex: 0 0 18px; width: 18px; height: 18px; }
+.sb-pal-fold i.is-open { transform: rotate(-90deg); }
+.sb-pal-fold button small { margin-inline-start: auto; }
+.sb-pal-list li.sb-pal-fold[aria-selected="true"] { outline: 2px solid var(--main-ink); outline-offset: -2px; }
+.sb-pal-list li.sb-pal-section { display: block; padding: 0; cursor: default; }
+.sb-pal-list li.sb-pal-section[hidden] { display: none; }
+.sb-pal-section > ul { list-style: none; margin: 0; padding: 0; }
 .sb-pal-list li .sb-pal-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sb-pal-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-pal-t em { font-style: normal; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

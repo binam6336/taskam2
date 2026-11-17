@@ -1,6 +1,6 @@
 <?php
 /**
- * لیبل‌ها (v7.12): لیبل‌ها مال پروژه‌اند و به تفکیک پروژه نمایش داده می‌شوند. ساخت، ویرایش و مسدود کردن فقط برای سازنده‌ی پروژه
+ * لیبل‌ها (v7.12): لیبل‌ها مال پروژه‌اند و به تفکیک پروژه نمایش داده می‌شوند. ساخت، ویرایش و حذف فقط برای سازنده‌ی پروژه
  * یا عضو دارای «دسترسی ایجاد لیبل» (can_manage)؛ بقیه فقط می‌بینند و روی تسک‌ها می‌گذارند. لیبل‌های شخصی قدیمی (بدون پروژه)
  * فقط برای صاحبشان با امکان انتقال به پروژه.
  * @var array $subjects @var array $manageable
@@ -15,7 +15,7 @@ foreach ($subjects as $s) {
 $canCreate = !empty($manageable);
 ?>
 <div class="page-head"><div class="ph-text"><h2>لیبل‌ها</h2><p class="ph-desc lbl-intro">لیبل‌ها مال هر پروژه‌اند و همه‌ی اعضای پروژه از آن‌ها استفاده می‌کنند. <?= $canCreate ? 'شما در ' . e(fa_num(count($manageable))) . ' پروژه اجازه‌ی ساخت لیبل دارید.' : 'ساخت لیبل جدید «دسترسی ایجاد لیبل» در پروژه می‌خواهد.' ?></p></div>
-    <div class="ph-actions"><?php $this->partial('blocked_button', ['kind' => 'labels', 'count' => $blockedCount ?? 0, 'label' => 'لیبل‌های مسدودشده', 'text' => 'موارد مسدود']); ?>
+    <div class="ph-actions">
     <?php if ($canCreate): ?><button class="btn btn-primary" data-modal="m-subject" id="btn-new-subject"><i class="fa-solid fa-plus"></i> لیبل جدید</button><?php endif; ?></div></div>
 <div data-live="subjects">
 <?php if (!$subjects): ?><div class="card empty"><i class="fa-solid fa-tags"></i><p>هنوز در پروژه‌های شما لیبلی نیست. لیبل‌ها برای دسته‌بندی تسک‌ها هستند.</p></div>
@@ -30,7 +30,7 @@ $canCreate = !empty($manageable);
         <div class="grow"><div class="bold"><?= e($s['title']) ?></div><a class="xs lbl-tasks" href="<?= e(url('/tasks?scope=all&status=all&label=' . $sp)) ?>" title="نمایش تسک‌های این لیبل"><?= e(fa_num($s['tasks_count'])) ?> تسک <i class="fa-solid fa-arrow-left"></i></a></div>
         <?php if (!empty($s['can_manage'])): ?>
         <button class="btn btn-sm btn-icon" title="<?= $g['legacy'] ? 'ویرایش و انتقال به پروژه' : 'ویرایش لیبل' ?>" aria-label="ویرایش لیبل «<?= e($s['title']) ?>»" data-edit='<?= e(json_html(['title' => $s['title'], 'color' => $s['color'], 'project_id' => $s['project_id'] !== null ? pid('projects', $s['project_id']) : '', 'legacy' => $g['legacy']])) ?>' data-target="m-subject" data-action="/labels/<?= e($sp) ?>/update"><i class="fa-solid fa-<?= $g['legacy'] ? 'right-to-bracket' : 'pen' ?>"></i></button>
-        <button class="btn btn-sm btn-icon btn-danger" title="مسدود کردن لیبل" aria-label="مسدود کردن لیبل «<?= e($s['title']) ?>»" data-post="<?= e(url('/block/labels/' . $sp)) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» مسدود شود؟ برای تسک جدید انتخاب نمی‌شود ولی روی تسک‌های فعلی می‌ماند. از «لیبل‌های مسدودشده» برمی‌گردد."><i class="fa-solid fa-ban"></i></button>
+        <button class="btn btn-sm btn-icon btn-danger" title="حذف لیبل" aria-label="حذف لیبل «<?= e($s['title']) ?>»" data-post="<?= e(url('/labels/' . $sp . '/delete')) ?>" data-confirm="لیبل «<?= e($s['title']) ?>» حذف شود؟ ارتباط این لیبل با همه‌ی تسک‌ها پاک می‌شود؛ خود تسک‌ها حفظ می‌شوند. این کار قابل بازگردانی نیست."><i class="fa-solid fa-trash"></i></button>
         <?php else: ?><i class="fa-solid fa-lock faint" title="ساخت و ویرایش لیبل این پروژه «دسترسی ایجاد لیبل» می‌خواهد" aria-label="فقط استفاده"></i><?php endif; ?>
     </div>
     <?php endforeach; ?>

@@ -3,12 +3,13 @@
 $colors = \App\Models\TextModel::COLORS;
 $this->boot['texts'] = $texts;
 $this->boot['noteColors'] = $colors;
+$this->boot['noteFocus'] = $focus ?? '';
 $this->scripts[] = 'texts'; ?>
 <div class="page-head">
     <div class="ph-text"><h2>یادداشت‌ها</h2><p class="ph-desc">یادداشت‌های شخصی و متن‌های آماده؛ فقط برای خودتان. برای مرتب کردن، کارت را بکشید و با دایره‌های رنگی پایین هر کارت رنگش را عوض کنید.</p></div>
-    <div class="ph-actions"><button class="btn btn-primary" id="btn-new-text" data-create-default><i class="fa-solid fa-plus"></i> یادداشت جدید</button></div>
+    <div class="ph-actions"><?php if (!empty($focus)): ?><a class="btn" href="<?= e(url('/notes')) ?>"><i class="fa-solid fa-arrow-right"></i> همه‌ی یادداشت‌ها</a><?php endif; ?><button class="btn btn-primary" id="btn-new-text" data-create-default><i class="fa-solid fa-plus"></i> یادداشت جدید</button></div>
 </div>
-<div class="search notes-search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها" data-page-search></div>
+<?php if (empty($focus)): ?><div class="search notes-search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="text-search" placeholder="<?= e(ph('texts_search')) ?>" aria-label="جستجو در یادداشت‌ها" data-page-search></div><?php endif; ?>
 <div class="notes-grid" id="text-grid"></div>
 <div class="card empty hidden" id="text-empty"><i class="fa-solid fa-note-sticky"></i><p id="text-empty-msg">هنوز یادداشتی ندارید.</p></div>
 

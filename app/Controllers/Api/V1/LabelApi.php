@@ -36,4 +36,9 @@ final class LabelApi extends ApiController
     {
         $this->fromService(LabelService::update($this->uid, $this->id(), $this->body()), [self::class, 'format']);
     }
+
+    public function delete()
+    {
+        $this->fromService(LabelService::delete($this->uid, $this->id()));
+    }
 }

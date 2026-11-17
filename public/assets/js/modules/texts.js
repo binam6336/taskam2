@@ -3,6 +3,7 @@ document.addEventListener('tk:ready', () => {
   const grid = TK.qs('#text-grid'); if (!grid) return;
   const E = TK.esc; let items = TK.boot().texts || [];
   const COLORS = TK.boot().noteColors || { yellow: 'زرد' };
+  const focus = TK.boot().noteFocus || '';
   const form = TK.qs('#f-text'), search = TK.qs('#text-search');
 
   const card = (t) => `
@@ -21,12 +22,12 @@ document.addEventListener('tk:ready', () => {
     </article>`;
   const draw = () => {
     TK.qs('#text-empty').classList.toggle('hidden', items.length > 0);
-    TK.qs('#text-empty-msg').textContent = search?.value.trim() ? 'یادداشتی با این جستجو پیدا نشد.' : 'هنوز یادداشتی ندارید. «یادداشت جدید» را بزنید.';
+    TK.qs('#text-empty-msg').textContent = focus ? 'یادداشت انتخاب‌شده یافت نشد یا حذف شده است.' : search?.value.trim() ? 'یادداشتی با این جستجو پیدا نشد.' : 'هنوز یادداشتی ندارید. «یادداشت جدید» را بزنید.';
     grid.innerHTML = items.map(card).join('');
   };
   draw();
 
-  const load = async (q = '') => { const r = await TK.get('/notes/data', q ? { search: q } : {}); if (r.success) { items = r.data; draw(); } };
+  const load = async (q = '') => { const r = await TK.get('/notes/data', focus ? { focus } : q ? { search: q } : {}); if (r.success) { items = r.data; draw(); } };
   search?.addEventListener('input', TK.debounce((e) => load(e.target.value.trim()), 300));
   // از جستجوی سراسری (v7.13): /notes?q=… همان جستجو را پر و اجرا می‌کند
   const q0 = new URLSearchParams(location.search).get('q');
@@ -44,7 +45,7 @@ document.addEventListener('tk:ready', () => {
     e.preventDefault();
     const id = form.id.value, fd = new FormData(form);
     const r = await TK.http(id ? '/notes/item/' + id + '/update' : '/notes', { method: 'POST', form: fd });
-    if (r.success) { TK.toast(r.message); TK.modal.close('m-text'); load(search.value.trim()); } else TK.toast(r.error || 'خطا', 'error');
+    if (r.success) { TK.toast(r.message); TK.modal.close('m-text'); load(search?.value.trim() || ''); } else TK.toast(r.error || 'خطا', 'error');
   });
 
   grid.addEventListener('click', async (e) => {

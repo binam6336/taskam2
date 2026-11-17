@@ -70,8 +70,8 @@ final class SubjectModel
     {
         $rows = DB::all('SELECT s.*, p.title AS project_title, (SELECT COUNT(*) FROM tasks t WHERE t.subject_id = s.id AND t.blocked_at IS NULL) AS tasks_count
                 FROM subjects s LEFT JOIN projects p ON p.id = s.project_id
-                WHERE s.blocked_at IS NULL AND (' . self::projectsSql('s.project_id') . ($legacy ? ' OR (s.project_id IS NULL AND s.user_id = ?)' : '') . ')
-                ORDER BY s.project_id IS NULL, p.title, s.title', $legacy ? [$uid, $uid, $uid] : [$uid, $uid]);   // مسدودشده‌ها فقط در «لیبل‌های مسدودشده»
+                WHERE (' . self::projectsSql('s.project_id') . ($legacy ? ' OR (s.project_id IS NULL AND s.user_id = ?)' : '') . ')
+                ORDER BY s.project_id IS NULL, p.title, s.title', $legacy ? [$uid, $uid, $uid] : [$uid, $uid]);
         foreach ($rows as &$r) {
             $r['can_manage'] = $r['project_id'] === null ? (int) $r['user_id'] === $uid : \App\Services\Access::canManageLabels((int) $r['project_id'], $uid);
         }
@@ -81,7 +81,7 @@ final class SubjectModel
     /** لیبل‌های فعال یک پروژه */
     public static function forProject(int $projectId): array
     {
-        return DB::all('SELECT * FROM subjects WHERE project_id = ? AND blocked_at IS NULL ORDER BY title', [$projectId]);
+        return DB::all('SELECT * FROM subjects WHERE project_id = ? ORDER BY title', [$projectId]);
     }
 
     public static function find(int $id): ?array
@@ -89,10 +89,10 @@ final class SubjectModel
         return DB::one('SELECT * FROM subjects WHERE id = ?', [$id]);
     }
 
-    /** لیبل قابل گذاشتن روی تسکی از پروژه‌ی $projectId: مال همان پروژه و مسدودنشده */
+    /** لیبل قابل گذاشتن روی تسکی از پروژه‌ی $projectId: مال همان پروژه */
     public static function usableIn(int $id, int $projectId): bool
     {
-        return $projectId > 0 && (bool) DB::value('SELECT 1 FROM subjects WHERE id = ? AND project_id = ? AND blocked_at IS NULL', [$id, $projectId]);
+        return $projectId > 0 && (bool) DB::value('SELECT 1 FROM subjects WHERE id = ? AND project_id = ?', [$id, $projectId]);
     }
 
     /** لیبل شخصی قدیمی خود کاربر (بدون پروژه) */
@@ -104,7 +104,7 @@ final class SubjectModel
     /** عنوان تکراری در همان پروژه (بدون حساسیت به حروف و فاصله‌ی اضافه) */
     public static function titleTaken(int $projectId, string $title, int $exceptId = 0): bool
     {
-        return (bool) DB::value('SELECT 1 FROM subjects WHERE project_id = ? AND id <> ? AND blocked_at IS NULL AND TRIM(title) = ? LIMIT 1', [$projectId, $exceptId, trim($title)]);
+        return (bool) DB::value('SELECT 1 FROM subjects WHERE project_id = ? AND id <> ? AND TRIM(title) = ? LIMIT 1', [$projectId, $exceptId, trim($title)]);
     }
 
     /**
@@ -113,7 +113,7 @@ final class SubjectModel
      *    هم‌نام ساخته و تسک‌های همان پروژه به آن وصل می‌شوند؛ لیبل هم‌نام موجود در پروژه دوباره ساخته نمی‌شود (ادغام).
      *  - پروژه‌ی بدون لیبل، لیبل‌های پیش‌فرض می‌گیرد.
      *  - اعضایی که همه‌ی دسترسی‌های قبلی پروژه را داشتند (نقش مدیر کل / مدیر واحد) «دسترسی ایجاد لیبل» هم می‌گیرند تا نقششان عوض نشود.
-     *  - لیبل شخصی که روی هیچ تسک پروژه‌داری نیست بدون پروژه می‌ماند (فقط در صفحه‌ی لیبل‌های صاحبش برای انتقال یا مسدود کردن).
+     *  - لیبل شخصی که روی هیچ تسک پروژه‌داری نیست بدون پروژه می‌ماند (فقط در صفحه‌ی لیبل‌های صاحبش برای انتقال یا حذف).
      */
     public static function migrateToProjects(): void
     {
@@ -134,14 +134,13 @@ final class SubjectModel
             if ($s === null) {
                 continue;
             }
-            $target = (int) DB::value('SELECT id FROM subjects WHERE project_id = ? AND TRIM(title) = ? ORDER BY blocked_at IS NOT NULL, id LIMIT 1', [$pj, trim((string) $s['title'])]);
+            $target = (int) DB::value('SELECT id FROM subjects WHERE project_id = ? AND TRIM(title) = ? ORDER BY id LIMIT 1', [$pj, trim((string) $s['title'])]);
             if ($target === 0) {
                 if ($s['project_id'] === null) {
                     DB::run('UPDATE subjects SET project_id = ? WHERE id = ?', [$pj, $sid]);
                     $target = $sid;
                 } else {
-                    $target = DB::insert('subjects', ['user_id' => (int) $s['user_id'], 'project_id' => $pj, 'title' => $s['title'], 'color' => $s['color'],
-                        'blocked_at' => $s['blocked_at'], 'blocked_by' => $s['blocked_by']]);
+                    $target = DB::insert('subjects', ['user_id' => (int) $s['user_id'], 'project_id' => $pj, 'title' => $s['title'], 'color' => $s['color']]);
                 }
             }
             if ($target !== $sid) {

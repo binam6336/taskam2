@@ -12,7 +12,9 @@ final class TextController extends Controller
 {
     public function index()
     {
-        $this->view('texts/index', ['texts' => TextModel::forUser($this->uid())], ['title' => 'یادداشت‌ها', 'page' => 'texts']);
+        $focus = $this->request->str('focus', 50);
+        $text = $focus !== '' ? TextModel::owned($focus, $this->uid()) : null;
+        $this->view('texts/index', ['texts' => $focus !== '' ? ($text !== null ? [$text] : []) : TextModel::forUser($this->uid()), 'focus' => $focus], ['title' => 'یادداشت‌ها', 'page' => 'texts']);
     }
 
     /** آدرس قدیمی /texts ← /notes */
@@ -23,7 +25,9 @@ final class TextController extends Controller
 
     public function data()
     {
-        $rows = TextModel::forUser($this->uid(), $this->request->str('search', 100));
+        $focus = $this->request->str('focus', 50);
+        $text = $focus !== '' ? TextModel::owned($focus, $this->uid()) : null;
+        $rows = $focus !== '' ? ($text !== null ? [$text] : []) : TextModel::forUser($this->uid(), $this->request->str('search', 100));
         $this->json(['success' => true, 'data' => $rows, 'total' => count($rows)]);
     }
 

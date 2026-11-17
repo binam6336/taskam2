@@ -73,7 +73,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/calendar/data', [CalendarController::class, 'data']);
     $r->post('/tasks', [TaskController::class, 'store']);
     $r->get('/tasks/quick-options', [TaskController::class, 'quickOptions']);
-    // مسدود کردن به‌جای حذف (تسک، پروژه، لیبل) + پنجره‌ی «مسدودشده‌ها»
+    // مسدود کردن به‌جای حذف (تسک، پروژه) + پنجره‌ی «مسدودشده‌ها»
     $r->get('/blocked/{kind}', [BlockController::class, 'index']);
     $r->post('/block/{kind}/{id}', [BlockController::class, 'block']);
     $r->post('/unblock/{kind}/{id}', [BlockController::class, 'unblock']);
@@ -127,6 +127,7 @@ $router->group(['panel'], function ($r) {
     $r->get('/labels', [SubjectController::class, 'index']);
     $r->post('/labels', [SubjectController::class, 'store']);
     $r->post('/labels/{label}/update', [SubjectController::class, 'update']);
+    $r->post('/labels/{label}/delete', [SubjectController::class, 'destroy']);
     $r->get('/subjects', [SubjectController::class, 'legacy']);   // آدرس قدیمی → /labels
 
 
@@ -329,9 +330,7 @@ $router->group(['api'], function ($r) {
     $r->get('/labels/list', [LabelApi::class, 'list']);
     $r->post('/labels/create', [LabelApi::class, 'create']);
     $r->post('/labels/update', [LabelApi::class, 'update']);
-    $r->get('/labels/blocked', [BlockApi::class, 'labelList']);
-    $r->post('/labels/block', [BlockApi::class, 'labelBlock']);
-    $r->post('/labels/unblock', [BlockApi::class, 'labelUnblock']);
+    $r->post('/labels/delete', [LabelApi::class, 'delete']);
 
     $r->get('/board/list', [BoardApi::class, 'list']);
     $r->get('/board/archive', [BoardApi::class, 'archive']);

@@ -13,6 +13,10 @@ html, body { margin: 0; background: var(--sw-bg); color: var(--sw-ink); font-fam
 .sw-card p { margin: 0 0 10px; font-size: .8rem; color: var(--sw-muted); line-height: 1.9; }
 .sw-row { display: flex; gap: 8px; align-items: center; }
 .sw-wrap { flex-wrap: wrap; }
+.sw-field { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 140px; }
+.sw-field label { font-size: .8rem; font-weight: 700; }
+.sw-field input { box-sizing: border-box; width: 100%; }
+.sw-row:has(.sw-field) { align-items: flex-end; }
 .sw-row input { flex: 1; min-width: 140px; padding: 9px 12px; border: 1px solid var(--sw-line); border-radius: 10px; font: inherit; font-size: .85rem; background: #fdfcff; }
 .sw-row input:focus { outline: 2px solid rgba(109, 74, 255, .35); border-color: var(--sw-main); }
 .sw-row button { padding: 9px 16px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #8A6AFC, #6443E8); color: #fff; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }

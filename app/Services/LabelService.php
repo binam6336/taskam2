@@ -8,7 +8,7 @@ use App\Models\SubjectModel;
 
 /**
  * لیبل‌های تسک (جدول subjects) — مشترک بین پنل و API.
- * v7.12: هر لیبل مال یک پروژه است (subjects.project_id)؛ ساخت، ویرایش و مسدود کردن = Access::canManageLabels
+ * هر لیبل مال یک پروژه است (subjects.project_id)؛ ساخت، ویرایش و حذف = Access::canManageLabels
  * (سازنده‌ی پروژه یا «دسترسی ایجاد لیبل»؛ نقش مدیر کل و مدیر واحد دارند). بقیه‌ی اعضا فقط لیبل موجود پروژه را روی تسک می‌گذارند.
  * رنگ فقط از ۱۵ رنگ آماده (SubjectModel::COLORS)، با نام متنی (red، blue، … — SubjectModel::COLOR_NAMES؛ API) یا hex همان رنگ‌ها (فرم پنل)؛ لیبل قدیمی با رنگ دیگر، اگر رنگ ارسال نشود همان رنگ را نگه می‌دارد.
  */
@@ -58,6 +58,24 @@ final class LabelService
     public static function canSee(array $label, int $uid): bool
     {
         return $label['project_id'] === null ? (int) $label['user_id'] === $uid : Access::isProjectMember((int) $label['project_id'], $uid);
+    }
+
+    /** حذف لیبل و قطع ارتباط آن با تسک‌ها؛ خود تسک‌ها و اطلاعاتشان حفظ می‌شوند. */
+    public static function delete(int $uid, int $id): array
+    {
+        return DB::transaction(static function () use ($uid, $id): array {
+            $label = DB::one('SELECT * FROM subjects WHERE id = ? FOR UPDATE', [$id]);
+            if ($label === null || !self::canSee($label, $uid)) {
+                return self::res(false, 'لیبل یافت نشد.', 'LABEL_NOT_FOUND', 404);
+            }
+            if (!self::canManage($label, $uid)) {
+                return self::res(false, 'دسترسی حذف لیبل‌های این پروژه را ندارید.', 'LABEL_FORBIDDEN', 403);
+            }
+            // FK نیز ON DELETE SET NULL است؛ به‌روزرسانی صریح برای ثبت تغییر در گزارش مدیر.
+            DB::run('UPDATE tasks SET subject_id = NULL WHERE subject_id = ?', [$id]);
+            DB::run('DELETE FROM subjects WHERE id = ?', [$id]);
+            return self::res(true, 'لیبل حذف شد.');
+        });
     }
 
     /** پروژه‌هایی که کاربر در آن‌ها لیبل می‌سازد: [[id, title], …] */

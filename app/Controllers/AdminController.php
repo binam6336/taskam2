@@ -894,7 +894,7 @@ final class AdminController extends Controller
         $topUsers = DB::all("SELECT u.id, u.first_name, u.last_name, u.mobile, u.avatar, COUNT(t.id) cnt, COALESCE(SUM(t.is_completed = 1),0) done FROM users u INNER JOIN tasks t ON t.assignee_id = u.id AND $tw WHERE u.is_bot = 0 GROUP BY u.id, u.first_name, u.last_name, u.mobile, u.avatar ORDER BY cnt DESC LIMIT 8");
         $topProjects = DB::all('SELECT p.id, p.title, p.profile_image, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id <> p.user_id) + 1 members, COUNT(t.id) tasks FROM projects p LEFT JOIN tasks t ON t.project_id = p.id AND t.blocked_at IS NULL WHERE p.is_sample = 0 AND p.blocked_at IS NULL GROUP BY p.id, p.title, p.profile_image ORDER BY tasks DESC, members DESC LIMIT 8');
         // لیبل‌های هم‌نام کاربران مختلف (مثل لیبل‌های پیش‌فرض) با هم جمع می‌شوند ولی تعداد کاربرانشان هم نمایش داده می‌شود
-        $topSubjects = DB::all("SELECT s.title, COUNT(t.id) cnt, COUNT(DISTINCT s.user_id) users FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND $tw WHERE s.blocked_at IS NULL GROUP BY s.title ORDER BY cnt DESC LIMIT 8");
+        $topSubjects = DB::all("SELECT s.title, COUNT(t.id) cnt, COUNT(DISTINCT s.user_id) users FROM subjects s INNER JOIN tasks t ON t.subject_id = s.id AND $tw GROUP BY s.title ORDER BY cnt DESC LIMIT 8");
         $chatSec = [
             'configured' => Crypto::configured(),
             'total' => (int) DB::value('SELECT COUNT(*) FROM chat_messages'),

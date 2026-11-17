@@ -217,8 +217,6 @@ CREATE TABLE `subjects` (
   `project_id` INT UNSIGNED NULL DEFAULT NULL        COMMENT 'پروژه‌ی صاحب لیبل (v7.12)؛ NULL = لیبل شخصی قدیمی',
   `title`      VARCHAR(150) NOT NULL,
   `color`      VARCHAR(20) NOT NULL DEFAULT '#22c55e',
-  `blocked_at` TIMESTAMP NULL DEFAULT NULL           COMMENT 'لیبل مسدودشده (به‌جای حذف)',
-  `blocked_by` INT UNSIGNED NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_subjects_pid` (`pid`),

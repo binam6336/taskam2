@@ -25,6 +25,7 @@ final class GlobalSearch
 
     public const GROUPS = [
         'tasks'    => ['تسک‌ها', 'fa-list-check'],
+        'tasks_done' => ['انجام‌شده', 'fa-check'],
         'reports'  => ['گزارش‌های تسک', 'fa-comment-dots'],
         'projects' => ['پروژه‌ها', 'fa-diagram-project'],
         'notes'    => ['یادداشت‌ها', 'fa-note-sticky'],
@@ -55,8 +56,10 @@ final class GlobalSearch
             return $out;
         }
         $n = self::PER_GROUP;
+        $tasks = self::tasks($uid, $q, $n);
         $groups = [
-            'tasks'    => self::tasks($uid, $q, $n),
+            'tasks'    => array_values(array_filter($tasks, static fn($t) => !$t['done'])),
+            'tasks_done' => array_values(array_filter($tasks, static fn($t) => $t['done'])),
             'reports'  => self::reports($uid, $q, $n),
             'projects' => self::projects($uid, $q, $n),
             'notes'    => self::notes($uid, $q, $n),
@@ -85,12 +88,20 @@ final class GlobalSearch
         [$scope, $sp] = self::taskScope($uid);
         [$qs, $qp] = Search::sql(['t.title', 't.description'], $q);
         $sel = 'SELECT t.id, t.title, t.description, t.share_token, t.is_completed, t.due_date, p.title AS project_title FROM tasks t LEFT JOIN projects p ON p.id = t.project_id';
-        $rows = DB::all("$sel WHERE $scope AND $qs ORDER BY t.is_completed ASC, t.id DESC LIMIT " . $n, array_merge($sp, $qp));
+        // سقف مستقل برای باز و انجام‌شده؛ تسک‌های باز، نتیجه‌های انجام‌شده را پنهان نمی‌کنند.
+        $rows = [];
+        foreach ([0, 1] as $done) {
+            $rows = array_merge($rows, DB::all("$sel WHERE $scope AND $qs AND t.is_completed = $done ORDER BY t.id DESC LIMIT " . $n, array_merge($sp, $qp)));
+        }
         if (!$rows) {
             // غلط تایپی کم در عنوان (همان قاعده‌ی فهرست تسک‌ها)
             $cand = DB::all("SELECT t.id, t.title FROM tasks t WHERE $scope ORDER BY t.id DESC LIMIT 3000", $sp);
-            $ids = Search::fuzzyIds($cand, $q, ['title'], $n);
+            $ids = Search::fuzzyIds($cand, $q, ['title'], $n * 2);
             $rows = $ids ? DB::all("$sel WHERE t.id IN (" . DB::in($ids) . ') ORDER BY t.is_completed ASC, t.id DESC', $ids) : [];
+            $counts = [0, 0];
+            $rows = array_values(array_filter($rows, static function ($t) use (&$counts, $n): bool {
+                return ++$counts[(int) $t['is_completed']] <= $n;
+            }));
         }
         return array_map(static function (array $t) use ($q): array {
             $parts = array_filter([$t['project_title'] ? 'پروژه: ' . $t['project_title'] : 'بدون پروژه', (int) $t['is_completed'] === 1 ? 'انجام‌شده' : null,
@@ -123,14 +134,14 @@ final class GlobalSearch
         [$qs, $qp] = Search::sql(['title', 'content'], $q);
         $rows = DB::all("SELECT id, title, content, updated_at FROM texts WHERE user_id = ? AND $qs ORDER BY updated_at DESC LIMIT " . $n, array_merge([$uid], $qp));
         return array_map(static fn(array $r) => ['id' => (string) $r['id'], 'title' => trim((string) $r['title']) !== '' ? (string) $r['title'] : mb_substr(trim((string) $r['content']), 0, 60),
-            'sub' => 'یادداشت', 'snippet' => self::snippet((string) $r['content'], $q), 'url' => url('/notes?q=' . rawurlencode($q))], $rows);
+            'sub' => 'یادداشت', 'snippet' => self::snippet((string) $r['content'], $q), 'url' => url('/notes?focus=' . rawurlencode((string) $r['id']))], $rows);
     }
 
     private static function labels(int $uid, string $q, int $n): array
     {
         [$qs, $qp] = Search::sql(['s.title'], $q);
         $rows = DB::all('SELECT s.id, s.title, s.color, p.title AS project_title FROM subjects s INNER JOIN projects p ON p.id = s.project_id
-                WHERE s.blocked_at IS NULL AND ' . self::projectsIn('s.project_id') . " AND $qs ORDER BY p.title, s.title LIMIT " . $n, array_merge([$uid, $uid], $qp));
+                WHERE ' . self::projectsIn('s.project_id') . " AND $qs ORDER BY p.title, s.title LIMIT " . $n, array_merge([$uid, $uid], $qp));
         return array_map(static fn(array $r) => ['id' => pid('subjects', $r['id']), 'title' => (string) $r['title'], 'sub' => 'پروژه: ' . $r['project_title'], 'snippet' => null,
             'color' => (string) $r['color'], 'url' => url('/tasks?scope=all&status=all&label=' . pid('subjects', $r['id']))], $rows);
     }

@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '053';
+    public const VERSION = '054';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -51,7 +51,6 @@ final class Schema
         // 027
         ['tasks', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `archived_at`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`, ADD KEY `idx_tasks_blocked` (`blocked_at`)", null],
         ['projects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `status`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
-        ['subjects', 'blocked_at', "ADD COLUMN `blocked_at` TIMESTAMP NULL DEFAULT NULL AFTER `color`, ADD COLUMN `blocked_by` INT UNSIGNED NULL DEFAULT NULL AFTER `blocked_at`", null],
         // 026
         ['tasks', 'is_quick', "ADD COLUMN `is_quick` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_completed`", null],
         // 025
@@ -119,6 +118,8 @@ final class Schema
      * حذف ستون (v7.0؛ حذف قابلیت): [جدول، ستون، DDL]؛ فقط اگر ستون هنوز هست (نصب تازه آن را ندارد). بعد از DATA اجرا می‌شود.
      */
     private const DROP_COLUMNS = [
+        ['subjects', 'blocked_at', 'DROP COLUMN `blocked_at`', null],
+        ['subjects', 'blocked_by', 'DROP COLUMN `blocked_by`', null],
         // تسکِ گروهی بی‌مسئول ← مسئول = سازنده‌ی تسک (پیش از حذف ستون)
         ['tasks', 'assignee_group_id', 'DROP COLUMN `assignee_group_id`', 'UPDATE `tasks` SET `assignee_id` = `user_id` WHERE `assignee_id` IS NULL AND `assignee_group_id` IS NOT NULL'],
         ['tasks', 'group_head_approval', 'DROP COLUMN `group_head_approval`', null],

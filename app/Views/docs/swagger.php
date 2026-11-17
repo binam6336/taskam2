@@ -32,12 +32,12 @@
         <h2>۲) یا توکن موقت بسازید</h2>
         <?php if ($me): ?>
             <p>با حساب «<?= e(full_name($me)) ?>» وارد پنل هستید؛ برای ساخت توکن تست یک‌روزه، رمز حساب خود را وارد کنید.</p>
-            <form id="sw-gen" class="sw-row"><input name="password" type="password" dir="ltr" autocomplete="current-password" aria-label="رمز عبور حساب کاربری" required><button type="submit">ساخت توکن با حساب فعلی</button></form>
+            <form id="sw-gen" class="sw-row sw-wrap"><div class="sw-field"><label for="sw-password">رمز عبور</label><input id="sw-password" name="password" type="password" dir="ltr" autocomplete="current-password" required></div><button type="submit">ساخت توکن با حساب فعلی</button></form>
         <?php else: ?>
             <p>با موبایل و رمز پنل یک توکن تست یک‌روزه بگیرید (همان محدودیت‌های صفحه‌ی ورود).</p>
             <form id="sw-gen" class="sw-row sw-wrap">
                 <input name="mobile" dir="ltr" inputmode="numeric" placeholder="09xxxxxxxxx" autocomplete="username" aria-label="موبایل" required>
-                <input name="password" type="password" dir="ltr" placeholder="رمز عبور" autocomplete="current-password" aria-label="رمز عبور" required>
+                <div class="sw-field"><label for="sw-password">رمز عبور</label><input id="sw-password" name="password" type="password" dir="ltr" autocomplete="current-password" required></div>
                 <?php if ($captcha): ?><span class="sw-cap"><img id="sw-cap-img" alt="کد امنیتی" width="120" height="40"><button type="button" id="sw-cap-new" title="کد جدید" aria-label="کد امنیتی جدید">↻</button><input name="captcha" dir="ltr" placeholder="کد امنیتی" autocomplete="off" aria-label="کد امنیتی" required></span><?php endif; ?>
                 <button type="submit">دریافت توکن</button>
             </form>
