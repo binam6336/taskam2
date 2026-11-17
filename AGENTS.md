@@ -88,4 +88,5 @@ Request flow: `public/index.php` → `App::run()` (security headers, session) �
 
 ## Collaboration notes
 - Reply to the user in Persian.
+- پس از تکمیل هر تغییر و بررسی‌های مرتبط، تغییرات همان درخواست را بدون نیاز به تأیید مجدد کاربر کامیت و به مخزن ریموت پوش کن؛ قواعد نسخه‌گذاری را رعایت کن و تغییرات محلی نامرتبط را وارد کامیت نکن.
 - When something seems missing in permissions/roles, report it to the user instead of adding it.
