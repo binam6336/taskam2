@@ -1,8 +1,8 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository instructions for OpenAI Codex. These instructions apply to the repository root and all subdirectories unless a more specific AGENTS.md provides additional guidance.
 
-Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RTL) task/team management panel: plain PHP MVC, no Composer, no build step, no frameworks, no test suite. UI text, comments and commit discussion with the user are in Persian.
+Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RTL) task/team management panel: plain PHP MVC, no Composer, no build step, no frameworks, with focused PHP and JavaScript regression tests. UI text, comments and commit discussion with the user are in Persian.
 
 ## نسخه‌گذاری (الزامی در هر کامیت)
 - نسخه‌ی فعلی برنامه در فایل `VERSION` است (Semantic Versioning: MAJOR.MINOR.PATCH).
@@ -29,7 +29,7 @@ Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RT
 - Demo load data (test DB only): `php bin/seed-demo.php --yes` builds a 30-person company over ~6 months (manager 09991867331, 5 team projects marked `[داده‌ی نمونه]` in the description, demo users `0999100xxxx` / `Demo12345`, 700 tasks with full delivery/review lifecycle, events, notes); `--tasks=N --days=N --seed=N`; `--clean --yes` removes it. `php bin/export-demo-sql.php > demo-data.sql` exports it as an id-independent SQL file (users matched by mobile via INSERT IGNORE, LAST_INSERT_ID links; deletes previous demo data first) for phpMyAdmin import on a 7.12+ schema (labels carry `project_id`). Inserts directly (no notifications); keep it in sync when task lifecycle columns change.
 - Source zip for sharing: `sh bin/package.sh` (git archive; never zip the working dir). Migrations without web ALTER rights: `SCHEMA_AUTO=false` + `php bin/migrate.php` (prints each step, re-applies when `Schema::missing()` finds absent columns even if the flag file exists; `--force` ignores flags). Schema errors go to `storage/logs/database/` + `storage/cache/schema-errors.json` (shown in PanelDocs); a PDO «unknown column/table» error deletes the schema flag so the next web request re-runs `Schema::ensure`.
 - Dev server: `php -S 127.0.0.1:8080 -t public router.php`, where `router.php` serves existing files under `public/` and otherwise sets `$_SERVER['SCRIPT_NAME'] = '/index.php'` and requires `public/index.php` (there is no router file in the repo; Apache uses `.htaccess`).
-- Syntax check: `php -l <file>` for PHP, `node --check <file>` for JS. Verification is done by driving the app in a browser (Playwright), not unit tests.
+- Syntax check: `php -l <file>` for PHP, `node --check <file>` for JS. Run the existing workload regression checks from the repository root: `php bin/test-workload.php` and `node bin/test-workload.js`. Verify affected application flows in a browser (Playwright) as needed; syntax checks alone do not validate runtime behaviour.
 - Never commit `.env` or `storage/vapid.json`.
 
 ## Architecture
