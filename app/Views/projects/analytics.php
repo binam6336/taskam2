@@ -5,6 +5,7 @@ use App\Services\TaskAnalytics;
 $t = $a['totals'];
 $sum = $k['summary'];
 $this->boot['analytics'] = [
+    'reportRows' => \App\Services\AnalyticsReport::rows($project, $a, $k),
     'id' => pid('projects', $project), 'trend' => $a['trend'], 'totals' => $t, 'subjects' => $k['subjects'], 'label_count' => $k['label_count'],
     'people' => array_map(static fn($u) => ['id' => pid('users', $u['id'])] + $u, $people), 'speed' => \App\Controllers\ProjectController::speedOut($speed), 'ranges' => array_map(static fn($r) => $r[0], TaskAnalytics::RANGES),
 ];
@@ -19,7 +20,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
     <div id="an-reports" class="an-reports" data-export="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-project="<?= e(pid('projects', $project)) ?>" data-excel-script="<?= e(asset('vendor/reports/exceljs.min.js')) ?>" data-pdf-script="<?= e(asset('vendor/reports/html2pdf.bundle.min.js')) ?>">
         <details><summary class="btn btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> دریافت گزارش</summary>
             <div class="an-report-options">
-                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download>CSV</a>
+                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download data-report="csv">CSV (داده خام)</a>
                 <button type="button" class="btn btn-sm" data-report="excel">Excel (.xlsx)</button>
                 <button type="button" class="btn btn-sm" data-report="pdf">دریافت گزارش PDF</button>
             </div>
