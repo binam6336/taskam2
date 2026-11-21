@@ -9,14 +9,22 @@ $this->boot['analytics'] = [
     'people' => array_map(static fn($u) => ['id' => pid('users', $u['id'])] + $u, $people), 'speed' => \App\Controllers\ProjectController::speedOut($speed), 'ranges' => array_map(static fn($r) => $r[0], TaskAnalytics::RANGES),
 ];
 $this->scripts[] = 'analytics';
+$this->scripts[] = 'analytics_report';
 $pc = ['low' => ['کم', 'green'], 'medium' => ['متوسط', 'yellow'], 'high' => ['زیاد', 'red']];
 $toneBar = ['green' => '', 'blue' => 'blue', 'yellow' => 'yellow', 'red' => 'red', '' => ''];
 // کارت‌ها و اعضا لینک به صفحه‌ی تسک‌ها با فیلتر همین پروژه
 $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 'project', 'project' => pid('projects', $project)] + $q);
 ?>
 <div class="page-head"><div><a class="small muted an-back" href="<?= e(url('/projects')) ?>"><i class="fa-solid fa-arrow-right"></i> پروژه‌ها</a><h2 class="mt-1">تحلیل «<?= e($project['title']) ?>»</h2></div>
-    <?php // DATA-018 (v7.7): خروجی CSV خلاصه و جدول اعضا ?>
-    <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download title="دریافت خلاصه، عملکرد اعضا و زمان تأیید به‌صورت CSV (اکسل)"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> خروجی CSV</a></div>
+    <div id="an-reports" class="an-reports" data-export="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-project="<?= e(pid('projects', $project)) ?>" data-excel-script="<?= e(asset('vendor/reports/exceljs.min.js')) ?>" data-pdf-script="<?= e(asset('vendor/reports/html2pdf.bundle.min.js')) ?>">
+        <details><summary class="btn btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> دریافت گزارش</summary>
+            <div class="an-report-options">
+                <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download>CSV</a>
+                <button type="button" class="btn btn-sm" data-report="excel">Excel (.xlsx)</button>
+                <button type="button" class="btn btn-sm" data-report="pdf">دریافت گزارش PDF</button>
+            </div>
+        </details><span id="an-report-status" class="small muted" role="status" aria-live="polite"></span>
+    </div></div>
 <?php // v7.10: تب‌های «بورد | تحلیل | بار کاری» (همان تب‌های صفحه‌ی بار کاری) ?>
 <nav class="wl-host wl-tabs an-wl-tabs" aria-label="نماهای پروژه">
     <a class="wl-tab" href="<?= e(url('/board?project=' . pid('projects', $project))) ?>"><i class="fa-solid fa-table-columns"></i> بورد</a>
@@ -77,7 +85,7 @@ $tl = static fn(array $q) => url('/tasks') . '?' . http_build_query(['scope' => 
 </div>
 
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-users"></i> عملکرد اعضا</h3>
-    <a class="btn btn-sm" href="<?= e(url('/projects/' . pid('projects', $project) . '/analytics/export')) ?>" data-no-nav download><i class="fa-solid fa-file-csv" aria-hidden="true"></i> CSV</a></div>
+</div>
     <?php // DATA-016: زیر ۷۶۰px هر ردیف یک کارت (امتیاز اول دیده می‌شود)؛ DATA-007: ردیف «اعضای سابق / بدون مسئول» تا جمع ردیف‌ها = کل تسک‌ها ?>
     <div class="table-wrap"><table class="table table-cards an-members"><thead><tr><th scope="col">عضو</th><th scope="col" title="امتیاز سرعت ۰ تا ۱۰۰ و تعداد تسک تحویل‌شده‌ی مبنای آن">پیشرفت سرعت</th><th scope="col">کل</th><th scope="col" title="سرپرست تأیید و بسته است">تأییدشده</th><th scope="col" title="تحویل شده و منتظر تأیید سرپرست">منتظر تأیید</th><th scope="col">تحویل‌نشده</th><th scope="col">عقب‌افتاده</th><th scope="col" title="درصد تسک‌های تحویل‌شده‌ای که دست‌کم یک بار برای اصلاح برگشته‌اند">برگشت</th></tr></thead><tbody>
     <?php foreach ($k['members'] as $m): $r = $m['rating']; $orph = $m['is_orphan']; ?>

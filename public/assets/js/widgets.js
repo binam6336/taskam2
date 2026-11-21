@@ -294,16 +294,35 @@
       sub = { d: TK.datepicker(pop.querySelector('[data-sub-date]'), { name: '', placeholder: 'تاریخ' }), t: TK.timepicker(pop.querySelector('[data-sub-time]'), { name: '', placeholder: 'ساعت (اختیاری)' }) };
       sub.d.set(dIn.value || sub.d.today()); sub.t.set(tIn.value);
     };
-    // اگر پایین جا نیست (پایین پنجره/صفحه) رو به بالا باز شود
     const place = () => {
-      pop.classList.remove('up');
-      const r = btn.getBoundingClientRect(), frame = recurrence ? host.closest('.tf-body') : null;
-      if (frame) {
-        const box = frame.getBoundingClientRect(), above = r.top - Math.max(8, box.top) - 8, below = Math.min(innerHeight - 8, box.bottom) - r.bottom - 8;
-        const up = above > below;
-        pop.classList.toggle('up', up); pop.dataset.css = '--dp-room:' + Math.max(80, up ? above : below) + 'px'; TK.applyCss(pop);
-      } else if (r.bottom + pop.offsetHeight + 12 > innerHeight && r.top - pop.offsetHeight - 12 > 0) pop.classList.add('up');
+      if (pop.hidden) return;
+      const viewport = window.visualViewport;
+      const width = viewport?.width || innerWidth;
+      const height = viewport?.height || innerHeight;
+      if (width <= 600) {
+        pop.style.removeProperty('top');
+        pop.style.removeProperty('left');
+        pop.style.removeProperty('max-height');
+        return;
+      }
+      const r = btn.getBoundingClientRect();
+      const frame = host.closest('.tf-body');
+      const f = frame?.getBoundingClientRect();
+      const topEdge = Math.max(8, f?.top || 8);
+      const bottomEdge = Math.min(height - 8, f?.bottom || height - 8);
+      const panelWidth = Math.min(330, width - 16);
+      const left = Math.max(8, Math.min(width - panelWidth - 8, r.right - panelWidth));
+      const below = bottomEdge - r.bottom - 8;
+      const above = r.top - topEdge - 8;
+      const room = Math.max(80, Math.max(below, above));
+      const panelHeight = Math.min(pop.scrollHeight, room, 620);
+      pop.style.left = `${left}px`;
+      pop.style.top = `${above > below ? Math.max(topEdge, r.top - panelHeight - 6) : Math.min(bottomEdge - panelHeight, r.bottom + 6)}px`;
+      pop.style.maxHeight = `${Math.min(room, height - 16, 620)}px`;
     };
+    window.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
     const openPop = () => { openRow = null; quick(); TK.qsa('.picker.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.add('open'); pop.hidden = false; place(); };
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; host.classList.contains('open') ? close() : openPop(); });
     pop.addEventListener('click', (e) => {
@@ -311,9 +330,9 @@
       const b = e.target.closest('button'); if (!b || !pop.contains(b)) return;
       if (b.closest('[data-sub-date], [data-sub-time]')) return;
       if (b.dataset.time !== undefined) { setBoth(isoOf(+b.dataset.day), b.dataset.time); close(); return fire(); }
-      if (b.dataset.row) { openRow = openRow === b.dataset.row ? null : b.dataset.row; return quick(); }
+      if (b.dataset.row) { openRow = openRow === b.dataset.row ? null : b.dataset.row; quick(); place(); return; }
       if (b.dataset.day !== undefined) { const off = +b.dataset.day; setBoth(isoOf(off), defTime(off)); close(); return fire(); }
-      if (b.hasAttribute('data-custom')) return customView();
+      if (b.hasAttribute('data-custom')) { customView(); place(); return; }
       if (b.hasAttribute('data-back')) return quick();
       if (b.hasAttribute('data-clear')) { setBoth('', ''); close(); return fire(); }
       if (b.hasAttribute('data-ok')) {

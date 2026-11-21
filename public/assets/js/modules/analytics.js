@@ -8,12 +8,12 @@ document.addEventListener('tk:ready', () => {
   // پالت متمایز با کنتراست کافی در تم روشن و تیره (DATA-013: زرد کم‌رنگ حذف شد)
   const SC = [TK.charts.colors[0], '#0ea5e9', '#f97316', '#db2777', '#8b5cf6'];
   const st = { range: a.speed.range, metric: a.speed.metric };
-  const draw = (d) => TK.charts.line(TK.qs('#ch-speed'), {
+  const draw = (d) => { a.speed = d; TK.charts.line(TK.qs('#ch-speed'), {
     // DATA-013: بدون connect؛ بازه‌ی بی‌تحویل جای خالی در خط است (نه روند ساختگی)
     labels: d.labels, height: 240, max: d.metric === 'score' ? 100 : null, connect: false, emptyZero: d.metric === 'count',
     empty: 'در این بازه هیچ‌کدام از اعضای انتخاب‌شده تسکی تحویل نداده‌اند',
     series: d.series.map((s, i) => ({ name: s.name, data: s.data, color: SC[i % SC.length] })),
-  });
+  }); };
   const box = TK.qs('#sp-people');
   const users = () => TK.qsa('input:checked', box).map((i) => i.value);
   const load = async () => {
