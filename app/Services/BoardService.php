@@ -567,6 +567,15 @@ final class BoardService
 
     private static function apply(array $t, int $actor, string $from, string $status, string $reason = '', bool $withdraw = false, array $categories = []): void
     {
+        // تکمیل سری و ایجاد جانشین یک تراکنش‌اند؛ تسک معمولی مسیر قبلی را حفظ می‌کند.
+        if (!empty($t['recurrence_id']) && !DB::pdo()->inTransaction()) {
+            DB::transaction(static function () use ($t, $actor, $from, $status, $reason, $withdraw, $categories): void {
+                DB::one('SELECT id FROM task_recurrences WHERE id = ? FOR UPDATE', [(int) $t['recurrence_id']]);
+                DB::one('SELECT id FROM tasks WHERE id = ? FOR UPDATE', [(int) $t['id']]);
+                self::apply($t, $actor, $from, $status, $reason, $withdraw, $categories);
+            });
+            return;
+        }
         $id = (int) $t['id'];
         // علت: برای «بازبینی مسئول» ایرادی که سرپرست دیده (ستون blocked_reason؛ نامش از ستون «مسدودشده»ی قدیمی بورد مانده)
         $reason = trim(mb_substr($reason, 0, 255));
@@ -591,6 +600,9 @@ final class BoardService
             DB::run('UPDATE tasks SET rework_category = ? WHERE id = ?', [$cats ? implode(',', $cats) : null, $id]);
         }
         TaskHistory::log($id, $actor, 'board', ['from' => $from, 'to' => $status, 'reason' => $reason] + ($cats ? ['categories' => $cats] : []));
+        if ($done && !empty($t['recurrence_id'])) {
+            TaskRecurrence::generate($id);
+        }
         if ($review && $from !== 'done') {
             Notifier::taskInReview($t, $actor, self::reviewers($t, $actor));
         } elseif ($status === 'rework') {

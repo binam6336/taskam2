@@ -14,7 +14,7 @@ COMMON = {
 GROUPS = [
     ('کاربران، نشست و امنیت', ['users', 'user_sessions', 'impersonations', 'admin_logs', 'api_tokens', 'rate_limits', 'audit_log', 'content_texts', 'push_subscriptions']),
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
-    ('تسک‌ها', ['subjects', 'tasks', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'ai_requests', 'task_attachments', 'note_attachments']),
+    ('تسک‌ها', ['subjects', 'tasks', 'task_recurrences', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'ai_requests', 'task_attachments', 'note_attachments']),
     ('دستیار هوش مصنوعی بورد', ['ai_board_sessions', 'ai_board_messages', 'ai_result_sets', 'ai_actions', 'ai_exports']),
     ('سهمیه‌ی مصرف هوش مصنوعی', ['ai_quotas', 'ai_usage', 'ai_usage_counters', 'ai_queue']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
@@ -238,7 +238,7 @@ TABLES = {
         'project_id': 'پروژه.',
         'user_id': 'عضو.',
         'permissions': 'JSON دسترسی‌های پروژه: edit_project, add_member, remove_member (خارج کردن کاربر), manage_permissions, view_analytics, manage_board, create_label (دسترسی ایجاد لیبل؛ v7.12 — ساخت، ویرایش و حذف لیبل‌های همین پروژه).',
-        'task_permissions': 'JSON دسترسی روی تسک‌های پروژه: edit_info, edit_due, reassign, notes, complete, block (مسدود کردن تسک؛ تا v3 نامش delete بود و migration 027 آن را تبدیل کرد).',
+        'task_permissions': 'JSON دسترسی روی تسک‌های پروژه: edit_info, edit_due (تاریخ، ساعت و تکرار خودکار), reassign, notes, complete, block (مسدود کردن تسک؛ تا v3 نامش delete بود و migration 027 آن را تبدیل کرد).',
         'board_permissions': 'JSON دسترسی بورد (v6.1): ["change_status"] = تغییر وضعیت آزاد بین ستون‌های بورد همین پروژه، [] = بدون جابه‌جایی. کلیدهای قدیمی مرحله‌ای (to_todo … move_any) معادل change_status خوانده می‌شوند و داده‌ی ۰۴۰ آن‌ها را تبدیل کرد. تأیید/برگرداندن/بازکردن تسک انجام‌شده با مجوز تسکِ complete است.',
         'board_view_users': 'JSON شناسه‌ی اعضایی که تسک‌هایشان در بورد این عضو دیده می‌شود؛ "all" = همه (پیش‌فرض نقش‌ها از عضو تا مدیر کل از v6.1)؛ NULL/[] = فقط خودش. جستجوی بورد همیشه روی همه‌ی تسک‌های پروژه است.',
         'board_limits': 'JSON سقف تسک‌های این عضو در هر ستون بورد همین پروژه (کلید = کلید ستون، مثل {"in_progress":3})؛ ستون‌های بدون سقف: done و ستون شروع. نبودن کلید = پیش‌فرض نقش (عضو ۱۰، سرپرست ۲۰، مدیر واحد/مدیر کل/سازنده نامحدود؛ Access::ROLES limit).',
@@ -299,6 +299,21 @@ TABLES = {
     ],
     'cols': {'user_id': 'سازنده‌ی لیبل (برای لیبل شخصی قدیمی: صاحبش).', 'project_id': 'پروژه‌ی صاحب لیبل (v7.12، بدون FK)؛ NULL = لیبل شخصی قدیمی قبل از v7.12 که روی هیچ تسک پروژه‌داری نبود: فقط برای صاحبش در صفحه‌ی لیبل‌ها دیده می‌شود تا به پروژه‌ای که در آن create_label دارد منتقل یا حذفش کند؛ روی تسک تازه گذاشته نمی‌شود.', 'title': 'عنوان لیبل (در هر پروژه یکتا).', 'color': 'رنگ هگز (یکی از ۱۵ رنگ آماده، مثل #22c55e).'},
 },
+ 'task_recurrences': {
+    'title': 'تنظیمات سری تسک تکرارشونده',
+    'desc': 'از v8.1 تنظیم مشترک کل نوبت‌های یک سری؛ شناسه عددی فقط در سرور استفاده می‌شود و در API منتشر نمی‌شود.',
+    'flow': [
+        'با فعال‌سازی و تاریخ معتبر، سری ساخته و tasks.recurrence_id پر می‌شود؛ current_task_id اولین تسک است. حالت پیش‌فرض تسک معمولی بدون سری است.',
+        'پس از تکمیل نهایی، در یک تراکنش ابتدا سری و سپس تسک قفل می‌شوند. فقط نوبت جاری کامل‌شده، سری فعال و نبود نوبت باز قبلی اجازه ساخت می‌دهند. کلید یکتای tasks.recurrence_previous_id تضمین دوم در برابر درخواست همزمان است.',
+        'نوبت بعد از تاریخ نوبت قبلی روی همان ریتم محاسبه می‌شود؛ اگر تکمیل دیر شده باشد، اولین تاریخ آینده انتخاب می‌شود و بازه‌های ازدست‌رفته انباشته نمی‌شوند. ماهانه میلادی، روز اصلی anchor_day را حفظ و در ماه کوتاه محدود می‌کند.',
+        'اطلاعات پایه، ساعت و محرمانگی/بیننده‌ها در نوبت تازه کپی می‌شود؛ وضعیت تحویل، تکمیل، اعلان و تاریخچه از نو شروع می‌شود. گزارش‌ها و پیوست‌ها روی نوبت قبلی محفوظ‌اند.',
+        'ویرایش/خاموش‌کردن از هر نوبت، با edit_due روی همان نوبت و نوبت جاری بر کل سری اعمال می‌شود. خاموش‌شدن تاریخچه را حذف نمی‌کند؛ بازفعال‌سازی از آخرین نوبت ادامه می‌دهد.',
+        'bin/recurring-tasks.php هر دقیقه موارد کامل‌شده‌ی بدون جانشین را بازیابی می‌کند؛ ساخت عادی در پایان درخواست تکمیل سمت سرور است و به داشبورد وابسته نیست. سقف ساخت و اعتبار حساب، پروژه و عضویت‌ها حفظ می‌شود.',
+    ],
+    'cols': {'current_task_id': 'آخرین نوبت سری (شناسه داخلی tasks، بدون FK دوری)؛ پس از ساخت جانشین عوض می‌شود. حذف مدیریتی آن، سری را متوقف می‌کند.',
+        'enabled': '۱ = فعال، ۰ = متوقف؛ هیچ نوبت قبلی پاک نمی‌شود.', 'kind': 'daily، weekly، monthly یا custom؛ ماهانه بر اساس تقویم میلادی.',
+        'interval_days': 'فقط custom: فاصله روزها، عدد صحیح مثبت؛ برای بقیه NULL.', 'anchor_day': 'روز اصلی ماه (۱ تا ۳۱)؛ مثلاً ۳۱ ژانویه ← پایان فوریه ← ۳۱ مارس؛ تغییر تاریخ نوبت جاری یا نوع تکرار آن را تنظیم می‌کند.'},
+},
 'tasks': {
     'title': 'تسک‌ها',
     'desc': 'وظایف؛ هر تسک سازنده، مسئول و پروژه دارد و در بورد تیمی یک وضعیت.',
@@ -314,6 +329,8 @@ TABLES = {
         '«ثبت سریع تسک»: فقط عنوان (با @ مسئول و # پروژه؛ بدون # = آخرین پروژه‌ی استفاده‌شده) ← is_quick = 1؛ اولین جابه‌جایی در بورد ← is_quick = 0.',
     ],
     'cols': {
+        'recurrence_id': 'سری تکرار (task_recurrences.id)؛ NULL = تسک معمولی؛ حذف سری فقط این ارتباط را NULL می‌کند.',
+        'recurrence_previous_id': 'نوبت قبلی در tasks، یکتا و اختیاری؛ برای هر نوبت حداکثر یک جانشین. حذف مدیریتی نوبت قبلی این فیلد را NULL می‌کند.',
         'user_id': 'سازنده‌ی تسک.',
         'assignee_id': 'مسئول انجام (NULL اگر کاربرش حذف شده باشد).',
         'subject_id': 'لیبل (اختیاری).',
@@ -361,7 +378,7 @@ TABLES = {
     'cols': {
         'task_id': 'تسک.',
         'user_id': 'انجام‌دهنده‌ی تغییر.',
-        'type': 'نوع: title, description, priority, due, label, project, assignee, completed, reopened, board, archived, unarchived, blocked, unblocked, note_edited, note_deleted, file_deleted.',
+        'type': 'نوع: title, description, priority, due, label, project, assignee, completed, reopened, board, archived, unarchived, blocked, unblocked, note_edited, note_deleted, file_deleted, recurrence (تغییر تنظیمات سری), recurrence_next (صدور جانشین), recurrence_created (ساخت نوبت جدید).',
         'data': 'JSON جزئیات (مقدار قبلی from و جدید to و …). source = منبع تغییر: suggestion/drag/undo از «بار کاری» (v7.10) یا karlix = اجراشده با دستیار کارلیکس به نام همان کاربر درخواست‌کننده (v7.19).',
     },
 },

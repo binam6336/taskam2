@@ -16,7 +16,7 @@ final class AdminLog
 {
     /** جدول ← [نام فارسی، ستون عنوان] */
     public const TRACK = [
-        'tasks' => ['تسک', 'title'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'],
+        'tasks' => ['تسک', 'title'], 'task_recurrences' => ['تکرار تسک', 'kind'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'],
         'task_notes' => ['یادداشت تسک', null], 'task_attachments' => ['پیوست تسک', 'file_name'], 'note_attachments' => ['پیوست یادداشت', 'file_name'],
         'project_members' => ['عضویت پروژه', null], 'project_join_requests' => ['دعوت به پروژه', null], 'project_blocks' => ['مسدودی دعوت پروژه', null],
         'project_leave_history' => ['خروج از پروژه', null], 'colleagues' => ['همکار', null], 'colleague_requests' => ['درخواست همکاری', null],
@@ -298,7 +298,7 @@ final class AdminLog
     /** نام فارسی ستون‌ها */
     private const LABELS = [
         'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
-        'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
+        'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'recurrence_id' => 'سری تکرار', 'recurrence_previous_id' => 'نوبت قبلی', 'current_task_id' => 'نوبت جاری', 'enabled' => 'فعال', 'kind' => 'نوع تکرار', 'interval_days' => 'فاصله روزها', 'anchor_day' => 'روز اصلی ماه', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
         'delivered_at' => 'زمان تحویل برای بررسی', 'delivered_by' => 'تحویل‌دهنده', 'approved_by' => 'تأییدکننده', 'blocked_at' => 'زمان مسدود شدن', 'blocked_by' => 'مسدودکننده',
         'blocked_reason' => 'دلیل برگشت برای اصلاح', 'archived_at' => 'زمان آرشیو', 'is_quick' => 'ثبت سریع', 'note' => 'متن یادداشت', 'color' => 'رنگ',
         'first_name' => 'نام', 'last_name' => 'نام خانوادگی', 'mobile' => 'موبایل', 'email' => 'ایمیل', 'store' => 'فروشگاه', 'website' => 'وب‌سایت', 'status' => 'وضعیت',

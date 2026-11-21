@@ -17,6 +17,7 @@ final class TaskApi extends ApiController
     {
         return [
             'id' => pid('tasks', $t), 'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => isset($t['priority_percent']) ? (int) $t['priority_percent'] : null,
+            'recurrence' => \App\Services\TaskRecurrence::present($t),
             'is_completed' => (bool) $t['is_completed'], 'is_quick' => (bool) ($t['is_quick'] ?? false), 'is_confidential' => (bool) ($t['is_confidential'] ?? false), 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
             'created_at' => $t['created_at'], 'completed_at' => $t['completed_at'],
             'user_id' => (int) $t['user_id'], 'assignee_id' => $t['assignee_id'] !== null ? (int) $t['assignee_id'] : null,

@@ -223,11 +223,28 @@
      دو ورودی مخفی due_date (میلادی) و due_time (HH:MM) را پر می‌کند؛ خروجی: date و time با همان رابط datepicker/timepicker. */
   const WD_FULL = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
   const TIMES = ['09:00', '12:00', '15:00', '18:00', '21:00'];
-  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام' } = {}) => {
+  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام', recurrence = false } = {}) => {
     host.classList.add('picker', 'duepick');
     host.innerHTML = `<input type="hidden" name="${E(dateName)}" value=""><input type="hidden" name="${E(timeName)}" value="">`
       + '<button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar-check"></i></button><div class="picker-pop dp-pop" hidden></div>';
     const [dIn, tIn] = host.querySelectorAll('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
+    let repeat = { enabled: false, kind: 'daily', days: '' };
+    const repeatInputs = {};
+    if (recurrence) {
+      ['enabled', 'kind', 'days'].forEach((key) => {
+        const input = document.createElement('input'); input.type = 'hidden'; input.name = 'repeat_' + key; host.appendChild(input); repeatInputs[key] = input;
+      });
+    }
+    const syncRepeat = () => {
+      if (!recurrence) return;
+      repeatInputs.enabled.value = repeat.enabled ? '1' : '0'; repeatInputs.kind.value = repeat.kind;
+      repeatInputs.days.value = repeat.kind === 'custom' ? repeat.days : '';
+    };
+    const repeatHtml = () => !recurrence ? '' : `<section class="dp-repeat"><label class="dp-repeat-toggle"><input type="checkbox" data-repeat-toggle ${repeat.enabled ? 'checked' : ''}> تکرار خودکار</label>`
+      + (repeat.enabled ? `<div class="dp-repeat-fields"><label>بازه تکرار<select class="input" data-repeat-kind aria-label="بازه تکرار">${[['daily','روزانه'],['weekly','هفتگی'],['monthly','ماهانه'],['custom','شخصی‌سازی']].map(([key,label]) => `<option value="${key}" ${repeat.kind === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`
+        + (repeat.kind === 'custom' ? `<label>هر چند روز؟<input class="input ltr" type="number" min="1" step="1" data-repeat-days aria-label="فاصله تکرار به روز" value="${E(repeat.days)}"></label>` : '')
+        + '<p class="xs faint">نوبت بعد فقط پس از تأیید نهایی ساخته می‌شود؛ تنظیمات برای کل سری است. تکرار ماهانه بر اساس ماه میلادی است.</p></div>' : '') + '</section>';
+    syncRepeat();
     const isoOf = (offset) => { const n = J.now(); n.setDate(n.getDate() + offset); return J.iso(n.getFullYear(), n.getMonth() + 1, n.getDate()); };
     const DAYS = [['today', 0, 'امروز', 'fa-sun'], ['tomorrow', 1, 'فردا', 'fa-cloud-sun'], ['after', 2, 'پس‌فردا', 'fa-calendar-day']];
     const jLabel = (iso) => { const g = J.parseIso(iso); if (!g) return ''; const [jy, jm, jd] = J.g2j(...g); return `${WD_FULL[J.weekday(jy, jm, jd)]} ${FA(jd)} ${J.MONTHS[jm - 1]}`; };
@@ -237,11 +254,12 @@
       const d = dIn.value, t = tIn.value;
       val.innerHTML = d ? `<span>${E(rel(d) ? rel(d) + '، ' + jLabel(d).split(' ').slice(1).join(' ') : jLabel(d))}</span>${t ? `<span class="dp-time ltr">${fT(t)}</span>` : '<span class="faint xs">بدون ساعت</span>'}`
         : `<span class="faint">${E(placeholder)}</span>`;
+      if (recurrence && repeat.enabled) val.innerHTML += '<span class="dp-repeat-badge"><i class="fa-solid fa-rotate" aria-hidden="true"></i> تکرار</span>';
       host.classList.toggle('has-val', !!d);
     };
     const fire = () => { dIn.dispatchEvent(new Event('change', { bubbles: true })); };
-    const setBoth = (d, t) => { dIn.value = d || ''; tIn.value = d ? (t || '') : ''; paint(); };
-    const close = () => { host.classList.remove('open'); pop.hidden = true; };
+    const setBoth = (d, t) => { dIn.value = d || ''; tIn.value = d ? (t || '') : ''; if (!d && recurrence) { repeat.enabled = false; syncRepeat(); } paint(); };
+    const close = () => { host.classList.remove('open'); pop.hidden = true; if (recurrence) pop.innerHTML = ''; };
     const nowMin = () => { const n = J.now(); return n.getHours() * 60 + n.getMinutes(); };
     const mins = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
     // پیش‌فرض ساعت با کلیک روی خود روز: ساعت فعلیِ انتخاب‌شده، وگرنه برای امروز ساعت کامل بعدی و برای بقیه ۰۹:۰۰
@@ -267,17 +285,25 @@
       pop.innerHTML = `<div class="dp-head"><b><i class="fa-regular fa-bell"></i> زمان انجام و یادآوری</b></div>${rows}`
         + `<button type="button" class="dp-row dp-custom${custom ? ' on' : ''}" data-custom><span class="dp-ico"><i class="fa-regular fa-calendar"></i></span><span class="dp-txt"><b>انتخاب تاریخ و زمان</b><span class="xs faint">${custom ? E(jLabel(d)) + (t ? ' • ' + fT(t) : '') : 'روز و ساعت دلخواه'}</span></span><i class="fa-solid fa-chevron-left faint"></i></button>`
         + (d ? '<div class="dp-foot"><button type="button" class="btn btn-xs btn-ghost text-danger" data-clear><i class="fa-solid fa-xmark"></i> حذف زمان</button></div>' : '')
-        + '<p class="xs faint dp-note">در ساعت تعیین‌شده یادآوری دریافت می‌کنید.</p>';
+        + repeatHtml() + '<p class="xs faint dp-note">در ساعت تعیین‌شده یادآوری دریافت می‌کنید.</p>';
     };
     let sub = null;
     const customView = () => {
       pop.innerHTML = '<div class="dp-head"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-back aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button><b>انتخاب تاریخ و زمان</b></div>'
-        + '<div class="dp-sub"><div data-sub-date></div><div data-sub-time></div></div><div class="dp-foot"><button type="button" class="btn btn-sm" data-back>انصراف</button><button type="button" class="btn btn-sm btn-primary" data-ok>تأیید</button></div>';
+        + '<div class="dp-sub"><div data-sub-date></div><div data-sub-time></div></div>' + repeatHtml() + '<div class="dp-foot"><button type="button" class="btn btn-sm" data-back>انصراف</button><button type="button" class="btn btn-sm btn-primary" data-ok>تأیید</button></div>';
       sub = { d: TK.datepicker(pop.querySelector('[data-sub-date]'), { name: '', placeholder: 'تاریخ' }), t: TK.timepicker(pop.querySelector('[data-sub-time]'), { name: '', placeholder: 'ساعت (اختیاری)' }) };
       sub.d.set(dIn.value || sub.d.today()); sub.t.set(tIn.value);
     };
     // اگر پایین جا نیست (پایین پنجره/صفحه) رو به بالا باز شود
-    const place = () => { pop.classList.remove('up'); const r = btn.getBoundingClientRect(), h = pop.offsetHeight; if (r.bottom + h + 12 > innerHeight && r.top - h - 12 > 0) pop.classList.add('up'); };
+    const place = () => {
+      pop.classList.remove('up');
+      const r = btn.getBoundingClientRect(), frame = recurrence ? host.closest('.tf-body') : null;
+      if (frame) {
+        const box = frame.getBoundingClientRect(), above = r.top - Math.max(8, box.top) - 8, below = Math.min(innerHeight - 8, box.bottom) - r.bottom - 8;
+        const up = above > below;
+        pop.classList.toggle('up', up); pop.dataset.css = '--dp-room:' + Math.max(80, up ? above : below) + 'px'; TK.applyCss(pop);
+      } else if (r.bottom + pop.offsetHeight + 12 > innerHeight && r.top - pop.offsetHeight - 12 > 0) pop.classList.add('up');
+    };
     const openPop = () => { openRow = null; quick(); TK.qsa('.picker.open').forEach((x) => x !== host && x.classList.remove('open')); host.classList.add('open'); pop.hidden = false; place(); };
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; host.classList.contains('open') ? close() : openPop(); });
     pop.addEventListener('click', (e) => {
@@ -295,13 +321,27 @@
         setBoth(sub.d.get(), sub.t.get()); close(); return fire();
       }
     });
+    pop.addEventListener('change', (e) => {
+      if (e.target.matches('[data-repeat-toggle]')) repeat.enabled = e.target.checked;
+      else if (e.target.matches('[data-repeat-kind]')) { repeat.kind = e.target.value; if (repeat.kind === 'custom' && !repeat.days) repeat.days = '1'; }
+      else return;
+      syncRepeat(); pop.querySelector('.dp-repeat').outerHTML = repeatHtml(); paint(); place();
+    });
+    pop.addEventListener('input', (e) => {
+      if (e.target.matches('[data-repeat-days]')) { repeat.days = e.target.value; syncRepeat(); }
+    });
     document.addEventListener('click', (e) => { if (document.contains(e.target) && !host.contains(e.target)) close(); });
     paint();
     let off = false;
-    const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; if (off) close(); };
+    const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; Object.values(repeatInputs).forEach((input) => { input.disabled = off; }); if (off) close(); };
     const date = { input: dIn, host, get: () => dIn.value, set: (iso) => { dIn.value = J.parseIso(iso) ? iso : ''; if (!dIn.value) tIn.value = ''; paint(); }, today: () => isoOf(0), disable };
     const time = { input: tIn, host, get: () => tIn.value, set: (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); tIn.value = m ? `${p2(+m[1])}:${m[2]}` : ''; paint(); }, disable };
-    return { date, time, set: setBoth, disable, close };
+    return { date, time, set: setBoth, disable, close, recurrence: {
+      get: () => ({ ...repeat }),
+      set: (value) => { repeat = { enabled: !!value?.enabled, kind: value?.kind || 'daily', days: value?.days == null ? '' : String(value.days) }; syncRepeat(); paint(); },
+      valid: () => !repeat.enabled || (!!dIn.value && (repeat.kind !== 'custom' || (/^[0-9]+$/.test(repeat.days) && Number.isSafeInteger(Number(repeat.days)) && Number(repeat.days) > 0))),
+      open: openPop,
+    } };
   };
 
   /* ═════════════ فیلد موبایل: «09» ثابت و غیرقابل‌حذف؛ کاربر فقط بقیه‌ی ۹ رقم را می‌نویسد ═════════════ */

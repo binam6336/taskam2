@@ -225,6 +225,19 @@ CREATE TABLE `subjects` (
   CONSTRAINT `fk_subjects_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `task_recurrences` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `current_task_id` INT UNSIGNED NOT NULL,
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `kind` VARCHAR(10) NOT NULL DEFAULT 'daily',
+  `interval_days` INT UNSIGNED NULL DEFAULT NULL,
+  `anchor_day` TINYINT UNSIGNED NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_recurrences_pending` (`enabled`, `current_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `tasks` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
@@ -258,6 +271,8 @@ CREATE TABLE `tasks` (
   `rework_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0  COMMENT 'تعداد برگشت برای اصلاح (بازبینی مسئول)',
   `rework_category` VARCHAR(120) NULL DEFAULT NULL    COMMENT 'دسته‌های علت آخرین برگشت (unclear,quality,incomplete,no_attachment,out_of_scope)',
   `updated_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `recurrence_id` INT UNSIGNED NULL DEFAULT NULL,
+  `recurrence_previous_id` INT UNSIGNED NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tasks_pid` (`pid`),
   UNIQUE KEY `uq_tasks_share_token` (`share_token`),
@@ -270,6 +285,10 @@ CREATE TABLE `tasks` (
   KEY `idx_tasks_blocked` (`blocked_at`),
   CONSTRAINT `fk_tasks_user`     FOREIGN KEY (`user_id`)     REFERENCES `users` (`id`)    ON DELETE CASCADE,
   CONSTRAINT `fk_tasks_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `users` (`id`)    ON DELETE SET NULL,
+  KEY `idx_tasks_recurrence` (`recurrence_id`),
+  UNIQUE KEY `uq_tasks_recurrence_previous` (`recurrence_previous_id`),
+  CONSTRAINT `fk_tasks_recurrence` FOREIGN KEY (`recurrence_id`) REFERENCES `task_recurrences` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_recurrence_previous` FOREIGN KEY (`recurrence_previous_id`) REFERENCES `tasks` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_subject`  FOREIGN KEY (`subject_id`)  REFERENCES `subjects` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_project`  FOREIGN KEY (`project_id`)  REFERENCES `projects` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

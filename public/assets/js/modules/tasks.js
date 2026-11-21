@@ -40,7 +40,7 @@ document.addEventListener('tk:ready', () => {
     project_id: mk('project_id', (cfg.projects || []).map((p) => ({ value: p.id, label: p.title, img: p.image })), TK.ph('task_project', 'انتخاب پروژه'), true),
   };
   // تاریخ و ساعت سررسید در یک فیلد (امروز/فردا/پس‌فردا با ساعت‌های آماده + انتخاب دلخواه)
-  const due = TK.duepicker(TK.qs('[data-jdue]', form), { placeholder: TK.ph('task_due', 'تعیین زمان انجام (اختیاری)') });
+  const due = TK.duepicker(TK.qs('[data-jdue]', form), { placeholder: TK.ph('task_due', 'تعیین زمان انجام (اختیاری)'), recurrence: true });
   const dp = due.date, tp = due.time;
   const canCreate = (cfg.projects || []).length > 0;
 
@@ -236,7 +236,7 @@ document.addEventListener('tk:ready', () => {
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
     rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); renderSubj(pid, '');
-    dp.set(opts.date || ''); tp.set('');     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
+    dp.set(opts.date || ''); tp.set(''); due.recurrence.set(null);     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
@@ -251,7 +251,7 @@ document.addEventListener('tk:ready', () => {
     TK.resetForm(form);
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
-    dp.set(d.due_date || ''); tp.set(d.due_time || '');
+    dp.set(d.due_date || ''); tp.set(d.due_time || ''); due.recurrence.set(d.recurrence);
     rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); renderSubj(d.project_id ?? '', d.subject_id ?? '');
     rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
@@ -280,6 +280,10 @@ document.addEventListener('tk:ready', () => {
       ao.added = true; TK.toast(r.message, 'success');
       form.requestSubmit ? form.requestSubmit() : form.submit();
       return;
+    }
+    if (!dp.input.disabled && !due.recurrence.valid()) {
+      e.preventDefault(); e.stopPropagation(); setMore(true); due.recurrence.open();
+      return TK.toast(dp.get() ? 'فاصله تکرار باید یک عدد صحیح بزرگ‌تر از صفر باشد.' : 'برای تکرار خودکار، تاریخ اولین نوبت تسک را انتخاب کنید.', 'error');
     }
     const missing = [];
     if (tp.get() && !dp.get() && !dp.input.disabled) dp.set(dp.today());   // ساعت بدون تاریخ → امروز
@@ -344,7 +348,7 @@ document.addEventListener('tk:ready', () => {
       </div>
     </div>`;
 
-  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
+  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, recurrence: t.recurrence, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
     _id: t.id, _can: t.can });
 
   // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
@@ -436,7 +440,7 @@ document.addEventListener('tk:ready', () => {
     } else if (key === 'project') {
       body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img loading="lazy" decoding="async" src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, String(t.project_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'due') {
-      body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-date></div><div data-qe-time></div></div>
+      body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-due></div></div>
         <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-due>ذخیره</button>${t.due_date ? '<button type="button" class="btn btn-sm" data-qe-clear-due>حذف سررسید</button>' : ''}</div>`;
     }
     qePop.innerHTML = body;
@@ -447,11 +451,10 @@ document.addEventListener('tk:ready', () => {
     qePop.style.top = (chip.offsetTop + chip.offsetHeight + 6) + 'px';
     qePop.style.right = right + 'px';
     if (key === 'due') {
-      const d = TK.datepicker(TK.qs('[data-qe-date]', qePop), { name: 'qe_due_date', placeholder: 'انتخاب تاریخ' });
-      const h = TK.timepicker(TK.qs('[data-qe-time]', qePop), { name: 'qe_due_time', placeholder: 'ساعت (اختیاری)' });
-      d.set(t.due_date || ''); h.set(t.due_time || '');
+      const picker = TK.duepicker(TK.qs('[data-qe-due]', qePop), { dateName: 'qe_due_date', timeName: 'qe_due_time', recurrence: true });
+      picker.date.set(t.due_date || ''); picker.time.set(t.due_time || ''); picker.recurrence.set(t.recurrence);
       qePop.dataset.ready = '1';
-      qePop._pick = { d, h };
+      qePop._pick = picker;
     }
     if (key === 'priority' && t.priority_type === 'percent') {
       const rg = TK.qs('[data-qe-range]', qePop), pv = TK.qs('[data-qe-pv]', qePop);
@@ -469,11 +472,12 @@ document.addEventListener('tk:ready', () => {
     if (b.dataset.qeLabel !== undefined) return qeUpdate({ subject_id: b.dataset.qeLabel }, b);
     if (b.dataset.qeProject) return qeUpdate({ project_id: b.dataset.qeProject }, b);
     if (b.hasAttribute('data-qe-save-due')) {
-      const { d, h } = p._pick; const dv = d.get(), hv = h.get();
+      const picker = p._pick, dv = picker.date.get(), hv = picker.time.get(), repeat = picker.recurrence.get();
+      if (!picker.recurrence.valid()) return TK.toast('تاریخ و فاصله تکرار خودکار را درست وارد کنید.', 'warning');
       if (hv && !dv) return TK.toast('اول تاریخ را انتخاب کنید.', 'warning');
-      return qeUpdate({ due_date: dv, due_time: dv ? hv : '' }, b);
+      return qeUpdate({ due_date: dv, due_time: dv ? hv : '', repeat_enabled: repeat.enabled ? 1 : 0, repeat_kind: repeat.kind, repeat_days: repeat.days }, b);
     }
-    if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '' }, b);
+    if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '', repeat_enabled: 0 }, b);
     if (b.dataset.qeStatus) {
       if (b.dataset.qeStatus === 'rework') {
         const r = TK.qs('.qe-reason', p); r.hidden = false; r.dataset.st = b.dataset.qeStatus;
@@ -565,6 +569,7 @@ document.addEventListener('tk:ready', () => {
           ${prop('fa-user', 'مسئول', t.assignee_name ? `<span class="td-who">${av(t.assignee_name, t.assignee_avatar)}${E(t.assignee_name)}</span>` : '—')}
           ${prop('fa-flag', 'اولویت', qe('priority', c.edit_meta, prioBadge(t), 'اولویت'))}
           ${prop('fa-calendar', 'سررسید', qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید'))}
+          ${t.recurrence?.enabled ? prop('fa-rotate', 'تکرار خودکار', E(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(t.recurrence.days) + ' روز'})[t.recurrence.kind] || 'فعال')) : ''}
           ${prop('fa-tag', 'لیبل', qe('label', c.edit_meta, lbl, 'لیبل'))}
           ${prop('fa-folder', 'پروژه', qe('project', c.change_project, prj, 'پروژه'))}
         </section>
@@ -608,6 +613,9 @@ document.addEventListener('tk:ready', () => {
     file: ['fa-paperclip', 'info', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را پیوست کرد.`],
     blocked: ['fa-ban', 'danger', (i) => `${who(i.actor)} تسک را مسدود کرد.`],
     unblocked: ['fa-lock-open', 'ok', (i) => `${who(i.actor)} مسدودی تسک را برداشت.`],
+    recurrence: ['fa-rotate', 'info', (i) => `${who(i.actor)} تکرار خودکار را ${i.data.enabled ? 'روی ' + q(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(i.data.days) + ' روز'})[i.data.kind] || 'فعال') + ' تنظیم کرد' : 'غیرفعال کرد'}.`],
+    recurrence_next: ['fa-rotate', 'info', (i) => `نوبت بعدی تسک با سررسید ${q(i.data.due_fa || i.data.due)} ساخته شد.`],
+    recurrence_created: ['fa-rotate', 'info', () => 'این تسک به‌عنوان نوبت بعدی تکرار خودکار ساخته شد.'],
     file_deleted: ['fa-file-circle-xmark', 'danger', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را از ${i.data.note ? 'یک یادداشت' : 'پیوست‌های تسک'} حذف کرد.`],
   };
   const openHistory = async () => {

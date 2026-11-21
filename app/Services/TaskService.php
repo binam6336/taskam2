@@ -88,6 +88,11 @@ final class TaskService
             $time = null;
         }
 
+        $repeat = TaskRecurrence::validate($in, null, $due);
+        if (is_string($repeat)) {
+            return self::err($repeat, 'RECURRENCE_INVALID');
+        }
+
         // لیبل اختیاری، پروژه اجباری؛ لیبل باید مال همان پروژه باشد (v7.12)
         $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
         $projectId = (int) ($in['project_id'] ?? 0);
@@ -115,12 +120,18 @@ final class TaskService
             return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (مسئول تسک پروژه باید عضو همان پروژه باشد).', 'ASSIGNEE_INVALID', 403);
         }
 
-        $id = TaskModel::create([
-            'user_id' => $actor, 'assignee_id' => $assignee,
-            'subject_id' => $subjectId, 'project_id' => $projectId,
-            'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
-            'due_date' => $due, 'due_time' => $time,
-        ] + ($quick ? ['is_quick' => 1] : []));
+        $id = DB::transaction(static function () use ($actor, $assignee, $subjectId, $projectId, $title, $desc, $priority, $percent, $due, $time, $quick, $repeat): int {
+            $id = TaskModel::create([
+                'user_id' => $actor, 'assignee_id' => $assignee,
+                'subject_id' => $subjectId, 'project_id' => $projectId,
+                'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
+                'due_date' => $due, 'due_time' => $time,
+            ] + ($quick ? ['is_quick' => 1] : []));
+            if ($repeat['enabled']) {
+                TaskRecurrence::configure(TaskModel::raw($id), $repeat, $actor);
+            }
+            return $id;
+        });
         $task = TaskModel::raw($id);
         $pt = $projectId ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [$projectId]) : null;
         Notifier::taskAssigned($task, $actor, $pt);
@@ -180,6 +191,19 @@ final class TaskService
 
     /** $source (v7.10): منبع تغییر برای تاریخچه (فقط از سرویس‌های داخلی، مثل «بار کاری»: suggestion | drag | undo) */
     public static function update(int $actor, int $id, array $in, ?string $source = null): array
+    {
+        $seriesId = (int) (TaskModel::raw($id)['recurrence_id'] ?? 0);
+        if (array_key_exists('repeat_enabled', $in) || array_key_exists('repeat_kind', $in) || array_key_exists('repeat_days', $in) || $seriesId > 0) {
+            return DB::transaction(static function () use ($actor, $id, $in, $source, $seriesId): array {
+                if ($seriesId) DB::one('SELECT id FROM task_recurrences WHERE id = ? FOR UPDATE', [$seriesId]);
+                DB::one('SELECT id FROM tasks WHERE id = ? FOR UPDATE', [$id]);
+                return self::updateLocked($actor, $id, $in, $source);
+            });
+        }
+        return self::updateLocked($actor, $id, $in, $source);
+    }
+
+    private static function updateLocked(int $actor, int $id, array $in, ?string $source): array
     {
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view')) {
@@ -273,6 +297,14 @@ final class TaskService
                 $needMeta = true;
             }
         }
+        $oldRepeat = TaskRecurrence::settings($t);
+        $repeat = TaskRecurrence::validate($in, $oldRepeat, array_key_exists('due_date', $set) ? $set['due_date'] : $t['due_date']);
+        if (is_string($repeat)) {
+            return self::err($repeat, 'RECURRENCE_INVALID');
+        }
+        $repeatChanged = $repeat !== ['enabled' => $oldRepeat !== null && $oldRepeat['enabled'] ? 1 : 0,
+            'kind' => $oldRepeat['kind'] ?? 'daily', 'interval_days' => isset($oldRepeat['interval_days']) ? (int) $oldRepeat['interval_days'] : null];
+        $needDue = $needDue || $repeatChanged;
         if ($needInfo && !Access::canTask($t, $actor, 'edit_info')) {
             return self::err('اجازه‌ی ویرایش اطلاعات این تسک را ندارید.', 'FORBIDDEN', 403);
         }
@@ -331,9 +363,20 @@ final class TaskService
             && !Access::isProjectMember((int) $set['project_id'], (int) $t['assignee_id'])) {
             return self::err('مسئول فعلی تسک عضو پروژه‌ی انتخاب‌شده نیست؛ همراه با تغییر پروژه، مسئول را هم به یکی از اعضای آن پروژه تغییر دهید.', 'ASSIGNEE_NOT_MEMBER');
         }
+        if ($repeatChanged || ($oldRepeat !== null && array_key_exists('due_date', $set))) {
+            if ($error = TaskRecurrence::configure(array_replace($t, $set), $repeat, $actor, array_key_exists('due_date', $set))) {
+                return self::err($error, 'RECURRENCE_FORBIDDEN', 403);
+            }
+        }
         if ($set) {
             DB::update('tasks', $set, 'id = ?', [$id]);
             TaskHistory::changes($t, $set, $actor, $source);
+        }
+        if ($repeatChanged && $repeat['enabled']) {
+            $series = TaskRecurrence::settings(TaskModel::raw($id));
+            if ($series !== null) {
+                TaskRecurrence::generate((int) $series['current_task_id']);
+            }
         }
         $fresh = TaskModel::raw($id);
         if ($reassigned) {
@@ -444,6 +487,19 @@ final class TaskService
 
     public static function toggle(int $actor, int $id): array
     {
+        $seriesId = (int) (TaskModel::raw($id)['recurrence_id'] ?? 0);
+        if ($seriesId) {
+            return DB::transaction(static function () use ($actor, $id, $seriesId): array {
+                DB::one('SELECT id FROM task_recurrences WHERE id = ? FOR UPDATE', [$seriesId]);
+                DB::one('SELECT id FROM tasks WHERE id = ? FOR UPDATE', [$id]);
+                return self::toggleLocked($actor, $id);
+            });
+        }
+        return self::toggleLocked($actor, $id);
+    }
+
+    private static function toggleLocked(int $actor, int $id): array
+    {
         $t = TaskModel::raw($id);
         if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'complete')) {
             return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
@@ -476,6 +532,9 @@ final class TaskService
         }
         $r = TaskModel::toggle($id);
         TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
+        if ($r['is_completed']) {
+            TaskRecurrence::generate($id);
+        }
         return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
     }
 

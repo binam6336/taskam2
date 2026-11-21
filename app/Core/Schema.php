@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '054';
+    public const VERSION = '055';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        ['tasks', 'recurrence_id', 'ADD COLUMN `recurrence_id` INT UNSIGNED NULL DEFAULT NULL, ADD KEY `idx_tasks_recurrence` (`recurrence_id`), ADD CONSTRAINT `fk_tasks_recurrence` FOREIGN KEY (`recurrence_id`) REFERENCES `task_recurrences` (`id`) ON DELETE SET NULL', null],
+        ['tasks', 'recurrence_previous_id', 'ADD COLUMN `recurrence_previous_id` INT UNSIGNED NULL DEFAULT NULL, ADD UNIQUE KEY `uq_tasks_recurrence_previous` (`recurrence_previous_id`), ADD CONSTRAINT `fk_tasks_recurrence_previous` FOREIGN KEY (`recurrence_previous_id`) REFERENCES `tasks` (`id`) ON DELETE SET NULL', null],
         // 032 شناسه‌ی عمومی
         ['users', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_users_pid` (`pid`)", null],
         ['projects', 'pid', "ADD COLUMN `pid` CHAR(12) NULL DEFAULT NULL AFTER `id`, ADD UNIQUE KEY `uq_projects_pid` (`pid`)", null],
@@ -154,6 +156,7 @@ final class Schema
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
     private const TABLES = [
+        ['task_recurrences', '055_recurring_tasks.sql'],
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
         ['push_subscriptions', '007_push_subscriptions.sql'],
         ['chat_requests', '025_chat_requests_block_ghosts.sql'],

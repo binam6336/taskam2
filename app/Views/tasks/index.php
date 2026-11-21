@@ -127,6 +127,7 @@ $chips = [
         $overdue = !$isDone && $t['due_date'] && $t['due_date'] < date('Y-m-d') && !($t['project_id'] !== null && empty($t['archived_at']) && ($t['board_status'] ?? '') === 'review');
         $hourPast = !$isDone && !$overdue && $t['due_date'] === date('Y-m-d') && $t['due_time'] && strtotime($t['due_date'] . ' ' . $t['due_time']) < time();
         $edit = [
+            'recurrence' => \App\Services\TaskRecurrence::present($t),
             'title' => $t['title'], 'description' => $t['description'], 'priority' => $t['priority'], 'priority_percent' => $t['priority_percent'] !== null ? (int) $t['priority_percent'] : null, 'due_date' => $t['due_date'],
             'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : '', 'subject_id' => $t['subject_id'], 'project_id' => $t['project_id'], 'assignee_id' => $t['assignee_id'],
             '_id' => pid('tasks', $t), '_can' => $can,
@@ -143,6 +144,7 @@ $chips = [
             <?php if ($g === 0 && trim((string) ($t['blocked_reason'] ?? '')) !== ''): ?><div class="t-rework-why"><i class="fa-solid fa-rotate-left"></i> علت برگشت: <?= e(mb_strimwidth((string) $t['blocked_reason'], 0, 160, '…')) ?></div><?php endif; ?>
             <div class="item-meta">
                 <?= priority_badge($t) ?>
+                <?php if ($edit['recurrence']['enabled']): ?><span class="badge"><i class="fa-solid fa-rotate" aria-hidden="true"></i> تکرار خودکار</span><?php endif; ?>
                 <?php if ($can['status'] !== null && !$isDone): $bs = \App\Services\BoardConfig::info(isset($t['project_id']) ? (int) $t['project_id'] : null, (string) $can['status']); if ($bs): ?><span class="badge board-st tone-<?= e($bs['tone']) ?>" title="وضعیت در بورد پروژه"><i class="fa-solid <?= e($bs['icon']) ?>"></i> <?= e($bs['label']) ?></span><?php endif; endif; ?>
                 <?php if ($t['due_date']): ?><span class="<?= $overdue ? 'prio-high' : '' ?>"><i class="fa-regular fa-calendar"></i><?= e(jdate($t['due_date'] . ' 00:00:00', false)) ?><?= $t['due_time'] ? ' - ' . e(fa_num(substr((string) $t['due_time'], 0, 5))) : '' ?><?= $overdue && !($smart && $g === 1) ? ' (عقب‌افتاده)' : '' ?><?php if ($hourPast): ?> <span class="hour-past">ساعت گذشته</span><?php endif; ?></span><?php endif; ?>
                 <?php if ($t['subject_title']): ?><span class="t-label"><i class="fa-solid fa-tag" data-css="color:<?= e($t['subject_color']) ?>"></i> <?= e($t['subject_title']) ?></span><?php endif; ?>

@@ -18,7 +18,7 @@ final class Access
     /** دسترسی‌های قابل اعطا روی تسک‌های یک پروژه */
     public const TASK_PERMS = [
         'edit_info' => ['label' => 'ویرایش اطلاعات تسک', 'icon' => 'fa-pen', 'desc' => 'فقط عنوان، توضیحات و فایل‌های پیوست'],
-        'edit_due'  => ['label' => 'ویرایش زمان انجام', 'icon' => 'fa-calendar-days', 'desc' => 'تغییر تاریخ و ساعت انجام (سررسید)'],
+        'edit_due'  => ['label' => 'ویرایش زمان انجام', 'icon' => 'fa-calendar-days', 'desc' => 'تغییر تاریخ و ساعت انجام (سررسید) و تنظیمات تکرار خودکار'],
         'reassign'  => ['label' => 'تغییر مسئول', 'icon' => 'fa-user-group', 'desc' => 'تغییر مسئول انجام تسک'],
         'notes'     => ['label' => 'نوشتن یادداشت', 'icon' => 'fa-comment-dots', 'desc' => 'ثبت یادداشت و گزارش پیشرفت'],
         'complete'  => ['label' => 'تکمیل تسک', 'icon' => 'fa-circle-check', 'desc' => 'تغییر وضعیت تسک به تکمیل‌شده'],

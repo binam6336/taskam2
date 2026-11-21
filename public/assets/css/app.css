@@ -3181,3 +3181,16 @@ a.col-phone:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outl
   .col-seg button[aria-pressed="true"], .pager-num[aria-current="page"] { outline: 2px solid Highlight; }
   .pager-step[aria-disabled="true"] { color: GrayText; }
 }
+
+/* تنظیمات تکرار در انتخاب زمان انجام؛ رنگ‌ها از تم جاری */
+.dp-repeat { margin-top: .55rem; padding: .65rem .35rem; border-top: 1px solid var(--border); }
+.dp-repeat-toggle { display: flex; align-items: center; gap: .55rem; color: var(--text); font-weight: 600; cursor: pointer; }
+.dp-repeat-toggle input { accent-color: var(--main); width: 17px; height: 17px; }
+.dp-repeat-fields { display: grid; gap: .55rem; margin-top: .6rem; }
+.dp-repeat-fields label { display: grid; gap: .25rem; color: var(--text); font-size: .8rem; }
+.dp-repeat-fields p { margin: 0; line-height: 1.8; }
+.dp-repeat-badge { display: inline-flex; align-items: center; gap: .3rem; color: var(--main-ink); font-size: .72rem; }
+.duepick .dp-pop { max-height: min(var(--dp-room, 72vh), 620px); overflow-y: auto; }
+
+.qe-due .dp-pop { position: static; min-width: 0; width: 100%; box-shadow: none; margin-top: .4rem; }
+.qe-pop:has(.qe-due) { max-height: min(70vh, 650px); overflow-y: auto; }
