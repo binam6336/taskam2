@@ -78,6 +78,9 @@ final class ProjectService
             \App\Models\SubjectModel::seedProject($id, $uid);       // لیبل‌های پیش‌فرض پروژه (v7.12)
             return $id;
         });
+        if ($img !== null) {
+            DB::run('UPDATE storage_files SET project_id = ? WHERE directory = ? AND file_name = ?', [$id, 'projects', $img]);
+        }
         $requested = 0;
         $added = 0;
         foreach (array_unique(array_map('intval', $memberIds)) as $mid) {
@@ -137,7 +140,7 @@ final class ProjectService
                 Priority::switchProject($projectId, (string) $p['priority_type'], $priorityType);
             }
             if ($image !== null) {
-                $r = Uploader::saveImage($image, 'projects', 'proj', 2097152, $uid);
+                $r = Uploader::saveImage($image, 'projects', 'proj', 2097152, $uid, $projectId);
                 if (!$r['ok']) {
                     return [false, $r['error']];
                 }

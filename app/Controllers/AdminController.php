@@ -635,11 +635,6 @@ final class AdminController extends Controller
         $sum = DB::one("SELECT COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) d, COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) m,
             COALESCE(SUM(CASE WHEN period = 'total' THEN used END), 0) t, COUNT(DISTINCT CASE WHEN period = ? AND used > 0 THEN user_id END) active
             FROM ai_usage_counters", [$p['daily'], $p['monthly'], $p['daily']]);
-        foreach ($rows as &$row) {
-            $row['storage'] = \App\Services\StorageQuota::status((int) $row['id']);
-        }
-        unset($row);
-        $d['storage'] = \App\Services\StorageQuota::defaultLimit();
         $this->view('admin/ai_usage', [
             'rows' => $rows, 'total' => $total, 'pg' => $pg, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
             'f' => $f, 'filters' => self::AI_FILTERS, 'q' => $q, 'defaults' => $d, 'sum' => $sum, 'month' => \App\Services\Karlix\Common::now()['jalali_month'],
@@ -682,12 +677,8 @@ final class AdminController extends Controller
         $this->need('manage_ai_usage');
         $this->rateLimit('admin_ai_quota', 30);
         $lim = $this->aiLimits();
-        $storage = $this->storageLimit();
-        $n = DB::transaction(function () use ($storage, $lim): int {
-            \App\Services\StorageQuota::setDefault($storage, $this->uid());
-            return \App\Services\Karlix\Quota::setDefaults($lim, $this->uid());
-        });
-        Audit::log($this->uid(), 'ai_quota_defaults', $lim + ['users' => $n, 'storage_mb' => $storage]);
+        $n = \App\Services\Karlix\Quota::setDefaults($lim, $this->uid());
+        Audit::log($this->uid(), 'ai_quota_defaults', $lim + ['users' => $n]);
         $this->respond(true, 'سهمیه‌ی پیش‌فرض ذخیره شد و روی کاربرانی که سهمیه‌ی اختصاصی ندارند اعمال شد.', '/admin/ai-usage');
     }
 
@@ -701,13 +692,58 @@ final class AdminController extends Controller
         }
         $reset = (string) $this->request->input('reset', '') === '1';
         $lim = $reset ? null : $this->aiLimits();
-        $storage = $reset ? null : $this->storageLimit();
-        DB::transaction(function () use ($uid, $storage, $reset, $lim): void {
-            \App\Services\StorageQuota::setUser($uid, $storage, !$reset);
-            \App\Services\Karlix\Quota::setUser($uid, $lim, $this->uid());
-        });
-        Audit::log($this->uid(), 'ai_quota_user', ['user' => $uid, 'storage_mb' => $storage] + ($lim ?? ['reset' => true]));
+        \App\Services\Karlix\Quota::setUser($uid, $lim, $this->uid());
+        Audit::log($this->uid(), 'ai_quota_user', ['user' => $uid] + ($lim ?? ['reset' => true]));
         $this->respond(true, $reset ? 'سهمیه‌ی کاربر به پیش‌فرض برگشت.' : 'سهمیه‌ی کاربر ذخیره شد؛ سوابق مصرف دست نخورد.', '/admin/ai-usage');
+    }
+
+    public function storageUsers()
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_list', 60);
+        $q = trim($this->request->str('q', 60));
+        [$where, $params] = \App\Core\Search::sql(['u.first_name', 'u.last_name', 'u.mobile'], $q);
+        $where = 'u.is_bot = 0' . ($where ? ' AND ' . $where : '');
+        $total = (int) DB::value('SELECT COUNT(*) FROM users u WHERE ' . $where, $params);
+        $pages = max(1, (int) ceil($total / 30));
+        $pg = max(1, min($pages, (int) ($this->request->query['page'] ?? 1)));
+        $rows = DB::all('SELECT u.id, u.pid, u.first_name, u.last_name, u.mobile, (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) project_count FROM users u WHERE ' . $where . ' ORDER BY u.id DESC LIMIT 30 OFFSET ' . (($pg - 1) * 30), $params);
+        $this->view('admin/storage', ['mode' => 'users', 'rows' => $rows, 'pg' => $pg, 'pages' => $pages, 'q' => $q], ['title' => 'فضای ذخیره‌سازی', 'page' => 'admin-storage'], 'admin');
+    }
+
+    public function storageProjects(string $user)
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_list', 60);
+        $owner = UserModel::find((int) $user);
+        if (!$owner) { $this->fail('کاربر یافت نشد.', 404); }
+        $total = (int) DB::value('SELECT COUNT(*) FROM projects WHERE user_id = ?', [(int) $user]);
+        $pages = max(1, (int) ceil($total / 30));
+        $pg = max(1, min($pages, (int) ($this->request->query['page'] ?? 1)));
+        $rows = DB::all('SELECT id, pid, title, blocked_at FROM projects WHERE user_id = ? ORDER BY id DESC LIMIT 30 OFFSET ' . (($pg - 1) * 30), [(int) $user]);
+        foreach ($rows as &$row) { $row['storage'] = \App\Services\StorageQuota::status((int) $row['id']); }
+        unset($row);
+        $this->view('admin/storage', ['mode' => 'projects', 'rows' => $rows, 'owner' => $owner, 'pg' => $pg, 'pages' => $pages], ['title' => 'فضای پروژه‌ها', 'page' => 'admin-storage'], 'admin');
+    }
+
+    public function storageProject(string $project)
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_list', 60);
+        $p = DB::one('SELECT * FROM projects WHERE id = ?', [(int) $project]);
+        if (!$p) { $this->fail('پروژه یافت نشد.', 404); }
+        $this->view('admin/storage', ['mode' => 'quota', 'project' => $p, 'storage' => \App\Services\StorageQuota::status((int) $project)], ['title' => 'سقف فضای پروژه', 'page' => 'admin-storage'], 'admin');
+    }
+
+    public function storageSave(string $project)
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_storage_quota', 30);
+        if (!DB::value('SELECT id FROM projects WHERE id = ?', [(int) $project])) { $this->fail('پروژه یافت نشد.', 404); }
+        $limit = $this->storageLimit();
+        \App\Services\StorageQuota::setLimit((int) $project, $limit);
+        Audit::log($this->uid(), 'project_storage_quota', ['project_id' => (int) $project, 'storage_mb' => $limit]);
+        $this->respond(true, 'سقف فضای پروژه ذخیره شد.', '/admin/storage/projects/' . pid('projects', (int) $project));
     }
 
     public function security()

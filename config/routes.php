@@ -267,6 +267,10 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/ai-usage', [AdminController::class, 'aiUsage']);                     // v7.21 سهمیه‌ی مصرف هوش مصنوعی
     $r->post('/admin/ai-usage/defaults', [AdminController::class, 'aiDefaults']);
     $r->post('/admin/ai-usage/{user}/quota', [AdminController::class, 'aiQuota']);
+    $r->get('/admin/storage', [AdminController::class, 'storageUsers']);
+    $r->get('/admin/storage/users/{user}', [AdminController::class, 'storageProjects']);
+    $r->get('/admin/storage/projects/{project}', [AdminController::class, 'storageProject']);
+    $r->post('/admin/storage/projects/{project}/quota', [AdminController::class, 'storageSave']);
     $r->get('/admin/access', [AdminController::class, 'access']);
     $r->post('/admin/access/roles', [AdminController::class, 'accessRolesSave']);
     $r->post('/admin/access/roles/reset', [AdminController::class, 'accessRolesReset']);

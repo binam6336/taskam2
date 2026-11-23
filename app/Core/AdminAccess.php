@@ -46,7 +46,8 @@ final class AdminAccess
         'support_manage'        => ['support', 'مدیریت تیکت', 'تغییر وضعیت و حذف تیکت‌ها.'],
         'view_security'         => ['settings', 'دیدن لاگ امنیتی', 'صفحه‌ی «تنظیمات ← امنیت»: ورود/خروج مدیران به پنل کاربران و تغییرات ثبت‌شده.'],
         'view_panel_docs'       => ['settings', 'مستندات پنل', 'صفحه‌ی محدودیت‌ها و قواعد پنل.'],
-        'manage_ai_usage'       => ['settings', 'میزان مصرف', 'صفحه‌ی «تنظیمات ← میزان مصرف»: مصرف توکن و فضای ذخیره‌سازی کاربران؛ سقف پیش‌فرض و اختصاصی توکن و فضا.'],
+        'manage_ai_usage'       => ['settings', 'میزان مصرف', 'صفحه‌ی «تنظیمات ← میزان مصرف»: مصرف توکن کاربران؛ سقف پیش‌فرض و اختصاصی هوش مصنوعی.'],
+        'manage_storage'        => ['settings', 'فضای ذخیره‌سازی', 'فهرست کاربران و پروژه‌های ساخته‌شده و تعیین سقف فضای هر پروژه.'],
         'chat_encrypt'          => ['settings', 'رمزگذاری پیام‌های قدیمی', 'رمزگذاری یک‌باره‌ی پیام‌ها و فایل‌های گفتگوی قدیمی (پیشخوان مدیر).'],
     ];
 
@@ -62,7 +63,7 @@ final class AdminAccess
         'view_analysis' => '/admin/analysis', 'view_users' => '/admin', 'support_view' => '/admin/support',
         'edit_sidebar' => '/admin/content/sidebar', 'edit_tour' => '/admin/content/tour', 'edit_board' => '/admin/content/board',
         'edit_placeholders' => '/admin/content/placeholders', 'edit_errors' => '/admin/content/errors',
-        'view_security' => '/admin/security', 'view_panel_docs' => '/admin/docs', 'manage_ai_usage' => '/admin/ai-usage', 'manage_impersonations' => '/admin/impersonations',
+        'view_security' => '/admin/security', 'view_panel_docs' => '/admin/docs', 'manage_storage' => '/admin/storage', 'manage_ai_usage' => '/admin/ai-usage', 'manage_impersonations' => '/admin/impersonations',
     ];
 
     /** پاک‌سازی فهرست: فقط کلیدهای معتبر، بدون تکرار، به ترتیب PERMS */

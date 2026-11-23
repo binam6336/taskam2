@@ -28,6 +28,7 @@ $menu = [
         ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'مستندات پنل'],
         ['admin-security', '/admin/security', 'fa-shield-halved', 'امنیت'],
         ['admin-ai-usage', '/admin/ai-usage', 'fa-chart-pie', 'میزان مصرف'],
+        ['admin-storage', '/admin/storage', 'fa-hard-drive', 'فضای ذخیره‌سازی'],
         ['admin-access', '/admin/access', 'fa-user-lock', 'دسترسی'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
@@ -37,7 +38,7 @@ $menu = [
 // v7.4: هر آیتم فقط با دسترسی مربوطش دیده می‌شود (AdminAccess)؛ «دسترسی» فقط برای مدیر کل؛ گروه خالی حذف می‌شود
 $need = ['admin-analysis' => 'view_analysis', 'admin-users' => 'view_users', 'admin-content-sidebar' => 'edit_sidebar', 'admin-content-tour' => 'edit_tour',
     'admin-content-board' => 'edit_board', 'admin-content-ph' => 'edit_placeholders', 'admin-content-errors' => 'edit_errors', 'admin-panel-docs' => 'view_panel_docs',
-    'admin-security' => 'view_security', 'admin-support' => 'support_view', 'admin-ai-usage' => 'manage_ai_usage'];
+    'admin-security' => 'view_security', 'admin-support' => 'support_view', 'admin-ai-usage' => 'manage_ai_usage', 'admin-storage' => 'manage_storage'];
 $okItem = static fn(array $i) => !isset($i[0]) || ($i[0] === 'admin-access' ? \App\Core\Auth::isSuperAdmin() : (!isset($need[$i[0]]) || \App\Core\Auth::adminCan($need[$i[0]])));
 $menu = array_values(array_filter(array_map(static function ($m) use ($okItem) {
     if (isset($m['group'])) {

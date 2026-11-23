@@ -15,7 +15,7 @@
     if (b) {
       f.action = TK.url('/admin/ai-usage/' + b.dataset.user + '/quota');
       m.querySelector('[data-ai-name]').textContent = b.dataset.name || '';
-      ['daily', 'monthly', 'total', 'storage'].forEach((k) => {
+      ['daily', 'monthly', 'total'].forEach((k) => {
         const v = b.dataset[k];
         f.querySelector('[name="' + k + '"]').value = v;
         f.querySelector('[name="' + k + '_unlimited"]').checked = v === '';

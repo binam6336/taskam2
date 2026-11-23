@@ -369,7 +369,13 @@ final class TaskService
             }
         }
         if ($set) {
-            DB::update('tasks', $set, 'id = ?', [$id]);
+            if (isset($set['project_id'])) {
+                if ($error = StorageQuota::moveTask($id, (int) $set['project_id'], $set)) {
+                    return self::err($error, 'STORAGE_QUOTA');
+                }
+            } else {
+                DB::update('tasks', $set, 'id = ?', [$id]);
+            }
             TaskHistory::changes($t, $set, $actor, $source);
         }
         if ($repeatChanged && $repeat['enabled']) {

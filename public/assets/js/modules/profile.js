@@ -38,10 +38,11 @@ document.addEventListener('tk:ready', () => {
         + '</div>';
     };
     const render = (u) => {
-      const s = u.storage;
-      const storage = '<h3><i class="fa-solid fa-hard-drive"></i> مصرف فضای ذخیره‌سازی</h3><div class="card aiu-card"><div class="aiu-num"><b>' + TK.esc(s.used_text) + '</b> / ' + TK.esc(s.limit_text) + '</div>'
-        + (s.unlimited ? '<p class="small muted">فضای ذخیره‌سازی نامحدود است.</p>' : '<progress max="100" value="' + s.percent + '" aria-label="درصد مصرف فضای ذخیره‌سازی"></progress><p class="small muted">' + fa(s.percent) + '٪ مصرف شده</p>')
-        + '<p class="small muted">پیوست‌ها، فایل‌های چت و پشتیبانی و تصاویر؛ حذف فایل فضا را آزاد می‌کند.</p></div><h3 class="mt-2"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h3>';
+      const storage = '<h3><i class="fa-solid fa-hard-drive"></i> مصرف فضای ذخیره‌سازی پروژه‌ها</h3>'
+        + (u.storage.length ? u.storage.map((s) => '<div class="card aiu-card"><h3>' + TK.esc(s.title) + '</h3><div class="aiu-num"><b>' + TK.esc(s.used_text) + '</b> / ' + TK.esc(s.limit_text) + '</div>'
+          + (s.unlimited ? '<p class="small muted">فضای ذخیره‌سازی این پروژه نامحدود است.</p>' : '<progress max="100" value="' + s.percent + '" aria-label="درصد مصرف فضای پروژه"></progress><p class="small muted">' + fa(s.percent) + '٪ مصرف شده</p>')
+          + '<p class="small muted">پیوست‌های تسک‌ها، یادداشت‌های تسک و تصویر پروژه؛ حذف فایل فضا را آزاد می‌کند.</p></div>').join('') : '<p class="small muted">پروژه‌ای با دسترسی مشاهده فضای ذخیره‌سازی ندارید.</p>')
+        + '<h3 class="mt-2"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h3>';
       aiu.innerHTML = storage + (u.blocked ? '<div class="aiu-alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + TK.esc(u.blocked) + '</span></div>' : '')
         + '<div class="aiu-grid">' + ['daily', 'monthly', 'total'].map((k) => card(k, u[k])).join('') + '</div>'
         + '<div class="card aiu-feat"><h3 class="small">مصرف ' + TK.esc(u.month) + ' به تفکیک بخش</h3>'

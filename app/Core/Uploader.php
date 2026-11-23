@@ -125,7 +125,7 @@ final class Uploader
     /**
      * @param int|null $uid با شناسه‌ی کاربر: سهمیه‌ی حجم روزانه و حداکثر ۶۰ فایل در ساعت هم بررسی می‌شود (جلوی پر کردن دیسک)
      */
-    public static function saveAttachment(array $file, string $type, string $prefix, array $types = self::ATTACH_TYPES, int $max = self::ATTACH_MAX, ?int $uid = null): array
+    public static function saveAttachment(array $file, string $type, string $prefix, array $types = self::ATTACH_TYPES, int $max = self::ATTACH_MAX, ?int $uid = null, ?int $projectId = null, ?int $taskId = null): array
     {
         $owner = $uid ?? (int) (Auth::user()['id'] ?? 0);
         $orig = mb_substr(basename((string) $file['name']), 0, 200, 'UTF-8');
@@ -173,7 +173,7 @@ final class Uploader
             clearstatcache(true, $dest);
             $size = (int) @filesize($dest) ?: $size;
         }
-        if (($error = self::account($owner, $type, $name)) !== null) {
+        if (($error = self::account($owner, $type, $name, $projectId, $taskId)) !== null) {
             return ['ok' => false, 'error' => $error];
         }
         return ['ok' => true, 'name' => $name, 'original' => $orig, 'size' => $size, 'ext' => $ext, 'mime' => $mime];
@@ -330,7 +330,7 @@ final class Uploader
         }
     }
 
-    public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152, ?int $uid = null): array
+    public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152, ?int $uid = null, ?int $projectId = null): array
     {
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'error' => ErrorText::apply('خطا در آپلود تصویر.')];
@@ -390,17 +390,17 @@ final class Uploader
             return ['ok' => false, 'error' => ErrorText::apply('خطا در ذخیره‌ی تصویر.')];
         }
         @chmod($dest, 0640);
-        if (($error = self::account($uid ?? (int) (Auth::user()['id'] ?? 0), $type, $name)) !== null) {
+        if (($error = self::account($uid ?? (int) (Auth::user()['id'] ?? 0), $type, $name, $projectId)) !== null) {
             return ['ok' => false, 'error' => $error];
         }
         return ['ok' => true, 'name' => $name];
     }
 
     /** شکست ثبت سهمیه هم فایل را پاک می‌کند؛ فایل بدون حساب به مدل تحویل نمی‌شود. */
-    public static function account(int $uid, string $type, string $name): ?string
+    public static function account(int $uid, string $type, string $name, ?int $projectId = null, ?int $taskId = null): ?string
     {
         try {
-            $error = $uid > 0 ? \App\Services\StorageQuota::register($uid, $type, $name) : ErrorText::apply(\App\Services\StorageQuota::BUSY);
+            $error = $uid > 0 ? \App\Services\StorageQuota::register($uid, $type, $name, $projectId, $taskId) : ErrorText::apply(\App\Services\StorageQuota::BUSY);
         } catch (\Throwable $e) {
             Log::error($e, 'files');
             $error = ErrorText::apply(\App\Services\StorageQuota::BUSY);

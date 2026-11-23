@@ -298,7 +298,7 @@ final class AdminLog
 
     /** نام فارسی ستون‌ها */
     private const LABELS = [
-        'storage_limit_mb' => 'سقف فضای ذخیره‌سازی (مگابایت)', 'storage_custom' => 'سقف فضای اختصاصی', 'directory' => 'بخش فایل', 'bytes' => 'حجم فایل',
+        'storage_limit_mb' => 'سقف فضای پروژه (مگابایت)', 'storage_custom' => 'سقف فضای اختصاصی', 'directory' => 'بخش فایل', 'bytes' => 'حجم فایل',
         'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
         'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'recurrence_id' => 'سری تکرار', 'recurrence_previous_id' => 'نوبت قبلی', 'current_task_id' => 'نوبت جاری', 'enabled' => 'فعال', 'kind' => 'نوع تکرار', 'interval_days' => 'فاصله روزها', 'anchor_day' => 'روز اصلی ماه', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
         'delivered_at' => 'زمان تحویل برای بررسی', 'delivered_by' => 'تحویل‌دهنده', 'approved_by' => 'تأییدکننده', 'blocked_at' => 'زمان مسدود شدن', 'blocked_by' => 'مسدودکننده',

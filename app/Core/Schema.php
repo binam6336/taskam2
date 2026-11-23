@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '056';
+    public const VERSION = '057';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        ['projects', 'storage_limit_mb', 'ADD COLUMN `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL', null],
+        ['storage_files', 'project_id', 'ADD COLUMN `project_id` INT UNSIGNED NULL DEFAULT NULL, ADD KEY `idx_storage_project` (`project_id`), ADD CONSTRAINT `fk_storage_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE SET NULL', null],
         ['users', 'storage_limit_mb', 'ADD COLUMN `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL', null],
         ['users', 'storage_custom', 'ADD COLUMN `storage_custom` TINYINT(1) NOT NULL DEFAULT 0', null],
         ['tasks', 'recurrence_id', 'ADD COLUMN `recurrence_id` INT UNSIGNED NULL DEFAULT NULL, ADD KEY `idx_tasks_recurrence` (`recurrence_id`), ADD CONSTRAINT `fk_tasks_recurrence` FOREIGN KEY (`recurrence_id`) REFERENCES `task_recurrences` (`id`) ON DELETE SET NULL', null],
@@ -138,6 +140,7 @@ final class Schema
     /** اصلاح داده‌ی یک‌باره با کد PHP (وقتی SQL خالی کافی نیست)؛ نشانه‌ی storage/cache/data-<id> */
     private const PHP_DATA = [
         ['056', [\App\Services\StorageQuota::class, 'backfill']],
+        ['057', [\App\Services\StorageQuota::class, 'migrateProjects']],
         ['047', [\App\Models\SubjectModel::class, 'migrateToProjects']],     // لیبل‌ها در سطح پروژه (v7.12)
         ['053', [\App\Services\Karlix\Quota::class, 'refundFailed']],         // برگرداندن سهمیه‌ی خطاهای 429/5xx (v7.26، AI-01)
     ];

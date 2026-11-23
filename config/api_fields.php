@@ -142,7 +142,7 @@ return [
         'priority_type' => 'نوع اولویت تسک‌های پروژه: category (کم/متوسط/زیاد) | percent (درصدی).',
         'profile_image' => 'نشانی تصویر/لوگوی پروژه؛ بدون تصویر null.',
         'is_creator' => 'آیا شما سازنده‌ی پروژه هستید؟',
-        'my_permissions' => 'مجوزهای شما در پروژه: edit_project, add_member, remove_member, manage_permissions, view_analytics.',
+        'my_permissions' => 'مجوزهای شما در پروژه: edit_project, add_member, remove_member, manage_permissions, view_analytics, view_storage, manage_board, create_label. مجوز view_storage فقط مشاهده مصرف فضای همین پروژه را مجاز می‌کند.',
         'my_task_permissions' => 'دسترسی شما روی تسک‌های پروژه: edit_info, edit_due, reassign, notes, complete, block — مسدود کردن تسک به‌جای حذف (سازنده = همه).',
         'task_permissions' => 'دسترسی عضو روی تسک‌های همین پروژه: edit_info, edit_due, reassign, notes, complete, block (پیش‌فرض هیچ).',
         'my_board_permissions' => 'دسترسی شما در بورد این پروژه: change_status (تغییر وضعیت آزاد بین ستون‌ها) یا خالی.',

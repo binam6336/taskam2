@@ -55,6 +55,9 @@ final class NoteModel
         $table = $kind === 'task' ? 'task_attachments' : 'note_attachments';
         $col = $kind === 'task' ? 'task_id' : 'note_id';
         $type = $kind === 'task' ? 'task_attachments' : 'note_attachments';
+        $taskId = $kind === 'task' ? $parentId : (int) DB::value('SELECT task_id FROM task_notes WHERE id = ?', [$parentId]);
+        $projectId = DB::value('SELECT project_id FROM tasks WHERE id = ?', [$taskId]);
+        $projectId = $projectId === null ? null : (int) $projectId;
         $saved = [];
         $errors = [];
         // v7.3: تا MAX_FILES فایل در هر ارسال؛ پیوست‌های خود تسک روی‌هم حداکثر MAX_FILES
@@ -66,7 +69,7 @@ final class NoteModel
             $errors[] = 'حداکثر ' . fa_num(self::MAX_FILES) . ' فایل برای هر تسک یا یادداشت پذیرفته می‌شود؛ ' . fa_num(count($files) - $room) . ' فایل اضافه ذخیره نشد.';
         }
         foreach (array_slice($files, 0, $room) as $f) {
-            $r = Uploader::saveAttachment($f, $type, $kind . $uid, Uploader::ATTACH_TYPES, Uploader::ATTACH_MAX, $uid);
+            $r = Uploader::saveAttachment($f, $type, $kind . $uid, Uploader::ATTACH_TYPES, Uploader::ATTACH_MAX, $uid, $projectId, $taskId);
             if (!$r['ok']) {
                 $errors[] = $r['error'];
                 continue;

@@ -44,6 +44,7 @@ final class Access
         'add_member'         => ['label' => 'افزودن کاربر', 'icon' => 'fa-user-plus', 'desc' => 'افزودن همکاران جدید به پروژه'],
         'remove_member'      => ['label' => 'خارج کردن کاربر', 'icon' => 'fa-user-minus', 'desc' => 'خارج کردن اعضای فعلی از پروژه (عضو حذف نمی‌شود؛ تسک‌ها و سابقه‌اش می‌ماند)'],
         'manage_permissions' => ['label' => 'اعطای دسترسی', 'icon' => 'fa-key', 'desc' => 'تغییر دسترسی سایر اعضا (فقط مجوزهایی که خودتان دارید)'],
+        'view_storage'       => ['label' => 'مشاهده فضای ذخیره‌سازی', 'icon' => 'fa-hard-drive', 'desc' => 'مشاهده مصرف و سقف فضای این پروژه در بخش میزان مصرف؛ تغییر سقف فقط در پنل مدیر'],
         'view_analytics'     => ['label' => 'مشاهده تحلیل‌ها', 'icon' => 'fa-chart-line', 'desc' => 'دسترسی به صفحه‌ی تحلیل و آمار پروژه'],
         'manage_board'       => ['label' => 'مدیریت بورد', 'icon' => 'fa-table-columns', 'desc' => 'تنظیمات بورد پروژه: ساخت، ویرایش، حذف و چیدمان ستون‌ها، رنگ و آیکون آن‌ها و وضعیت اول تسک‌های جدید'],
         // v7.12: لیبل‌ها مال پروژه‌اند؛ بقیه‌ی اعضا فقط از لیبل‌های موجود پروژه استفاده می‌کنند (نقش «مدیر واحد» و بالاتر دارند)
@@ -452,6 +453,11 @@ final class Access
         }
         $row = DB::one('SELECT permissions FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
         return $row === null ? [] : self::decode($row['permissions'], array_keys(self::PROJECT_PERMS));
+    }
+
+    public static function canViewStorage(int $projectId, int $uid): bool
+    {
+        return (bool) \App\Core\DB::value("SELECT 1 FROM users WHERE id = ? AND role = 'admin'", [$uid]) || self::projectCan($projectId, $uid, 'view_storage');
     }
 
     public static function projectCan(int $projectId, int $uid, string $perm): bool

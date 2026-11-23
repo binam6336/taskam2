@@ -128,6 +128,7 @@ CREATE TABLE `audit_log` (
 -- ─────────────────────────────  پروژه‌ها  ─────────────────────────────
 
 CREATE TABLE `projects` (
+  `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL,
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`           CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `user_id`       INT UNSIGNED NOT NULL              COMMENT 'سازنده',
@@ -831,6 +832,7 @@ CREATE TABLE `admin_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `storage_files` (
+  `project_id` INT UNSIGNED NULL DEFAULT NULL,
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` INT UNSIGNED NOT NULL,
   `directory` VARCHAR(32) NOT NULL,
@@ -840,5 +842,7 @@ CREATE TABLE `storage_files` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_storage_path` (`directory`, `file_name`),
   KEY `idx_storage_user` (`user_id`),
+  KEY `idx_storage_project` (`project_id`),
+  CONSTRAINT `fk_storage_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_storage_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

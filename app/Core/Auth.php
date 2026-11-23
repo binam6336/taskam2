@@ -263,7 +263,7 @@ final class Auth
     /** همه‌ی دسترسی‌های پنل مدیر (فهرست و توضیح در AdminAccess::PERMS؛ v7.4) */
     public const ADMIN_PERMS = ['view_analysis', 'view_users', 'add_user', 'edit_user', 'toggle_status', 'delete_user', 'manage_admins', 'impersonate',
         'manage_impersonations', 'edit_sidebar', 'edit_tour', 'edit_board', 'edit_placeholders', 'edit_errors', 'support_view', 'support_reply',
-        'support_manage', 'view_security', 'view_panel_docs', 'manage_ai_usage', 'chat_encrypt'];
+        'support_manage', 'view_security', 'view_panel_docs', 'manage_ai_usage', 'manage_storage', 'chat_encrypt'];
 
     /** مدیر کل = اولین کاربر admin. */
     public static function superAdminId(): int
