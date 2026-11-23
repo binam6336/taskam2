@@ -9,10 +9,10 @@ final class ContentCipher
     public const PREFIX = 'data:v1:';
     private static bool $verified = false;
     public static function key(): string { return (string) env('decode_key', ''); }
-    public static function enabled(): bool { return strlen(self::key()) >= 32 && Crypto::available(); }
+    public static function enabled(): bool { return strlen(self::key()) >= 12 && Crypto::available(); }
     public static function seal(string $value): string
     {
-        if (!self::enabled()) { throw new \RuntimeException('decode_key must contain at least 32 bytes and OpenSSL must be available'); }
+        if (!self::enabled()) { throw new \RuntimeException('decode_key must contain at least 12 bytes and OpenSSL must be available'); }
         if (!self::$verified) {
             foreach (self::FIELDS as $table => $cols) {
                 foreach ($cols as $col) {
