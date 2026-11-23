@@ -8,7 +8,11 @@ final class ContentCipher
     public const FIELDS = ['tasks' => ['title','description'], 'projects' => ['description'], 'texts' => ['title','content'], 'task_notes' => ['note'], 'support_messages' => ['message']];
     public const PREFIX = 'data:v1:';
     private static bool $verified = false;
-    public static function key(): string { return (string) env('decode_key', ''); }
+    public static function key(): string
+    {
+        $key = (string) env('decode_key', '');
+        return $key !== '' ? $key : Crypto::envPassword();
+    }
     public static function enabled(): bool { return strlen(self::key()) >= 12 && Crypto::available(); }
     public static function seal(string $value): string
     {
