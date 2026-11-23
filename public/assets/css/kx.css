@@ -1310,3 +1310,9 @@ html.bulk-on #kb-board .kb-card[data-id] { padding-inline-start: 38px; }
 .aiq-defaults .aiq-lims { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .aiq-lim { display: flex; flex-direction: column; gap: 6px; }
 .aiq-lim label.check { font-size: var(--fs-xs); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+
+/* نمایش سهم فضای فایل‌ها در کارت مصرف؛ هماهنگ با رنگ اصلی کاربر. */
+.aiu-card progress { display: block; width: 100%; height: 8px; accent-color: var(--main); border: 0; border-radius: 4px; overflow: hidden; }
+.aiu-card progress::-webkit-progress-bar { background: var(--c-hover); }
+.aiu-card progress::-webkit-progress-value { background: var(--main); border-radius: 4px; }
+.aiu-card progress::-moz-progress-bar { background: var(--main); }

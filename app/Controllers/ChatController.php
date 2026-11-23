@@ -364,6 +364,9 @@ final class ChatController extends Controller
             if (!@copy($src, Uploader::dir('chat_files') . '/' . $name)) {
                 $this->fail('کپی فایل برای بازارسال ممکن نشد');
             }
+            if (($error = Uploader::account($uid, 'chat_files', $name)) !== null) {
+                $this->fail($error);
+            }
             $file += ['attachment' => $name, 'attachment_name' => $m['attachment_name'], 'attachment_size' => $m['attachment_size'], 'attachment_type' => $m['attachment_type']];
         }
         $this->touch($uid);

@@ -635,11 +635,16 @@ final class AdminController extends Controller
         $sum = DB::one("SELECT COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) d, COALESCE(SUM(CASE WHEN period = ? THEN used END), 0) m,
             COALESCE(SUM(CASE WHEN period = 'total' THEN used END), 0) t, COUNT(DISTINCT CASE WHEN period = ? AND used > 0 THEN user_id END) active
             FROM ai_usage_counters", [$p['daily'], $p['monthly'], $p['daily']]);
+        foreach ($rows as &$row) {
+            $row['storage'] = \App\Services\StorageQuota::status((int) $row['id']);
+        }
+        unset($row);
+        $d['storage'] = \App\Services\StorageQuota::defaultLimit();
         $this->view('admin/ai_usage', [
             'rows' => $rows, 'total' => $total, 'pg' => $pg, 'pages' => $pages, 'per' => $per, 'perOptions' => self::USERS_PER_PAGE,
             'f' => $f, 'filters' => self::AI_FILTERS, 'q' => $q, 'defaults' => $d, 'sum' => $sum, 'month' => \App\Services\Karlix\Common::now()['jalali_month'],
             'supportUnread' => SupportModel::unreadForAdmin(),
-        ], ['title' => 'مصرف هوش مصنوعی', 'page' => 'admin-ai-usage'], 'admin');
+        ], ['title' => 'میزان مصرف', 'page' => 'admin-ai-usage'], 'admin');
     }
 
     /** سقف از فرم: عدد صحیح ≥ ۰ یا «نامحدود» (null) */
@@ -660,13 +665,29 @@ final class AdminController extends Controller
         return $out;
     }
 
+    private function storageLimit(): ?int
+    {
+        if ($this->request->input('storage_unlimited')) {
+            return null;
+        }
+        $v = strtr(trim((string) $this->request->input('storage', '')), ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);
+        if (!preg_match('/^\d{1,10}$/', $v) || (float) $v > \App\Services\StorageQuota::MAX_MB) {
+            $this->fail('سقف فضای ذخیره‌سازی باید عدد صحیح نامنفی بر حسب مگابایت یا «نامحدود» باشد.');
+        }
+        return (int) $v;
+    }
+
     public function aiDefaults()
     {
         $this->need('manage_ai_usage');
         $this->rateLimit('admin_ai_quota', 30);
         $lim = $this->aiLimits();
-        $n = \App\Services\Karlix\Quota::setDefaults($lim, $this->uid());
-        Audit::log($this->uid(), 'ai_quota_defaults', $lim + ['users' => $n]);
+        $storage = $this->storageLimit();
+        $n = DB::transaction(function () use ($storage, $lim): int {
+            \App\Services\StorageQuota::setDefault($storage, $this->uid());
+            return \App\Services\Karlix\Quota::setDefaults($lim, $this->uid());
+        });
+        Audit::log($this->uid(), 'ai_quota_defaults', $lim + ['users' => $n, 'storage_mb' => $storage]);
         $this->respond(true, 'سهمیه‌ی پیش‌فرض ذخیره شد و روی کاربرانی که سهمیه‌ی اختصاصی ندارند اعمال شد.', '/admin/ai-usage');
     }
 
@@ -680,8 +701,12 @@ final class AdminController extends Controller
         }
         $reset = (string) $this->request->input('reset', '') === '1';
         $lim = $reset ? null : $this->aiLimits();
-        \App\Services\Karlix\Quota::setUser($uid, $lim, $this->uid());
-        Audit::log($this->uid(), 'ai_quota_user', ['user' => $uid] + ($lim ?? ['reset' => true]));
+        $storage = $reset ? null : $this->storageLimit();
+        DB::transaction(function () use ($uid, $storage, $reset, $lim): void {
+            \App\Services\StorageQuota::setUser($uid, $storage, !$reset);
+            \App\Services\Karlix\Quota::setUser($uid, $lim, $this->uid());
+        });
+        Audit::log($this->uid(), 'ai_quota_user', ['user' => $uid, 'storage_mb' => $storage] + ($lim ?? ['reset' => true]));
         $this->respond(true, $reset ? 'سهمیه‌ی کاربر به پیش‌فرض برگشت.' : 'سهمیه‌ی کاربر ذخیره شد؛ سوابق مصرف دست نخورد.', '/admin/ai-usage');
     }
 

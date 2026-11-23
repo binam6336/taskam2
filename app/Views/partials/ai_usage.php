@@ -5,6 +5,8 @@
  */
 $num = static fn($n) => fa_num(number_format((int) $n));
 ?>
+<?php $this->partial('storage_usage', ['storage' => $ai['storage']]); ?>
+<h3 class="mt-2"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h3>
 <?php if (!empty($ai['blocked'])): ?><div class="aiu-alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><?= e($ai['blocked']) ?></span></div><?php endif; ?>
 <div class="aiu-grid">
 <?php foreach (['daily' => 'fa-sun', 'monthly' => 'fa-calendar', 'total' => 'fa-layer-group'] as $k => $ic): $x = $ai[$k];

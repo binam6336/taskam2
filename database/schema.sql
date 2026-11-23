@@ -21,6 +21,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ─────────────────────────────  کاربران و امنیت  ─────────────────────────────
 
 CREATE TABLE `users` (
+  `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL,
+  `storage_custom` TINYINT(1) NOT NULL DEFAULT 0,
   `id`                              INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`                             CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',
   `mobile`                          VARCHAR(11)  NOT NULL                COMMENT 'شماره موبایل (۰۹xxxxxxxxx)؛ ربات: 00000000000',
@@ -826,4 +828,17 @@ CREATE TABLE `admin_logs` (
   KEY `idx_al_created` (`created_at`),
   CONSTRAINT `fk_al_admin`  FOREIGN KEY (`admin_id`)  REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_al_target` FOREIGN KEY (`target_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `storage_files` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `directory` VARCHAR(32) NOT NULL,
+  `file_name` VARCHAR(190) NOT NULL,
+  `bytes` BIGINT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_storage_path` (`directory`, `file_name`),
+  KEY `idx_storage_user` (`user_id`),
+  CONSTRAINT `fk_storage_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

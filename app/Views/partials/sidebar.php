@@ -72,7 +72,7 @@ $pops = [];
             <div class="menu-label"><?= e($suName) ?></div>
             <a role="menuitem" href="<?= e(url('/profile')) ?>"><i class="fa-solid fa-user" aria-hidden="true"></i><span>پروفایل و تنظیمات</span></a>
             <a role="menuitem" href="<?= e(url('/profile#appearance')) ?>"><i class="fa-solid fa-palette" aria-hidden="true"></i><span>تنظیمات ظاهری</span></a>
-            <a role="menuitem" href="<?= e(url('/profile#ai')) ?>"><i class="fa-solid fa-brain" aria-hidden="true"></i><span>مصرف هوش مصنوعی</span></a>
+            <a role="menuitem" href="<?= e(url('/profile#ai')) ?>"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>میزان مصرف</span></a>
             <?php if (empty($sb['admin'])): ?><a role="menuitem" href="<?= e(url('/profile#security')) ?>"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>امنیت و نشست‌ها</span></a><?php endif; ?>
             <button type="button" role="menuitem" data-theme-toggle><i class="fa-solid fa-moon" aria-hidden="true"></i><span data-theme-label>حالت تیره</span></button>
             <?php if (empty($sb['admin'])): /* v7.18: گروه‌های «تنظیمات» و «پشتیبانی» سایدبار قبلی به این منو منتقل شدند */ ?>

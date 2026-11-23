@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '055';
+    public const VERSION = '056';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        ['users', 'storage_limit_mb', 'ADD COLUMN `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL', null],
+        ['users', 'storage_custom', 'ADD COLUMN `storage_custom` TINYINT(1) NOT NULL DEFAULT 0', null],
         ['tasks', 'recurrence_id', 'ADD COLUMN `recurrence_id` INT UNSIGNED NULL DEFAULT NULL, ADD KEY `idx_tasks_recurrence` (`recurrence_id`), ADD CONSTRAINT `fk_tasks_recurrence` FOREIGN KEY (`recurrence_id`) REFERENCES `task_recurrences` (`id`) ON DELETE SET NULL', null],
         ['tasks', 'recurrence_previous_id', 'ADD COLUMN `recurrence_previous_id` INT UNSIGNED NULL DEFAULT NULL, ADD UNIQUE KEY `uq_tasks_recurrence_previous` (`recurrence_previous_id`), ADD CONSTRAINT `fk_tasks_recurrence_previous` FOREIGN KEY (`recurrence_previous_id`) REFERENCES `tasks` (`id`) ON DELETE SET NULL', null],
         // 032 شناسه‌ی عمومی
@@ -135,6 +137,7 @@ final class Schema
     /** تغییر یک‌باره‌ی داده‌ها: [شناسه، فایل migration]؛ هر کدام فقط یک بار (فایل نشانه‌ی data-<شناسه> در storage/cache) */
     /** اصلاح داده‌ی یک‌باره با کد PHP (وقتی SQL خالی کافی نیست)؛ نشانه‌ی storage/cache/data-<id> */
     private const PHP_DATA = [
+        ['056', [\App\Services\StorageQuota::class, 'backfill']],
         ['047', [\App\Models\SubjectModel::class, 'migrateToProjects']],     // لیبل‌ها در سطح پروژه (v7.12)
         ['053', [\App\Services\Karlix\Quota::class, 'refundFailed']],         // برگرداندن سهمیه‌ی خطاهای 429/5xx (v7.26، AI-01)
     ];
@@ -156,6 +159,7 @@ final class Schema
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
     private const TABLES = [
+        ['storage_files', '056_storage_quota.sql'],
         ['task_recurrences', '055_recurring_tasks.sql'],
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],
         ['push_subscriptions', '007_push_subscriptions.sql'],

@@ -38,7 +38,11 @@ document.addEventListener('tk:ready', () => {
         + '</div>';
     };
     const render = (u) => {
-      aiu.innerHTML = (u.blocked ? '<div class="aiu-alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + TK.esc(u.blocked) + '</span></div>' : '')
+      const s = u.storage;
+      const storage = '<h3><i class="fa-solid fa-hard-drive"></i> مصرف فضای ذخیره‌سازی</h3><div class="card aiu-card"><div class="aiu-num"><b>' + TK.esc(s.used_text) + '</b> / ' + TK.esc(s.limit_text) + '</div>'
+        + (s.unlimited ? '<p class="small muted">فضای ذخیره‌سازی نامحدود است.</p>' : '<progress max="100" value="' + s.percent + '" aria-label="درصد مصرف فضای ذخیره‌سازی"></progress><p class="small muted">' + fa(s.percent) + '٪ مصرف شده</p>')
+        + '<p class="small muted">پیوست‌ها، فایل‌های چت و پشتیبانی و تصاویر؛ حذف فایل فضا را آزاد می‌کند.</p></div><h3 class="mt-2"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h3>';
+      aiu.innerHTML = storage + (u.blocked ? '<div class="aiu-alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + TK.esc(u.blocked) + '</span></div>' : '')
         + '<div class="aiu-grid">' + ['daily', 'monthly', 'total'].map((k) => card(k, u[k])).join('') + '</div>'
         + '<div class="card aiu-feat"><h3 class="small">مصرف ' + TK.esc(u.month) + ' به تفکیک بخش</h3>'
         + (u.features.length ? '<ul>' + u.features.map((f) => '<li><span>' + TK.esc(f.feature) + '</span><span class="muted">' + fa(f.requests) + ' درخواست</span><b>' + fa(f.tokens) + ' توکن</b></li>').join('') + '</ul>' : '<p class="small muted">این ماه هنوز از هوش مصنوعی استفاده نکرده‌اید.</p>') + '</div>';

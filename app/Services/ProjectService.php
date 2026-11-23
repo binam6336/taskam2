@@ -65,7 +65,7 @@ final class ProjectService
         }
         $img = null;
         if ($image !== null) {
-            $r = Uploader::saveImage($image, 'projects', 'proj');
+            $r = Uploader::saveImage($image, 'projects', 'proj', 2097152, $uid);
             if (!$r['ok']) {
                 return [false, $r['error'], null];
             }
@@ -137,7 +137,7 @@ final class ProjectService
                 Priority::switchProject($projectId, (string) $p['priority_type'], $priorityType);
             }
             if ($image !== null) {
-                $r = Uploader::saveImage($image, 'projects', 'proj');
+                $r = Uploader::saveImage($image, 'projects', 'proj', 2097152, $uid);
                 if (!$r['ok']) {
                     return [false, $r['error']];
                 }

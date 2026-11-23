@@ -27,7 +27,7 @@ $menu = [
         ['admin-install', '/install', 'fa-download', 'نصب'],
         ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'مستندات پنل'],
         ['admin-security', '/admin/security', 'fa-shield-halved', 'امنیت'],
-        ['admin-ai-usage', '/admin/ai-usage', 'fa-brain', 'مصرف AI'],
+        ['admin-ai-usage', '/admin/ai-usage', 'fa-chart-pie', 'میزان مصرف'],
         ['admin-access', '/admin/access', 'fa-user-lock', 'دسترسی'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [

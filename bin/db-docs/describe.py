@@ -16,7 +16,7 @@ GROUPS = [
     ('پروژه‌ها', ['projects', 'project_members', 'project_join_requests', 'project_blocks', 'project_leave_history']),
     ('تسک‌ها', ['subjects', 'tasks', 'task_recurrences', 'task_viewers', 'task_notes', 'task_events', 'task_mentions', 'ai_requests', 'task_attachments', 'note_attachments']),
     ('دستیار هوش مصنوعی بورد', ['ai_board_sessions', 'ai_board_messages', 'ai_result_sets', 'ai_actions', 'ai_exports']),
-    ('سهمیه‌ی مصرف هوش مصنوعی', ['ai_quotas', 'ai_usage', 'ai_usage_counters', 'ai_queue']),
+    ('سهمیه‌ی مصرف هوش مصنوعی', ['ai_quotas', 'ai_usage', 'ai_usage_counters', 'ai_queue', 'storage_files']),
     ('همکاران و گفتگو', ['colleagues', 'colleague_requests', 'colleague_blocks', 'colleague_block_ghosts', 'chat_messages', 'chat_requests', 'chat_history_clears']),
     ('یادداشت‌ها و پشتیبانی', ['texts', 'support_tickets', 'support_messages']),
 ]
@@ -38,6 +38,8 @@ TABLES = {
         'first_name': 'نام کاربر. نام ربات اطلاع‌رسانی (is_bot = 1) از v7.5 «کارلیکس» است (اصلاح داده‌ی 043، نام قبلی «تسکام»).',
         'last_name': 'نام خانوادگی (اختیاری؛ رشته‌ی خالی یعنی ندارد).',
         'email': 'ایمیل اختیاری و یکتا.',
+        'storage_limit_mb': 'سقف اختصاصی فضای فایل‌ها بر حسب مگابایت (۱۰۴۸۵۷۶ بایت)؛ NULL = نامحدود؛ صفر = منع آپلود. فقط وقتی storage_custom = 1 مؤثر است.',
+        'storage_custom': 'صفر = پیروی زنده از content_texts.storage.quota.default؛ یک = سقف اختصاصی storage_limit_mb. بازگشت به پیش‌فرض هر دو را بازنشانی می‌کند.',
         'avatar': 'نام فایل تصویر پروفایل در storage/uploads/avatars (تصویر با GD دوباره ساخته می‌شود). NULL = حرف اول نام نمایش داده می‌شود.',
         'password_hash': 'هش رمز عبور با Argon2id (یا bcrypt روی سرورهای قدیمی‌تر)؛ هنگام ورود اگر الگوریتم قدیمی باشد خودکار بازهش می‌شود. تغییر آن نشست‌های دیگر و توکن‌های API را باطل می‌کند.',
         'role': 'نقش: user = کاربر پنل، admin = مدیر (پنل مدیر).',
@@ -170,12 +172,20 @@ TABLES = {
         'user_agent': 'مرورگر درخواست.',
     },
 },
+'storage_files': {
+    'title': 'حجم و مالکیت فایل‌های ذخیره‌شده',
+    'desc': 'هر مسیر فیزیکی یک‌بار به آپلودکننده نسبت داده می‌شود؛ فایل‌های قدیمی با migration 056 وارد می‌شوند (تصویر قدیمی پروژه برای سازنده).',
+    'flow': ['ثبت بعد از پردازش و پیش از تحویل نام فایل به مدل؛ ثبت مستقل از تراکنش فرم و قفل GET_LOCK همان کاربر از عبور آپلودهای هم‌زمان جلوگیری می‌کند. فایل ردشده حذف می‌شود.',
+             'سقف مؤثر از users.storage_custom/storage_limit_mb یا content_texts.storage.quota.default (JSON عدد مگابایت یا null؛ نبود کلید = نامحدود). حذف فیزیکی فایل ردیف را پاک می‌کند؛ شمارش، فایل گمشده را حذف و اندازه‌ی واقعی فایل موجود را می‌خواند. bytes اندازه‌ی هنگام ثبت است؛ کوچک‌سازی تصویر ممکن است اندازه‌ی واقعی را کاهش دهد.',
+             'پیوست تسک، یادداشت، چت، کپی بازارسال، پشتیبانی و تصاویر در یک سهمیه‌اند. سهمیه‌ی ۲۴ساعته‌ی آپلود مستقل است. بازگشت به پیش‌فرض مصرف را پاک نمی‌کند.'],
+    'cols': {'user_id': 'آپلودکننده و مالک سهمیه.', 'directory': 'نام یکی از پوشه‌های مجاز Uploader.', 'file_name': 'نام ذخیره‌شده؛ همراه پوشه یکتا است.', 'bytes': 'اندازه‌ی فایل پس از پردازش بر حسب بایت.'},
+},
 'content_texts': {
     'title': 'متن‌های قابل ویرایش',
     'desc': 'متن‌هایی که مدیر در «پنل مدیر ← محتوا» تغییر داده: متن‌های تور آموزشی، چیدمان سایدبار، متن خطاها و placeholderها. نبودن ردیف = متن پیش‌فرض از config.',
     'flow': [
         'مدیر متن را ویرایش می‌کند ← ردیف با کلید ثابت ذخیره/به‌روز می‌شود؛ «بازگشت به پیش‌فرض» ردیف را حذف می‌کند.',
-        'کلیدها: admin.access (v7.4، JSON دسترسی نقش‌های مدیر {internal:[…], support:[…]} از «تنظیمات ← دسترسی»؛ نبود = AdminAccess::DEFAULTS)، board.default (v6.1، JSON بورد پیش‌فرض از «محتوا ← بورد»؛ نبود = چیدمان اولیه)، tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php؛ JSON چیدمان، هر گزینه با desc = توضیح زیر نام در پاپ‌آپ زیرمنو، نبودِ desc = توضیح پیش‌فرض config)، sidebar.user.opts (تنظیمات نمایش سایدبار: {"show_desc": true/false})، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
+        'کلیدها: storage.quota.default (عدد مگابایت یا null در JSON؛ پیش‌فرض فضای کاربران بدون سقف اختصاصی، نبود = نامحدود)، admin.access (v7.4، JSON دسترسی نقش‌های مدیر {internal:[…], support:[…]} از «تنظیمات ← دسترسی»؛ نبود = AdminAccess::DEFAULTS)، board.default (v6.1، JSON بورد پیش‌فرض از «محتوا ← بورد»؛ نبود = چیدمان اولیه)، tour.step_N (config/tour_texts.php)، sidebar.user (config/sidebar.php؛ JSON چیدمان، هر گزینه با desc = توضیح زیر نام در پاپ‌آپ زیرمنو، نبودِ desc = توضیح پیش‌فرض config)، sidebar.user.opts (تنظیمات نمایش سایدبار: {"show_desc": true/false})، error.* (config/error_texts.php)، ph.* (config/placeholder_texts.php).',
     ],
     'cols': {
         'key': 'کلید یکتای متن، مثل tour.step_5 یا sidebar.user.',

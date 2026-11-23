@@ -26,6 +26,7 @@ final class AdminLog
         'task_viewers' => ['بیننده‌ی تسک محرمانه', null], 'ai_requests' => ['درخواست کارلیکس', null],
         'ai_board_sessions' => ['گفتگوی دستیار بورد', null], 'ai_board_messages' => ['پیام دستیار بورد', null], 'ai_result_sets' => ['لیست دستیار بورد', null],
         'ai_actions' => ['عملیات دستیار بورد', null], 'ai_exports' => ['خروجی دستیار بورد', null],
+        'storage_files' => ['فایل ذخیره‌شده', null],
         'ai_usage' => ['مصرف هوش مصنوعی', null], 'ai_quotas' => ['سهمیه‌ی هوش مصنوعی', null],
     ];
 
@@ -139,13 +140,13 @@ final class AdminLog
     }
 
     /** DB::insert در حالت watch */
-    public static function inserted(string $table, int $id): void
+    public static function inserted(string $table, int $id, ?array $row = null): void
     {
         if (!self::watching() || !isset(self::TRACK[$table])) {
             return;
         }
         try {
-            $row = DB::one('SELECT * FROM `' . $table . '` WHERE id = ?', [$id]);
+            $row = $row ?? DB::one('SELECT * FROM `' . $table . '` WHERE id = ?', [$id]);
             if ($row === null || ($table === 'chat_messages' && (int) DB::value('SELECT is_bot FROM users WHERE id = ?', [(int) $row['sender_id']]) === 1)) {
                 return;                                   // پیام‌های خودکار ربات اطلاع‌رسانی (نتیجه‌ی جانبی) ثبت نمی‌شوند
             }
@@ -297,6 +298,7 @@ final class AdminLog
 
     /** نام فارسی ستون‌ها */
     private const LABELS = [
+        'storage_limit_mb' => 'سقف فضای ذخیره‌سازی (مگابایت)', 'storage_custom' => 'سقف فضای اختصاصی', 'directory' => 'بخش فایل', 'bytes' => 'حجم فایل',
         'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
         'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'recurrence_id' => 'سری تکرار', 'recurrence_previous_id' => 'نوبت قبلی', 'current_task_id' => 'نوبت جاری', 'enabled' => 'فعال', 'kind' => 'نوع تکرار', 'interval_days' => 'فاصله روزها', 'anchor_day' => 'روز اصلی ماه', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
         'delivered_at' => 'زمان تحویل برای بررسی', 'delivered_by' => 'تحویل‌دهنده', 'approved_by' => 'تأییدکننده', 'blocked_at' => 'زمان مسدود شدن', 'blocked_by' => 'مسدودکننده',

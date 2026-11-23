@@ -36,7 +36,7 @@ final class ProfileController extends Controller
     /** v7.21: مصرف هوش مصنوعی کاربر (سهمیه‌ی روزانه، ماهانه، کل) */
     public static function aiData(int $uid): array
     {
-        return \App\Services\Karlix\Quota::status($uid) + ['features' => \App\Services\Karlix\Quota::byFeature($uid), 'month' => \App\Services\Karlix\Common::now()['jalali_month']];
+        return \App\Services\Karlix\Quota::status($uid) + ['features' => \App\Services\Karlix\Quota::byFeature($uid), 'month' => \App\Services\Karlix\Common::now()['jalali_month'], 'storage' => \App\Services\StorageQuota::status($uid)];
     }
 
     /** GET /profile/ai-usage — به‌روزرسانی زنده‌ی بخش «مصرف هوش مصنوعی» */

@@ -69,8 +69,11 @@ final class Uploader
         }
         $p = self::path($type, $name);
         if ($p !== null) {
-            @unlink($p);
+            if (!@unlink($p)) {
+                return;
+            }
         }
+        DB::run('DELETE FROM storage_files WHERE directory = ? AND file_name = ?', [$type, basename($name)]);
     }
 
     /** تبدیل ساختار $_FILES['x'] (چندفایلی) به لیست فایل‌های تکی. */
@@ -124,6 +127,7 @@ final class Uploader
      */
     public static function saveAttachment(array $file, string $type, string $prefix, array $types = self::ATTACH_TYPES, int $max = self::ATTACH_MAX, ?int $uid = null): array
     {
+        $owner = $uid ?? (int) (Auth::user()['id'] ?? 0);
         $orig = mb_substr(basename((string) $file['name']), 0, 200, 'UTF-8');
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'error' => ErrorText::apply($orig . ' (خطا در آپلود)')];
@@ -168,6 +172,9 @@ final class Uploader
         if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) && self::reencode($dest, $ext)) {
             clearstatcache(true, $dest);
             $size = (int) @filesize($dest) ?: $size;
+        }
+        if (($error = self::account($owner, $type, $name)) !== null) {
+            return ['ok' => false, 'error' => $error];
         }
         return ['ok' => true, 'name' => $name, 'original' => $orig, 'size' => $size, 'ext' => $ext, 'mime' => $mime];
     }
@@ -323,7 +330,7 @@ final class Uploader
         }
     }
 
-    public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152): array
+    public static function saveImage(array $file, string $type, string $prefix, int $maxBytes = 2097152, ?int $uid = null): array
     {
         if ((int) $file['error'] !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'error' => ErrorText::apply('خطا در آپلود تصویر.')];
@@ -383,6 +390,25 @@ final class Uploader
             return ['ok' => false, 'error' => ErrorText::apply('خطا در ذخیره‌ی تصویر.')];
         }
         @chmod($dest, 0640);
+        if (($error = self::account($uid ?? (int) (Auth::user()['id'] ?? 0), $type, $name)) !== null) {
+            return ['ok' => false, 'error' => $error];
+        }
         return ['ok' => true, 'name' => $name];
+    }
+
+    /** شکست ثبت سهمیه هم فایل را پاک می‌کند؛ فایل بدون حساب به مدل تحویل نمی‌شود. */
+    public static function account(int $uid, string $type, string $name): ?string
+    {
+        try {
+            $error = $uid > 0 ? \App\Services\StorageQuota::register($uid, $type, $name) : ErrorText::apply(\App\Services\StorageQuota::BUSY);
+        } catch (\Throwable $e) {
+            Log::error($e, 'files');
+            $error = ErrorText::apply(\App\Services\StorageQuota::BUSY);
+        }
+        if ($error !== null) {
+            $path = self::path($type, $name);
+            if ($path !== null) { @unlink($path); }
+        }
+        return $error;
     }
 }
