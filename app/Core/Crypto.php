@@ -50,7 +50,9 @@ final class Crypto
 
     public static function available(): bool
     {
-        return function_exists('openssl_encrypt') && in_array(self::CIPHER, openssl_get_cipher_methods(), true);
+        return function_exists('openssl_encrypt') && function_exists('openssl_decrypt')
+            && function_exists('openssl_get_cipher_methods')
+            && in_array(self::CIPHER, array_map('strtolower', openssl_get_cipher_methods()), true);
     }
 
     public static function isEncoded(?string $s): bool

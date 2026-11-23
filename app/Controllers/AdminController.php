@@ -992,7 +992,10 @@ final class AdminController extends Controller
     {
         $this->need('chat_encrypt');
         $this->rateLimit('encrypt_data', 5);
-        if (!\App\Core\ContentCipher::enabled()) { $this->fail('کلید decode_key یا ENCODE_PASSWORD باید حداقل ۱۲ نویسه باشد و OpenSSL فعال باشد.'); }
+        if ($error = \App\Core\ContentCipher::configurationError()) {
+            \App\Core\Log::warning('content_crypto.configuration_failed', \App\Core\ContentCipher::diagnostics());
+            $this->fail($error);
+        }
         $n = \App\Core\ContentCipher::batch(100);
         $left = \App\Core\ContentCipher::pending();
         $this->respond(true, 'تعداد فیلدهای رمزگذاری‌شده: ' . $n . '؛ باقی‌مانده: ' . $left . '؛ برای ادامه دوباره دکمه را بزنید.', '/admin/analysis');

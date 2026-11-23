@@ -13,6 +13,25 @@ final class ContentCipher
         $key = (string) env('decode_key', '');
         return $key !== '' ? $key : Crypto::envPassword();
     }
+    /** فقط مشخصات عیب‌یابی؛ مقدار کلید هرگز ثبت نمی‌شود. */
+    public static function diagnostics(): array
+    {
+        $explicit = (string) env('decode_key', '');
+        $source = $explicit !== '' ? 'decode_key' : ((string) env('ENCODE_PASSWORD', '') !== '' ? 'ENCODE_PASSWORD' : ((string) env('encode_password', '') !== '' ? 'encode_password' : 'none'));
+        return ['version' => trim((string) file_get_contents(BASE_PATH . '/VERSION')), 'source' => $source,
+            'bytes' => strlen(self::key()), 'php' => PHP_VERSION,
+            'encrypt_available' => function_exists('openssl_encrypt'), 'decrypt_available' => function_exists('openssl_decrypt'),
+            'methods_available' => function_exists('openssl_get_cipher_methods'), 'gcm_available' => Crypto::available()];
+    }
+    public static function configurationError(): ?string
+    {
+        $d = self::diagnostics();
+        if ($d['bytes'] === 0) { return 'هیچ کلیدی از decode_key یا ENCODE_PASSWORD خوانده نشد؛ فایل .env همین نصب را بررسی کنید.'; }
+        if ($d['bytes'] < 12) { return 'کلید خوانده‌شده کمتر از ۱۲ نویسه است؛ اگر decode_key مقدار دارد، همان کلید اولویت دارد.'; }
+        if (!$d['encrypt_available'] || !$d['decrypt_available'] || !$d['methods_available']) { return 'توابع لازم OpenSSL در PHP وب هاست در دسترس نیستند؛ فعال‌سازی آن‌ها را از پشتیبانی هاست بخواهید.'; }
+        if (!$d['gcm_available']) { return 'الگوریتم AES-256-GCM در OpenSSL این هاست در دسترس نیست.'; }
+        return null;
+    }
     public static function enabled(): bool { return strlen(self::key()) >= 12 && Crypto::available(); }
     public static function seal(string $value): string
     {
