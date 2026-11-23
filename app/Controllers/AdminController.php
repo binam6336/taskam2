@@ -996,9 +996,22 @@ final class AdminController extends Controller
             \App\Core\Log::warning('content_crypto.configuration_failed', \App\Core\ContentCipher::diagnostics());
             $this->fail($error);
         }
-        $n = \App\Core\ContentCipher::batch(100);
-        $left = \App\Core\ContentCipher::pending();
-        $this->respond(true, 'تعداد فیلدهای رمزگذاری‌شده: ' . $n . '؛ باقی‌مانده: ' . $left . '؛ برای ادامه دوباره دکمه را بزنید.', '/admin/analysis');
+        $queue = (new \App\Services\ContentEncryptionQueue())->start();
+        $this->ok('صف رمزگذاری شروع شد.', ['queue' => $queue]);
+    }
+
+    public function encryptionStatus()
+    {
+        $this->need('chat_encrypt');
+        $this->ok('', ['queue' => (new \App\Services\ContentEncryptionQueue())->status()]);
+    }
+
+    public function encryptionTick()
+    {
+        $this->need('chat_encrypt');
+        $this->rateLimit('encrypt_tick', 30);
+        \App\Core\Session::release();
+        $this->ok('', ['queue' => (new \App\Services\ContentEncryptionQueue())->tick()]);
     }
 
     public function chatEncrypt()

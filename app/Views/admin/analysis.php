@@ -3,6 +3,7 @@
 $u = $stats['users']; $t = $stats['tasks']; $m = $stats['misc'];
 $this->boot['an'] = ['days' => $days, 'tasks' => $t, 'subjects' => $topSubjects];
 $this->scripts[] = 'admin';
+$this->scripts[] = 'admin_crypto';
 // کارت با $href قابل کلیک است و فهرست همان مورد را باز می‌کند (کاربران، چت، متن‌های آماده و توکن فهرست جدا ندارند)
 $card = static fn(string $ico, string $cls, $num, string $lbl, ?string $href = null) => ($href ? '<a class="card stat" href="' . e(url($href)) . '" title="نمایش فهرست ' . e($lbl) . '">' : '<div class="card stat">')
     . '<div class="ico ' . $cls . '"><i class="fa-solid ' . $ico . '"></i></div><div><div class="num">' . e(fa_num($num)) . '</div><div class="lbl">' . e($lbl) . '</div></div>' . ($href ? '</a>' : '</div>');
@@ -19,7 +20,7 @@ $card = static fn(string $ico, string $cls, $num, string $lbl, ?string $href = n
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-diagram-project"></i> پروژه‌های برتر</h3></div><div class="list"><?php foreach ($topProjects as $x): ?><div class="flex between"><span class="truncate"><?= e($x['title']) ?></span><span class="small muted"><?= e(fa_num($x['tasks'])) ?> تسک • <?= e(fa_num($x['members'])) ?> عضو</span></div><?php endforeach; ?></div></div>
     <div class="card"><div class="card-head"><h3><i class="fa-solid fa-tags"></i> لیبل‌های پرتکرار</h3></div><div class="chart" id="ch-subj"></div></div>
 </div>
-<div class="card mb-2"><h3>رمزگذاری اطلاعات رمزگذاری‌نشده</h3><p>فیلدهای محتوایی باقی‌مانده: <?= e(fa_num($chatSec['contentPending'])) ?></p><p class="small muted">نام و توضیحات تسک، توضیحات پروژه، یادداشت‌ها، گزارش‌های تسک و متن پیام‌های پشتیبانی. هر بار حداکثر ۱۰۰ فیلد؛ داده‌های چت با کلید قبلی خود حفظ می‌شوند.</p><?php if ($chatSec['isSuper']): ?><button class="btn" data-post="<?= e(url('/admin/data/encrypt')) ?>">رمزگذاری اطلاعات رمزگذاری‌نشده</button><?php endif; ?></div>
+<div class="card mb-2"><h3>رمزگذاری اطلاعات رمزگذاری‌نشده</h3><p>فیلدهای محتوایی باقی‌مانده: <span data-crypto-remaining><?= e(fa_num($chatSec['contentPending'])) ?></span></p><p class="small muted">نام و توضیحات تسک، توضیحات پروژه، یادداشت‌ها، گزارش‌های تسک و متن پیام‌های پشتیبانی. با یک کلیک، بسته‌های ۱۰۰تایی خودکار اجرا می‌شوند؛ داده‌های چت با کلید قبلی خود حفظ می‌شوند.</p><?php if ($chatSec['isSuper']): ?><button class="btn" data-crypto-start>شروع یا ادامه رمزگذاری خودکار</button><p class="small muted" data-crypto-progress aria-live="polite"></p><p class="small muted">تا پایان، این صفحه را باز نگه دارید. برای ادامه با صفحه بسته، cron سرور لازم است؛ وضعیت صف ذخیره می‌شود.</p><?php endif; ?></div>
 <div class="card mb-2"><div class="card-head"><h3><i class="fa-solid fa-lock"></i> رمزگذاری پیام‌های چت</h3>
     <span class="badge <?= $chatSec['configured'] ? 'green' : 'yellow' ?>"><?= $chatSec['configured'] ? 'فعال (AES-256-GCM)' : 'غیرفعال' ?></span></div>
     <div class="grid grid-3 mb-1">

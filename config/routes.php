@@ -290,6 +290,8 @@ $router->group(['admin'], function ($r) {
     $r->post('/admin/content/placeholders/{id}', [AdminController::class, 'contentPlaceholderSave']);
     $r->get('/admin/content/errors', [AdminController::class, 'contentErrors']);
     $r->post('/admin/content/errors/{id}', [AdminController::class, 'contentErrorSave']);
+    $r->get('/admin/data/encrypt/status', [AdminController::class, 'encryptionStatus']);
+    $r->post('/admin/data/encrypt/tick', [AdminController::class, 'encryptionTick']);
     $r->post('/admin/data/encrypt', [AdminController::class, 'encryptData']);
     $r->post('/admin/chat/encrypt', [AdminController::class, 'chatEncrypt']);
 });
