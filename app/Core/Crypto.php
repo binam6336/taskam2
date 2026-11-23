@@ -29,7 +29,7 @@ final class Crypto
     /** رمز تنظیم‌شده در .env (هر دو نام ENCODE_PASSWORD و encode_password پذیرفته می‌شود). */
     public static function envPassword(): string
     {
-        foreach (['ENCODE_PASSWORD', 'encode_password'] as $k) {
+        foreach (['ENCODE_PASSWORD', 'encode_password', 'decode_key'] as $k) {
             $v = Env::get($k);
             if (is_string($v) && $v !== '') {
                 return $v;

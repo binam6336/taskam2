@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '057';
+    public const VERSION = '058';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -117,6 +117,14 @@ final class Schema
      * tasks.board_status: ستون‌های بورد هر پروژه قابل تعریف‌اند (BoardConfig)، پس ENUM ← VARCHAR.
      */
     private const TYPES = [
+        ['tasks', 'title', 'mediumtext', 'MODIFY `title` MEDIUMTEXT NOT NULL'],
+        ['tasks', 'description', 'mediumtext', 'MODIFY `description` MEDIUMTEXT NULL'],
+        ['projects', 'description', 'mediumtext', 'MODIFY `description` MEDIUMTEXT NULL'],
+        ['texts', 'title', 'mediumtext', 'MODIFY `title` MEDIUMTEXT NOT NULL'],
+        ['texts', 'content', 'mediumtext', 'MODIFY `content` MEDIUMTEXT NOT NULL'],
+        ['task_notes', 'note', 'mediumtext', 'MODIFY `note` MEDIUMTEXT NOT NULL'],
+        ['support_messages', 'message', 'mediumtext', 'MODIFY `message` MEDIUMTEXT NOT NULL'],
+
         ['tasks', 'board_status', 'varchar', "MODIFY `board_status` VARCHAR(24) NOT NULL DEFAULT 'backlog'"],
     ];
 

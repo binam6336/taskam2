@@ -636,7 +636,7 @@ final class TaskService
         if ($text === '' || mb_strlen($text) > 5000) {
             return self::err('متن یادداشت نامعتبر است.', 'NOTE_INVALID');
         }
-        DB::run('UPDATE task_notes SET note = ?, updated_at = NOW() WHERE id = ?', [$text, $noteId]);
+        DB::update('task_notes', ['note' => $text, 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$noteId]);
         TaskHistory::log((int) $n['task_id'], $actor, 'note_edited', ['author' => (int) $n['user_id']]);
         $task['share_token'] = $n['share_token'] ?? null;
         $new = self::storeMentions($task, $actor, $noteId, $text, $mentions, true);

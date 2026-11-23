@@ -980,6 +980,7 @@ final class AdminController extends Controller
             'total' => (int) DB::value('SELECT COUNT(*) FROM chat_messages'),
             'enc' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE message LIKE 'enc:v1:%'"),
             'plain' => (int) DB::value("SELECT COUNT(*) FROM chat_messages WHERE (message <> '' AND message NOT LIKE 'enc:v1:%') OR (attachment_name IS NOT NULL AND attachment_name <> '' AND attachment_name NOT LIKE 'enc:v1:%')"),
+            'contentPending' => \App\Core\ContentCipher::pending(),
             'isSuper' => Auth::adminCan('chat_encrypt'),
         ];
         $audit = DB::all('SELECT a.action, a.ip, a.created_at, a.details, u.first_name, u.last_name, u.mobile FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 15');
@@ -987,6 +988,16 @@ final class AdminController extends Controller
     }
 
     /** رمزگذاری پیام‌های متن‌ساده‌ی قبلی (فقط مدیر کل). تا ~۲۰ ثانیه در هر کلیک؛ در صورت باقی‌ماندن، دوباره بزنید. */
+    public function encryptData()
+    {
+        $this->need('chat_encrypt');
+        $this->rateLimit('encrypt_data', 5);
+        if (!\App\Core\ContentCipher::enabled()) { $this->fail('کلید decode_key باید حداقل ۳۲ نویسه باشد و OpenSSL فعال باشد.'); }
+        $n = \App\Core\ContentCipher::batch(100);
+        $left = \App\Core\ContentCipher::pending();
+        $this->respond(true, 'تعداد فیلدهای رمزگذاری‌شده: ' . $n . '؛ باقی‌مانده: ' . $left . '؛ برای ادامه دوباره دکمه را بزنید.', '/admin/analysis');
+    }
+
     public function chatEncrypt()
     {
         $this->need('chat_encrypt');

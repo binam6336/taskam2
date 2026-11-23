@@ -60,24 +60,24 @@ final class DB
 
     public static function all(string $sql, array $params = []): array
     {
-        return self::stmt($sql, $params)->fetchAll();
+        return ContentCipher::open(self::stmt($sql, $params)->fetchAll());
     }
 
     public static function one(string $sql, array $params = []): ?array
     {
         $r = self::stmt($sql, $params)->fetch();
-        return $r === false ? null : $r;
+        return $r === false ? null : ContentCipher::open($r);
     }
 
     public static function value(string $sql, array $params = [])
     {
         $r = self::stmt($sql, $params)->fetchColumn();
-        return $r === false ? null : $r;
+        return $r === false ? null : ContentCipher::open($r);
     }
 
     public static function column(string $sql, array $params = []): array
     {
-        return self::stmt($sql, $params)->fetchAll(PDO::FETCH_COLUMN);
+        return ContentCipher::open(self::stmt($sql, $params)->fetchAll(PDO::FETCH_COLUMN));
     }
 
     /** اجرای دستور و بازگرداندن تعداد ردیف‌های متأثر. */
@@ -96,6 +96,7 @@ final class DB
         if (!isset($data['pid']) && in_array($table, Pid::TABLES, true)) {
             $data['pid'] = Pid::new();
         }
+        $data = ContentCipher::prepare($table, $data);
         $cols = array_keys($data);
         self::assertIdent($table);
         foreach ($cols as $c) {
@@ -113,6 +114,7 @@ final class DB
     public static function update(string $table, array $data, string $where, array $whereParams = []): int
     {
         self::assertIdent($table);
+        $data = ContentCipher::prepare($table, $data);
         $set = [];
         foreach (array_keys($data) as $c) {
             self::assertIdent($c);

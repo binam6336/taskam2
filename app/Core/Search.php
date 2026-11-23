@@ -53,10 +53,15 @@ final class Search
         $parts = [];
         $params = [];
         foreach ($tokens as $t) {
+            $matches = ContentCipher::matches($t);
             $or = [];
             foreach ($cols as $c) {
-                $or[] = self::col($c) . ' LIKE ?';
+                $or[] = '(' . $c . " NOT LIKE 'data:v1:%' AND " . self::col($c) . ' LIKE ?)';
                 $params[] = DB::like($t);
+                if ($matches && preg_match('/^[a-zA-Z_][a-zA-Z0-9_.]*$/', $c)) {
+                    $or[] = $c . ' IN (' . DB::in($matches) . ')';
+                    $params = array_merge($params, $matches);
+                }
             }
             $parts[] = '(' . implode(' OR ', $or) . ')';
         }
