@@ -697,6 +697,25 @@ final class AdminController extends Controller
         $this->respond(true, $reset ? 'سهمیه‌ی کاربر به پیش‌فرض برگشت.' : 'سهمیه‌ی کاربر ذخیره شد؛ سوابق مصرف دست نخورد.', '/admin/ai-usage');
     }
 
+    public function storageUserSave(string $user)
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_storage_quota', 30);
+        if (!DB::value('SELECT id FROM users WHERE id = ?', [(int) $user])) { $this->fail('کاربر یافت نشد.', 404); }
+        $reset = (bool) $this->request->input('reset');
+        \App\Services\StorageQuota::setUser((int) $user, $reset ? null : $this->storageLimit(), !$reset);
+        $this->respond(true, 'سقف مشترک کاربر ذخیره شد.', '/admin/storage/users/' . pid('users', (int) $user));
+    }
+
+    public function storageDefaults()
+    {
+        $this->need('manage_storage');
+        $this->rateLimit('admin_storage_quota', 30);
+        $limit = $this->storageLimit();
+        \App\Services\StorageQuota::setDefault($limit, $this->uid());
+        $this->respond(true, 'سقف پیش‌فرض ذخیره شد.', '/admin/storage');
+    }
+
     public function storageUsers()
     {
         $this->need('manage_storage');

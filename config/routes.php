@@ -223,6 +223,7 @@ $router->group(['auth'], function ($r) {
     $r->post('/profile/privacy', [ProfileController::class, 'privacy']);
     $r->post('/profile/task-security', [ProfileController::class, 'taskSecurity']);
     $r->post('/profile/appearance', [ProfileController::class, 'appearance']);
+    $r->get('/profile/storage/{project}', [ProfileController::class, 'storageFiles']);
     $r->get('/profile/ai-usage', [ProfileController::class, 'aiUsage']);
     $r->post('/profile/sessions/revoke', [ProfileController::class, 'revokeSession']);
     $r->post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions']);
@@ -267,6 +268,8 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/ai-usage', [AdminController::class, 'aiUsage']);                     // v7.21 سهمیه‌ی مصرف هوش مصنوعی
     $r->post('/admin/ai-usage/defaults', [AdminController::class, 'aiDefaults']);
     $r->post('/admin/ai-usage/{user}/quota', [AdminController::class, 'aiQuota']);
+    $r->post('/admin/storage/users/{user}/quota', [AdminController::class, 'storageUserSave']);
+    $r->post('/admin/storage/defaults', [AdminController::class, 'storageDefaults']);
     $r->get('/admin/storage', [AdminController::class, 'storageUsers']);
     $r->get('/admin/storage/users/{user}', [AdminController::class, 'storageProjects']);
     $r->get('/admin/storage/projects/{project}', [AdminController::class, 'storageProject']);

@@ -46,6 +46,13 @@ final class ProfileController extends Controller
         $this->ok('', ['usage' => self::aiData($this->uid())]);
     }
 
+    public function storageFiles(string $project)
+    {
+        if (!\App\Services\Access::canViewStorage((int) $project, $this->uid())) { $this->fail('اجازه‌ی مشاهده فایل‌های این پروژه را ندارید.', 403); }
+        $this->rateLimit('storage_files', 30);
+        $this->view('profile/storage_files', ['files' => \App\Services\StorageQuota::files((int) $project, $this->uid())], ['title' => 'فایل‌های پروژه', 'page' => 'profile']);
+    }
+
     public function updateInfo()
     {
         $this->denyImpersonation('/profile');

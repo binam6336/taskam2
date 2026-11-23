@@ -39,7 +39,7 @@ document.addEventListener('tk:ready', () => {
     };
     const render = (u) => {
       const storage = '<h3><i class="fa-solid fa-hard-drive"></i> مصرف فضای ذخیره‌سازی پروژه‌ها</h3>'
-        + (u.storage.length ? u.storage.map((s) => '<div class="card aiu-card"><h3>' + TK.esc(s.title) + '</h3><div class="aiu-num"><b>' + TK.esc(s.used_text) + '</b> / ' + TK.esc(s.limit_text) + '</div>'
+        + (u.storage.length ? u.storage.map((s) => '<div class="card aiu-card"><h3>' + TK.esc(s.title) + '</h3><a class="btn btn-sm" href="' + TK.esc(TK.url('/profile/storage/' + s.pid)) + '">جزئیات فایل‌ها</a><div class="aiu-num"><b>' + TK.esc(s.used_text) + '</b> / ' + TK.esc(s.limit_text) + '</div>'
           + (s.unlimited ? '<p class="small muted">فضای ذخیره‌سازی این پروژه نامحدود است.</p>' : '<progress max="100" value="' + s.percent + '" aria-label="درصد مصرف فضای پروژه"></progress><p class="small muted">' + fa(s.percent) + '٪ مصرف شده</p>')
           + '<p class="small muted">پیوست‌های تسک‌ها، یادداشت‌های تسک و تصویر پروژه؛ حذف فایل فضا را آزاد می‌کند.</p></div>').join('') : '<p class="small muted">پروژه‌ای با دسترسی مشاهده فضای ذخیره‌سازی ندارید.</p>')
         + '<h3 class="mt-2"><i class="fa-solid fa-brain"></i> مصرف هوش مصنوعی</h3>';

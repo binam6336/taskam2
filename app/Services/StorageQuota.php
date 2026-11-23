@@ -31,6 +31,7 @@ final class StorageQuota
 
     private static function lockName(string $kind, int $id): string
     {
+        if ($kind === 'project') { $id = self::owner($id); $kind = 'owner'; }
         return 'kx_storage_' . substr(hash('sha256', (string) env('DB_NAME', 'taskam')), 0, 16) . '_' . $kind . '_' . $id;
     }
 
@@ -59,9 +60,46 @@ final class StorageQuota
         return $used;
     }
 
+    public static function defaultLimit(): ?int
+    {
+        $v = DB::value('SELECT body FROM content_texts WHERE `key` = ?', ['storage.quota.default']);
+        return $v === null || $v === 'null' ? null : max(0, (int) $v);
+    }
+
+    public static function setDefault(?int $mb, int $by): void
+    {
+        DB::run('INSERT INTO content_texts (`key`, body, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body), updated_by = VALUES(updated_by)', ['storage.quota.default', json_encode($mb), $by]);
+    }
+
+    public static function setUser(int $uid, ?int $mb, bool $custom): void
+    {
+        DB::update('users', ['storage_limit_mb' => $mb, 'storage_custom' => (int) $custom], 'id = ?', [$uid]);
+    }
+
+    private static function owner(int $projectId): int
+    {
+        return (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+    }
+
+    private static function ownerLimit(\PDO $pdo, int $owner): ?int
+    {
+        $u = self::query($pdo, 'SELECT storage_custom, storage_limit_mb FROM users WHERE id = ?', [$owner])->fetch();
+        if ($u && $u['storage_custom']) { return $u['storage_limit_mb'] === null ? null : (int) $u['storage_limit_mb']; }
+        $v = self::query($pdo, 'SELECT body FROM content_texts WHERE `key` = ?', ['storage.quota.default'])->fetchColumn();
+        return $v === false || $v === 'null' ? null : (int) $v;
+    }
+
+    private static function sharedUsed(\PDO $pdo, int $owner): int
+    {
+        $sum = 0;
+        foreach (self::query($pdo, "SELECT file_name FROM storage_files WHERE user_id = ? AND project_id IS NULL AND directory = 'projects'", [$owner])->fetchAll() as $f) { $path = Uploader::path('projects', $f['file_name']); if ($path !== null) { $sum += (int) filesize($path); } }
+        foreach (self::query($pdo, 'SELECT id FROM projects WHERE user_id = ?', [$owner])->fetchAll() as $p) { $sum += self::sum($pdo, (int) $p['id']); }
+        return $sum;
+    }
+
     public static function status(int $projectId): array
     {
-        $mb = DB::value('SELECT storage_limit_mb FROM projects WHERE id = ?', [$projectId]);
+        $mb = self::ownerLimit(DB::pdo(), self::owner($projectId));
         $mb = $mb === null ? null : (int) $mb;
         $used = self::used($projectId);
         $limit = $mb === null ? null : $mb * self::MB;
@@ -77,6 +115,23 @@ final class StorageQuota
     }
 
     /** فقط پروژه‌های مجاز وارد داده‌ی پروفایل و پاسخ زنده می‌شوند. */
+    public static function files(int $projectId, int $uid): array
+    {
+        if (!Access::canViewStorage($projectId, $uid)) { return []; }
+        $out = [];
+        foreach (['task_attachments' => 'a.task_id', 'note_attachments' => 'n.task_id'] as $table => $task) {
+            $join = $table === 'note_attachments' ? ' INNER JOIN task_notes n ON n.id = a.note_id' : '';
+            foreach (DB::all("SELECT a.file_name, a.file_path, t.* FROM `$table` a $join INNER JOIN tasks t ON t.id = $task WHERE t.project_id = ? ORDER BY a.id DESC", [$projectId]) as $row) {
+                if (!Access::canTask($row, $uid, 'view')) { continue; }
+                $path = Uploader::path($table, $row['file_path']);
+                if ($path !== null) { $out[] = ['name' => $row['file_name'], 'size' => human_size((int) filesize($path)), 'task' => $row['title'], 'url' => url('/tasks?task=' . \App\Models\TaskModel::ensureShareToken((int) $row['id']))]; }
+            }
+        }
+        $image = DB::value('SELECT profile_image FROM projects WHERE id = ?', [$projectId]);
+        if ($image && ($path = Uploader::path('projects', $image)) !== null) { $out[] = ['name' => 'تصویر پروژه', 'size' => human_size((int) filesize($path)), 'task' => 'تصویر پروژه؛ مربوط به تسک نیست', 'url' => null]; }
+        return $out;
+    }
+
     public static function visible(int $uid): array
     {
         $rows = DB::all("SELECT p.id, p.pid, p.title FROM projects p WHERE p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?) OR EXISTS (SELECT 1 FROM users a WHERE a.id = ? AND a.role = 'admin')) ORDER BY p.title, p.id", [$uid, $uid, $uid]);
@@ -95,7 +150,7 @@ final class StorageQuota
         $lock = self::lockName('project', $projectId);
         self::lock($pdo, $lock);
         try {
-            DB::update('projects', ['storage_limit_mb' => $mb], 'id = ?', [$projectId]);
+            self::setUser(self::owner($projectId), $mb, true);
         } finally { self::unlock($pdo, $lock); }
     }
 
@@ -118,16 +173,18 @@ final class StorageQuota
                 $projectLock = self::lockName('project', $projectId);
                 self::lock($pdo, $projectLock);
             }
+            if ($projectId === null && $type === 'projects') { $projectLock = self::lockName('owner', $uid); self::lock($pdo, $projectLock); }
             $path = Uploader::path($type, $name);
             if ($path === null) { return ErrorText::apply(self::BUSY); }
             clearstatcache(true, $path);
             $size = filesize($path);
             if ($size === false || $size <= 0) { return ErrorText::apply(self::BUSY); }
+            if ($projectId === null && $type === 'projects') { $mb = self::ownerLimit($pdo, $uid); if (!self::fits(self::sharedUsed($pdo, $uid), $size, $mb === null ? null : $mb * self::MB)) { return ErrorText::apply(self::FULL); } }
             if ($projectId !== null) {
                 $p = self::query($pdo, 'SELECT storage_limit_mb FROM projects WHERE id = ?', [$projectId])->fetch();
                 if (!$p) { return ErrorText::apply(self::BUSY); }
-                $limit = $p['storage_limit_mb'] === null ? null : (int) $p['storage_limit_mb'] * self::MB;
-                if (!self::fits(self::sum($pdo, $projectId), $size, $limit)) { return ErrorText::apply(self::FULL); }
+                $limit = ($mb = self::ownerLimit($pdo, self::owner($projectId))) === null ? null : $mb * self::MB;
+                if (!self::fits(self::sharedUsed($pdo, self::owner($projectId)), $size, $limit)) { return ErrorText::apply(self::FULL); }
             }
             self::query($pdo, 'INSERT INTO storage_files (user_id, project_id, directory, file_name, bytes) VALUES (?, ?, ?, ?, ?)', [$uid, $projectId, $type, $name, $size]);
             \App\Core\AdminLog::inserted('storage_files', (int) $pdo->lastInsertId(), ['id' => (int) $pdo->lastInsertId(), 'user_id' => $uid, 'project_id' => $projectId, 'directory' => $type, 'file_name' => $name, 'bytes' => $size]);
@@ -170,8 +227,9 @@ final class StorageQuota
             }
             $p = self::query($pdo, 'SELECT storage_limit_mb FROM projects WHERE id = ?', [$target])->fetch();
             if (!$p) { return ErrorText::apply(self::BUSY); }
-            $limit = $p['storage_limit_mb'] === null ? null : (int) $p['storage_limit_mb'] * self::MB;
-            if ($incoming > 0 && !self::fits(self::sum($pdo, $target), $incoming, $limit)) { return ErrorText::apply(self::FULL); }
+            $limit = ($mb = self::ownerLimit($pdo, self::owner($target))) === null ? null : $mb * self::MB;
+            if (self::owner($source) === self::owner($target)) { $incoming = 0; }
+            if ($incoming > 0 && !self::fits(self::sharedUsed($pdo, self::owner($target)), $incoming, $limit)) { return ErrorText::apply(self::FULL); }
             $nested = DB::pdo()->inTransaction();
             DB::transaction(static function () use ($files, $taskId, $target, $changes): void {
                 foreach ($files as $f) { DB::update('storage_files', ['project_id' => $target], 'id = ?', [(int) $f['id']]); }
