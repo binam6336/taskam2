@@ -2,7 +2,7 @@
 
 This file provides repository instructions for OpenAI Codex. These instructions apply to the repository root and all subdirectories unless a more specific AGENTS.md provides additional guidance.
 
-Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RTL) task/team management panel: plain PHP MVC, no Composer, no build step, no frameworks, with focused PHP and JavaScript regression tests. UI text, comments and commit discussion with the user are in Persian.
+Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RTL) task/team management panel: Laravel 12 user panel/API (`laravel/`, Composer, PHP 8.2+), legacy MVC admin (`app/`), no frontend build step, with focused PHP and JavaScript regression tests. UI text, comments and commit discussion with the user are in Persian.
 
 ## نسخه‌گذاری (الزامی در هر کامیت)
 - نسخه‌ی فعلی برنامه در فایل `VERSION` است (Semantic Versioning: MAJOR.MINOR.PATCH).
@@ -24,7 +24,7 @@ Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RT
 - حتی اگر فقط رفتار یا فلوی یک ستون در کد عوض شود (بدون تغییر ساختار)، توضیحش در `describe.py` اصلاح و PDF دوباره ساخته شود.
 
 ## Running locally
-- Requirements: PHP 7.4+ (8.2 recommended) with `pdo_mysql`, `mbstring`, `fileinfo`, `gd` (+ `openssl` for Web Push); MySQL 5.7+/MariaDB 10.3+.
+- Requirements: PHP 8.2+ and Composer (`composer install --working-dir=laravel --no-dev --prefer-dist`) with `pdo_mysql`, `mbstring`, `fileinfo`, `gd` (+ `openssl` for Web Push); MySQL 5.7+/MariaDB 10.3+.
 - Setup: `cp .env.example .env` (fill `DB_*`, `APP_KEY`), create DB `utf8mb4_unicode_ci`, `mysql taskam < database/schema.sql`, `php bin/create-admin.php 09120000000 "مدیر" "سیستم"`.
 - Demo load data (test DB only): `php bin/seed-demo.php --yes` builds a 30-person company over ~6 months (manager 09991867331, 5 team projects marked `[داده‌ی نمونه]` in the description, demo users `0999100xxxx` / `Demo12345`, 700 tasks with full delivery/review lifecycle, events, notes); `--tasks=N --days=N --seed=N`; `--clean --yes` removes it. `php bin/export-demo-sql.php > demo-data.sql` exports it as an id-independent SQL file (users matched by mobile via INSERT IGNORE, LAST_INSERT_ID links; deletes previous demo data first) for phpMyAdmin import on a 7.12+ schema (labels carry `project_id`). Inserts directly (no notifications); keep it in sync when task lifecycle columns change.
 - Source zip for sharing: `sh bin/package.sh` (git archive; never zip the working dir). Migrations without web ALTER rights: `SCHEMA_AUTO=false` + `php bin/migrate.php` (prints each step, re-applies when `Schema::missing()` finds absent columns even if the flag file exists; `--force` ignores flags). Schema errors go to `storage/logs/database/` + `storage/cache/schema-errors.json` (shown in PanelDocs); a PDO «unknown column/table» error deletes the schema flag so the next web request re-runs `Schema::ensure`.
@@ -33,7 +33,9 @@ Karlix (کارلیکس; renamed from Taskam/تسکام in v7.5) is a Persian (RT
 - Never commit `.env` or `storage/vapid.json`.
 
 ## Architecture
-Request flow: `public/index.php` → `App::run()` (security headers, session) → `Router` (routes in `config/routes.php`, middleware groups `guest`, `auth`, `authany`, `panel`, `admin`, `csrf` (automatic for web POST), `api`) → Controller → Service → Model → View or JSON. See `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/DEPLOY.md`.
+User/API flow: `public/index.php` → shared security/Session/PID → Laravel Kernel/Router (`laravel/routes/`) → native middleware/FormRequest → `laravel/app/Http/Controllers` → `laravel/app/Services` → `Repositories`/Database Manager or Eloquent → `resources/views`/Laravel Response. `USER_ROUTER=legacy` is an explicit rollback only. Shared admin infrastructure (session, encryption, PID, audit) is intentionally preserved; never run Laravel schema migrations. See `docs/migration/laravel.md`. Active user changes belong in `laravel/`; mirror only changes actually needed by legacy admin/rollback.
+
+Admin/rollback request flow: `public/index.php` → `App::run()` (security headers, session) → `Router` (routes in `config/routes.php`, middleware groups `guest`, `auth`, `authany`, `panel`, `admin`, `csrf` (automatic for web POST), `api`) → Controller → Service → Model → View or JSON. See `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/DEPLOY.md`.
 
 - **Services are shared by the web panel and the REST API** (`app/Controllers/Api/V1/*`). Business rules live once in a Service and return `['ok','message','code','http','data']` (`res(...)`); web controllers call `$this->respond(...)` (JSON for AJAX, flash+redirect otherwise), API controllers map via `ApiController::fromService` (http 422 → 400).
 - **`app/Services/Access.php`** is the single place for permission decisions (creator / assignee / project member perms, task perms, board perms). Don't re-implement checks in controllers.

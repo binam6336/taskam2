@@ -1,0 +1,471 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers;
+
+use KarlixLaravel\Http\Controllers\Controller;
+use KarlixLaravel\Database\DB;
+use App\Core\Jalali;
+use App\Core\Throttle;
+use KarlixLaravel\Files\Uploader;
+use KarlixLaravel\Repositories\ChatModel;
+use KarlixLaravel\Repositories\UserModel;
+
+final class ChatController extends Controller
+{
+    public function index()
+    {
+        $this->view('chat/index', ['me' => $this->uid()], ['title' => 'گفتگو', 'page' => 'chat', 'bodyClass' => 'page-chat']);
+    }
+
+    /**
+     * شناسه‌ی عمومی در همه‌ی خروجی‌های گفتگو (v5.0): «id» هر پیام (آرایه‌ای که sender_id دارد یا زیر کلید message) → pid پیام؛
+     * کلیدهای users (فهرست حضور و تعداد خوانده‌نشده) → pid کاربر؛ بقیه‌ی *_id ها را Pid::out خودش عوض می‌کند.
+     */
+    protected function json(array $data, int $status = 200)
+    {
+        foreach (['users', 'counts'] as $k) {
+            if (isset($data[$k]) && (is_array($data[$k]) || is_object($data[$k]))) {
+                $m = [];
+                foreach ((array) $data[$k] as $uidKey => $v) {
+                    $m[is_int($uidKey) ? pid('users', $uidKey) : $uidKey] = $v;
+                }
+                $data[$k] = (object) $m;
+            }
+        }
+        parent::json(self::pubMsg($data), $status);
+    }
+
+    private static function pubMsg(array $a, bool $isMsg = false): array
+    {
+        if (($isMsg || array_key_exists('sender_id', $a)) && isset($a['id']) && (is_int($a['id']) || ctype_digit((string) $a['id']))) {
+            $a['id'] = pid('chat_messages', $a['id']);
+        }
+        foreach ($a as $k => $v) {
+            if (is_array($v)) {
+                $a[$k] = self::pubMsg($v, in_array($k, ['message', 'last_message'], true));
+            }
+        }
+        return $a;
+    }
+
+    private function touch(int $uid): void
+    {
+        UserModel::touchSeen($uid);
+    }
+
+    private function isBot(int $id): bool
+    {
+        return (bool) DB::value('SELECT is_bot FROM users WHERE id = ?', [$id]);
+    }
+
+    /** ضد اسپم: حداکثر ۶۰ پیام (متن/فایل/بازارسال) در دقیقه برای هر کاربر */
+    private function throttleSend(int $uid): void
+    {
+        if (!Throttle::attempt('chat_send', (string) $uid, 60, 60)) {
+            $this->fail('ارسال پیام بیش از حد سریع است؛ چند ثانیه صبر کنید.', 429);
+        }
+    }
+
+    private const NEW_CHAT_KEY = '_chat_new';
+
+    /** هر نوع ارتباط گفتگو (برای وضعیت آنلاین/خواندن): گفتگوی آزاد، درخواست گفتگو در هر جهت، یا کاربری که همین نشست با شماره پیدا کرده */
+    private function canTalk(int $uid, int $other): bool
+    {
+        if (ChatModel::canChat($uid, $other)) {
+            return true;
+        }
+        if (\KarlixLaravel\Services\Access::isBlockedBetween($uid, $other)) {
+            return false;
+        }
+        return ChatModel::requestState($uid, $other) !== 'none' || $this->foundByMobile($other);
+    }
+
+    private function foundByMobile(int $other): bool
+    {
+        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
+        return is_array($ids) && in_array($other, $ids, true);
+    }
+
+    /** سقف شروع گفتگوی جدید با غیرهمکاران در روز */
+    public const REQUESTS_PER_DAY = 20;
+
+    /**
+     * «پیام جدید»: پیدا کردن کاربر با شماره موبایل برای شروع گفتگو.
+     * همان قواعد جستجوی همکار: سقف ۳۰ جستجو در ۱۰ دقیقه، کاربری که «دریافت درخواست همکاری» را بسته پیدا نمی‌شود (مگر همکار باشد).
+     */
+    public function start()
+    {
+        $uid = $this->uid();
+        $mobile = \App\Core\Validate::mobile($this->request->str('mobile', 30));
+        if ($mobile === null) {
+            $this->fail('شماره موبایل نامعتبر است (۰۹xxxxxxxxx).');
+        }
+        if (!Throttle::attempt('user_lookup', (string) $uid, 30, 600)) {
+            $this->fail('تعداد جستجوها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.', 429);
+        }
+        $f = \KarlixLaravel\Services\ColleagueService::search($uid, $mobile);
+        if ($f === null) {
+            $this->fail('کاربری با این شماره پیدا نشد.', 404);
+        }
+        $u = $f['user'];
+        $id = (int) $u['id'];
+        if ($m = \KarlixLaravel\Services\Access::blockMessage($uid, $id)) {
+            $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
+        }
+        $ids = \App\Core\Session::get(self::NEW_CHAT_KEY, []);
+        $ids = array_slice(array_values(array_unique(array_merge(is_array($ids) ? $ids : [], [$id]))), -20);
+        \App\Core\Session::put(self::NEW_CHAT_KEY, $ids);
+        $this->json(['status' => 'success', 'contact' => [
+            'user_id' => $id, 'first_name' => $u['first_name'], 'last_name' => $u['last_name'], 'mobile' => $mobile,
+            'avatar_url' => avatar_url($u['avatar']), 'is_bot' => false, 'is_blocked_by_me' => false, 'has_blocked_me' => false, 'unread_count' => 0,
+            'chat_request' => ChatModel::canChat($uid, $id) ? null : ChatModel::requestState($uid, $id),
+        ]]);
+    }
+
+    /**
+     * بررسی گیرنده؛ برمی‌گرداند: free = گفتگوی آزاد، request = پیام اول به غیرهمکار (درخواست گفتگو)،
+     * accept = پاسخ به درخواست گفتگوی طرف مقابل (یعنی پذیرفتن آن).
+     * $first: این ارسال می‌تواند «پیام اول» باشد (فقط متن ساده؛ فایل و بازارسال فقط در گفتگوی پذیرفته‌شده).
+     */
+    private function assertReceiver(int $uid, int $rid, bool $first = false): string
+    {
+        if ($rid <= 0) {
+            $this->fail('اطلاعات ناقص');
+        }
+        if ($this->isBot($rid)) {
+            $this->fail('این حساب ربات اطلاع‌رسانی است و امکان ارسال پیام به آن وجود ندارد');
+        }
+        if ($m = \KarlixLaravel\Services\Access::blockMessage($uid, $rid)) {
+            $this->fail($m . ' امکان ارسال پیام وجود ندارد.', 403);
+        }
+        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active'", [$rid])) {
+            $this->fail('امکان ارسال پیام وجود ندارد', 403);
+        }
+        if ($uid === $rid || ChatModel::canChat($uid, $rid)) {
+            return 'free';
+        }
+        $state = ChatModel::requestState($uid, $rid);
+        if ($state === 'received') {
+            return 'accept';
+        }
+        if ($state === 'sent') {
+            $this->fail('پیام اول شما ارسال شده است؛ تا وقتی این کاربر درخواست گفتگو را نپذیرد، امکان ارسال پیام دیگری ندارید.', 403);
+        }
+        if (!$this->foundByMobile($rid)) {
+            $this->fail('امکان ارسال پیام وجود ندارد', 403);
+        }
+        if (!$first) {
+            $this->fail('به کسی که همکار شما نیست فقط یک پیام متنی می‌توانید بفرستید؛ فایل و بازارسال بعد از پذیرفتن گفتگو ممکن است.', 403);
+        }
+        if (!Throttle::attempt('chat_request', (string) $uid, self::REQUESTS_PER_DAY, 86400)) {
+            $this->fail('تعداد گفتگوهای جدید امروز به سقف رسیده است؛ فردا دوباره تلاش کنید.', 429);
+        }
+        return 'request';
+    }
+
+    /** پذیرفتن درخواست گفتگو (دکمه‌ی «پذیرفتن» در گفتگو) */
+    public function accept()
+    {
+        $uid = $this->uid();
+        $other = $this->request->int('user_id');
+        if ($other <= 0 || \KarlixLaravel\Services\Access::isBlockedBetween($uid, $other) || !ChatModel::acceptRequest($uid, $other)) {
+            $this->fail('درخواست گفتگو یافت نشد.', 404);
+        }
+        $this->json(['status' => 'success', 'message' => 'گفتگو پذیرفته شد؛ حالا می‌توانید با هم پیام بدهید.']);
+    }
+
+    public function time()
+    {
+        $this->json(['status' => 'success'] + Jalali::nowInfo());
+    }
+
+    public function send()
+    {
+        $uid = $this->uid();
+        $rid = $this->request->int('receiver_id');
+        $msg = $this->request->str('message', 2000);
+        if ($msg === '') {
+            $this->fail('اطلاعات ناقص');
+        }
+        $mode = $this->assertReceiver($uid, $rid, true);
+        $this->throttleSend($uid);
+        $this->touch($uid);
+        $saved = $uid === $rid;
+        $id = ChatModel::create($uid, $rid, $msg);
+        if ($mode === 'request') {
+            ChatModel::createRequest($uid, $rid);           // تا پذیرفتن گیرنده، پیام دیگری ممکن نیست
+        } elseif ($mode === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);           // پاسخ دادن = پذیرفتن گفتگو
+        }
+        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => null, 'attachment_name' => null, 'attachment_size' => null, 'attachment_type' => null, 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s'), 'ts' => time()]]);
+    }
+
+    public function sendFile()
+    {
+        $uid = $this->uid();
+        $rid = $this->request->int('receiver_id');
+        if ($this->assertReceiver($uid, $rid) === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);
+        }
+        $this->throttleSend($uid);
+        $f = $this->request->file('attachment');
+        if ($f === null) {
+            $this->fail('فایلی انتخاب نشده است.');
+        }
+        $r = Uploader::saveAttachment($f, 'chat_files', 'chat' . $uid, Uploader::CHAT_TYPES, max(1, (int) env('CHAT_FILE_MAX_MB', 20)) * 1024 * 1024, $uid);
+        if (!$r['ok']) {
+            $this->fail($r['error']);
+        }
+        $msg = $this->request->str('message', 2000);
+        $this->touch($uid);
+        $saved = $uid === $rid;
+        $id = ChatModel::create($uid, $rid, $msg, ['attachment' => $r['name'], 'attachment_name' => $r['original'], 'attachment_size' => $r['size'], 'attachment_type' => $r['ext']]);
+        $this->json(['status' => 'success', 'message' => ['id' => $id, 'sender_id' => $uid, 'receiver_id' => $rid, 'message' => $msg, 'attachment' => $r['name'], 'attachment_name' => $r['original'], 'attachment_size' => $r['size'], 'attachment_type' => $r['ext'], 'is_read' => $saved ? 1 : 0, 'is_edited' => 0, 'created_at' => date('Y-m-d H:i:s'), 'ts' => time()]]);
+    }
+
+    public function fetch()
+    {
+        $uid = $this->uid();
+        $r = $this->request;
+        $other = (int) ($r->query['user_id'] ?? 0);
+        if ($other <= 0) {
+            $this->fail('شناسه نامعتبر');
+        }
+        // بعد از مسدودی، پیام‌های قبلی همچنان قابل خواندن است (فقط ارسال بسته است)
+        if (!$this->canTalk($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
+            $this->fail('دسترسی ندارید', 403);
+        }
+        $this->touch($uid);
+        // GET است؛ «خوانده‌شده» فقط برای درخواست خود برنامه (با توکن CSRF) ثبت می‌شود، نه لینک از سایت دیگر
+        if ($other !== $uid && \App\Core\Csrf::verify($r)) {
+            ChatModel::markRead($uid, $other);
+        }
+        $limit = max(5, min(100, (int) ($r->query['limit'] ?? 30)));
+        $mode = (string) ($r->query['mode'] ?? 'initial');
+        $mid = static fn(string $k) => (int) \App\Core\Pid::id('chat_messages', (string) ($r->query[$k] ?? ''));
+        $res = ChatModel::fetch($uid, $other, $mode, $mid('before_id'), $mid('after_id'), $mid('target_id'), $limit);
+        $this->json(['status' => 'success'] + $res + ['mode' => $mode]);
+    }
+
+    public function search()
+    {
+        $this->rateLimit('chat_search', 10);                    // جستجو در پیام‌های رمزشده سنگین است
+        $uid = $this->uid();
+        $q = mb_substr(trim((string) ($this->request->query['q'] ?? '')), 0, 100);
+        if (mb_strlen($q) < 2) {
+            $this->fail('حداقل ۲ کاراکتر وارد کنید');
+        }
+        $scope = ($this->request->query['scope'] ?? 'all') === 'conversation' ? 'conversation' : 'all';
+        $other = (int) ($this->request->query['user_id'] ?? 0);
+        $limit = max(10, min(200, (int) ($this->request->query['limit'] ?? 60)));
+        $rows = ChatModel::search($uid, $q, $scope, $other, $limit);
+        $this->json(['status' => 'success', 'query' => $q, 'scope' => $scope, 'count' => count($rows), 'results' => $rows]);
+    }
+
+    public function contacts()
+    {
+        $this->json(['status' => 'success', 'list' => ChatModel::contacts($this->uid())]);
+    }
+
+    public function unreadCounts()
+    {
+        $this->json(['status' => 'success', 'counts' => (object) ChatModel::unreadCounts($this->uid())]);
+    }
+
+    public function totalUnread()
+    {
+        $this->json(['status' => 'success', 'total' => ChatModel::totalUnread($this->uid())]);
+    }
+
+    public function markRead()
+    {
+        $other = $this->request->int('user_id');
+        if ($other <= 0) {
+            $this->fail('شناسه نامعتبر');
+        }
+        $this->json(['status' => 'success', 'affected' => ChatModel::markRead($this->uid(), $other)]);
+    }
+
+    private function ownWithinWindow(int $uid, int $msgId): array
+    {
+        $m = DB::one('SELECT * FROM chat_messages WHERE id = ? AND sender_id = ?', [$msgId, $uid]);
+        if ($m === null) {
+            $this->fail('پیام یافت نشد', 404);
+        }
+        $age = time() - (int) strtotime((string) $m['created_at']);
+        if ($age > ChatModel::EDIT_WINDOW) {
+            $this->fail('مهلت ۱ ساعته ویرایش/حذف این پیام به پایان رسیده است', 422, ['remaining' => 0]);
+        }
+        return $m;
+    }
+
+    public function edit()
+    {
+        $uid = $this->uid();
+        $id = $this->request->int('message_id');
+        $text = $this->request->str('message', 2000);
+        if ($id <= 0) {
+            $this->fail('شناسه پیام نامعتبر');
+        }
+        if ($text === '') {
+            $this->fail('متن پیام نمی‌تواند خالی باشد');
+        }
+        $m = $this->ownWithinWindow($uid, $id);
+        if (!empty($m['attachment'])) {
+            $this->fail('پیام‌های دارای فایل قابل ویرایش نیستند');
+        }
+        if (!empty($m['forwarded_from'])) {
+            $this->fail('پیام بازارسال‌شده قابل ویرایش نیست');
+        }
+        $current = (string) ChatModel::open($m['message'], (int) $m['sender_id'], (int) $m['receiver_id']);
+        if (trim($current) === $text) {
+            $this->json(['status' => 'success', 'message' => ['id' => $id, 'message' => $text, 'is_edited' => (int) $m['is_edited'], 'edited_at' => null, 'unchanged' => true]]);
+        }
+        DB::run('UPDATE chat_messages SET message = ?, is_edited = 1, edited_at = NOW() WHERE id = ? AND sender_id = ?', [(string) ChatModel::seal($text, (int) $m['sender_id'], (int) $m['receiver_id']), $id, $uid]);
+        $u = DB::one('SELECT id, is_edited, edited_at FROM chat_messages WHERE id = ?', [$id]);
+        $this->json(['status' => 'success', 'message' => ['id' => (int) $u['id'], 'message' => $text, 'is_edited' => (int) $u['is_edited'], 'edited_at' => $u['edited_at']]]);
+    }
+
+    /** بازارسال یک پیام (متن و فایل) به گفتگوی دیگر؛ فایل کپی می‌شود تا حذف پیام اصلی روی آن اثر نگذارد. */
+    public function forward()
+    {
+        $uid = $this->uid();
+        $id = $this->request->int('message_id');
+        $rid = $this->request->int('receiver_id');
+        $m = DB::one('SELECT * FROM chat_messages WHERE id = ? AND (sender_id = ? OR receiver_id = ?)', [$id, $uid, $uid]);
+        if ($m === null) {
+            $this->fail('پیام یافت نشد', 404);
+        }
+        $other = (int) $m['sender_id'] === $uid ? (int) $m['receiver_id'] : (int) $m['sender_id'];
+        if ($id <= ChatModel::clearedUpTo($uid, $other)) {
+            $this->fail('پیام یافت نشد', 404);
+        }
+        if ($this->assertReceiver($uid, $rid) === 'accept') {
+            ChatModel::acceptRequest($uid, $rid);
+        }
+        $this->throttleSend($uid);
+        $m = ChatModel::normalize($m);
+        $file = ['forwarded_from' => $m['forwarded_from'] ?: $m['sender_id']];
+        if (!empty($m['attachment'])) {
+            // بازارسال فایل هم کپی جدید روی دیسک است: همان سقف تعداد و سهمیه‌ی روزانه‌ی آپلود
+            $orig = (string) ($m['attachment_name'] ?? 'فایل');
+            if (!\App\Core\Throttle::attempt('upload', (string) $uid, 60, 3600)) {
+                $this->fail($orig . ' (تعداد آپلودها زیاد است؛ کمی بعد دوباره تلاش کنید)', 429);
+            }
+            if (Uploader::usedToday($uid) + (int) $m['attachment_size'] > Uploader::dailyQuota()) {
+                $this->fail($orig . ' (سهمیه‌ی آپلود امروز شما تمام شده است)', 429);
+            }
+            $src = Uploader::path('chat_files', (string) $m['attachment']);
+            if ($src === null) {
+                $this->fail('فایل این پیام دیگر موجود نیست');
+            }
+            $name = 'chat' . $uid . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . strtolower((string) $m['attachment_type']);
+            if (!@copy($src, Uploader::dir('chat_files') . '/' . $name)) {
+                $this->fail('کپی فایل برای بازارسال ممکن نشد');
+            }
+            if (($error = Uploader::account($uid, 'chat_files', $name)) !== null) {
+                $this->fail($error);
+            }
+            $file += ['attachment' => $name, 'attachment_name' => $m['attachment_name'], 'attachment_size' => $m['attachment_size'], 'attachment_type' => $m['attachment_type']];
+        }
+        $this->touch($uid);
+        $text = (string) $m['message'];
+        $newId = ChatModel::create($uid, $rid, $text, $file);
+        $row = DB::one('SELECT * FROM chat_messages WHERE id = ?', [$newId]);
+        $this->json(['status' => 'success', 'message' => ChatModel::normalize($row), 'info' => 'پیام بازارسال شد']);
+    }
+
+    /** «حذف تاریخچه»: گفتگو فقط برای همین کاربر خالی می‌شود؛ طرف مقابل پیام‌ها را می‌بیند. */
+    public function clearHistory()
+    {
+        $uid = $this->uid();
+        $other = $this->request->int('user_id');
+        if ($other <= 0 || !ChatModel::canChat($uid, $other) && !DB::value('SELECT 1 FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) LIMIT 1', [$uid, $other, $other, $uid])) {
+            $this->fail('گفتگو یافت نشد', 404);
+        }
+        ChatModel::clearHistory($uid, $other);
+        $this->json(['status' => 'success', 'message' => 'تاریخچه‌ی این گفتگو برای شما پاک شد']);
+    }
+
+    public function heartbeat()
+    {
+        $this->touch($this->uid());
+        $this->json(['status' => 'success', 'now' => time()]);
+    }
+
+    public function userStatus()
+    {
+        $uid = $this->uid();
+        $other = (int) ($this->request->query['user_id'] ?? 0);
+        if ($other <= 0) {
+            $this->fail('شناسه نامعتبر');
+        }
+        if ($other === $uid) {
+            $this->json(['status' => 'success', 'is_saved' => true, 'is_online' => true, 'last_seen' => time(), 'last_seen_text' => null, 'last_seen_absolute' => null, 'last_seen_relative' => null, 'now' => time(), 'threshold' => ChatModel::ONLINE_THRESHOLD]);
+        }
+        $t = DB::one("SELECT is_bot, last_seen FROM users WHERE id = ? AND status = 'active'", [$other]);
+        // وضعیت آنلاین فقط برای مخاطبان (همکار یا طرف گفتگو، بدون مسدودی) — نه هر کاربری با حدس شناسه
+        if ($t === null || !$this->canTalk($uid, $other)) {
+            $this->fail('کاربر یافت نشد', 404);
+        }
+        if ((int) $t['is_bot'] === 1) {
+            $this->json(['status' => 'success', 'is_saved' => false, 'is_bot' => true, 'is_online' => false, 'last_seen' => null, 'last_seen_text' => 'ربات اطلاع‌رسانی', 'last_seen_absolute' => null, 'last_seen_relative' => null, 'now' => time(), 'threshold' => ChatModel::ONLINE_THRESHOLD]);
+        }
+        $this->json(['status' => 'success', 'is_saved' => false, 'is_bot' => false, 'now' => time(), 'threshold' => ChatModel::ONLINE_THRESHOLD] + ChatModel::presence($t['last_seen'] !== null ? (int) $t['last_seen'] : null));
+    }
+
+    public function usersStatus()
+    {
+        $uid = $this->uid();
+        $ids = array_values(array_filter(\App\Core\Pid::ids('users', array_slice(explode(',', (string) ($this->request->query['user_ids'] ?? '')), 0, 200)), static fn($i) => $i > 0 && $i !== $uid));
+        $ids = array_slice($ids, 0, 200);
+        $out = [];
+        if ($ids) {
+            $sql = "SELECT u.id, u.is_bot, u.last_seen FROM users u WHERE u.id IN (" . DB::in($ids) . ") AND u.status = 'active'
+                AND NOT EXISTS (SELECT 1 FROM colleague_blocks b WHERE (b.blocker_user_id = ? AND b.blocked_user_id = u.id) OR (b.blocker_user_id = u.id AND b.blocked_user_id = ?))
+                AND (EXISTS (SELECT 1 FROM colleagues c WHERE ((c.user_id = ? AND c.colleague_user_id = u.id) OR (c.user_id = u.id AND c.colleague_user_id = ?)) AND " . \KarlixLaravel\Services\Access::approvedSql('c') . ")
+                  OR EXISTS (SELECT 1 FROM chat_messages m WHERE (m.sender_id = ? AND m.receiver_id = u.id) OR (m.sender_id = u.id AND m.receiver_id = ?)))";
+            foreach (DB::all($sql, array_merge($ids, [$uid, $uid, $uid, $uid, $uid, $uid])) as $r) {
+                $out[(int) $r['id']] = (int) $r['is_bot'] === 1
+                    ? ['is_bot' => true, 'is_online' => false, 'last_seen' => null, 'last_seen_text' => 'ربات اطلاع‌رسانی', 'last_seen_absolute' => null, 'last_seen_relative' => null]
+                    : ['is_bot' => false] + ChatModel::presence($r['last_seen'] !== null ? (int) $r['last_seen'] : null);
+            }
+        }
+        $this->json(['status' => 'success', 'users' => (object) $out, 'now' => time(), 'threshold' => ChatModel::ONLINE_THRESHOLD]);
+    }
+
+    public function savedInfo()
+    {
+        $uid = $this->uid();
+        $this->touch($uid);
+        $last = DB::one('SELECT id, sender_id, receiver_id, message, attachment, attachment_name, attachment_type, attachment_size, created_at FROM chat_messages WHERE sender_id = ? AND receiver_id = ? ORDER BY id DESC LIMIT 1', [$uid, $uid]);
+        $total = (int) DB::value('SELECT COUNT(*) FROM chat_messages WHERE sender_id = ? AND receiver_id = ?', [$uid, $uid]);
+        if ($last) {
+            $last['id'] = (int) $last['id'];
+            $last['message'] = ChatModel::open($last['message'], (int) $last['sender_id'], (int) $last['receiver_id']);
+            $last['attachment_name'] = ChatModel::open($last['attachment_name'], (int) $last['sender_id'], (int) $last['receiver_id']);
+            unset($last['sender_id'], $last['receiver_id']);
+            $last['attachment_size'] = $last['attachment_size'] ? (int) $last['attachment_size'] : null;
+        }
+        $this->json(['status' => 'success', 'last_message' => $last ?: null, 'total_count' => $total]);
+    }
+
+    public function latestUnread()
+    {
+        $uid = $this->uid();
+        $row = DB::one('SELECT cm.sender_id, cm.receiver_id, cm.id AS message_id, cm.message, cm.attachment_name, cm.created_at, u.first_name, u.last_name, u.mobile, u.is_bot
+            FROM chat_messages cm INNER JOIN users u ON u.id = cm.sender_id
+            WHERE cm.receiver_id = ? AND cm.is_read = 0 AND cm.sender_id <> cm.receiver_id ORDER BY cm.id DESC LIMIT 1', [$uid]);
+        if ($row === null) {
+            $this->json(['status' => 'success', 'latest' => null]);
+        }
+        $row['sender_id'] = (int) $row['sender_id'];
+        $row['message_id'] = (int) $row['message_id'];
+        $row['from_name'] = full_name($row);
+        $row['message'] = preg_replace('/\[\[(task|call):[a-f0-9]+\]\]/i', '', (string) ChatModel::open($row['message'], $row['sender_id'], (int) $row['receiver_id']));
+        $row['attachment_name'] = ChatModel::open($row['attachment_name'], $row['sender_id'], (int) $row['receiver_id']);
+        unset($row['receiver_id']);
+        $this->json(['status' => 'success', 'latest' => $row]);
+    }
+}

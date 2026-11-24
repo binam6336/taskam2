@@ -54,16 +54,17 @@ final class Router
         $this->routes[] = ['path' => $full, 'method' => $method, 'regex' => '#^' . $regex . '$#u', 'handler' => $handler, 'mw' => $all];
     }
 
-    /** قرارداد مسیرها برای پل آزمایشی Laravel؛ مسیرهای ادمین در آن مصرف نمی‌شوند. */
+    /** قرارداد مسیرهای قدیمی برای بازگشت و مقایسه؛ مسیر ادمین همچنان همین‌جا اجرا می‌شود. */
     public function definitions(): array { return $this->routes; }
     private static bool $usingLaravel = false;
+    public static function laravelActive(): bool { return self::$usingLaravel; }
 
     public function dispatch(Request $req): void
     {
-        if (!self::$usingLaravel && env('USER_ROUTER', 'legacy') === 'laravel' && !preg_match('#^/admin(?:/|$)#', $req->path())) {
+        if (!self::$usingLaravel && env('USER_ROUTER', 'laravel') === 'laravel' && !preg_match('#^/admin(?:/|$)#', $req->path())) {
             self::$usingLaravel = true;
             $file = BASE_PATH . '/laravel/vendor/autoload.php';
-            if (PHP_VERSION_ID < 80200 || !is_file($file)) { throw new \RuntimeException('Laravel user router requires PHP 8.2 and composer install in laravel/'); }
+            if (PHP_VERSION_ID < 80200 || !is_file($file)) { throw new HttpException(503, 'پیش‌نیاز بک‌اند کاربری آماده نیست؛ PHP 8.2 یا بالاتر و نصب وابستگی‌های Composer در پوشه laravel لازم است.', 'LARAVEL_NOT_READY'); }
             require_once $file;
             \KarlixLaravel\Bridge::dispatch($this, $req);
             return;

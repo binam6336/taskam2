@@ -1,0 +1,189 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers;
+
+use App\Core\Audit;
+use KarlixLaravel\Auth\Authentication as Auth;
+use KarlixLaravel\Http\Controllers\Controller;
+use KarlixLaravel\Database\DB;
+use App\Core\Throttle;
+use KarlixLaravel\Files\Uploader;
+use App\Core\Validate;
+use KarlixLaravel\Repositories\TokenModel;
+use KarlixLaravel\Repositories\UserModel;
+use KarlixLaravel\Services\TaskService;
+use App\Core\DbSessionHandler;
+use App\Core\Session;
+
+final class ProfileController extends Controller
+{
+    public function index()
+    {
+        $u = $this->user();
+        $this->view('profile/index', [
+            'u' => $u,
+            'sessions' => Session::usesDb() && !\KarlixLaravel\Auth\Authentication::isImpersonating() ? DbSessionHandler::listFor((int) $u['id']) : null,
+            'stats' => [
+                'tasks' => (int) DB::value('SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND blocked_at IS NULL', [(int) $u['id']]),
+                'colleagues' => (int) DB::value('SELECT COUNT(*) FROM colleagues WHERE user_id = ?', [(int) $u['id']]),
+                'projects' => (int) DB::value('SELECT COUNT(*) FROM project_members WHERE user_id = ?', [(int) $u['id']]),
+            ],
+            'ai' => self::aiData((int) $u['id']),
+        ], ['title' => 'پروفایل', 'page' => 'profile']);
+    }
+
+    /** v7.21: مصرف هوش مصنوعی کاربر (سهمیه‌ی روزانه، ماهانه، کل) */
+    public static function aiData(int $uid): array
+    {
+        return \KarlixLaravel\Services\Karlix\Quota::status($uid) + ['features' => \KarlixLaravel\Services\Karlix\Quota::byFeature($uid), 'month' => \KarlixLaravel\Services\Karlix\Common::now()['jalali_month'], 'storage' => \KarlixLaravel\Services\StorageQuota::visible($uid)];
+    }
+
+    /** GET /profile/ai-usage — به‌روزرسانی زنده‌ی بخش «مصرف هوش مصنوعی» */
+    public function aiUsage()
+    {
+        $this->rateLimit('ai_usage_view', 60);
+        $this->ok('', ['usage' => self::aiData($this->uid())]);
+    }
+
+    public function storageFiles(string $project)
+    {
+        if (!\KarlixLaravel\Services\Access::canViewStorage((int) $project, $this->uid())) { $this->fail('اجازه‌ی مشاهده فایل‌های این پروژه را ندارید.', 403); }
+        $this->rateLimit('storage_files', 30);
+        $this->view('profile/storage_files', ['files' => \KarlixLaravel\Services\StorageQuota::files((int) $project, $this->uid())], ['title' => 'فایل‌های پروژه', 'page' => 'profile']);
+    }
+
+    public function updateInfo()
+    {
+        $this->denyImpersonation('/profile');
+        $u = $this->user();
+        $r = $this->request;
+        $first = $r->str('first_name', 100);
+        $last = $r->str('last_name', 100);
+        $email = $r->str('email', 150);
+        if (!Validate::name($first) || ($last !== '' && !Validate::name($last))) {
+            $this->respond(false, 'نام یا نام‌خانوادگی نامعتبر است.', '/profile');
+        }
+        if ($email !== '' && !Validate::email($email)) {
+            $this->respond(false, 'ایمیل نامعتبر است.', '/profile');
+        }
+        if ($email !== '' && UserModel::emailExists($email, (int) $u['id'])) {
+            $this->respond(false, 'این ایمیل قبلاً استفاده شده است.', '/profile');
+        }
+        DB::update('users', ['first_name' => $first, 'last_name' => $last, 'email' => $email !== '' ? $email : null], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'اطلاعات پروفایل ذخیره شد.', '/profile');
+    }
+
+    public function updatePassword()
+    {
+        $this->denyImpersonation('/profile');
+        $u = $this->user();
+        $r = $this->request;
+        $cur = (string) $r->input('current_password', '');
+        $new = (string) $r->input('new_password', '');
+        $conf = (string) $r->input('confirm_password', '');
+        if (!Throttle::attempt('pwd_change', (string) $u['id'], 5, 900)) {
+            $this->respond(false, 'تلاش‌های زیاد؛ چند دقیقه بعد دوباره امتحان کنید.', '/profile');
+        }
+        if (!password_verify($cur, (string) $u['password_hash'])) {
+            $this->respond(false, 'رمز عبور فعلی صحیح نیست.', '/profile');
+        }
+        if ($err = Validate::passwordError($new)) {
+            $this->respond(false, $err, '/profile');
+        }
+        if (!hash_equals($new, $conf)) {
+            $this->respond(false, 'تکرار رمز عبور جدید مطابقت ندارد.', '/profile');
+        }
+        if (hash_equals($cur, $new)) {
+            $this->respond(false, 'رمز جدید باید با رمز فعلی متفاوت باشد.', '/profile');
+        }
+        DB::update('users', ['password_hash' => Auth::hash($new)], 'id = ?', [(int) $u['id']]);
+        Auth::refreshPasswordVersion((int) $u['id']);
+        TokenModel::revokeAll((int) $u['id']);              // توکن‌های API هم باطل می‌شوند
+        Throttle::clear('pwd_change', (string) $u['id']);
+        Audit::log((int) $u['id'], 'password_changed');
+        $this->respond(true, 'رمز عبور تغییر کرد. سایر دستگاه‌ها از حساب خارج شدند و توکن‌های API حذف شدند.', '/profile');
+    }
+
+    /** خروج یک دستگاه از «نشست‌های فعال» */
+    public function revokeSession()
+    {
+        $this->denyImpersonation('/profile');
+        $ok = Session::usesDb() && DbSessionHandler::revoke($this->uid(), $this->request->str('id', 64));
+        if ($ok) {
+            Audit::log($this->uid(), 'session_revoked');
+        }
+        $this->respond($ok, $ok ? 'آن دستگاه از حساب شما خارج شد.' : 'نشست یافت نشد.', '/profile#sessions');
+    }
+
+    /** خروج همه‌ی دستگاه‌های دیگر */
+    public function revokeOtherSessions()
+    {
+        $this->denyImpersonation('/profile');
+        if (Session::usesDb()) {
+            DbSessionHandler::destroyOthers($this->uid(), session_id());
+        }
+        Audit::log($this->uid(), 'session_revoked_others');
+        $this->respond(true, 'همه‌ی دستگاه‌های دیگر از حساب شما خارج شدند.', '/profile#sessions');
+    }
+
+    public function avatar()
+    {
+        $u = $this->user();
+        $f = $this->request->file('avatar');
+        if ($f === null) {
+            $this->respond(false, 'تصویری انتخاب نشده است.', '/profile');
+        }
+        $r = Uploader::saveImage($f, 'avatars', 'av' . $u['id']);
+        if (!$r['ok']) {
+            $this->respond(false, $r['error'], '/profile');
+        }
+        Uploader::delete('avatars', $u['avatar']);
+        DB::update('users', ['avatar' => $r['name']], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تصویر پروفایل به‌روزرسانی شد.', '/profile', ['avatar_url' => avatar_url($r['name'])]);
+    }
+
+    public function removeAvatar()
+    {
+        $u = $this->user();
+        Uploader::delete('avatars', $u['avatar']);
+        DB::update('users', ['avatar' => null], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تصویر پروفایل حذف شد.', '/profile');
+    }
+
+    public function privacy()
+    {
+        $u = $this->user();
+        $r = $this->request;
+        DB::update('users', [
+            'allow_colleague_requests' => $r->input('allow_colleague_requests') ? 1 : 0,
+            'project_join_requires_approval' => $r->input('project_join_requires_approval') ? 1 : 0,
+        ], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تنظیمات حریم خصوصی ذخیره شد.', '/profile');
+    }
+
+    /** «تنظیمات ظاهری» (v7.0): تم فقط روی همین دستگاه، در کوکی kx_theme (تا v7.5: tk_theme) (یک سال)؛ در دیتابیس ذخیره نمی‌شود. */
+    public function appearance()
+    {
+        $theme = $this->request->str('theme', 20);
+        if (!isset(themes()[$theme])) {
+            $this->respond(false, 'تم انتخاب‌شده معتبر نیست.', '/profile');
+        }
+        setcookie(THEME_COOKIE, $theme, ['expires' => time() + 365 * 86400, 'path' => \App\Core\Session::cookiePath(), 'secure' => \App\Core\Session::isHttps(), 'httponly' => false, 'samesite' => 'Lax']);
+        $_COOKIE[THEME_COOKIE] = $theme;
+        $this->respond(true, 'تم «' . themes()[$theme]['title'] . '» اعمال شد.', '/profile', ['theme' => $theme]);
+    }
+
+    /** «امنیت تسک‌ها»: چه کسانی تسک‌های من را با لینک اشتراکی ببینند. */
+    public function taskSecurity()
+    {
+        $u = $this->user();
+        $v = $this->request->str('task_link_access', 20);
+        if (!array_key_exists($v, TaskService::LINK_ACCESS)) {
+            $this->respond(false, 'گزینه‌ی انتخاب‌شده معتبر نیست.', '/profile');
+        }
+        DB::update('users', ['task_link_access' => $v], 'id = ?', [(int) $u['id']]);
+        $this->respond(true, 'تنظیمات امنیت تسک‌ها ذخیره شد.', '/profile');
+    }
+
+}

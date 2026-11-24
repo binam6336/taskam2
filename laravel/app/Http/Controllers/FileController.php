@@ -1,0 +1,99 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers;
+
+use KarlixLaravel\Auth\Authentication as Auth;
+use KarlixLaravel\Http\Controllers\Controller;
+use KarlixLaravel\Database\DB;
+use KarlixLaravel\Files\Uploader;
+use KarlixLaravel\Services\TaskService;
+
+/** سرو فایل‌های آپلودی با کنترل دسترسی (فایل‌ها داخل webroot نیستند). */
+final class FileController extends Controller
+{
+    public function serve(string $type, string $name)
+    {
+        $uid = $this->uid();
+        $path = in_array($type, ['avatars', 'projects', 'task_attachments', 'note_attachments', 'chat_files', 'support_files'], true) ? Uploader::path($type, $name) : null;
+        if ($path === null) {
+            $this->abort(404, 'فایل یافت نشد.', 'NOT_FOUND');
+        }
+        if (!$this->allowed($type, basename($name), $uid)) {
+            $this->abort(403, 'دسترسی به این فایل مجاز نیست.', 'FORBIDDEN');
+        }
+        // v7.3 سرعت: نشست زودتر آزاد می‌شود تا تصویرها و درخواست‌های هم‌زمان پشت قفل نشست نمانند
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+        $img = $type === 'avatars' || $type === 'projects';
+        if ($img) {
+            Uploader::shrinkStored($path);                 // تصویر قدیمیِ بزرگ ← یک بار ۵۱۲px
+        }
+        // نام فایل‌ها تصادفی و تغییرناپذیرند (فایل تازه = نام تازه) ← کش طولانی + ETag/304
+        $mtime = (int) @filemtime($path);
+        $etag = '"' . substr(sha1(basename($path) . '|' . $mtime . '|' . (int) @filesize($path)), 0, 20) . '"';
+        if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+            header('Cache-Control: private, max-age=' . ($img ? '31536000, immutable' : '86400'));
+            header('ETag: ' . $etag);
+            http_response_code(304);
+            \KarlixLaravel\Http\Response::complete((string) ob_get_clean());
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $inline = isset(Uploader::SERVE_MIME[$ext]);
+        $mime = Uploader::SERVE_MIME[$ext] ?? 'application/octet-stream';
+        $orig = $this->originalName($type, basename($name)) ?: basename($name);
+
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+        header('Content-Type: ' . $mime);
+        header('X-Content-Type-Options: nosniff');
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox");
+        header('Content-Length: ' . (string) filesize($path));
+        header('Cache-Control: private, max-age=' . ($img ? '31536000, immutable' : '86400'));
+        header('ETag: ' . $etag);
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+        header('Content-Disposition: ' . ($inline && !isset($this->request->query['dl']) ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($orig));
+        \KarlixLaravel\Http\Response::download($path);
+    }
+
+    private function originalName(string $type, string $name): ?string
+    {
+        if ($type === 'task_attachments') {
+            return DB::value('SELECT file_name FROM task_attachments WHERE file_path = ? LIMIT 1', [$name]);
+        }
+        if ($type === 'note_attachments') {
+            return DB::value('SELECT file_name FROM note_attachments WHERE file_path = ? LIMIT 1', [$name]);
+        }
+        if ($type === 'support_files') {
+            return DB::value('SELECT attachment_name FROM support_messages WHERE attachment = ? LIMIT 1', [$name]);
+        }
+        if ($type === 'chat_files') {
+            $m = DB::one('SELECT attachment_name, sender_id, receiver_id FROM chat_messages WHERE attachment = ? LIMIT 1', [$name]);
+            return $m ? \KarlixLaravel\Repositories\ChatModel::open($m['attachment_name'], (int) $m['sender_id'], (int) $m['receiver_id']) : null;
+        }
+        return null;
+    }
+
+    private function allowed(string $type, string $name, int $uid): bool
+    {
+        switch ($type) {
+            case 'avatars':
+            case 'projects':
+                return true; // تصاویر پروفایل برای کاربران واردشده قابل مشاهده است
+            case 'chat_files':
+                return (bool) DB::value('SELECT 1 FROM chat_messages WHERE attachment = ? AND (sender_id = ? OR receiver_id = ?) LIMIT 1', [$name, $uid, $uid]);
+            case 'support_files':
+                // صاحب تیکت، یا مدیر (نه در حالت ورود به‌جای کاربر)
+                $owner = DB::value('SELECT st.user_id FROM support_messages sm INNER JOIN support_tickets st ON st.id = sm.ticket_id WHERE sm.attachment = ? LIMIT 1', [$name]);
+                return $owner !== null && ((int) $owner === $uid || (Auth::isAdmin($this->user()) && !Auth::isImpersonating()));
+            case 'task_attachments':
+                $t = DB::one('SELECT t.* FROM task_attachments a INNER JOIN tasks t ON t.id = a.task_id WHERE a.file_path = ? LIMIT 1', [$name]);
+                break;
+            default:
+                $t = DB::one('SELECT t.* FROM note_attachments a INNER JOIN task_notes n ON n.id = a.note_id INNER JOIN tasks t ON t.id = n.task_id WHERE a.file_path = ? LIMIT 1', [$name]);
+        }
+        return $t !== null && TaskService::canViewShared($t, $uid);
+    }
+}

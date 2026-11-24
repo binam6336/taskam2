@@ -21,6 +21,12 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__) . '/app/bootstrap.php';
+if (env('USER_ROUTER', 'laravel') === 'laravel') {
+    $app = require dirname(__DIR__) . '/laravel/bootstrap/app.php';
+    $arguments = array_merge([$argv[0], 'karlix:ai-worker'], array_slice($argv, 1));
+    exit($app->handleCommand(new \Symfony\Component\Console\Input\ArgvInput($arguments)));
+}
+
 
 use App\Core\DB;
 use App\Core\Log;

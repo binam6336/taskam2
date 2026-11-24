@@ -1,0 +1,98 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers\Api\V1;
+
+use KarlixLaravel\Http\Controllers\ApiController;
+use KarlixLaravel\Database\DB;
+use KarlixLaravel\Repositories\TextModel;
+
+final class TextApi extends ApiController
+{
+    private function tid(): string
+    {
+        $id = (string) ($this->request->query['id'] ?? $this->request->input('id', ''));
+        if (!preg_match('/^[A-Za-z0-9_]{1,50}$/', $id)) {
+            $this->err('پارامتر id الزامی یا نامعتبر است.', 400, 'INVALID_ID');
+        }
+        return $id;
+    }
+
+    private static function format(array $t): array
+    {
+        return ['id' => $t['id'], 'title' => $t['title'], 'content' => $t['content'], 'color' => TextModel::color($t['color'] ?? null), 'sort_order' => (int) $t['sort_order'], 'created_at' => $t['created_at'], 'updated_at' => $t['updated_at']];
+    }
+
+    public function list()
+    {
+        $q = trim((string) ($this->request->query['q'] ?? ''));
+        [$limit, $offset] = $this->paging();
+        $rows = array_slice(TextModel::forUser($this->uid, $q), $offset, $limit);
+        $this->ok(['count' => count($rows), 'limit' => $limit, 'offset' => $offset, 'query' => $q, 'texts' => array_map([self::class, 'format'], $rows)]);
+    }
+
+    public function show()
+    {
+        $t = TextModel::owned($this->tid(), $this->uid);
+        $t === null ? $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND') : $this->ok(self::format($t));
+    }
+
+    public function stats()
+    {
+        $r = DB::one('SELECT COUNT(*) total, COALESCE(SUM(DATE(created_at) = CURDATE()),0) today, COALESCE(SUM(DATE(updated_at) = CURDATE()),0) updated_today FROM texts WHERE user_id = ?', [$this->uid]) ?? [];
+        $this->ok(['total' => (int) ($r['total'] ?? 0), 'today' => (int) ($r['today'] ?? 0), 'updated_today' => (int) ($r['updated_today'] ?? 0)]);
+    }
+
+    public function create()
+    {
+        $in = $this->body();
+        $title = trim((string) ($in['title'] ?? ''));
+        $content = trim((string) ($in['content'] ?? ''));
+        if ($content === '') {
+            $this->err('متن یادداشت الزامی است.', 400, 'FIELDS_REQUIRED');
+        }
+        if (mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
+            $this->err('عنوان یا متن بیش از حد طولانی است.', 400, 'TOO_LONG');
+        }
+        if ($lim = \KarlixLaravel\Services\Limits::create('text', $this->uid)) {
+            $this->err($lim, 429, 'LIMIT_REACHED');
+        }
+        $row = TextModel::create($this->uid, $title, $content, (string) ($in['color'] ?? TextModel::DEFAULT_COLOR));
+        if (isset($in['sort_order']) && is_numeric($in['sort_order'])) {
+            DB::run('UPDATE texts SET sort_order = ? WHERE id = ? AND user_id = ?', [(int) $in['sort_order'], $row['id'], $this->uid]);
+            $row = TextModel::owned($row['id'], $this->uid) ?? $row;
+        }
+        $this->ok(self::format($row), 'یادداشت ایجاد شد.');
+    }
+
+    public function update()
+    {
+        $id = $this->tid();
+        $t = TextModel::owned($id, $this->uid);
+        if ($t === null) {
+            $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND');
+        }
+        $in = $this->body();
+        $title = trim((string) ($in['title'] ?? $t['title']));
+        $content = trim((string) ($in['content'] ?? $t['content']));
+        if ($content === '' || mb_strlen($title) > 255 || mb_strlen($content) > 20000) {
+            $this->err('عنوان یا متن نامعتبر است.', 400, 'FIELDS_INVALID');
+        }
+        $set = ['title' => $title, 'content' => $content, 'color' => isset($in['color']) ? TextModel::color((string) $in['color']) : TextModel::color($t['color'] ?? null)];
+        if (isset($in['sort_order']) && is_numeric($in['sort_order'])) {
+            $set['sort_order'] = (int) $in['sort_order'];
+        }
+        DB::update('texts', $set, 'id = ? AND user_id = ?', [$id, $this->uid]);
+        $this->ok(self::format(TextModel::owned($id, $this->uid) ?? []), 'یادداشت ویرایش شد.');
+    }
+
+    public function delete()
+    {
+        $id = $this->tid();
+        if (TextModel::owned($id, $this->uid) === null) {
+            $this->err('یادداشت یافت نشد.', 404, 'TEXT_NOT_FOUND');
+        }
+        DB::run('DELETE FROM texts WHERE id = ? AND user_id = ?', [$id, $this->uid]);
+        $this->ok(['id' => $id], 'یادداشت حذف شد.');
+    }
+}

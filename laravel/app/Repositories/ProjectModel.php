@@ -1,0 +1,104 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Repositories;
+
+use KarlixLaravel\Database\DB;
+use KarlixLaravel\Services\Access;
+
+final class ProjectModel
+{
+    public static function find(int $id): ?array
+    {
+        return DB::one('SELECT p.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name FROM projects p INNER JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$id]);
+    }
+
+    /** پروژه‌هایی که کاربر سازنده یا عضو آن‌هاست. */
+    public static function forUser(int $uid, string $q = '', string $role = 'all', int $limit = 200, int $offset = 0): array
+    {
+        $w = '(p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) AND p.blocked_at IS NULL';   // مسدودشده‌ها فقط در «پروژه‌های مسدودشده»
+        $p = [$uid, $uid];
+        if ($q !== '') {
+            [$qs, $qp] = \App\Core\Search::sql(['p.title'], $q);         // v5.14: یکسان‌سازی + هر کلمه
+            $w .= ' AND ' . $qs;
+            $p = array_merge($p, $qp);
+        }
+        if ($role === 'creator') {
+            $w .= ' AND p.user_id = ?';
+            $p[] = $uid;
+        } elseif ($role === 'member') {
+            $w .= ' AND p.user_id <> ?';
+            $p[] = $uid;
+        }
+        $rows = DB::all("SELECT p.*,
+              (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS members_count,
+              (SELECT COUNT(*) FROM project_blocks pb WHERE pb.project_id = p.id AND pb.user_id = ?) AS is_blocked_by_me,
+              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL) AS tasks_count,
+              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_completed = 1 AND t.blocked_at IS NULL) AS tasks_done,
+              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.blocked_at IS NULL AND " . TaskModel::WAITING . ") AS tasks_review,
+              (SELECT permissions FROM project_members pm2 WHERE pm2.project_id = p.id AND pm2.user_id = ? LIMIT 1) AS my_permissions,
+              (SELECT task_permissions FROM project_members pm3 WHERE pm3.project_id = p.id AND pm3.user_id = ? LIMIT 1) AS my_task_permissions,
+              (SELECT board_permissions FROM project_members pm4 WHERE pm4.project_id = p.id AND pm4.user_id = ? LIMIT 1) AS my_board_permissions,
+              (SELECT board_view_users FROM project_members pm5 WHERE pm5.project_id = p.id AND pm5.user_id = ? LIMIT 1) AS my_board_view_users
+            FROM projects p WHERE $w ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?", array_merge([$uid, $uid, $uid, $uid, $uid], $p, [$limit, $offset]));
+        foreach ($rows as &$r) {
+            $r['is_creator'] = (int) $r['user_id'] === $uid;
+            $r['perms'] = $r['is_creator'] ? array_keys(Access::PROJECT_PERMS) : Access::decode($r['my_permissions'], array_keys(Access::PROJECT_PERMS));
+            $r['task_perms'] = $r['is_creator'] ? array_keys(Access::TASK_PERMS) : Access::decode($r['my_task_permissions'], array_keys(Access::TASK_PERMS));
+            $r['board_perms'] = $r['is_creator'] ? array_keys(Access::BOARD_PERMS) : Access::decode($r['my_board_permissions'], array_keys(Access::BOARD_PERMS));
+            $r['board_view'] = Access::boardViewScope((int) $r['id'], $uid);      // null = همه
+            // نقش من در این پروژه (برچسب روی کارت پروژه)
+            $r['my_role'] = $r['is_creator'] ? 'creator' : Access::memberRole(['permissions' => $r['my_permissions'], 'task_permissions' => $r['my_task_permissions'],
+                'board_permissions' => $r['my_board_permissions'], 'board_view_users' => $r['my_board_view_users']]);
+        }
+        return $rows;
+    }
+
+    public static function members(int $projectId): array
+    {
+        return DB::all('SELECT pm.id AS member_row_id, pm.user_id, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits, pm.weekly_capacity, pm.added_at, u.first_name, u.last_name, u.mobile, u.email, u.avatar, u.status AS user_status
+            FROM project_members pm INNER JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? ORDER BY pm.added_at ASC, pm.id ASC', [$projectId]);
+    }
+
+    public static function pendingRequestsFor(int $uid): array
+    {
+        return DB::all("SELECT r.id, r.project_id, r.created_at, p.title, p.profile_image, p.description, u.first_name, u.last_name, u.mobile
+            FROM project_join_requests r INNER JOIN projects p ON p.id = r.project_id INNER JOIN users u ON u.id = r.invited_by
+            WHERE r.user_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC", [$uid]);
+    }
+
+    public static function pendingUserIds(int $projectId): array
+    {
+        return array_map('intval', DB::column("SELECT user_id FROM project_join_requests WHERE project_id = ? AND status = 'pending'", [$projectId]));
+    }
+
+    public static function leaveHistory(int $uid): array
+    {
+        return DB::all('SELECT * FROM project_leave_history WHERE user_id = ? ORDER BY left_at DESC LIMIT 50', [$uid]);
+    }
+
+    /** آمار تحلیل پروژه. */
+    /** @param int $viewer بیننده‌ی صفحه: تسک‌های محرمانه‌ای که نمی‌بیند در «تسک‌های اخیر» نمی‌آیند */
+    public static function analytics(int $projectId, int $viewer = 0): array
+    {
+        // v7.7: «عقب‌افتاده» = TaskModel::OVERDUE (منتظر تأیید شمرده نمی‌شود، DATA-001)؛ میانگین زمان انجام از TaskAnalytics::durations (DATA-004)
+        $totals = DB::one("SELECT COUNT(*) total, COALESCE(SUM(t.is_completed = 1),0) done, COALESCE(SUM(t.is_completed = 0),0) open,
+              COALESCE(SUM(" . TaskModel::WAITING . "),0) review,
+              COALESCE(SUM(t.is_completed = 0 AND " . TaskModel::OVERDUE . "),0) overdue,
+              COALESCE(SUM(t.priority='high'),0) high, COALESCE(SUM(t.priority='medium'),0) medium, COALESCE(SUM(t.priority='low'),0) low
+            FROM tasks t WHERE t.project_id = ? AND t.blocked_at IS NULL", [$projectId]) ?? [];
+        $created = array_column(DB::all('SELECT DATE(created_at) d, COUNT(*) c FROM tasks WHERE project_id = ? AND blocked_at IS NULL AND created_at >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(created_at)', [$projectId]), 'c', 'd');
+        // «تحویل‌شده در هر روز» = اولین تحویل برای بررسی (همان مبنای KPI)؛ تسک‌های بی‌بورد قدیمی: زمان تکمیل
+        $finished = array_column(DB::all("SELECT DATE(x) d, COUNT(*) c FROM (SELECT COALESCE(first_delivered_at, CASE WHEN is_completed = 1 OR board_status = 'review' THEN COALESCE(delivered_at, completed_at) END) x FROM tasks
+            WHERE project_id = ? AND blocked_at IS NULL) q WHERE x >= (CURDATE() - INTERVAL 13 DAY) GROUP BY DATE(x)", [$projectId]), 'c', 'd');
+        $trend = ['labels' => [], 'created' => [], 'done' => []];
+        for ($i = 13; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-$i days"));
+            $trend['labels'][] = \App\Core\Jalali::md($d);
+            $trend['created'][] = (int) ($created[$d] ?? 0);
+            $trend['done'][] = (int) ($finished[$d] ?? 0);
+        }
+        $recent = DB::all('SELECT t.id, t.title, t.is_completed, t.priority, t.due_date, t.created_at, u.first_name, u.last_name, u.mobile FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id = ? AND t.blocked_at IS NULL' . ($viewer > 0 ? ' AND ' . TaskModel::confidentialSql($viewer) : '') . ' ORDER BY t.created_at DESC LIMIT 8', [$projectId]);
+        return ['totals' => array_map(static fn($v) => $v === null ? 0 : (float) $v, $totals), 'trend' => $trend, 'recent' => $recent];
+    }
+}

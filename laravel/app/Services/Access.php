@@ -1,0 +1,479 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Services;
+
+use KarlixLaravel\Database\DB;
+
+/**
+ * قوانین دسترسی مشترک بین وب و API (تنها منبع حقیقت).
+ *
+ * تسک‌ها (از v3.0 دسترسی به ازای هر پروژه است، نه همکار):
+ *  - سازنده‌ی تسک و سازنده‌ی پروژه‌ی آن: همه‌ی دسترسی‌ها
+ *  - عضو پروژه: فقط دسترسی‌هایی که در همان پروژه برایش فعال شده (project_members.task_permissions؛ پیش‌فرض هیچ)
+ *  - مسئول تسک: مشاهده (+ دسترسی‌های عضویتش در پروژه)
+ */
+final class Access
+{
+    /** دسترسی‌های قابل اعطا روی تسک‌های یک پروژه */
+    public const TASK_PERMS = [
+        'edit_info' => ['label' => 'ویرایش اطلاعات تسک', 'icon' => 'fa-pen', 'desc' => 'فقط عنوان، توضیحات و فایل‌های پیوست'],
+        'edit_due'  => ['label' => 'ویرایش زمان انجام', 'icon' => 'fa-calendar-days', 'desc' => 'تغییر تاریخ و ساعت انجام (سررسید) و تنظیمات تکرار خودکار'],
+        'reassign'  => ['label' => 'تغییر مسئول', 'icon' => 'fa-user-group', 'desc' => 'تغییر مسئول انجام تسک'],
+        'notes'     => ['label' => 'نوشتن یادداشت', 'icon' => 'fa-comment-dots', 'desc' => 'ثبت یادداشت و گزارش پیشرفت'],
+        'complete'  => ['label' => 'تکمیل تسک', 'icon' => 'fa-circle-check', 'desc' => 'تغییر وضعیت تسک به تکمیل‌شده'],
+        'block'     => ['label' => 'مسدود کردن تسک', 'icon' => 'fa-ban', 'desc' => 'مسدود کردن تسک (به‌جای حذف؛ تسک از فهرست‌ها کنار می‌رود) و رفع مسدودی آن'],
+    ];
+    /** کارهایی که فقط سازنده‌ی تسک/پروژه انجام می‌دهد (مجوز جدا ندارند) */
+    public const TASK_OWNER_ONLY = ['edit_meta', 'change_project'];
+
+    /**
+     * دسترسی بورد پروژه (v6.1): یک گزینه — «تغییر وضعیت» یعنی جابه‌جایی کارت بین همه‌ی ستون‌های بورد آن پروژه (بدون ترتیب مرحله‌ای).
+     * تأیید و بستن (بررسی سرپرست ← انجام‌شده)، برگرداندن برای اصلاح (← بازبینی مسئول) و بازکردن تسک انجام‌شده
+     * فقط با مجوز تسکِ «تکمیل تسک» (complete) است، مستقل از این گزینه.
+     * دیدن کارت‌ها جداست: project_members.board_view_users («همه» یا اعضای انتخاب‌شده؛ سازنده‌ی پروژه = همه).
+     */
+    public const BOARD_PERMS = [
+        'change_status' => ['label' => 'تغییر وضعیت در بورد', 'icon' => 'fa-arrows-left-right', 'desc' => 'جابه‌جایی کارت بین همه‌ی ستون‌های بورد پروژه (آزاد، بدون ترتیب مرحله‌ای). تأیید و بستن، برگرداندن برای اصلاح و بازکردن تسک انجام‌شده مجوز «تکمیل تسک» می‌خواهد.'],
+    ];
+    /** کلیدهای قدیمی (تا v6.0) که معادل change_status خوانده می‌شوند */
+    private const LEGACY_BOARD = ['to_todo', 'to_progress', 'to_review', 'to_done', 'move_back', 'move_any'];
+
+    public const PROJECT_PERMS = [
+        'edit_project'       => ['label' => 'ویرایش پروژه', 'icon' => 'fa-pen', 'desc' => 'ویرایش نام، توضیحات، تصویر و تنظیمات'],
+        'add_member'         => ['label' => 'افزودن کاربر', 'icon' => 'fa-user-plus', 'desc' => 'افزودن همکاران جدید به پروژه'],
+        'remove_member'      => ['label' => 'خارج کردن کاربر', 'icon' => 'fa-user-minus', 'desc' => 'خارج کردن اعضای فعلی از پروژه (عضو حذف نمی‌شود؛ تسک‌ها و سابقه‌اش می‌ماند)'],
+        'manage_permissions' => ['label' => 'اعطای دسترسی', 'icon' => 'fa-key', 'desc' => 'تغییر دسترسی سایر اعضا (فقط مجوزهایی که خودتان دارید)'],
+        'view_storage'       => ['label' => 'مشاهده فضای ذخیره‌سازی', 'icon' => 'fa-hard-drive', 'desc' => 'مشاهده مصرف و سقف فضای این پروژه در بخش میزان مصرف؛ تغییر سقف فقط در پنل مدیر'],
+        'view_analytics'     => ['label' => 'مشاهده تحلیل‌ها', 'icon' => 'fa-chart-line', 'desc' => 'دسترسی به صفحه‌ی تحلیل و آمار پروژه'],
+        'manage_board'       => ['label' => 'مدیریت بورد', 'icon' => 'fa-table-columns', 'desc' => 'تنظیمات بورد پروژه: ساخت، ویرایش، حذف و چیدمان ستون‌ها، رنگ و آیکون آن‌ها و وضعیت اول تسک‌های جدید'],
+        // v7.12: لیبل‌ها مال پروژه‌اند؛ بقیه‌ی اعضا فقط از لیبل‌های موجود پروژه استفاده می‌کنند (نقش «مدیر واحد» و بالاتر دارند)
+        'create_label'       => ['label' => 'دسترسی ایجاد لیبل', 'icon' => 'fa-tags', 'desc' => 'ساخت لیبل جدید برای این پروژه و ویرایش و حذف لیبل‌های آن؛ بدون این دسترسی فقط لیبل‌های موجود پروژه روی تسک‌ها گذاشته می‌شوند'],
+    ];
+
+    /**
+     * نقش‌های آماده‌ی عضو پروژه: پکیج دسترسی تسک + پروژه + بورد پروژه + «مشاهده‌ی تسک‌ها»ی برد (all = همه‌ی اعضا، own = فقط خودش).
+     * نقش ذخیره نمی‌شود؛ از روی دسترسی‌های فعلی تشخیص داده می‌شود (هر تغییر دستی = «سفارشی»).
+     */
+    public const ROLES = [
+        'admin'        => ['label' => 'مدیر کل', 'icon' => 'fa-crown', 'tone' => 'green', 'desc' => 'همه‌ی دسترسی‌ها در همه‌ی بخش‌های پروژه (از جمله ساخت لیبل)؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
+            'task' => '*', 'project' => '*', 'board' => '*', 'view' => 'all', 'limit' => null],
+        'unit_manager' => ['label' => 'مدیر واحد', 'icon' => 'fa-user-tie', 'tone' => 'blue', 'desc' => 'همه‌چیز جز مسدود کردن تسک (از جمله ساخت لیبل پروژه)؛ در بورد تسک‌های همه را می‌بیند؛ سقف تعداد تسک ندارد.',
+            'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => '*', 'board' => '*', 'view' => 'all', 'limit' => null],
+        'supervisor'   => ['label' => 'سرپرست', 'icon' => 'fa-user-shield', 'tone' => 'yellow', 'desc' => 'تسک: همه‌چیز جز مسدود کردن. پروژه: همه‌چیز جز افزودن و خارج کردن کاربر، مدیریت بورد و ساخت لیبل. بورد: تغییر وضعیت؛ تسک‌های همه را می‌بیند؛ حداکثر ۲۰ تسک خودش در هر ستون.',
+            'task' => ['edit_info', 'edit_due', 'reassign', 'notes', 'complete'], 'project' => ['edit_project', 'manage_permissions', 'view_analytics'], 'board' => '*', 'view' => 'all', 'limit' => 20],
+        // عضو: تغییر وضعیت در بورد بله، تأیید و بستن (تکمیل تسک) نه
+        'member'       => ['label' => 'عضو', 'icon' => 'fa-user', 'tone' => '', 'desc' => 'تسک: فقط ویرایش اطلاعات و نوشتن یادداشت. بورد: تغییر وضعیت (بدون تأیید و بستن)؛ تسک‌های همه را می‌بیند؛ حداکثر ۱۰ تسک خودش در هر ستون؛ بدون دسترسی پروژه.',
+            'task' => ['edit_info', 'notes'], 'project' => [], 'board' => self::MEMBER_BOARD, 'view' => 'all', 'limit' => 10],
+        'none'         => ['label' => 'بدون دسترسی', 'icon' => 'fa-user-slash', 'tone' => 'red', 'desc' => 'هیچ دسترسی‌ای ندارد؛ فقط تسک‌های خودش را می‌بیند.',
+            'task' => [], 'project' => [], 'board' => [], 'view' => 'own', 'limit' => null],
+    ];
+    /** دسترسی بورد نقش «عضو» (v6.1): تغییر وضعیت */
+    public const MEMBER_BOARD = ['change_status'];
+    public const ROLE_CUSTOM = ['label' => 'سفارشی', 'icon' => 'fa-sliders', 'tone' => 'purple', 'desc' => 'دسترسی‌ها دستی تنظیم شده و با هیچ نقش آماده‌ای یکی نیست.'];
+
+    /** نقش پیش‌فرض هر عضو تازه‌ی پروژه (افزودن مستقیم یا پذیرفتن دعوت) */
+    public const DEFAULT_ROLE = 'member';
+
+    /** افزودن عضو به پروژه با دسترسی‌های نقش پیش‌فرض (اگر از قبل عضو باشد تغییری نمی‌کند) */
+    public static function addMemberWithDefaultRole(int $projectId, int $uid): void
+    {
+        [$task, $project, $board, $all] = self::rolePackage(self::DEFAULT_ROLE);
+        DB::run('INSERT IGNORE INTO project_members (pid, project_id, user_id, permissions, task_permissions, board_permissions, board_view_users) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [\App\Core\Pid::new(), $projectId, $uid, json_encode(array_values($project)), json_encode(array_values($task)), json_encode(array_values($board)), $all ? json_encode('all') : null]);
+    }
+
+    /** پکیج کامل یک نقش: [task[], project[], board[], viewAll] */
+    public static function rolePackage(string $role): ?array
+    {
+        $r = self::ROLES[$role] ?? null;
+        if ($r === null) {
+            return null;
+        }
+        $all = static fn($v, array $defs) => $v === '*' ? array_keys($defs) : $v;
+        return [$all($r['task'], self::TASK_PERMS), $all($r['project'], self::PROJECT_PERMS), $all($r['board'], self::BOARD_PERMS), $r['view'] === 'all'];
+    }
+
+    /** نقش عضو از روی دسترسی‌های فعلی‌اش (یا custom). */
+    public static function roleOf(array $task, array $project, array $board, bool $viewAll, array $viewIds): string
+    {
+        $same = static fn(array $a, array $b) => !array_diff($a, $b) && !array_diff($b, $a);
+        foreach (array_keys(self::ROLES) as $k) {
+            [$t, $p, $b, $all] = self::rolePackage($k);
+            if ($same($task, $t) && $same($project, $p) && $same($board, $b) && $viewAll === $all && ($all || !$viewIds)) {
+                return $k;
+            }
+        }
+        return 'custom';
+    }
+
+    /** نقش یک ردیف project_members (ستون‌های permissions, task_permissions, board_permissions, board_view_users). */
+    public static function memberRole(array $row): string
+    {
+        return self::roleOf(self::decode($row['task_permissions'] ?? null, array_keys(self::TASK_PERMS)), self::decode($row['permissions'] ?? null, array_keys(self::PROJECT_PERMS)),
+            self::decode($row['board_permissions'] ?? null, array_keys(self::BOARD_PERMS)), self::viewAll($row['board_view_users'] ?? null), self::ids($row['board_view_users'] ?? null));
+    }
+
+    /** board_view_users = "all": تسک‌های همه‌ی اعضا (حتی اعضای بعدی) */
+    public static function viewAll(?string $json): bool
+    {
+        return json_decode((string) $json, true) === 'all';
+    }
+
+    public static function decode(?string $json, array $allowed): array
+    {
+        $d = json_decode((string) $json, true);
+        if (!is_array($d)) {
+            return [];
+        }
+        // دسترسی‌های مرحله‌ای قدیمی بورد (تا v6.0) = change_status
+        if (in_array('change_status', $allowed, true) && array_intersect(self::LEGACY_BOARD, $d)) {
+            $d[] = 'change_status';
+        }
+        return array_values(array_intersect($allowed, $d));
+    }
+
+    /** سقف پیش‌فرض تعداد تسک‌های یک نفر در هر ستون بورد طبق نقشش (null = نامحدود؛ سازنده‌ی پروژه نامحدود) */
+    public static function roleLimit(int $projectId, int $uid): ?int
+    {
+        $row = DB::one('SELECT p.user_id AS creator, pm.permissions, pm.task_permissions, pm.board_permissions, pm.board_view_users FROM projects p
+                LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ? WHERE p.id = ?', [$uid, $projectId]);
+        if ($row === null || (int) $row['creator'] === $uid || $row['task_permissions'] === null && $row['board_permissions'] === null && $row['permissions'] === null) {
+            return null;
+        }
+        return self::ROLES[self::memberRole($row)]['limit'] ?? null;
+    }
+
+    /** «مسئول» تسک */
+    public static function isAssignee(array $task, int $uid): bool
+    {
+        return $uid > 0 && (int) ($task['assignee_id'] ?? 0) === $uid;
+    }
+
+    /** [سازنده‌ی پروژه، دسترسی تسک عضو یا null اگر عضو نیست، دسترسی برد عضو، اعضایی که تسک‌هایشان را در برد می‌بیند] — با کش درون درخواست */
+    private static function projectRole(int $projectId, int $uid): array
+    {
+        static $cache = [];
+        $k = $projectId . ':' . $uid;
+        if (!isset($cache[$k])) {
+            $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+            $row = DB::one('SELECT task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ? LIMIT 1', [$projectId, $uid]);
+            $cache[$k] = [$creator, $row === null ? null : self::decode($row['task_permissions'], array_keys(self::TASK_PERMS)),
+                $row === null ? [] : self::decode($row['board_permissions'], array_keys(self::BOARD_PERMS)),
+                $row === null ? [] : (self::viewAll($row['board_view_users']) ? null : self::ids($row['board_view_users']))];
+        }
+        return $cache[$k];
+    }
+
+    /** دسترسی تسک یک عضو در پروژه (سازنده‌ی پروژه = همه). */
+    /**
+     * انتخاب مسئول هنگام «ساخت» تسک پروژه (v5.5): سازنده‌ی پروژه و هر عضوی که نقشش «بدون دسترسی» نیست، می‌تواند تسک را
+     * به هر عضو پروژه بدهد (قابل تنظیم نیست). تغییر مسئولِ تسکِ ثبت‌شده همچنان مجوز «تغییر مسئول» (reassign) می‌خواهد.
+     */
+    public static function canAssignOnCreate(int $projectId, int $uid): bool
+    {
+        [$creator] = self::projectRole($projectId, $uid);
+        if ($creator === $uid) {
+            return true;
+        }
+        $row = DB::one('SELECT permissions, task_permissions, board_permissions, board_view_users FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        return $row !== null && self::memberRole($row) !== 'none';
+    }
+
+    public static function projectTaskPerms(int $projectId, int $uid): array
+    {
+        [$creator, $perms] = self::projectRole($projectId, $uid);
+        if ($creator === $uid) {
+            return array_keys(self::TASK_PERMS);
+        }
+        return $perms ?? [];
+    }
+
+    /**
+     * دسترسی‌های مؤثر کاربر روی یک تسک: view + کلیدهای TASK_PERMS + edit_meta/change_project.
+     * @return string[]
+     */
+    /** حداکثر بیننده‌های انتخابی تسک محرمانه (علاوه بر سازنده و مسئول) */
+    public const CONFIDENTIAL_MAX = 3;
+
+    /**
+     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک، مسئول و حداکثر CONFIDENTIAL_MAX کاربر انتخابی (task_viewers)؛
+     * بقیه — حتی سازنده‌ی پروژه — نه در فهرست‌ها، نه در جستجو و نه با لینک تسک را نمی‌بینند.
+     */
+    public static function canSeeConfidential(array $task, int $uid): bool
+    {
+        if (empty($task['is_confidential'])) {
+            return true;
+        }
+        if ($uid <= 0) {
+            return false;
+        }
+        if ((int) $task['user_id'] === $uid || self::isAssignee($task, $uid)) {
+            return true;
+        }
+        static $cache = [];
+        $k = (int) $task['id'] . ':' . $uid;
+        return $cache[$k] ??= (bool) DB::value('SELECT 1 FROM task_viewers WHERE task_id = ? AND user_id = ? LIMIT 1', [(int) $task['id'], $uid]);
+    }
+
+    public static function taskPerms(array $task, int $uid): array
+    {
+        if (!self::canSeeConfidential($task, $uid)) {
+            return [];
+        }
+        $all = array_merge(['view'], array_keys(self::TASK_PERMS), self::TASK_OWNER_ONLY);
+        $pid = (int) ($task['project_id'] ?? 0);
+        // سازنده‌ی تسک فقط تا وقتی عضو پروژه است امتیاز کامل دارد (بعد از خروج/حذف از پروژه، هیچ)
+        if ((int) $task['user_id'] === $uid && ($pid === 0 || self::isProjectMember($pid, $uid))) {
+            // تغییر مسئولِ تسکی که خودش ساخته هم فقط با مجوز «تغییر مسئول» در پروژه (جلوی دور زدن محدودیت واگذاری)
+            if ($pid > 0 && !in_array('reassign', self::projectTaskPerms($pid, $uid), true)) {
+                return array_values(array_diff($all, ['reassign']));
+            }
+            return $all;
+        }
+        $out = [];
+        if ($pid > 0) {
+            [$creator, $perms] = self::projectRole($pid, $uid);
+            if ($creator === $uid) {
+                return $all;                                  // مدیر پروژه روی همه‌ی تسک‌های پروژه
+            }
+            $out = $perms ?? [];
+            // دسترسی‌های نقش پروژه فقط روی تسک‌هایی اعمال می‌شود که کاربر در برد می‌بیند (تسک‌های خودش یا مسئولانِ
+            // انتخاب‌شده در «مشاهده‌ی تسک‌های»)؛ دارنده‌ی «مشاهده‌ی تحلیل» بقیه را فقط می‌بیند (بدون ویرایش)
+            if ($out && !self::canBoardView($task, $uid)) {
+                $out = self::projectCan($pid, $uid, 'view_analytics') ? ['view'] : [];
+            }
+        } elseif (self::isAssignee($task, $uid)) {
+            $out = ['complete', 'notes'];                     // تسک‌های قدیمیِ بدون پروژه: رفتار قبلی برای مسئول
+        }
+        // هر عضو پروژه تسک‌های پروژه را دست‌کم می‌بیند (v6.1: جستجوی بورد روی همه‌ی تسک‌های پروژه است)
+        if ($out || self::isAssignee($task, $uid) || ($pid > 0 && self::isProjectMember($pid, $uid))) {
+            $out[] = 'view';
+        }
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * تیک «انجام شد» = تحویل برای «بررسی سرپرست» (v4.1): مسئول، سازنده‌ی تسک، یا عضوی با مجوز تکمیل تسک
+     * یا مجوز برد «ارسال برای بررسی» — بدون نیاز به مجوز مرحله‌های میانی برد.
+     */
+    public static function canDeliver(array $task, int $uid): bool
+    {
+        if (!empty($task['blocked_at']) || !self::canTask($task, $uid, 'view')) {
+            return false;
+        }
+        if (self::isAssignee($task, $uid) || (int) $task['user_id'] === $uid) {
+            return true;
+        }
+        return self::canTask($task, $uid, 'complete') || in_array('change_status', self::boardPerms($task, $uid), true);
+    }
+
+    /**
+     * دسترسی تأیید (v5.4): کسی که تسک «بررسی سرپرست» را می‌تواند به «انجام‌شده» ببرد (مجوز تکمیل + انتقال review → done در بورد).
+     * تیک «انجام شد» چنین کسی مستقیم تسک را انجام‌شده می‌کند (بدون رفتن به بررسی سرپرست).
+     */
+    public static function canApprove(array $task, int $uid): bool
+    {
+        return $task['project_id'] !== null && empty($task['blocked_at']) && self::canTask($task, $uid, 'complete');
+    }
+
+    public static function canTask(array $task, int $uid, string $action): bool
+    {
+        // تسک مسدودشده فقط دیده می‌شود (و دارنده‌ی مجوز «مسدود کردن» می‌تواند مسدودی‌اش را بردارد)
+        if (!empty($task['blocked_at']) && !in_array($action, ['view', 'block'], true)) {
+            return false;
+        }
+        return in_array($action, self::taskPerms($task, $uid), true);
+    }
+
+    /** آرایه‌ی JSON شناسه‌ها → int[] یکتا و مثبت */
+    public static function ids(?string $json): array
+    {
+        $d = json_decode((string) $json, true);
+        return is_array($d) ? array_values(array_unique(array_filter(array_map('intval', array_filter($d, 'is_numeric')), static fn($v) => $v > 0))) : [];
+    }
+
+    /**
+     * اعضایی که کاربر تسک‌هایشان را در برد این پروژه می‌بیند (همیشه شامل خودش).
+     * null = همه (سازنده‌ی پروژه)؛ [] = عضو پروژه نیست.
+     */
+    public static function boardViewScope(int $projectId, int $uid): ?array
+    {
+        [$creator, $perms, , $view] = self::projectRole($projectId, $uid);
+        if ($creator === $uid || ($perms !== null && $view === null)) {
+            return null;                                       // سازنده یا «همه‌ی اعضا»
+        }
+        return $perms === null ? [] : array_values(array_unique(array_merge([$uid], $view)));
+    }
+
+    /** دسترسی برد یک عضو در پروژه (سازنده‌ی پروژه = همه). */
+    public static function projectBoardPerms(int $projectId, int $uid): array
+    {
+        [$creator, , $board] = self::projectRole($projectId, $uid);
+        return $creator === $uid ? array_keys(self::BOARD_PERMS) : $board;
+    }
+
+    /**
+     * دسترسی‌های برد کاربر روی یک تسک: سازنده‌ی پروژه همه؛ بقیه (حتی سازنده‌ی خود تسک) طبق نقششان در پروژه،
+     * تا ساختن تسک راهی برای دور زدن مراحل برد نباشد.
+     */
+    public static function boardPerms(array $task, int $uid): array
+    {
+        $pid = (int) ($task['project_id'] ?? 0);
+        return $pid > 0 ? self::projectBoardPerms($pid, $uid) : [];
+    }
+
+    /**
+     * مراحلی که کاربر می‌تواند کارت را از وضعیت فعلی‌اش به آن‌ها ببرد (v6.1):
+     * انجام‌شده فقط از «بررسی سرپرست» و بازبینی مسئول فقط از «بررسی سرپرست»/«انجام‌شده» — هر دو با «تکمیل تسک»؛
+     * بیرون بردن از «انجام‌شده» هم «تکمیل تسک» می‌خواهد؛ بقیه‌ی جابه‌جایی‌ها آزاد با «تغییر وضعیت».
+     */
+    public static function boardTargets(array $task, int $uid, string $from, array $statuses): array
+    {
+        $move = in_array('change_status', self::boardPerms($task, $uid), true);
+        $complete = null;
+        $can = static function () use (&$complete, $task, $uid): bool {
+            return $complete ??= self::canTask($task, $uid, 'complete');
+        };
+        $out = [];
+        foreach ($statuses as $to) {
+            if ($to === $from) {
+                continue;
+            }
+            if ($to === 'done') {
+                $ok = $from === 'review' && $can();
+            } elseif ($to === 'rework') {
+                $ok = in_array($from, ['review', 'done'], true) && $can();
+            } elseif ($from === 'done') {
+                $ok = $can();
+            } else {
+                $ok = $move;
+            }
+            if ($ok) {
+                $out[] = $to;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * دیدن تسک در برد: تسک‌های خودش (سازنده یا مسئول)، و در پروژه، تسک‌هایی که مسئولشان
+     * جزو اعضای انتخاب‌شده در «مشاهده‌ی تسک‌های» اوست (سازنده‌ی پروژه = همه).
+     */
+    public static function canBoardView(array $task, int $uid): bool
+    {
+        if (!self::canSeeConfidential($task, $uid)) {
+            return false;
+        }
+        $assignee = (int) ($task['assignee_id'] ?? 0);
+        if ((int) $task['user_id'] === $uid || self::isAssignee($task, $uid)) {
+            return true;
+        }
+        $pid = (int) ($task['project_id'] ?? 0);
+        if ($pid <= 0) {
+            return false;
+        }
+        $scope = self::boardViewScope($pid, $uid);
+        return $scope === null || ($assignee > 0 && in_array($assignee, $scope, true));
+    }
+
+    /**
+     * شرط SQL «ردیف همکاری تأییدشده» برای جدول colleagues با نام مستعار $c:
+     * طرف مقابل درخواست را پذیرفته یا خودش هم این کاربر را همکار کرده است.
+     * ردیف‌های یک‌طرفه‌ی قدیمی (قبل از v3.25) بدون رضایت طرف مقابل، دسترسی‌ای نمی‌دهند.
+     */
+    public static function approvedSql(string $c = 'c'): string
+    {
+        return "(EXISTS (SELECT 1 FROM colleague_requests cq WHERE cq.requester_id = $c.user_id AND cq.target_id = $c.colleague_user_id AND cq.status = 'accepted')
+            OR EXISTS (SELECT 1 FROM colleagues cr WHERE cr.user_id = $c.colleague_user_id AND cr.colleague_user_id = $c.user_id))";
+    }
+
+    /** همکاری تأییدشده بین دو نفر (در هر جهت) */
+    public static function isColleague(int $a, int $b): bool
+    {
+        return (bool) DB::value('SELECT 1 FROM colleagues c WHERE ((c.user_id = ? AND c.colleague_user_id = ?) OR (c.user_id = ? AND c.colleague_user_id = ?)) AND ' . self::approvedSql('c') . ' LIMIT 1', [$a, $b, $b, $a]);
+    }
+
+    /**
+     * پیام مسدودی بین انجام‌دهنده و طرف مقابل (null = مسدودی نیست):
+     * او شما را مسدود کرده / شما او را مسدود کرده‌اید.
+     */
+    public static function blockMessage(int $actor, int $other): ?string
+    {
+        if ($actor === $other || $other <= 0) {
+            return null;
+        }
+        if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ? LIMIT 1', [$other, $actor])) {
+            return 'این کاربر شما را مسدود کرده است.';
+        }
+        if (DB::value('SELECT 1 FROM colleague_blocks WHERE blocker_user_id = ? AND blocked_user_id = ? LIMIT 1', [$actor, $other])) {
+            return 'شما این کاربر را مسدود کرده‌اید.';
+        }
+        return null;
+    }
+
+    public static function isBlockedBetween(int $a, int $b): bool
+    {
+        return (bool) DB::value('SELECT 1 FROM colleague_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?) LIMIT 1', [$a, $b, $b, $a]);
+    }
+
+    public static function isProjectMember(int $projectId, int $uid): bool
+    {
+        return (bool) DB::value('SELECT 1 FROM projects p WHERE p.id = ? AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)) LIMIT 1', [$projectId, $uid, $uid]);
+    }
+
+    /** آیا مجاز است رکوردی را به $assigneeId واگذار کند؟ (خودش / همکار مستقیم / عضو همان پروژه) */
+    public static function canAssignTo(int $actorId, int $assigneeId, ?int $projectId): bool
+    {
+        if ($assigneeId === $actorId) {
+            return true;
+        }
+        if (!DB::value("SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1", [$assigneeId])) {
+            return false;
+        }
+        if (self::isBlockedBetween($actorId, $assigneeId)) {
+            return false;                                     // بعد از مسدودسازی (در هر جهت) واگذاری ممکن نیست
+        }
+        // تسک/رکورد پروژه‌دار فقط به اعضای همان پروژه واگذار می‌شود (همکارِ غیرعضو محتوای تسک پروژه را نبیند)
+        if ($projectId !== null) {
+            return self::isProjectMember($projectId, $actorId) && self::isProjectMember($projectId, $assigneeId);
+        }
+        return (bool) DB::value('SELECT 1 FROM colleagues c WHERE c.user_id = ? AND c.colleague_user_id = ? AND ' . self::approvedSql('c') . ' LIMIT 1', [$actorId, $assigneeId]);
+    }
+
+    /** مجوزهای پروژه‌ی کاربر (سازنده = همه). */
+    public static function projectPerms(int $projectId, int $uid): array
+    {
+        $creator = (int) DB::value('SELECT user_id FROM projects WHERE id = ?', [$projectId]);
+        if ($creator === 0) {
+            return [];
+        }
+        if ($creator === $uid) {
+            return array_keys(self::PROJECT_PERMS);
+        }
+        $row = DB::one('SELECT permissions FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
+        return $row === null ? [] : self::decode($row['permissions'], array_keys(self::PROJECT_PERMS));
+    }
+
+    public static function canViewStorage(int $projectId, int $uid): bool
+    {
+        return (bool) \KarlixLaravel\Database\DB::value("SELECT 1 FROM users WHERE id = ? AND role = 'admin'", [$uid]) || self::projectCan($projectId, $uid, 'view_storage');
+    }
+
+    public static function projectCan(int $projectId, int $uid, string $perm): bool
+    {
+        return in_array($perm, self::projectPerms($projectId, $uid), true);
+    }
+
+    /** ساخت، ویرایش و حذف لیبل‌های پروژه (v7.12): سازنده‌ی پروژه یا عضو با «دسترسی ایجاد لیبل»؛ پروژه‌ی مسدود = هیچ‌کس */
+    public static function canManageLabels(int $projectId, int $uid): bool
+    {
+        static $cache = [];
+        $k = $projectId . ':' . $uid;
+        if (!isset($cache[$k])) {
+            $cache[$k] = $projectId > 0 && !DB::value('SELECT 1 FROM projects WHERE id = ? AND blocked_at IS NOT NULL', [$projectId])
+                && self::projectCan($projectId, $uid, 'create_label');
+        }
+        return $cache[$k];
+    }
+}

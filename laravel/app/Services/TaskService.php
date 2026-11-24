@@ -1,0 +1,828 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Services;
+
+use KarlixLaravel\Database\DB;
+use App\Core\Validate;
+use KarlixLaravel\Repositories\NoteModel;
+use KarlixLaravel\Repositories\ProjectModel;
+use KarlixLaravel\Repositories\SubjectModel;
+use KarlixLaravel\Repositories\TaskModel;
+
+/**
+ * منطق تسک‌ها — تنها پیاده‌سازی، مشترک بین پنل وب و API.
+ * خروجی همه‌ی متدها: ['ok'=>bool,'message'=>string,'code'=>string,'http'=>int,'data'=>mixed]
+ */
+final class TaskService
+{
+    private static function res(bool $ok, string $msg = '', string $code = '', int $http = 200, $data = null): array
+    {
+        return ['ok' => $ok, 'message' => $msg, 'code' => $code, 'http' => $http, 'data' => $data];
+    }
+
+    private static function err(string $msg, string $code, int $http = 422): array
+    {
+        return self::res(false, $msg, $code, $http);
+    }
+
+    /** خطای واگذاری به کاربری که مسدودی بین او و انجام‌دهنده هست (null = مشکلی نیست) */
+    private static function blockError(int $actor, int $assignee): ?array
+    {
+        $m = Access::blockMessage($actor, $assignee);
+        return $m === null ? null : self::err($m . ' امکان واگذاری تسک به او وجود ندارد.', 'USER_BLOCKED', 403);
+    }
+
+    private static function assigneeAllowed(int $ownerId, int $actorId, int $assigneeId, ?int $projectId): bool
+    {
+        if ($assigneeId !== $actorId && Access::isBlockedBetween($actorId, $assigneeId)) {
+            return false;                                                  // مسدودی در هر جهت (پیام دقیق‌تر با blockError)
+        }
+        if ($projectId !== null) {
+            return Access::isProjectMember($projectId, $assigneeId);       // مسئول تسک پروژه فقط از اعضای همان پروژه
+        }
+        return $assigneeId === $ownerId || $assigneeId === $actorId
+            || Access::canAssignTo($ownerId, $assigneeId, $projectId)
+            || Access::canAssignTo($actorId, $assigneeId, $projectId);
+    }
+
+    /** $quick: از «ثبت سریع تسک» (فقط عنوان) — is_quick = 1 تا اولین تغییر وضعیت در بورد */
+    public static function create(int $actor, array $in, bool $quick = false): array
+    {
+        $title = trim((string) ($in['title'] ?? ''));
+        if ($title === '') {
+            return self::err('عنوان تسک الزامی است.', 'TITLE_REQUIRED');
+        }
+        if ($lim = Limits::create('task', $actor)) {
+            return self::err($lim, 'RATE_LIMITED', 429);
+        }
+        if (mb_strlen($title) > 255) {
+            return self::err('عنوان تسک نباید بیشتر از ۲۵۵ نویسه باشد.', 'TITLE_TOO_LONG');
+        }
+        $desc = trim((string) ($in['description'] ?? ''));
+        if (mb_strlen($desc) > 10000) {
+            return self::err('توضیحات بیش از حد طولانی است.', 'DESCRIPTION_TOO_LONG');
+        }
+        $priority = Validate::enum($in['priority'] ?? null, ['low', 'medium', 'high'], 'medium');
+        $percent = Priority::percent($in['priority_percent'] ?? null);
+        if (isset($in['priority_percent']) && $in['priority_percent'] !== '' && $percent === null) {
+            return self::err('اولویت درصدی باید عددی بین ۰ تا ۱۰۰ باشد.', 'PRIORITY_INVALID');
+        }
+        if ($percent !== null) {
+            $priority = Priority::levelOf($percent);
+        } else {
+            $percent = Priority::PERCENT[$priority];
+        }
+
+        $dueRaw = trim((string) ($in['due_date'] ?? ''));
+        $due = Validate::date($dueRaw);
+        if ($dueRaw !== '' && $due === null) {
+            return self::err('فرمت تاریخ سررسید باید YYYY-MM-DD باشد.', 'DUE_DATE_INVALID');
+        }
+        $timeRaw = trim((string) ($in['due_time'] ?? ''));
+        $time = Validate::time($timeRaw);
+        if ($timeRaw !== '' && $time === null) {
+            return self::err('فرمت ساعت سررسید باید HH:MM باشد.', 'DUE_TIME_INVALID');
+        }
+        if ($due === null) {
+            $time = null;
+        }
+
+        $repeat = TaskRecurrence::validate($in, null, $due);
+        if (is_string($repeat)) {
+            return self::err($repeat, 'RECURRENCE_INVALID');
+        }
+
+        // لیبل اختیاری، پروژه اجباری؛ لیبل باید مال همان پروژه باشد (v7.12)
+        $subjectId = (int) ($in['subject_id'] ?? 0) ?: null;
+        $projectId = (int) ($in['project_id'] ?? 0);
+        if ($subjectId !== null && $projectId > 0 && !SubjectModel::usableIn($subjectId, $projectId)) {
+            return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
+        }
+        if ($projectId <= 0) {
+            return self::err('انتخاب پروژه الزامی است.', 'PROJECT_REQUIRED');
+        }
+        if (!Access::isProjectMember($projectId, $actor)) {
+            return self::err('پروژه‌ی انتخاب‌شده معتبر نیست یا عضو آن نیستید.', 'PROJECT_INVALID');
+        }
+        if (BlockService::isBlocked('project', $projectId)) {
+            return self::err('این پروژه مسدود شده است و تسک جدید نمی‌گیرد.', 'PROJECT_BLOCKED', 403);
+        }
+        $assignee = (int) ($in['assignee_id'] ?? 0) ?: $actor;
+        if ($e = self::blockError($actor, $assignee)) {
+            return $e;
+        }
+        // ساخت تسک برای هر عضو پروژه (v5.5): هر عضو جز نقش «بدون دسترسی»؛ تغییر مسئول بعد از ثبت = مجوز «تغییر مسئول»
+        if ($assignee !== $actor && !Access::canAssignOnCreate($projectId, $actor)) {
+            return self::err('با نقش «بدون دسترسی» در این پروژه فقط می‌توانید برای خودتان تسک بسازید.', 'ASSIGNEE_FORBIDDEN', 403);
+        }
+        if (!self::assigneeAllowed($actor, $actor, $assignee, $projectId)) {
+            return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (مسئول تسک پروژه باید عضو همان پروژه باشد).', 'ASSIGNEE_INVALID', 403);
+        }
+
+        $id = DB::transaction(static function () use ($actor, $assignee, $subjectId, $projectId, $title, $desc, $priority, $percent, $due, $time, $quick, $repeat): int {
+            $id = TaskModel::create([
+                'user_id' => $actor, 'assignee_id' => $assignee,
+                'subject_id' => $subjectId, 'project_id' => $projectId,
+                'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
+                'due_date' => $due, 'due_time' => $time,
+            ] + ($quick ? ['is_quick' => 1] : []));
+            if ($repeat['enabled']) {
+                TaskRecurrence::configure(TaskModel::raw($id), $repeat, $actor);
+            }
+            return $id;
+        });
+        $task = TaskModel::raw($id);
+        $pt = $projectId ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [$projectId]) : null;
+        Notifier::taskAssigned($task, $actor, $pt);
+        return self::res(true, 'تسک با موفقیت ایجاد شد.', '', 201, $task);
+    }
+
+    /**
+     * داده‌ی «ثبت سریع تسک»: پروژه‌های کاربر (با اعضا و اینکه می‌تواند به دیگران واگذار کند) و پروژه‌ی پیش‌فرض
+     * (آخرین پروژه‌ای که در آن تسک ساخته، وگرنه اولین پروژه). افراد = خودش + اعضای پروژه‌هایش (بدون مسدودی).
+     */
+    public static function quickOptions(int $uid): array
+    {
+        $projects = DB::all('SELECT p.id, p.title, p.user_id FROM projects p WHERE p.status = 1 AND p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]);
+        $ids = array_map(static fn($p) => (int) $p['id'], $projects);
+        $members = [];
+        if ($ids) {
+            foreach (DB::all('SELECT project_id, user_id FROM project_members WHERE project_id IN (' . DB::in($ids) . ')', $ids) as $m) {
+                $members[(int) $m['project_id']][] = (int) $m['user_id'];
+            }
+        }
+        $people = [];
+        $out = [];
+        foreach ($projects as $p) {
+            $pid = (int) $p['id'];
+            $mem = array_values(array_unique(array_merge([(int) $p['user_id']], $members[$pid] ?? [])));
+            $out[] = ['id' => \App\Core\Pid::of('projects', $pid), 'title' => $p['title'], 'members' => $mem, 'can_assign' => Access::canAssignOnCreate($pid, $uid)];
+            foreach ($mem as $m) {
+                $people[$m] = true;
+            }
+        }
+        $people[$uid] = true;
+        $pids = array_keys($people);
+        $rows = DB::all("SELECT id, first_name, last_name, avatar FROM users WHERE id IN (" . DB::in($pids) . ") AND status = 'active' AND is_bot = 0", $pids);
+        $list = [];
+        foreach ($rows as $r) {
+            if ((int) $r['id'] !== $uid && Access::isBlockedBetween($uid, (int) $r['id'])) {
+                continue;
+            }
+            $list[] = ['id' => \App\Core\Pid::of('users', $r['id']), 'name' => full_name($r) . ((int) $r['id'] === $uid ? ' (خودم)' : ''), 'avatar' => avatar_url($r['avatar']), 'me' => (int) $r['id'] === $uid];
+        }
+        usort($list, static fn($a, $b) => ($b['me'] <=> $a['me']) ?: strcmp($a['name'], $b['name']));
+        return ['projects' => $out, 'people' => $list, 'default_project' => \App\Core\Pid::of('projects', (int) self::defaultProject($uid, $ids))];
+    }
+
+    /** پروژه‌ی پیش‌فرض ثبت سریع: آخرین پروژه‌ای که کاربر در آن تسک ساخته (اگر هنوز عضو است)، وگرنه اولین پروژه */
+    public static function defaultProject(int $uid, ?array $allowed = null): ?int
+    {
+        if ($allowed === null) {
+            $allowed = array_map('intval', DB::column('SELECT p.id FROM projects p WHERE p.status = 1 AND p.blocked_at IS NULL AND (p.user_id = ? OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)) ORDER BY p.title', [$uid, $uid]));
+        }
+        if (!$allowed) {
+            return null;
+        }
+        $last = (int) DB::value('SELECT project_id FROM tasks WHERE user_id = ? AND blocked_at IS NULL AND project_id IN (' . DB::in($allowed) . ') ORDER BY id DESC LIMIT 1', array_merge([$uid], $allowed));
+        return $last > 0 ? $last : $allowed[0];
+    }
+
+    /** $source (v7.10): منبع تغییر برای تاریخچه (فقط از سرویس‌های داخلی، مثل «بار کاری»: suggestion | drag | undo) */
+    public static function update(int $actor, int $id, array $in, ?string $source = null): array
+    {
+        $seriesId = (int) (TaskModel::raw($id)['recurrence_id'] ?? 0);
+        if (array_key_exists('repeat_enabled', $in) || array_key_exists('repeat_kind', $in) || array_key_exists('repeat_days', $in) || $seriesId > 0) {
+            return DB::transaction(static function () use ($actor, $id, $in, $source, $seriesId): array {
+                if ($seriesId) DB::one('SELECT id FROM task_recurrences WHERE id = ? FOR UPDATE', [$seriesId]);
+                DB::one('SELECT id FROM tasks WHERE id = ? FOR UPDATE', [$id]);
+                return self::updateLocked($actor, $id, $in, $source);
+            });
+        }
+        return self::updateLocked($actor, $id, $in, $source);
+    }
+
+    private static function updateLocked(int $actor, int $id, array $in, ?string $source): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        $set = [];
+        $has = static fn(string $k): bool => array_key_exists($k, $in);
+
+        // هر گروه فیلد مجوز خودش را دارد: عنوان/توضیحات = edit_info، سررسید = edit_due، اولویت/لیبل = فقط سازنده
+        $needInfo = $needDue = $needMeta = false;
+        if ($has('title')) {
+            $title = trim((string) $in['title']);
+            if ($title === '' || mb_strlen($title) > 255) {
+                return self::err('عنوان تسک نامعتبر است.', 'TITLE_INVALID');
+            }
+            if ($title !== $t['title']) {
+                $set['title'] = $title;
+                $needInfo = true;
+            }
+        }
+        if ($has('description')) {
+            $d = trim((string) $in['description']);
+            if (mb_strlen($d) > 10000) {
+                return self::err('توضیحات بیش از حد طولانی است.', 'DESCRIPTION_TOO_LONG');
+            }
+            if (($d !== '' ? $d : null) !== $t['description']) {
+                $set['description'] = $d !== '' ? $d : null;
+                $needInfo = true;
+            }
+        }
+        if ($has('priority_percent') && trim((string) $in['priority_percent']) !== '') {
+            $pc = Priority::percent($in['priority_percent']);
+            if ($pc === null) {
+                return self::err('اولویت درصدی باید عددی بین ۰ تا ۱۰۰ باشد.', 'PRIORITY_INVALID');
+            }
+            if ($pc !== ($t['priority_percent'] === null ? null : (int) $t['priority_percent'])) {
+                $set['priority_percent'] = $pc;
+                $set['priority'] = Priority::levelOf($pc);
+                $needMeta = true;
+            }
+        } elseif ($has('priority')) {
+            $p = Validate::enum($in['priority'], ['low', 'medium', 'high'], '');
+            if ($p === '') {
+                return self::err('اولویت نامعتبر است.', 'PRIORITY_INVALID');
+            }
+            if ($p !== $t['priority']) {
+                $set['priority'] = $p;
+                $set['priority_percent'] = Priority::PERCENT[$p];
+                $needMeta = true;
+            }
+        }
+        if ($has('due_date')) {
+            $raw = trim((string) $in['due_date']);
+            $d = Validate::date($raw);
+            if ($raw !== '' && $d === null) {
+                return self::err('فرمت تاریخ سررسید نامعتبر است.', 'DUE_DATE_INVALID');
+            }
+            if ($d !== $t['due_date']) {
+                $set['due_date'] = $d;
+                $set['notified_at'] = null;
+                $needDue = true;
+            }
+            if ($d === null) {
+                $set['due_time'] = null;
+            }
+        }
+        if ($has('due_time') && (array_key_exists('due_date', $set) ? $set['due_date'] : $t['due_date']) !== null) {
+            $raw = trim((string) $in['due_time']);
+            $tm = Validate::time($raw);
+            if ($raw !== '' && $tm === null) {
+                return self::err('فرمت ساعت سررسید نامعتبر است.', 'DUE_TIME_INVALID');
+            }
+            if ($tm !== $t['due_time']) {
+                $set['due_time'] = $tm;
+                $set['notified_at'] = null;
+                $needDue = true;
+            }
+        }
+        if ($has('subject_id')) {
+            $sid = (int) $in['subject_id'] ?: null;      // خالی = حذف لیبل
+            if ($sid !== ($t['subject_id'] === null ? null : (int) $t['subject_id'])) {
+                // لیبل فقط از لیبل‌های پروژه‌ی تسک (یا پروژه‌ی جدیدش اگر همین درخواست پروژه را عوض می‌کند)
+                $lp = $has('project_id') && (int) $in['project_id'] > 0 ? (int) $in['project_id'] : (int) $t['project_id'];
+                if ($sid !== null && !SubjectModel::usableIn($sid, $lp)) {
+                    return self::err('لیبل انتخاب‌شده معتبر نیست (لیبل باید از لیبل‌های همین پروژه باشد).', 'SUBJECT_INVALID');
+                }
+                $set['subject_id'] = $sid;
+                $needMeta = true;
+            }
+        }
+        $oldRepeat = TaskRecurrence::settings($t);
+        $repeat = TaskRecurrence::validate($in, $oldRepeat, array_key_exists('due_date', $set) ? $set['due_date'] : $t['due_date']);
+        if (is_string($repeat)) {
+            return self::err($repeat, 'RECURRENCE_INVALID');
+        }
+        $repeatChanged = $repeat !== ['enabled' => $oldRepeat !== null && $oldRepeat['enabled'] ? 1 : 0,
+            'kind' => $oldRepeat['kind'] ?? 'daily', 'interval_days' => isset($oldRepeat['interval_days']) ? (int) $oldRepeat['interval_days'] : null];
+        $needDue = $needDue || $repeatChanged;
+        if ($needInfo && !Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی ویرایش اطلاعات این تسک را ندارید.', 'FORBIDDEN', 403);
+        }
+        if ($needDue && !Access::canTask($t, $actor, 'edit_due')) {
+            return self::err('اجازه‌ی تغییر زمان انجام این تسک را ندارید.', 'FORBIDDEN', 403);
+        }
+        if ($needMeta && !Access::canTask($t, $actor, 'edit_meta')) {
+            return self::err('تغییر اولویت و لیبل فقط برای سازنده‌ی تسک یا مدیر پروژه ممکن است.', 'FORBIDDEN', 403);
+        }
+
+        $newProject = $t['project_id'] === null ? null : (int) $t['project_id'];
+        if ($has('project_id')) {
+            $pid = (int) $in['project_id'];
+            if ($pid <= 0) {
+                return self::err('انتخاب پروژه الزامی است.', 'PROJECT_REQUIRED');
+            }
+            if ($pid !== $newProject) {
+                if (!Access::canTask($t, $actor, 'change_project')) {
+                    return self::err('اجازه‌ی تغییر پروژه‌ی این تسک را ندارید.', 'FORBIDDEN', 403);
+                }
+                if ($pid !== null && !Access::isProjectMember($pid, $actor)) {
+                    return self::err('پروژه‌ی انتخاب‌شده معتبر نیست.', 'PROJECT_INVALID');
+                }
+                if (BlockService::isBlocked('project', $pid)) {
+                    return self::err('این پروژه مسدود شده است و تسک جدید نمی‌گیرد.', 'PROJECT_BLOCKED', 403);
+                }
+                $set['project_id'] = $pid;
+                $newProject = $pid;
+                // لیبل‌ها مال پروژه‌اند: لیبل پروژه‌ی قبلی با تسک به پروژه‌ی جدید نمی‌رود
+                $curLabel = array_key_exists('subject_id', $set) ? $set['subject_id'] : ($t['subject_id'] === null ? null : (int) $t['subject_id']);
+                if ($curLabel !== null && (int) DB::value('SELECT project_id FROM subjects WHERE id = ?', [$curLabel]) !== $pid) {
+                    $set['subject_id'] = null;
+                }
+            }
+        }
+        $reassigned = false;
+        if ($has('assignee_id')) {
+            $aid = (int) $in['assignee_id'] ?: (int) $t['user_id'];
+            if ($aid !== (int) $t['assignee_id']) {
+                if (!Access::canTask($t, $actor, 'reassign')) {
+                    return self::err('اجازه‌ی تغییر مسئول این تسک را ندارید.', 'FORBIDDEN', 403);
+                }
+                if ($e = self::blockError($actor, $aid)) {
+                    return $e;
+                }
+                if (!self::assigneeAllowed((int) $t['user_id'], $actor, $aid, $newProject)) {
+                    return self::err('امکان واگذاری تسک به این کاربر وجود ندارد.', 'ASSIGNEE_INVALID', 403);
+                }
+                $set['assignee_id'] = $aid;
+                $set['notified_at'] = null;
+                $reassigned = true;
+            }
+        }
+        // تغییر پروژه: مسئول فعلی (اگر عوضش نکرده‌اند) باید عضو پروژه‌ی جدید باشد، وگرنه محتوای پروژه‌ی دیگر را می‌بیند
+        if (isset($set['project_id']) && !isset($set['assignee_id']) && $t['assignee_id'] !== null
+            && !Access::isProjectMember((int) $set['project_id'], (int) $t['assignee_id'])) {
+            return self::err('مسئول فعلی تسک عضو پروژه‌ی انتخاب‌شده نیست؛ همراه با تغییر پروژه، مسئول را هم به یکی از اعضای آن پروژه تغییر دهید.', 'ASSIGNEE_NOT_MEMBER');
+        }
+        if ($repeatChanged || ($oldRepeat !== null && array_key_exists('due_date', $set))) {
+            if ($error = TaskRecurrence::configure(array_replace($t, $set), $repeat, $actor, array_key_exists('due_date', $set))) {
+                return self::err($error, 'RECURRENCE_FORBIDDEN', 403);
+            }
+        }
+        if ($set) {
+            if (isset($set['project_id'])) {
+                if ($error = StorageQuota::moveTask($id, (int) $set['project_id'], $set)) {
+                    return self::err($error, 'STORAGE_QUOTA');
+                }
+            } else {
+                DB::update('tasks', $set, 'id = ?', [$id]);
+            }
+            TaskHistory::changes($t, $set, $actor, $source);
+        }
+        if ($repeatChanged && $repeat['enabled']) {
+            $series = TaskRecurrence::settings(TaskModel::raw($id));
+            if ($series !== null) {
+                TaskRecurrence::generate((int) $series['current_task_id']);
+            }
+        }
+        $fresh = TaskModel::raw($id);
+        if ($reassigned) {
+            $fresh['share_token'] = TaskModel::ensureShareToken($id);
+            $pt = $fresh['project_id'] ? (string) DB::value('SELECT title FROM projects WHERE id = ?', [(int) $fresh['project_id']]) : null;
+            Notifier::taskAssigned($fresh, $actor, $pt);
+            // v7.10: مسئول قبلی هم باخبر شود که کار از او گرفته شد
+            $newUser = \KarlixLaravel\Repositories\UserModel::find((int) $fresh['assignee_id']);
+            Notifier::taskReassignedAway($fresh, $actor, (int) ($t['assignee_id'] ?? 0), $newUser ? full_name($newUser) : null);
+        }
+        return self::res(true, 'تسک به‌روزرسانی شد.', '', 200, $fresh);
+    }
+
+    /** سقف تسک‌های یک «تغییر گروهی» */
+    public const BULK_MAX = 100;
+
+    /** تسک‌های قابل‌دیدن کاربر از میان شناسه‌ها (مسدودشده‌ها کنار می‌روند) */
+    private static function bulkTasks(int $actor, array $ids): array
+    {
+        $out = [];
+        foreach (array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, self::BULK_MAX) as $id) {
+            $t = TaskModel::raw($id);
+            if ($t !== null && empty($t['blocked_at']) && Access::canTask($t, $actor, 'view')) {
+                $out[] = $t;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * گزینه‌های پنجره‌ی «تغییر گروهی» (v7.8): وضعیت بورد فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند؛
+     * مسئول = اعضای مشترک همه‌ی پروژه‌های تسک‌های انتخاب‌شده؛ لیبل‌ها و پروژه‌های خود کاربر.
+     */
+    public static function bulkOptions(int $actor, array $ids): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $pids = array_values(array_unique(array_map(static fn($t) => $t['project_id'] === null ? 0 : (int) $t['project_id'], $tasks)));
+        $statuses = null;
+        if (count($pids) === 1 && $pids[0] > 0) {
+            $statuses = [];
+            foreach (BoardConfig::statuses($pids[0]) as $k => $c) {
+                $statuses[] = ['key' => $k, 'label' => $c['label']];
+            }
+        }
+        $people = null;
+        foreach ($pids as $pid) {
+            $ids2 = $pid > 0 ? array_map('intval', array_column(TaskAnalytics::people($pid), 'id')) : [$actor];
+            $people = $people === null ? $ids2 : array_values(array_intersect($people, $ids2));
+        }
+        $assignees = $people ? DB::all('SELECT id, first_name, last_name FROM users WHERE id IN (' . DB::in($people) . ') ORDER BY first_name, last_name', $people) : [];
+        return self::res(true, '', '', 200, [
+            'count' => count($tasks),
+            'statuses' => $statuses,
+            'assignees' => array_map(static fn($u) => ['id' => pid('users', $u['id']), 'name' => full_name($u)], $assignees),
+            // فقط وقتی همه‌ی تسک‌ها در یک پروژه‌اند (لیبل‌ها مال پروژه‌اند، v7.12)
+            'labels' => count($pids) === 1 && $pids[0] > 0 ? array_map(static fn($l) => ['id' => pid('subjects', $l['id']), 'title' => $l['title'], 'color' => $l['color']], SubjectModel::forProject($pids[0])) : [],
+            'projects' => array_map(static fn($p) => ['id' => pid('projects', $p['id']), 'title' => $p['title']], ProjectModel::forUser($actor)),
+        ]);
+    }
+
+    /**
+     * «تغییر گروهی» (v7.8): یک یا چند پارامتر برای همه‌ی تسک‌های انتخاب‌شده، هر تسک با همان قواعد و دسترسی‌های ویرایش تکی
+     * (update + BoardService::setStatus)؛ تسکی که اجازه ندارد رد می‌شود و بقیه انجام می‌شوند.
+     * $in: priority | assignee_id | subject_id (0 = حذف لیبل) | project_id | due_date (+ due_time) | clear_due | status
+     */
+    public static function bulk(int $actor, array $ids, array $in): array
+    {
+        $tasks = self::bulkTasks($actor, $ids);
+        if (!$tasks) {
+            return self::err('تسکی برای تغییر گروهی انتخاب نشده است.', 'BULK_EMPTY');
+        }
+        $fields = [];
+        foreach (['priority', 'assignee_id', 'subject_id', 'project_id'] as $k) {
+            if (array_key_exists($k, $in) && (string) $in[$k] !== '') {
+                $fields[$k] = $in[$k];
+            }
+        }
+        if (!empty($in['clear_due'])) {
+            $fields['due_date'] = '';
+        } elseif (!empty($in['due_date'])) {
+            $fields['due_date'] = (string) $in['due_date'];
+            $fields['due_time'] = (string) ($in['due_time'] ?? '');
+        }
+        $status = trim((string) ($in['status'] ?? ''));
+        if (!$fields && $status === '') {
+            return self::err('هیچ موردی برای تغییر انتخاب نشده است.', 'BULK_NOTHING');
+        }
+        $ok = 0;
+        $fails = [];
+        foreach ($tasks as $t) {
+            $id = (int) $t['id'];
+            $r = $fields ? self::update($actor, $id, $fields) : ['ok' => true];
+            if ($r['ok'] && $status !== '' && BoardService::statusOf(TaskModel::raw($id) ?? $t) !== $status) {
+                $r = BoardService::setStatus($actor, $id, $status);
+            }
+            if ($r['ok']) {
+                $ok++;
+            } else {
+                $fails[] = ['id' => pid('tasks', $id), 'title' => (string) $t['title'], 'message' => (string) $r['message']];
+            }
+        }
+        $msg = fa_num($ok) . ' تسک به‌روزرسانی شد.' . ($fails ? ' ' . fa_num(count($fails)) . ' تسک تغییر نکرد.' : '');
+        return self::res($ok > 0, $ok > 0 ? $msg : 'هیچ تسکی تغییر نکرد: ' . ($fails[0]['message'] ?? ''), $ok > 0 ? '' : 'BULK_FAILED', $ok > 0 ? 200 : 422, ['updated' => $ok, 'failed' => $fails]);
+    }
+
+    public static function toggle(int $actor, int $id): array
+    {
+        $seriesId = (int) (TaskModel::raw($id)['recurrence_id'] ?? 0);
+        if ($seriesId) {
+            return DB::transaction(static function () use ($actor, $id, $seriesId): array {
+                DB::one('SELECT id FROM task_recurrences WHERE id = ? FOR UPDATE', [$seriesId]);
+                DB::one('SELECT id FROM tasks WHERE id = ? FOR UPDATE', [$id]);
+                return self::toggleLocked($actor, $id);
+            });
+        }
+        return self::toggleLocked($actor, $id);
+    }
+
+    private static function toggleLocked(int $actor, int $id): array
+    {
+        $t = TaskModel::raw($id);
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'complete')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        // تسک پروژه‌دار (v4.1): تیک برای همه = تحویل برای «بررسی سرپرست»؛ تکمیل فقط با تأیید سرپرست در همان مرحله.
+        // تیک دوباره روی تسک منتظر تأیید = پس گرفتن تحویل (فقط همان تحویل‌دهنده)؛ روی تسک انجام‌شده = بازکردن (برگشت به بررسی، مجوز تأیید)
+        if ($t['project_id'] !== null) {
+            if ((int) $t['is_completed'] === 1) {
+                $m = BoardService::move($actor, $id, 'review', '', true);
+                return $m['ok'] ? self::res(true, 'تسک به «بررسی سرپرست» برگشت.', '', 200, ['id' => $id, 'is_completed' => false, 'status' => 'review']) : $m;
+            }
+            if (BoardService::statusOf($t) === 'review') {
+                // دارنده‌ی دسترسی تأیید: تیک روی تسک منتظر تأیید = تأیید و بستن (v5.4)
+                if (Access::canApprove($t, $actor)) {
+                    $m = BoardService::move($actor, $id, 'done', '', true);
+                    return $m['ok'] ? self::res(true, 'تسک تأیید و انجام شد.', '', 200, ['id' => $id, 'status' => 'done', 'from' => 'review', 'is_completed' => true]) : $m;
+                }
+                if ((int) ($t['delivered_by'] ?? 0) === $actor) {
+                    return BoardService::withdraw($actor, $id);
+                }
+                return self::err('این تسک منتظر تأیید سرپرست است؛ تأیید یا برگرداندن از جزئیات تسک انجام می‌شود.', 'IN_REVIEW', 409);
+            }
+            return BoardService::deliver($actor, $id);
+        }
+        if (!Access::canTask($t, $actor, 'complete')) {
+            return self::err('شما دسترسی لازم برای تکمیل تسک را ندارید.', 'FORBIDDEN', 403);
+        }
+        $r = TaskModel::toggle($id);
+        TaskHistory::log($id, $actor, $r['is_completed'] ? 'completed' : 'reopened');
+        if ($r['is_completed']) {
+            TaskRecurrence::generate($id);
+        }
+        return self::res(true, $r['is_completed'] ? 'تسک انجام شد.' : 'تسک به حالت انجام‌نشده برگشت.', '', 200, $r + ['completed_at' => DB::value('SELECT completed_at FROM tasks WHERE id = ?', [$id])]);
+    }
+
+    /** منشن‌های دیده‌نشده‌ی کاربر در این تسک → دیده‌شده (با باز کردن جزئیات تسک) */
+    public static function markMentionsSeen(int $taskId, int $uid): void
+    {
+        DB::run('UPDATE task_mentions SET seen_at = NOW() WHERE task_id = ? AND user_id = ? AND seen_at IS NULL', [$taskId, $uid]);
+    }
+
+    public static function addNote(int $actor, int $taskId, string $text, array $files = [], array $mentions = []): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'notes')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canTask($t, $actor, 'notes')) {
+            return self::err('اجازه‌ی ثبت یادداشت ندارید.', 'FORBIDDEN', 403);
+        }
+        $text = trim($text);
+        if ($text === '' && !$files) {
+            return self::err('متن یادداشت یا فایل پیوست الزامی است.', 'NOTE_EMPTY');
+        }
+        if (mb_strlen($text) > 5000) {
+            return self::err('یادداشت نباید بیشتر از ۵۰۰۰ نویسه باشد.', 'NOTE_TOO_LONG');
+        }
+        if ($lim = Limits::create('note', $actor)) {
+            return self::err($lim, 'RATE_LIMITED', 429);
+        }
+        $nid = DB::insert('task_notes', ['task_id' => $taskId, 'user_id' => $actor, 'note' => $text]);
+        [$saved, $errors] = $files ? NoteModel::storeAttachments('note', $nid, $actor, $files) : [[], []];
+        $token = TaskModel::ensureShareToken($taskId);
+        $t['share_token'] = $token;
+        $mentioned = self::storeMentions($t, $actor, $nid, $text, $mentions);
+        foreach (array_unique(array_filter([(int) $t['user_id'], (int) $t['assignee_id']])) as $uid) {
+            if ($uid !== $actor && !in_array($uid, $mentioned, true)) {
+                Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid);
+            }
+        }
+        return self::res(true, 'یادداشت ثبت شد.' . ($mentioned ? ' ' . fa_num(count($mentioned)) . ' نفر منشن شدند.' : ''), '', 201, ['id' => $nid, 'attachments' => $saved, 'upload_errors' => $errors, 'mentioned' => $mentioned]);
+    }
+
+    /**
+     * منشن‌های یک یادداشت: فقط اعضای پروژه‌ی همین تسک (تسک محرمانه: فقط کسانی که تسک را می‌بینند)؛
+     * ردیف task_mentions + اعلان برای هر نفر. در ویرایش ($onlyNew) کسانی که قبلاً در همین یادداشت منشن شده بودند دوباره اعلان نمی‌گیرند.
+     * @return int[] شناسه‌ی منشن‌شده‌های جدید
+     */
+    private static function storeMentions(array $t, int $actor, int $noteId, string $text, array $mentions, bool $onlyNew = false): array
+    {
+        if (!$mentions || !$t['project_id']) {
+            return [];
+        }
+        $allowed = array_column(array_filter(self::mentionable((int) $t['project_id'], $actor), static fn($u) => Access::canSeeConfidential($t, (int) $u['id'])), 'id');
+        $mentioned = array_values(array_intersect(array_unique(array_map('intval', $mentions)), $allowed));
+        if ($onlyNew && $mentioned) {
+            $old = array_map('intval', DB::column('SELECT user_id FROM task_mentions WHERE note_id = ?', [$noteId]));
+            $mentioned = array_values(array_diff($mentioned, $old));
+        }
+        if ($mentioned && empty($t['share_token'])) {
+            $t['share_token'] = TaskModel::ensureShareToken((int) $t['id']);
+        }
+        foreach ($mentioned as $uid) {
+            DB::insert('task_mentions', ['task_id' => (int) $t['id'], 'note_id' => $noteId, 'user_id' => $uid, 'actor_id' => $actor]);
+            Notifier::noteMention($t, $actor, $text !== '' ? $text : '(فایل پیوست)', $uid, true);
+        }
+        return $mentioned;
+    }
+
+    public static function updateNote(int $actor, int $noteId, string $text, array $mentions = []): array
+    {
+        $n = NoteModel::find($noteId);
+        if ($n === null) {
+            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
+        }
+        // نویسنده/صاحب تسک فقط تا وقتی هنوز به تسک دسترسی دارد (مثلاً بعد از حذف از پروژه نه)
+        $task = TaskModel::raw((int) $n['task_id']);
+        if ($task === null || !Access::canTask($task, $actor, 'view')) {
+            return self::err('یادداشت یافت نشد.', 'NOTE_NOT_FOUND', 404);
+        }
+        if (!empty($task['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if ((int) $n['user_id'] !== $actor && (int) $n['task_owner_id'] !== $actor) {
+            return self::err('فقط نویسنده‌ی یادداشت یا صاحب تسک می‌تواند آن را ویرایش کند.', 'FORBIDDEN', 403);
+        }
+        // پاسخ‌های کارلیکس (کاربر ربات) ویرایش‌شدنی نیستند تا گزارش واقعی اجرای عملیات دست نخورد
+        if ((int) $n['user_id'] === \KarlixLaravel\Repositories\UserModel::botId()) {
+            return self::err('پاسخ‌های کارلیکس قابل ویرایش نیستند.', 'FORBIDDEN', 403);
+        }
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > 5000) {
+            return self::err('متن یادداشت نامعتبر است.', 'NOTE_INVALID');
+        }
+        DB::update('task_notes', ['note' => $text, 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$noteId]);
+        TaskHistory::log((int) $n['task_id'], $actor, 'note_edited', ['author' => (int) $n['user_id']]);
+        $task['share_token'] = $n['share_token'] ?? null;
+        $new = self::storeMentions($task, $actor, $noteId, $text, $mentions, true);
+        return self::res(true, 'یادداشت ویرایش شد.' . ($new ? ' ' . fa_num(count($new)) . ' نفر منشن شدند.' : ''), '', 200, ['mentioned' => $new]);
+    }
+
+    public static function addTaskFiles(int $actor, int $taskId, array $files): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view') && !Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی افزودن پیوست ندارید.', 'FORBIDDEN', 403);
+        }
+        if (!$files) {
+            return self::err('فایلی انتخاب نشده است.', 'NO_FILE');
+        }
+        [$saved, $errors] = NoteModel::storeAttachments('task', $taskId, $actor, $files);
+        if (!$saved) {
+            return self::err(implode('، ', $errors) ?: 'آپلود ناموفق بود.', 'UPLOAD_FAILED');
+        }
+        return self::res(true, 'فایل‌ها پیوست شد.', '', 201, ['attachments' => $saved, 'upload_errors' => $errors]);
+    }
+
+    /**
+     * حذف یک پیوست تسک (v7.18): فقط با دسترسی edit_info همان تسک (همان دسترسی افزودن پیوست)، تسک مسدود نباشد و پیوست مال همین تسک باشد.
+     * ردیف و فایل روی دیسک حذف می‌شوند و در تاریخچه‌ی تسک (file_deleted) ثبت می‌شود.
+     */
+    public static function removeTaskFile(int $actor, int $taskId, int $fileId): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        if (!Access::canTask($t, $actor, 'edit_info')) {
+            return self::err('اجازه‌ی حذف پیوست ندارید.', 'FORBIDDEN', 403);
+        }
+        $f = $fileId > 0 ? DB::one('SELECT id, file_name, file_path FROM task_attachments WHERE id = ? AND task_id = ?', [$fileId, $taskId]) : null;
+        if (!$f) {
+            return self::err('پیوست یافت نشد.', 'FILE_NOT_FOUND', 404);
+        }
+        DB::run('DELETE FROM task_attachments WHERE id = ?', [(int) $f['id']]);
+        \KarlixLaravel\Files\Uploader::delete('task_attachments', (string) $f['file_path']);
+        TaskHistory::log($taskId, $actor, 'file_deleted', ['name' => (string) $f['file_name']]);
+        return self::res(true, 'پیوست حذف شد.', '', 200, ['count' => (int) DB::value('SELECT COUNT(*) FROM task_attachments WHERE task_id = ?', [$taskId])]);
+    }
+
+    /** اعضای پروژه (سازنده + اعضا) به‌جز خود کاربر — برای منشن در یادداشت‌ها. */
+    public static function mentionable(int $projectId, int $exceptUid): array
+    {
+        $rows = DB::all("SELECT u.id, u.first_name, u.last_name, u.avatar FROM users u
+            WHERE u.status = 'active' AND u.is_bot = 0 AND u.id <> ?
+              AND (u.id = (SELECT user_id FROM projects WHERE id = ?) OR u.id IN (SELECT user_id FROM project_members WHERE project_id = ?))
+            ORDER BY u.first_name, u.last_name", [$exceptUid, $projectId, $projectId]);
+        return array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])], $rows);
+    }
+
+    /**
+     * تسک محرمانه (v6.1): فقط سازنده‌ی تسک روشن/خاموشش می‌کند و تا Access::CONFIDENTIAL_MAX نفر از اعضای پروژه را
+     * به‌عنوان بیننده انتخاب می‌کند. سازنده و مسئول (یا اعضای گروه مسئول) همیشه می‌بینند؛ بقیه حتی با لینک یا جستجو نه.
+     */
+    public static function setConfidential(int $actor, int $taskId, bool $on, array $viewers): array
+    {
+        $t = TaskModel::raw($taskId);
+        if ($t === null || !Access::canTask($t, $actor, 'view')) {
+            return self::err('تسک یافت نشد.', 'TASK_NOT_FOUND', 404);
+        }
+        if ((int) $t['user_id'] !== $actor) {
+            return self::err('فقط سازنده‌ی تسک می‌تواند آن را محرمانه کند یا بیننده‌هایش را تعیین کند.', 'FORBIDDEN', 403);
+        }
+        if (!empty($t['blocked_at'])) {
+            return self::err('این تسک مسدود شده است؛ ابتدا مسدودی آن را بردارید.', 'TASK_BLOCKED', 409);
+        }
+        $viewers = array_values(array_unique(array_filter(array_map('intval', $viewers), static fn($v) => $v > 0 && $v !== (int) $t['user_id'] && $v !== (int) ($t['assignee_id'] ?? 0))));
+        if (!$on) {
+            $viewers = [];
+        }
+        if (count($viewers) > Access::CONFIDENTIAL_MAX) {
+            return self::err('حداکثر ' . fa_num(Access::CONFIDENTIAL_MAX) . ' نفر را می‌توانید برای دیدن تسک محرمانه انتخاب کنید.', 'TOO_MANY_VIEWERS');
+        }
+        foreach ($viewers as $v) {
+            if ($t['project_id'] !== null ? !Access::isProjectMember((int) $t['project_id'], $v) : !Access::isColleague($actor, $v)) {
+                return self::err('بیننده‌های تسک محرمانه باید عضو همین پروژه باشند.', 'VIEWER_INVALID');
+            }
+        }
+        DB::transaction(static function () use ($taskId, $on, $viewers, $actor): void {
+            DB::run('UPDATE tasks SET is_confidential = ? WHERE id = ?', [$on ? 1 : 0, $taskId]);
+            DB::run('DELETE FROM task_viewers WHERE task_id = ?', [$taskId]);
+            foreach ($viewers as $v) {
+                DB::run('INSERT INTO task_viewers (task_id, user_id, added_by) VALUES (?, ?, ?)', [$taskId, $v, $actor]);
+            }
+        });
+        TaskHistory::log($taskId, $actor, $on ? 'confidential_on' : 'confidential_off', ['count' => count($viewers)]);
+        return self::res(true, $on ? 'تسک محرمانه شد؛ فقط شما، مسئول' . ($viewers ? ' و ' . fa_num(count($viewers)) . ' نفر انتخاب‌شده' : '') . ' آن را می‌بینید.' : 'تسک از حالت محرمانه خارج شد.', '', 200, ['is_confidential' => $on]);
+    }
+
+    /** اطلاعات «محرمانه» برای جزئیات تسک */
+    public static function confidentialInfo(array $t, int $uid): array
+    {
+        $isCreator = (int) $t['user_id'] === $uid;
+        $ids = array_map('intval', DB::column('SELECT user_id FROM task_viewers WHERE task_id = ?', [(int) $t['id']]));
+        $people = static fn(array $rows) => array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', (int) $u['id']), 'name' => $u['name'], 'avatar' => $u['avatar']], $rows);
+        $viewers = $ids ? array_map(static fn($u) => ['id' => (int) $u['id'], 'name' => full_name($u), 'avatar' => avatar_url($u['avatar'])],
+            DB::all('SELECT id, first_name, last_name, avatar FROM users WHERE id IN (' . DB::in($ids) . ')', $ids)) : [];
+        $cand = $isCreator && $t['project_id'] !== null
+            ? array_values(array_filter(self::mentionable((int) $t['project_id'], $uid), static fn($u) => (int) $u['id'] !== (int) ($t['assignee_id'] ?? 0)))
+            : [];
+        return ['on' => !empty($t['is_confidential']), 'can_edit' => $isCreator && empty($t['blocked_at']), 'max' => Access::CONFIDENTIAL_MAX,
+            'viewers' => $people($viewers), 'candidates' => $people($cand)];
+    }
+
+    /** گزینه‌های «امنیت تسک‌ها» در پروفایل: [عنوان، توضیح] */
+    public const LINK_ACCESS = [
+        'members'    => ['اعضای پروژه', 'اعضای پروژه‌ی همان تسک (پیش‌فرض)'],
+        'colleagues' => ['همکاران', 'افرادی که در فهرست همکاران شما هستند'],
+        'me'         => ['فقط من', 'فقط شما، مسئول تسک و اعضای پروژه که دسترسی تسک دارند'],
+        'all'        => ['همه', 'هر کاربر واردشده‌ای که لینک را داشته باشد'],
+    ];
+
+    /** آیا کاربر می‌تواند تسک را (با لینک اشتراکی) ببیند؟ بر اساس تنظیم «امنیت تسک‌ها»ی سازنده‌ی تسک. */
+    public static function canViewShared(array $task, int $uid): bool
+    {
+        // تسک محرمانه (v6.1) با لینک هم فقط برای سازنده، مسئول و بیننده‌های انتخابی باز می‌شود، هر تنظیمی که لینک داشته باشد
+        if (!Access::canSeeConfidential($task, $uid)) {
+            return false;
+        }
+        if (Access::canTask($task, $uid, 'view')) {
+            return true;      // سازنده، مدیر پروژه، مسئول، عضو دارای دسترسی
+        }
+        $owner = (int) $task['user_id'];
+        $mode = (string) (DB::value('SELECT task_link_access FROM users WHERE id = ?', [$owner]) ?: 'members');
+        switch ($mode) {
+            case 'all':
+                return true;
+            case 'colleagues':
+                return Access::isColleague($owner, $uid);
+            case 'me':
+                return false;
+            default:
+                return $task['project_id'] !== null && Access::isProjectMember((int) $task['project_id'], $uid);
+        }
+    }
+
+    /** مجوزهای مؤثر کاربر روی تسک (برای UI). */
+    /** همان mentionable برای خروجی (شناسه‌ی عمومی) */
+    public static function mentionablePublic(int $projectId, int $exceptUid, ?array $task = null): array
+    {
+        $rows = self::mentionable($projectId, $exceptUid);
+        if ($task !== null && !empty($task['is_confidential'])) {
+            $rows = array_values(array_filter($rows, static fn($u) => Access::canSeeConfidential($task, (int) $u['id'])));
+        }
+        \App\Core\Pid::prime('users', array_column($rows, 'id'));
+        return array_map(static fn($u) => ['id' => \App\Core\Pid::of('users', $u['id'])] + $u, $rows);
+    }
+
+    public static function effective(array $task, int $uid): array
+    {
+        $have = Access::taskPerms($task, $uid);
+        if (!empty($task['blocked_at'])) {
+            $have = array_values(array_intersect($have, ['view', 'block']));   // تسک مسدودشده: فقط مشاهده و رفع مسدودی
+        }
+        $out = [];
+        foreach (array_merge(array_keys(Access::TASK_PERMS), Access::TASK_OWNER_ONLY) as $a) {
+            $out[$a] = in_array($a, $have, true);
+        }
+        // هر نوع ویرایشی که فرم ویرایش را لازم دارد
+        $out['edit'] = $out['edit_info'] || $out['edit_due'] || $out['edit_meta'] || $out['reassign'] || $out['change_project'];
+        // تیک «انجام شد» (v4.1): تحویل برای بررسی؛ پس گرفتن تحویل؛ تأیید/برگرداندن در «بررسی سرپرست»
+        $st = $task['project_id'] !== null ? BoardService::statusOf($task) : null;
+        $out['deliver'] = $st !== null && !in_array($st, ['review', 'done', 'archived'], true) && Access::canDeliver($task, $uid);
+        $out['withdraw'] = $st === 'review' && (int) ($task['delivered_by'] ?? 0) === $uid && empty($task['blocked_at']);
+        $out['approve'] = $st === 'review' && empty($task['blocked_at']) && Access::canTask($task, $uid, 'complete')
+            && in_array('done', Access::boardTargets($task, $uid, 'review', ['done']), true);
+        $out['rework'] = $out['approve'] && in_array('rework', Access::boardTargets($task, $uid, 'review', ['rework']), true);
+        // تیک ردیف: تسک بی‌پروژه‌ی قدیمی = تکمیل مستقیم؛ تسک پروژه = تحویل / پس گرفتن / بازکردن تسک انجام‌شده
+        // دسترسی تأیید (v5.4): تیک این کاربر مستقیم «انجام‌شده» می‌کند (و روی تسک منتظر تأیید = تأیید)
+        $out['approve_direct'] = $st !== null && Access::canApprove($task, $uid);
+        $out['tick'] = ($st === null ? $out['complete'] : ($out['deliver'] || $out['withdraw'] || ($st === 'review' && $out['approve']) || (in_array($st, ['done', 'archived'], true) && $out['complete'])));
+        $out['status'] = $st;
+        return $out;
+    }
+}

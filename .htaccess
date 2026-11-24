@@ -9,7 +9,7 @@
 
     # بخش‌های غیرعمومی: دسترسی مستقیم ممنوع
     # توجه: «docs» عمداً در این فهرست نیست؛ چون /docs یک صفحه‌ی برنامه (مستندات API) است. فایل‌های .md پوشه‌ی docs با FilesMatch پایین بسته‌اند.
-    RewriteRule ^(app|config|database|storage|bin)(/|$) - [F,L]
+    RewriteRule ^(app|config|database|storage|bin|laravel)(/|$) - [F,L]
     RewriteRule (^|/)\.(env|git) - [F,L]
 
     # همه‌چیز به public/

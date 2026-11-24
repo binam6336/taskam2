@@ -1,5 +1,12 @@
 # استقرار
 
+## پیش‌نیاز نسخه ۹
+
+PHP 8.2+ و `composer install --working-dir=laravel --no-dev --prefer-dist` لازم است. `USER_ROUTER=laravel` را برای پنل کاربر و API فعال کنید. مسیر ادمین از MVC فعلی استفاده می‌کند؛ `.env`، کلید رمزگذاری و فایل‌ها حفظ شوند. این نسخه schema جدید ندارد؛ `artisan migrate` اجرا نکنید. اگر Composer روی هاست نیست vendor را در محیط ساخت نصب و منتقل کنید. پوشه‌های `laravel/bootstrap/cache` و `laravel/storage` باید قابل نوشتن باشند. جزئیات و بازگشت: [راهنمای Laravel](migration/laravel.md).
+
+Cronهای موجود `bin/ai-worker.php`، `bin/recurring-tasks.php` و `bin/push-cron.php` خودکار از فرمان‌ها و سرویس‌های Laravel استفاده می‌کنند؛ در حالت legacy به اجراکنندهٔ قبلی برمی‌گردند. فرمان‌های مستقیم نیز `php laravel/artisan karlix:recurring`، `karlix:reminders` و `karlix:ai-worker --once --procs=1` هستند. صف رمزگذاری ادمین تغییر نکرده است.
+
+
 ## Apache
 Document Root = `public/`. فایل `public/.htaccess` آماده است (`mod_rewrite` لازم است).
 اگر فقط به ریشه‌ی پروژه دسترسی دارید، `.htaccess` ریشه کار هدایت و مسدودسازی را انجام می‌دهد.
@@ -57,7 +64,7 @@ storage/app/karlix.apk
 
 ## تسک‌های تکرارشونده (v8.1)
 
-پس از انتشار، `php bin/migrate.php` را برای ساخت سری‌ها و دو ستون افزایشی تسک‌ها اجرا کنید. نوبت بعد در همان درخواست تکمیل نهایی، سمت سرور ساخته می‌شود؛ به باز بودن مرورگر وابسته نیست. برای بازیابی موارد متوقف‌شده بر اثر خطای موقت، محدودیت نرخ ساخت یا بازگردانی نوبت قبلی، cron زیر را با مسیر واقعی پروژه فعال کنید:
+در ارتقا از نسخه‌های قبل از ۸.۱، راه‌اندازی سری‌ها به migration همان نسخه نیاز دارد؛ نسخه ۹ migration جدید ندارد. نوبت‌های بعد مستقل از تکمیل قبلی، با افق ۳۱روزه و بودجهٔ تعداد/زمان محدود ساخته می‌شوند؛ به باز بودن مرورگر وابسته نیست. برای بازیابی موارد متوقف‌شده بر اثر خطای موقت، محدودیت نرخ ساخت یا بازگردانی نوبت قبلی، cron زیر را با مسیر واقعی پروژه فعال کنید:
 
 ```cron
 * * * * * php /path/to/karlix/bin/recurring-tasks.php >> /path/to/karlix/storage/logs/recurring-tasks.log 2>&1

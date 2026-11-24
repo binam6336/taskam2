@@ -1,0 +1,182 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers;
+
+use App\Core\Audit;
+use KarlixLaravel\Auth\Authentication as Auth;
+use KarlixLaravel\Auth\Captcha;
+use KarlixLaravel\Http\Controllers\Controller;
+use App\Core\Session;
+use App\Core\Throttle;
+use App\Core\Validate;
+use KarlixLaravel\Repositories\UserModel;
+use KarlixLaravel\Services\ProjectService;
+
+final class AuthController extends Controller
+{
+    public function showLogin()
+    {
+        // هر بازدید بدون کوکی یک نشست مهمان (ردیف user_sessions) می‌سازد؛ از هر IP حداکثر ۶۰ نشست جدید در دقیقه
+        if (!Session::hasCookie() && !\App\Core\Throttle::attempt('guest_session', $this->request->rateIp(), 60, 60)) {
+            header('Retry-After: 60');
+            $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
+        }
+        $this->view('auth/login', ['tab' => $this->request->query['tab'] ?? 'login'], ['title' => 'ورود به کارلیکس'], 'auth');
+    }
+
+    /** تصویر کپچای صفحه‌ی ورود (هر بار کد جدید) */
+    public function captcha()
+    {
+        if (!Throttle::attempt('captcha_ip', $this->request->rateIp(), 60, 60)) {
+            header('Retry-After: 60');
+            $this->abort(429, 'درخواست‌ها بیش از حد سریع است؛ چند لحظه بعد دوباره تلاش کنید.', 'RATE_LIMITED');
+        }
+        Captcha::output();
+    }
+
+    public function login()
+    {
+        $mobile = Validate::mobile($this->request->str('mobile', 30));
+        $pass = (string) $this->request->input('password', '');
+        Session::put('_old', ['mobile' => $this->request->str('mobile', 30), '_form' => 'login']);   // UI-009: مقدار فقط به فرم ورود برگردد
+        // کپچا قبل از هر بررسی دیگر (و بدون ثبت در شمارنده‌های ورود): فقط حروف بزرگ
+        if (Captcha::enabled() && !Captcha::verify($this->request->str('captcha', 20))) {
+            Session::flash('کد امنیتی اشتباه است؛ کد جدید را وارد کنید.', 'error');
+            $this->redirect('/login');
+        }
+        if ($mobile === null || $pass === '' || strlen($pass) > 200) {
+            Session::flash('شماره موبایل یا رمز عبور اشتباه است.', 'error');
+            $this->redirect('/login');
+        }
+        $r = Auth::attempt($mobile, $pass, $this->request, (bool) $this->request->input('remember'));
+        if (!$r['ok']) {
+            Session::flash($r['message'], 'error');
+            $this->redirect('/login');
+        }
+        Session::forget('_old');
+        $this->redirect('/');
+    }
+
+    public function register()
+    {
+        $req = $this->request;
+        $first = $req->str('first_name', 100);
+        $last = $req->str('last_name', 100);
+        $mobileRaw = $req->str('mobile', 30);
+        $email = $req->str('email', 150);
+        $pass = (string) $req->input('password', '');
+        $confirm = (string) $req->input('password_confirm', '');
+        Session::put('_old', ['first_name' => $first, 'last_name' => $last, 'mobile' => $mobileRaw, 'email' => $email, '_form' => 'register']);
+
+        $fail = function (string $m) {
+            Session::flash($m, 'error');
+            $this->redirect('/login?tab=register');
+        };
+
+        if (!Throttle::attempt('register_ip', $req->rateIp(), 8, 3600)) {
+            $fail('تعداد درخواست‌های ثبت‌نام از این شبکه زیاد است. بعداً تلاش کنید.');
+        }
+        if (!Validate::name($first) || ($last !== '' && !Validate::name($last))) {
+            $fail('نام و نام‌خانوادگی نامعتبر است.');
+        }
+        $mobile = Validate::mobile($mobileRaw);
+        if ($mobile === null) {
+            $fail('شماره موبایل باید با فرمت ۰۹xxxxxxxxx باشد.');
+        }
+        if ($email !== '' && !Validate::email($email)) {
+            $fail('ایمیل نامعتبر است.');
+        }
+        if ($err = Validate::passwordError($pass)) {
+            $fail($err);
+        }
+        if (!hash_equals($pass, $confirm)) {
+            $fail('تکرار رمز عبور مطابقت ندارد.');
+        }
+        // پاسخ ثبت‌نام برای شماره/ایمیل تکراری و جدید یکسان است تا نشود وجود حساب‌ها را با فرم ثبت‌نام شمارش کرد
+        if (UserModel::mobileExists($mobile) || ($email !== '' && UserModel::emailExists($email))) {
+            Auth::hash($pass);                                 // هش ساختگی: زمان پاسخ هم مثل ثبت‌نام واقعی باشد
+            Audit::log(null, 'register_duplicate', ['mobile' => $mobile]);
+        } else {
+            $id = Auth::register(['mobile' => $mobile, 'first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $pass]);
+            Audit::log($id, 'register');
+            ProjectService::createSample($id);
+        }
+        Session::forget('_old');
+        Session::put('registered_mobile', $mobile);       // فرم ورود با همین شماره پر و فوکوس روی رمز عبور (یک‌بار)
+        Session::flash('درخواست ثبت‌نام ثبت شد. با شماره موبایل و رمز خود وارد شوید؛ حساب پس از تأیید مدیر فعال می‌شود.', 'success');
+        $this->redirect('/login');
+    }
+
+    public function logout()
+    {
+        // «خروج» داخل پنجره‌ی ورود به پنل کاربر فقط همان پنجره را می‌بندد؛ نشست مدیر نه
+        if (($c = \App\Core\Impersonation::current()) !== null) {
+            \App\Core\Impersonation::end((int) $c['id'], 'exit');
+            \KarlixLaravel\Http\Response::redirect(app_base() . '/admin');
+        }
+        $ep = $this->request->str('push_endpoint', 1000);
+        if ($ep !== '' && ($uid = Auth::id())) {
+            \KarlixLaravel\Services\Push::unsubscribe($uid, $ep);          // اشتراک اعلان همین مرورگر از حساب جدا شود
+        }
+        Auth::logout();
+        Session::start();
+        Session::flash('با موفقیت از سامانه خارج شدید.', 'success');
+        $this->redirect('/login');
+    }
+
+    /** شبکه عوض شده: فقط رمز دوباره (نشست و صفحه‌ی کاربر حفظ می‌شود) */
+    public function showReauth()
+    {
+        $u = Auth::reauthUser();
+        if ($u === null) {
+            $this->redirect(Auth::check() ? '/' : '/login');
+        }
+        $this->view('auth/reauth', ['u' => $u], ['title' => 'تأیید دوباره‌ی رمز'], 'auth');
+    }
+
+    public function reauth()
+    {
+        [$ok, $msg] = Auth::reauth((string) $this->request->input('password', ''), $this->request);
+        if (!$ok) {
+            Session::flash($msg, 'error');
+            $this->redirect(Auth::needsReauth() ? '/reauth' : '/login');
+        }
+        $this->redirect('/');
+    }
+
+    public function reauthCancel()
+    {
+        Auth::logout();
+        Session::start();
+        Session::flash('با موفقیت از سامانه خارج شدید.', 'success');
+        $this->redirect('/login');
+    }
+
+    public function pending()
+    {
+        $u = $this->user();
+        if ($u['status'] === 'active' || $u['status'] === 'deactivated') {
+            $this->redirect('/');
+        }
+        $this->view('auth/pending', ['status' => $u['status']], ['title' => 'وضعیت حساب'], 'auth');
+    }
+
+    public function pendingStatus()
+    {
+        $u = $this->user();
+        $this->json(['status' => $u['status'], 'active' => $u['status'] === 'active']);
+    }
+
+    public function home()
+    {
+        $u = Auth::user();
+        if ($u === null) {
+            $this->redirect('/login');
+        }
+        if ($u['role'] === 'admin' && $u['status'] === 'active' && !Auth::isImpersonating()) {
+            $this->redirect('/admin');
+        }
+        $this->redirect(in_array($u['status'], ['active', 'deactivated'], true) ? '/dashboard' : '/pending');
+    }
+}

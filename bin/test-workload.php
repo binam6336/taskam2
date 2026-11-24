@@ -19,15 +19,18 @@ spl_autoload_register(static function (string $c): void {
     }
 });
 
-use App\Services\WorkloadService as W;
+if (in_array('--laravel', $argv, true)) {
+    require BASE_PATH . '/laravel/vendor/autoload.php';
+    $workloadClass = \KarlixLaravel\Services\WorkloadService::class;
+} else { $workloadClass = \App\Services\WorkloadService::class; }
 
 $dir = BASE_PATH . '/tests/workload';
 $fail = 0;
 foreach (glob($dir . '/*.input.json') as $in) {
     $data = json_decode((string) file_get_contents($in), true);
     $exp = json_decode((string) file_get_contents(str_replace('.input.', '.expected.', $in)), true);
-    $res = W::suggestRebalance($data);
-    $got = ['loads' => W::loadsOut(W::computeLoads($data)), 'suggestions' => $res['suggestions'], 'unresolved' => $res['unresolved']];
+    $res = $workloadClass::suggestRebalance($data);
+    $got = ['loads' => $workloadClass::loadsOut($workloadClass::computeLoads($data)), 'suggestions' => $res['suggestions'], 'unresolved' => $res['unresolved']];
     $a = json_encode($got, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     $b = json_encode($exp, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     $ok = $a === $b;
@@ -57,7 +60,7 @@ foreach (glob($dir . '/*.input.json') as $in) {
         $nm[(string) $u['member_id']] = $u['name'] . ' ' . $u['pct'] . '% ' . $u['reason'];
     }
     $bad = [];
-    foreach (W::computeLoads($after) as $r) {
+    foreach ($workloadClass::computeLoads($after) as $r) {
         $id = (string) $r['member']['id'];
         if ($r['pct'] > 100 && !isset($nm[$id])) {
             $bad[] = $r['member']['name'] . ' ' . $r['pct'] . '% (پربار مانده)';

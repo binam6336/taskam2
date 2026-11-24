@@ -1,0 +1,32 @@
+<?php
+declare(strict_types=1);
+
+namespace KarlixLaravel\Http\Controllers;
+
+use KarlixLaravel\Auth\Authentication as Auth;
+use KarlixLaravel\Http\Controllers\Controller;
+use KarlixLaravel\Database\DB;
+
+/** تور آموزشی پنل: ذخیره‌ی وضعیت (skip / done / شماره‌ی مرحله) تا بین صفحه‌ها ادامه پیدا کند. */
+final class TourController extends Controller
+{
+    public function update()
+    {
+        $state = $this->request->str('state', 20);
+        if (!in_array($state, ['skip', 'done'], true) && !preg_match('/^[1-9]\d?$/', $state)) {
+            $this->respond(false, 'وضعیت نامعتبر است.', '/dashboard');
+        }
+        // در حالت مشاهده‌ی پنل دیگران، وضعیت آموزش خود کاربر دست نمی‌خورد
+        if (!Auth::isImpersonating()) {
+            DB::update('users', ['tour' => $state], 'id = ?', [$this->uid()]);
+        }
+        $this->respond(true, '', '/dashboard');
+    }
+
+    /** «تنظیمات ← آموزش» در سایدبار: شروع دوباره‌ی تور از اول (مرحله‌ی منوی همبرگری فقط در موبایل نمایش داده می‌شود) */
+    public function start()
+    {
+        // GET بدون اثر جانبی: فقط پیشخوان با پرسش شروع تور باز می‌شود (ذخیره‌ی وضعیت با POST /tour)
+        $this->redirect('/dashboard?tour=start');
+    }
+}

@@ -1,16 +1,17 @@
-# کارلیکس (Karlix، نام قبلی: تسکام) — بازنویسی کامل (PHP MVC)
+# کارلیکس (Karlix، نام قبلی: تسکام) — بک‌اند کاربری Laravel 12
 
-مدیریت وظایف، تیکت، تماس، همکاران، پروژه، چت و API — بازنویسی از صفر با معماری MVC، تم سبز/مشکی یکپارچه و امنیت ارتقا‌یافته.
+مدیریت وظایف، تیکت، تماس، همکاران، پروژه، چت و API. از نسخه ۹، بک‌اند پنل کاربر و API با Laravel 12 اجرا می‌شود؛ پنل مدیر روی MVC قبلی باقی مانده است. [جزئیات مهاجرت و بازگشت](docs/migration/laravel.md).
 
 ## نیازمندی‌ها
-- PHP **7.4+** (پیشنهادی 8.2 یا بالاتر) با افزونه‌های `pdo_mysql`, `mbstring`, `fileinfo`, `gd`
+- PHP **8.2+** با افزونه‌های `pdo_mysql`, `mbstring`, `fileinfo`, `gd`, `openssl`, `dom`, `tokenizer`, `xml` و نیازمندی‌های Composer
 - MySQL 5.7+/8 یا MariaDB 10.3+
 - Apache (mod_rewrite) یا Nginx — نمونه‌ی پیکربندی در `docs/DEPLOY.md`
-- بدون Composer و بدون وابستگی خارجی (فقط فونت Vazirmatn و FontAwesome از CDN)
+- Composer برای نصب وابستگی‌های `laravel/`؛ فرانت‌اند همچنان بدون build است و فونت‌ها محلی‌اند.
 
 ## نصب سریع (دیتابیس خام)
 ```bash
 cp .env.example .env            # و مقادیر DB_* و APP_KEY را پر کنید
+composer install --working-dir=laravel --no-dev --prefer-dist
 mysql -u root -p -e "CREATE DATABASE taskam CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 mysql -u root -p taskam < database/schema.sql
 php bin/create-admin.php 09120000000 "مدیر" "سیستم"   # ساخت مدیر اولیه
@@ -18,18 +19,25 @@ chmod -R 750 storage                                    # دسترسی نوشت�
 ```
 بعد Document Root را روی پوشه‌ی `public/` بگذارید. روی هاست اشتراکی که نمی‌شود Document Root را عوض کرد، `.htaccess` ریشه همه‌چیز را به `public/` هدایت و پوشه‌های حساس را مسدود می‌کند.
 
+## ارتقا به نسخه ۹
+
+پیش از انتشار PHP 8.2+ را فعال و `composer install --working-dir=laravel --no-dev --prefer-dist` را اجرا کنید. `USER_ROUTER=laravel` مسیر اصلی است؛ برای بازگشت موقت `legacy` بگذارید. روی هاست فاقد Composer، پوشهٔ vendor ساخته‌شده را همراه نسخه منتقل کنید. `.env` و کلیدها حفظ شوند؛ این تغییر مهاجرت دیتابیس ندارد و هیچ فرمان `artisan migrate` یا reset لازم نیست.
+
 ## مهاجرت از نسخه‌ی قدیمی
 راهنما: `docs/MIGRATION.md` و اسکریپت `database/migrations/001_import_from_legacy.sql` (غیرمخرب؛ دیتابیس قدیمی دست‌نخورده می‌ماند).
 
 ## ساختار پروژه
 ```
 public/            تنها پوشه‌ی قابل دسترس از وب (index.php، assets/css/app.css، assets/js/)
-app/Core/          هسته: Router, Request, Response, DB, Session, Csrf, Auth, View, Uploader, Throttle, Audit ...
+laravel/app/       کنترلر، Service، Repository، Eloquent Model، Policy، Guard و Middleware کاربر/API
+laravel/routes/    مسیرهای وب کاربر و API v1
+laravel/resources/views/ قالب‌های پنل کاربر
+app/Core/          زیرساخت مشترک و هسته ادمین/بازگشت: Router, Request, Response, DB, Session, Csrf, Auth, View, Uploader, Throttle, Audit ...
 app/Middleware/    auth, panel, admin, guest, csrf, api
 app/Models/        کوئری‌ها (هر جدول/دامنه یک Model)
 app/Services/      منطق کسب‌وکار مشترک وب و API (TaskService, ProjectService, Access ...)
-app/Controllers/   کنترلرهای وب + Api/V1/*
-app/Views/         قالب‌ها (layouts, partials, صفحه‌ها)
+app/Controllers/   ادمین و کنترلرهای قدیمی نگه‌داشته‌شده برای بازگشت
+app/Views/         قالب ادمین و نسخه قبلی برای بازگشت
 config/            routes.php, api_spec.php (منبع مستندات API), quick_links.php
 database/          schema.sql + migrations/
 storage/           لاگ، سشن، فایل‌های آپلودی (خارج از webroot)

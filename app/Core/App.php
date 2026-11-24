@@ -24,6 +24,7 @@ final class App
         Impersonation::boot($req);
         // یادآوری تسک‌ها برای اعلان PWA: حداکثر دقیقه‌ای یک‌بار، بعد از پاسخ (جایگزین کران‌جاب روی هاست اشتراکی)
         register_shutdown_function(static function (): void {
+            if (Router::laravelActive()) { return; } // ترافیک کاربر صف اعلان Laravel خودش را تخلیه می‌کند
             try {
                 \App\Services\Push::sweepDue();
                 \App\Services\Push::flush();
