@@ -1,0 +1,1909 @@
+[
+    {
+        "method": "GET",
+        "path": "/",
+        "middleware": [],
+        "handler": "App\\Controllers\\AuthController::home"
+    },
+    {
+        "method": "GET",
+        "path": "/login",
+        "middleware": [
+            "guest"
+        ],
+        "handler": "App\\Controllers\\AuthController::showLogin"
+    },
+    {
+        "method": "POST",
+        "path": "/login",
+        "middleware": [
+            "guest",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\AuthController::login"
+    },
+    {
+        "method": "GET",
+        "path": "/captcha",
+        "middleware": [
+            "guest"
+        ],
+        "handler": "App\\Controllers\\AuthController::captcha"
+    },
+    {
+        "method": "POST",
+        "path": "/register",
+        "middleware": [
+            "guest",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\AuthController::register"
+    },
+    {
+        "method": "POST",
+        "path": "/logout",
+        "middleware": [
+            "authany",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\AuthController::logout"
+    },
+    {
+        "method": "GET",
+        "path": "/reauth",
+        "middleware": [],
+        "handler": "App\\Controllers\\AuthController::showReauth"
+    },
+    {
+        "method": "POST",
+        "path": "/reauth",
+        "middleware": [
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\AuthController::reauth"
+    },
+    {
+        "method": "POST",
+        "path": "/reauth/cancel",
+        "middleware": [
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\AuthController::reauthCancel"
+    },
+    {
+        "method": "GET",
+        "path": "/pending",
+        "middleware": [
+            "authany"
+        ],
+        "handler": "App\\Controllers\\AuthController::pending"
+    },
+    {
+        "method": "GET",
+        "path": "/pending/status",
+        "middleware": [
+            "authany"
+        ],
+        "handler": "App\\Controllers\\AuthController::pendingStatus"
+    },
+    {
+        "method": "GET",
+        "path": "/manifest",
+        "middleware": [],
+        "handler": "App\\Controllers\\PwaController::manifest"
+    },
+    {
+        "method": "GET",
+        "path": "/service-worker",
+        "middleware": [],
+        "handler": "App\\Controllers\\PwaController::serviceWorker"
+    },
+    {
+        "method": "GET",
+        "path": "/offline",
+        "middleware": [],
+        "handler": "App\\Controllers\\PwaController::offline"
+    },
+    {
+        "method": "GET",
+        "path": "/docs",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/authentication",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::auth"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/errors",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::errors"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/openapi.json",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::openapi"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/swagger",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::swagger"
+    },
+    {
+        "method": "POST",
+        "path": "/docs/swagger/token",
+        "middleware": [
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\DocsController::swaggerToken"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/{group}",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::group"
+    },
+    {
+        "method": "GET",
+        "path": "/docs/{group}/{slug}",
+        "middleware": [],
+        "handler": "App\\Controllers\\DocsController::endpoint"
+    },
+    {
+        "method": "GET",
+        "path": "/dashboard",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\DashboardController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/search",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\SearchController::global"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/calendar",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\CalendarController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/calendar/data",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\CalendarController::data"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::store"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/quick-options",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::quickOptions"
+    },
+    {
+        "method": "GET",
+        "path": "/blocked/{kind}",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BlockController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/block/{kind}/{id}",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BlockController::block"
+    },
+    {
+        "method": "POST",
+        "path": "/unblock/{kind}/{id}",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BlockController::unblock"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/review/pending",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::reviewPending"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/review/bulk-approve",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::reviewBulkApprove"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/bulk-options",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::bulkOptions"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/bulk",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::bulk"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/{task}",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::show"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/update",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::update"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/toggle",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::toggle"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/withdraw",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::withdraw"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/undo-done",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::undoDone"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/{task}/share",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::share"
+    },
+    {
+        "method": "GET",
+        "path": "/tasks/{task}/history",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::history"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/advance",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::advance"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/status",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::status"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/notes",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::addNote"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/notes/{note}/karlix",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::assistantRun"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/attachments",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::addFiles"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/attachments/{file}/delete",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::removeFile"
+    },
+    {
+        "method": "POST",
+        "path": "/notes/{note}/update",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::updateNote"
+    },
+    {
+        "method": "GET",
+        "path": "/notifications/due",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TaskController::due"
+    },
+    {
+        "method": "POST",
+        "path": "/notifications/ack",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::dueAck"
+    },
+    {
+        "method": "GET",
+        "path": "/notifications/feed",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\NotificationController::feed"
+    },
+    {
+        "method": "POST",
+        "path": "/notifications/read",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\NotificationController::read"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/quick",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::quick"
+    },
+    {
+        "method": "GET",
+        "path": "/board",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/board/tasks/{task}/move",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardController::move"
+    },
+    {
+        "method": "GET",
+        "path": "/board/archive",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardController::archive"
+    },
+    {
+        "method": "POST",
+        "path": "/board/archive-done",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardController::archiveDone"
+    },
+    {
+        "method": "GET",
+        "path": "/board/projects",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardController::projects"
+    },
+    {
+        "method": "GET",
+        "path": "/board/settings",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardController::settings"
+    },
+    {
+        "method": "POST",
+        "path": "/board/settings",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardController::saveSettings"
+    },
+    {
+        "method": "GET",
+        "path": "/board/ai/session",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::session"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/session/new",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::newSession"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/session/delete",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::deleteSession"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/message",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::message"
+    },
+    {
+        "method": "GET",
+        "path": "/board/ai/status",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::status"
+    },
+    {
+        "method": "GET",
+        "path": "/board/ai/set",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::setPage"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/quick",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::quick"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/apply",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::apply"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/undo",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::undo"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/cancel",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::cancel"
+    },
+    {
+        "method": "POST",
+        "path": "/board/ai/export",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::export"
+    },
+    {
+        "method": "GET",
+        "path": "/board/ai/download",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\BoardAiController::download"
+    },
+    {
+        "method": "GET",
+        "path": "/labels",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\SubjectController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/labels",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SubjectController::store"
+    },
+    {
+        "method": "POST",
+        "path": "/labels/{label}/update",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SubjectController::update"
+    },
+    {
+        "method": "POST",
+        "path": "/labels/{label}/delete",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SubjectController::destroy"
+    },
+    {
+        "method": "GET",
+        "path": "/subjects",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\SubjectController::legacy"
+    },
+    {
+        "method": "GET",
+        "path": "/notes",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TextController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/texts",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TextController::legacy"
+    },
+    {
+        "method": "GET",
+        "path": "/notes/data",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TextController::data"
+    },
+    {
+        "method": "POST",
+        "path": "/notes",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TextController::store"
+    },
+    {
+        "method": "POST",
+        "path": "/notes/reorder",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TextController::reorder"
+    },
+    {
+        "method": "POST",
+        "path": "/notes/item/{id}/update",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TextController::update"
+    },
+    {
+        "method": "POST",
+        "path": "/notes/item/{id}/delete",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TextController::destroy"
+    },
+    {
+        "method": "GET",
+        "path": "/colleagues",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/colleagues/search",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::search"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::add"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/requests/{colreq}/accept",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::accept"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/requests/{colreq}/reject",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::reject"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/{user}/remove",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::remove"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/followers/{user}/remove",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::removeFollower"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/{user}/block",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::block"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/unblock-key",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::unblockKey"
+    },
+    {
+        "method": "POST",
+        "path": "/colleagues/{user}/unblock",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ColleagueController::unblock"
+    },
+    {
+        "method": "POST",
+        "path": "/tasks/{task}/confidential",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TaskController::confidential"
+    },
+    {
+        "method": "GET",
+        "path": "/projects",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ProjectController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/projects",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::store"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/history/clear",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::clearHistory"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/requests/{projreq}/respond",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::respondRequest"
+    },
+    {
+        "method": "GET",
+        "path": "/projects/{project}/analytics",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ProjectController::analytics"
+    },
+    {
+        "method": "GET",
+        "path": "/projects/{project}/analytics/speed",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ProjectController::speed"
+    },
+    {
+        "method": "GET",
+        "path": "/projects/{project}/analytics/export",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ProjectController::analyticsExport"
+    },
+    {
+        "method": "GET",
+        "path": "/projects/{project}/workload",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ProjectController::workload"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/workload/reassign",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::workloadReassign"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/workload/capacity",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::workloadCapacity"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/update",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::update"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/leave",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::leave"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/block",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::block"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/unblock",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::unblock"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/members/{user}/permissions",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::memberPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/members/{user}/task-permissions",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::memberTaskPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/members/{user}/board-permissions",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::memberBoardPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/members/add",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::addMember"
+    },
+    {
+        "method": "POST",
+        "path": "/projects/{project}/members/{user}/remove",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProjectController::removeMember"
+    },
+    {
+        "method": "GET",
+        "path": "/chat",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::index"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/time",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::time"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/list",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::contacts"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/fetch",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::fetch"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/search",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::search"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/unread_counts",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::unreadCounts"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/total_unread",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::totalUnread"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/latest_unread",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::latestUnread"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/heartbeat",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::heartbeat"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/user_status",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::userStatus"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/users_status",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::usersStatus"
+    },
+    {
+        "method": "GET",
+        "path": "/chat/api/saved_info",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\ChatController::savedInfo"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/send",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::send"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/start",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::start"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/accept",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::accept"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/send_file",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::sendFile"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/mark_read",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::markRead"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/edit",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::edit"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/forward",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::forward"
+    },
+    {
+        "method": "POST",
+        "path": "/chat/api/clear_history",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ChatController::clearHistory"
+    },
+    {
+        "method": "GET",
+        "path": "/tokens",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\TokenController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/tokens",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TokenController::store"
+    },
+    {
+        "method": "POST",
+        "path": "/tokens/{token}/toggle",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TokenController::toggle"
+    },
+    {
+        "method": "POST",
+        "path": "/tokens/{token}/delete",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TokenController::destroy"
+    },
+    {
+        "method": "GET",
+        "path": "/support",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\SupportController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/support",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SupportController::store"
+    },
+    {
+        "method": "GET",
+        "path": "/support/{ticket}",
+        "middleware": [
+            "panel"
+        ],
+        "handler": "App\\Controllers\\SupportController::show"
+    },
+    {
+        "method": "POST",
+        "path": "/support/{ticket}/reply",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SupportController::reply"
+    },
+    {
+        "method": "POST",
+        "path": "/support/{ticket}/close",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SupportController::close"
+    },
+    {
+        "method": "POST",
+        "path": "/support/{ticket}/reopen",
+        "middleware": [
+            "panel",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\SupportController::reopen"
+    },
+    {
+        "method": "GET",
+        "path": "/profile",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\ProfileController::index"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/info",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::updateInfo"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/password",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::updatePassword"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/avatar",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::avatar"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/avatar/delete",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::removeAvatar"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/privacy",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::privacy"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/task-security",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::taskSecurity"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/appearance",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::appearance"
+    },
+    {
+        "method": "GET",
+        "path": "/profile/storage/{project}",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\ProfileController::storageFiles"
+    },
+    {
+        "method": "GET",
+        "path": "/profile/ai-usage",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\ProfileController::aiUsage"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/sessions/revoke",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::revokeSession"
+    },
+    {
+        "method": "POST",
+        "path": "/profile/sessions/revoke-others",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\ProfileController::revokeOtherSessions"
+    },
+    {
+        "method": "POST",
+        "path": "/tour",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\TourController::update"
+    },
+    {
+        "method": "GET",
+        "path": "/tour/start",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\TourController::start"
+    },
+    {
+        "method": "GET",
+        "path": "/files/{type}/{name}",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\FileController::serve"
+    },
+    {
+        "method": "GET",
+        "path": "/live/poll",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\LiveController::poll"
+    },
+    {
+        "method": "GET",
+        "path": "/install",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\PwaController::install"
+    },
+    {
+        "method": "GET",
+        "path": "/install/android/check",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\PwaController::apkCheck"
+    },
+    {
+        "method": "GET",
+        "path": "/install/android",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\PwaController::apk"
+    },
+    {
+        "method": "GET",
+        "path": "/push/key",
+        "middleware": [
+            "auth"
+        ],
+        "handler": "App\\Controllers\\PwaController::pushKey"
+    },
+    {
+        "method": "POST",
+        "path": "/push/subscribe",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\PwaController::subscribe"
+    },
+    {
+        "method": "POST",
+        "path": "/push/unsubscribe",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\PwaController::unsubscribe"
+    },
+    {
+        "method": "POST",
+        "path": "/push/test",
+        "middleware": [
+            "auth",
+            "csrf"
+        ],
+        "handler": "App\\Controllers\\PwaController::test"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\MetaApi::index"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/me",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\MetaApi::me"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/time",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\MetaApi::time"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/tasks/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::list"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/tasks/show",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::show"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/tasks/stats",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::stats"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/tasks/create",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::create"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/tasks/update",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::update"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/tasks/toggle",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::toggle"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/tasks/blocked",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::taskList"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/tasks/block",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::taskBlock"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/tasks/unblock",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::taskUnblock"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/reviews/pending",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::reviewsPending"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/reviews/bulk-approve",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TaskApi::reviewsBulkApprove"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/search",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\SearchApi::search"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/texts/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::list"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/texts/show",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::show"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/texts/stats",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::stats"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/texts/create",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::create"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/texts/update",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::update"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/texts/delete",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\TextApi::delete"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::list"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/followers",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::followers"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/followers/remove",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::followerRemove"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/blocked",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::blocked"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/show",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::show"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/stats",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::stats"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/colleagues/search",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::search"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/create",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::create"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/delete",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::delete"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/permissions",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::permissions"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/block",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::block"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/colleagues/unblock",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ColleagueApi::unblock"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/labels/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\LabelApi::list"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/labels/create",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\LabelApi::create"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/labels/update",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\LabelApi::update"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/labels/delete",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\LabelApi::delete"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/board/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BoardApi::list"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/board/archive",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BoardApi::archive"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/board/move",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BoardApi::move"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/board/archive-done",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BoardApi::archiveDone"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/list",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::list"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/show",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::show"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/members",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::membersList"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/stats",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::stats"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/workload",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::workload"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/workload/reassign",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::workloadReassign"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/workload/capacity",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::workloadCapacity"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/create",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::create"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/update",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::update"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/leave",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::leave"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/block",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::block"
+    },
+    {
+        "method": "GET",
+        "path": "/api/v1/projects/blocked-projects",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::projectList"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/block-project",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::projectBlock"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/unblock-project",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\BlockApi::projectUnblock"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/member-add",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberAdd"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/member-remove",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberRemove"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/member-permissions",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/task-permissions",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberTaskPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/board-permissions",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberBoardPermissions"
+    },
+    {
+        "method": "POST",
+        "path": "/api/v1/projects/member-role",
+        "middleware": [
+            "api"
+        ],
+        "handler": "App\\Controllers\\Api\\V1\\ProjectApi::memberRole"
+    }
+]

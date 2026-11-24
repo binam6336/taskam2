@@ -16,6 +16,7 @@ final class UserPanel
     public static function handle(Request $r): void
     {
         Authenticate::handle($r);
+        \App\Services\TaskRecurrence::warm();
         if (Auth::isAdmin() && !Auth::isImpersonating() && !$r->wantsJson()) {
             Response::redirect('/admin');
         }

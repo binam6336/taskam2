@@ -1,0 +1,22 @@
+{
+  "name": "karlix/user-backend",
+  "type": "project",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^12.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "KarlixLaravel\\": "app/"
+    }
+  },
+  "config": {
+    "sort-packages": true,
+    "platform": {
+      "php": "8.2.0"
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "license": "proprietary"
+}

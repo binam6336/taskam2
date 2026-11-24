@@ -101,6 +101,7 @@ final class ApiAuth
     /** سقف درخواست هر کاربر: API_RATE_LIMIT در دقیقه (پیش‌فرض ۱۲۰؛ ۰ = بدون سقف). */
     private static function limit(int $uid): void
     {
+        \App\Services\TaskRecurrence::warm();
         $max = (int) env('API_RATE_LIMIT', 120);
         if ($max <= 0) {
             return;

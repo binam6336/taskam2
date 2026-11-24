@@ -7,7 +7,7 @@ use App\Core\DB;
 use App\Core\Validate;
 use App\Models\TaskModel;
 
-/** تنظیمات مشترک سری + صدور حداکثر یک جانشین برای هر نوبت، فقط پس از تکمیل نهایی. */
+/** تنظیمات مشترک سری + صدور حداکثر یک جانشین برای هر نوبت، مستقل از وضعیت نوبت قبلی. */
 final class TaskRecurrence
 {
     public const KINDS = ['daily' => 'روزانه', 'weekly' => 'هفتگی', 'monthly' => 'ماهانه', 'custom' => 'شخصی‌سازی'];
@@ -139,24 +139,20 @@ final class TaskRecurrence
     }
 
     /** اتمی و قابل تکرار؛ هم از پایان تکمیل سرور و هم از worker بازیابی فراخوانی می‌شود. */
-    public static function generate(int $taskId): ?int
+    public static function generate(int $taskId, ?string $horizon = null): ?int
     {
         $hint = TaskModel::raw($taskId);
         if ($hint === null || empty($hint['recurrence_id'])) {
             return null;
         }
-        return DB::transaction(static function () use ($taskId, $hint): ?int {
+        return DB::transaction(static function () use ($taskId, $hint, $horizon): ?int {
             $r = DB::one('SELECT * FROM task_recurrences WHERE id = ? FOR UPDATE', [(int) $hint['recurrence_id']]);
             if ($r === null || !(bool) $r['enabled'] || (int) $r['current_task_id'] !== $taskId) {
                 return null;
             }
             $t = DB::one('SELECT * FROM tasks WHERE id = ? FOR UPDATE', [$taskId]);
-            if ($t === null || !(bool) $t['is_completed'] || !empty($t['blocked_at']) || empty($t['due_date'])
+            if ($t === null || !empty($t['blocked_at']) || empty($t['due_date'])
                 || DB::value('SELECT id FROM tasks WHERE recurrence_previous_id = ?', [$taskId])) {
-                return null;
-            }
-            // بازکردن نوبت قدیمی هرگز سری را دوشاخه نمی‌کند؛ ابتدا نوبت باز قبلی باید تمام شود.
-            if (DB::value('SELECT id FROM tasks WHERE recurrence_id = ? AND is_completed = 0 LIMIT 1 FOR UPDATE', [(int) $r['id']])) {
                 return null;
             }
             $owner = (int) $t['user_id'];
@@ -168,8 +164,8 @@ final class TaskRecurrence
                 || (int) DB::value("SELECT COUNT(*) FROM users WHERE id IN (?, ?) AND status = 'active' AND is_bot = 0", [$owner, $assignee]) !== ($owner === $assignee ? 1 : 2)) {
                 return null;
             }
-            $next = self::nextDate((string) $t['due_date'], (string) $r['kind'], (int) $r['interval_days'], (int) $r['anchor_day'], max(date('Y-m-d'), substr((string) $t['completed_at'], 0, 10)));
-            if ($next === null || Limits::create('task', $owner) !== null) {
+            $next = self::nextDate((string) $t['due_date'], (string) $r['kind'], (int) $r['interval_days'], (int) $r['anchor_day'], (string) $t['due_date']);
+            if ($next === null || ($horizon !== null && $next > $horizon) || Limits::create('task', $owner) !== null) {
                 return null;
             }
             $copy = array_intersect_key($t, array_flip(['user_id', 'assignee_id', 'project_id', 'subject_id', 'title', 'description', 'priority', 'priority_percent', 'due_time', 'is_confidential']));
@@ -188,21 +184,39 @@ final class TaskRecurrence
         });
     }
 
+    /** پیش از خواندن پنل/API؛ حداکثر یک اجرا در دقیقه برای همه کاربران این نصب. */
+    public static function warm(): void
+    {
+        $path = STORAGE_PATH . '/cache/recurrence-materialize.lock';
+        $f = @fopen($path, 'c+');
+        if (!$f) { return; }
+        try {
+            if (!flock($f, LOCK_EX | LOCK_NB)) { return; }
+            $last = (int) stream_get_contents($f);
+            if (time() - $last < 60) { return; }
+            self::recover(100);
+            rewind($f); ftruncate($f, 0); fwrite($f, (string) time());
+        } finally { fclose($f); }
+    }
+
     /** بدون اتکا به نشست یا مرورگر؛ خطای یک سری مانع بازیابی سری‌های دیگر نمی‌شود. */
     public static function recover(int $limit = 100): int
     {
         $count = 0;
-        foreach (DB::column('SELECT t.id FROM task_recurrences r INNER JOIN tasks t ON t.id = r.current_task_id WHERE r.enabled = 1 AND t.is_completed = 1 AND t.blocked_at IS NULL ORDER BY r.updated_at, r.id LIMIT ' . max(1, min(1000, $limit))) as $id) {
-            try {
-                if (self::generate((int) $id) !== null) {
-                    ++$count;
-                } else {
-                    DB::run('UPDATE task_recurrences SET updated_at = NOW() WHERE current_task_id = ?', [(int) $id]);
-                }
-            } catch (\Throwable $e) {
-                \App\Core\Log::error($e, 'tasks', ['step' => 'recurrence', 'task' => (int) $id]);
+        $limit = max(1, min(1000, $limit));
+        $horizon = date('Y-m-d', strtotime('+31 days'));
+        $end = microtime(true) + 8;
+        do {
+            $progress = 0;
+            $ids = DB::column('SELECT t.id FROM task_recurrences r INNER JOIN tasks t ON t.id = r.current_task_id WHERE r.enabled = 1 AND t.blocked_at IS NULL AND t.due_date < ? ORDER BY r.updated_at, r.id LIMIT ' . min(100, $limit - $count), [$horizon]);
+            foreach ($ids as $id) {
+                try {
+                    if (self::generate((int) $id, $horizon) !== null) { ++$count; ++$progress; }
+                    else { DB::run('UPDATE task_recurrences SET updated_at = NOW() WHERE current_task_id = ?', [(int) $id]); }
+                } catch (\Throwable $e) { \App\Core\Log::error($e, 'tasks', ['step' => 'recurrence', 'task' => (int) $id]); }
+                if ($count >= $limit || microtime(true) >= $end) { break; }
             }
-        }
+        } while ($progress > 0 && $count < $limit && microtime(true) < $end);
         return $count;
     }
 }

@@ -6,7 +6,7 @@ namespace App\Core;
 /** روتر ساده با پارامتر {name}، میدلور و گروه‌بندی. */
 final class Router
 {
-    /** @var array<int,array{method:string,regex:string,handler:array,mw:array}> */
+    /** @var array<int,array{path:string,method:string,regex:string,handler:array,mw:array}> */
     private array $routes = [];
     private array $groupMw = [];
     private string $prefix = '';
@@ -51,11 +51,24 @@ final class Router
         if ($method !== 'GET' && !in_array('api', $all, true) && !in_array('csrf', $all, true)) {
             $all[] = 'csrf';
         }
-        $this->routes[] = ['method' => $method, 'regex' => '#^' . $regex . '$#u', 'handler' => $handler, 'mw' => $all];
+        $this->routes[] = ['path' => $full, 'method' => $method, 'regex' => '#^' . $regex . '$#u', 'handler' => $handler, 'mw' => $all];
     }
+
+    /** قرارداد مسیرها برای پل آزمایشی Laravel؛ مسیرهای ادمین در آن مصرف نمی‌شوند. */
+    public function definitions(): array { return $this->routes; }
+    private static bool $usingLaravel = false;
 
     public function dispatch(Request $req): void
     {
+        if (!self::$usingLaravel && env('USER_ROUTER', 'legacy') === 'laravel' && !preg_match('#^/admin(?:/|$)#', $req->path())) {
+            self::$usingLaravel = true;
+            $file = BASE_PATH . '/laravel/vendor/autoload.php';
+            if (PHP_VERSION_ID < 80200 || !is_file($file)) { throw new \RuntimeException('Laravel user router requires PHP 8.2 and composer install in laravel/'); }
+            require_once $file;
+            \KarlixLaravel\Bridge::dispatch($this, $req);
+            return;
+        }
+
         $method = $req->method();
         $path = $req->path();
         if ($method === 'HEAD') {
