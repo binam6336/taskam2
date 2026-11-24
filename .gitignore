@@ -12,7 +12,6 @@ __pycache__/
 storage/app/*
 !storage/app/.gitkeep
 
-laravel/vendor/
 laravel/bootstrap/cache/*
 laravel/storage/**
 !laravel/bootstrap/cache/.gitkeep

@@ -3,15 +3,14 @@
 مدیریت وظایف، تیکت، تماس، همکاران، پروژه، چت و API. از نسخه ۹، بک‌اند پنل کاربر و API با Laravel 12 اجرا می‌شود؛ پنل مدیر روی MVC قبلی باقی مانده است. [جزئیات مهاجرت و بازگشت](docs/migration/laravel.md).
 
 ## نیازمندی‌ها
-- PHP **8.2+** با افزونه‌های `pdo_mysql`, `mbstring`, `fileinfo`, `gd`, `openssl`, `dom`, `tokenizer`, `xml` و نیازمندی‌های Composer
+- PHP **8.2+** با افزونه‌های `pdo_mysql`, `mbstring`, `fileinfo`, `gd`, `openssl`, `dom`, `tokenizer`, `xml`
 - MySQL 5.7+/8 یا MariaDB 10.3+
 - Apache (mod_rewrite) یا Nginx — نمونه‌ی پیکربندی در `docs/DEPLOY.md`
-- Composer برای نصب وابستگی‌های `laravel/`؛ فرانت‌اند همچنان بدون build است و فونت‌ها محلی‌اند.
+- وابستگی‌های تولید در `laravel/vendor/` همراه پروژه نصب و ثبت شده‌اند؛ روی هاست Composer، ترمینال یا build لازم نیست. فرانت‌اند بدون build است و فونت‌ها محلی‌اند.
 
 ## نصب سریع (دیتابیس خام)
 ```bash
 cp .env.example .env            # و مقادیر DB_* و APP_KEY را پر کنید
-composer install --working-dir=laravel --no-dev --prefer-dist
 mysql -u root -p -e "CREATE DATABASE taskam CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 mysql -u root -p taskam < database/schema.sql
 php bin/create-admin.php 09120000000 "مدیر" "سیستم"   # ساخت مدیر اولیه
@@ -21,7 +20,7 @@ chmod -R 750 storage                                    # دسترسی نوشت�
 
 ## ارتقا به نسخه ۹
 
-پیش از انتشار PHP 8.2+ را فعال و `composer install --working-dir=laravel --no-dev --prefer-dist` را اجرا کنید. `USER_ROUTER=laravel` مسیر اصلی است؛ برای بازگشت موقت `legacy` بگذارید. روی هاست فاقد Composer، پوشهٔ vendor ساخته‌شده را همراه نسخه منتقل کنید. `.env` و کلیدها حفظ شوند؛ این تغییر مهاجرت دیتابیس ندارد و هیچ فرمان `artisan migrate` یا reset لازم نیست.
+از نسخه 9.0.1 پوشهٔ `laravel/vendor` در خود مخزن و Download ZIP گیت‌هاب وجود دارد. نسخه را کامل (همراه vendor) روی هاست آپلود و استخراج کنید؛ اجرای Composer روی هاست لازم نیست. `USER_ROUTER=laravel` مسیر اصلی است؛ برای بازگشت موقت `legacy` بگذارید. ZIP آماده با `sh bin/package.sh` از فایل‌های کامیت‌شده ساخته می‌شود و وابستگی‌ها را هم دارد. `.env` و کلیدها حفظ شوند؛ این تغییر مهاجرت دیتابیس ندارد و هیچ فرمان `artisan migrate` یا reset لازم نیست.
 
 ## مهاجرت از نسخه‌ی قدیمی
 راهنما: `docs/MIGRATION.md` و اسکریپت `database/migrations/001_import_from_legacy.sql` (غیرمخرب؛ دیتابیس قدیمی دست‌نخورده می‌ماند).

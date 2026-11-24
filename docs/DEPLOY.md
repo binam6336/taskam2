@@ -2,7 +2,7 @@
 
 ## پیش‌نیاز نسخه ۹
 
-PHP 8.2+ و `composer install --working-dir=laravel --no-dev --prefer-dist` لازم است. `USER_ROUTER=laravel` را برای پنل کاربر و API فعال کنید. مسیر ادمین از MVC فعلی استفاده می‌کند؛ `.env`، کلید رمزگذاری و فایل‌ها حفظ شوند. این نسخه schema جدید ندارد؛ `artisan migrate` اجرا نکنید. اگر Composer روی هاست نیست vendor را در محیط ساخت نصب و منتقل کنید. پوشه‌های `laravel/bootstrap/cache` و `laravel/storage` باید قابل نوشتن باشند. جزئیات و بازگشت: [راهنمای Laravel](migration/laravel.md).
+PHP 8.2+ لازم است. از نسخهٔ 9.0.1 تمام ۷۴ وابستگی تولید در `laravel/vendor/` همراه مخزن و ZIP نصب‌اند؛ روی هاست Composer یا ترمینال لازم نیست. `USER_ROUTER=laravel` را برای پنل کاربر و API فعال کنید. مسیر ادمین از MVC فعلی استفاده می‌کند؛ `.env`، کلید رمزگذاری و فایل‌ها حفظ شوند. این نسخه schema جدید ندارد؛ `artisan migrate` اجرا نکنید. نسخه را کامل همراه پوشهٔ `laravel/vendor` روی نصب فعلی آپلود و استخراج کنید. `.env`، فایل‌های storage و کلیدهای فعلی را بازنویسی نکنید. برای بررسی اختیاری فایل‌ها در محیط دارای PHP CLI، `php bin/check-dependencies.php` بدون Composer و اینترنت اجرا می‌شود. تنظیمات خصوصی، cache و آپلودها در مخزن قرار نمی‌گیرند. پوشه‌های `laravel/bootstrap/cache` و `laravel/storage` باید قابل نوشتن باشند. جزئیات و بازگشت: [راهنمای Laravel](migration/laravel.md).
 
 Cronهای موجود `bin/ai-worker.php`، `bin/recurring-tasks.php` و `bin/push-cron.php` خودکار از فرمان‌ها و سرویس‌های Laravel استفاده می‌کنند؛ در حالت legacy به اجراکنندهٔ قبلی برمی‌گردند. فرمان‌های مستقیم نیز `php laravel/artisan karlix:recurring`، `karlix:reminders` و `karlix:ai-worker --once --procs=1` هستند. صف رمزگذاری ادمین تغییر نکرده است.
 

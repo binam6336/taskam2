@@ -64,7 +64,12 @@ final class Router
         if (!self::$usingLaravel && env('USER_ROUTER', 'laravel') === 'laravel' && !preg_match('#^/admin(?:/|$)#', $req->path())) {
             self::$usingLaravel = true;
             $file = BASE_PATH . '/laravel/vendor/autoload.php';
-            if (PHP_VERSION_ID < 80200 || !is_file($file)) { throw new HttpException(503, 'پیش‌نیاز بک‌اند کاربری آماده نیست؛ PHP 8.2 یا بالاتر و نصب وابستگی‌های Composer در پوشه laravel لازم است.', 'LARAVEL_NOT_READY'); }
+            if (PHP_VERSION_ID < 80200) {
+                throw new HttpException(503, 'بک‌اند کاربری به PHP 8.2 یا بالاتر نیاز دارد؛ نسخهٔ PHP این نصب را از پنل هاست بررسی کنید.', 'LARAVEL_PHP_VERSION');
+            }
+            if (!is_file($file) || !is_file(BASE_PATH . '/laravel/vendor/composer/autoload_real.php') || !is_file(BASE_PATH . '/laravel/vendor/laravel/framework/src/Illuminate/Foundation/Application.php')) {
+                throw new HttpException(503, 'فایل‌های وابستگی بک‌اند کاربری کامل نیستند؛ پوشهٔ laravel/vendor نسخهٔ آماده را کامل روی هاست جایگزین کنید.', 'LARAVEL_DEPENDENCIES_MISSING');
+            }
             require_once $file;
             \KarlixLaravel\Bridge::dispatch($this, $req);
             return;
