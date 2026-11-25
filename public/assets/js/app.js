@@ -457,7 +457,7 @@
     if (!sbMobile.matches) sbPop.style.setProperty('--pop-right', (window.innerWidth - side.left + 12) + 'px');
     sbPop.style.setProperty('--ay', Math.max(18, Math.min(mid - top, h - 18)) + 'px');
   };
-  const sbPopItems = () => TK.qsa('.sb-pop-a:not(.is-soon), .sb-pop-x', sbPop).filter((x) => !x.classList.contains('sb-pop-x'));
+  const sbPopItems = () => TK.qsa('.sb-pop-a:not(.is-soon), .sb-subgroup > summary', sbPop).filter((x) => x.getClientRects().length);
   function sbPopClose(focusBack = true) {
     if (!sbPop) return;
     sbPop.hidden = true; sbPopBtn?.setAttribute('aria-expanded', 'false');
@@ -474,6 +474,7 @@
   };
   TK.on('click', '.sb-it[aria-controls]', (e, btn) => { e.stopPropagation(); if (sbPopBtn === btn) sbPopClose(); else sbPopOpen(btn); });
   TK.on('click', '.sb-pop-x', () => sbPopClose());
+  document.addEventListener('toggle', (e) => { if (e.target.matches?.('.sb-subgroup')) sbPlace(); }, true);
   TK.on('click', '.sb-pop-a', () => { sbPopClose(false); if (sbMobile.matches) sbSide(false); });
   document.addEventListener('pointerdown', (e) => { if (sbPop && !e.target.closest('.sb-pop, .sb-it[aria-controls]')) sbPopClose(false); });
   document.addEventListener('keydown', (e) => {
@@ -483,7 +484,7 @@
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = items.length; if (n) items[((i < 0 ? -1 : i) + (e.key === 'ArrowDown' ? 1 : -1) + n) % n].focus(); return; }
     if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1]?.focus(); return; }
     if (e.key === 'Tab') {
-      const all = TK.qsa('a, button', sbPop).filter((x) => !x.hidden), first = all[0], last = all[all.length - 1];
+      const all = TK.qsa('a, button, summary', sbPop).filter((x) => x.getClientRects().length), first = all[0], last = all[all.length - 1];
       if ((!e.shiftKey && document.activeElement === last) || (e.shiftKey && document.activeElement === first)) { e.preventDefault(); sbPopClose(); }
     }
   }, true);

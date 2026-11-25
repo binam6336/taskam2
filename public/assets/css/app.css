@@ -3222,3 +3222,22 @@ a.col-phone:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outl
 .an-pdf .table-wrap { overflow: visible; }
 .an-pdf .table-cards tr { display: table-row; }
 .an-pdf .table-cards td { display: table-cell; }
+
+/* مدیریت: زیرگروه‌های سایدبار و دفتر پنل‌های جانبی */
+.sb-subgroup > summary { display: flex; align-items: center; gap: .7rem; padding: 10px; border-radius: 12px; cursor: pointer; font-weight: 700; color: var(--text); list-style: none; }
+.sb-subgroup > summary::-webkit-details-marker { display: none; }
+.sb-subgroup > summary > span { flex: 1; }
+.sb-subgroup > summary:hover { background: var(--surface-2); }
+.sb-subgroup[open] > summary > .fa-chevron-left { transform: rotate(-90deg); }
+.sb-sub-list { padding-inline-start: 14px; border-inline-start: 1px solid var(--border); margin-inline-start: 14px; }
+.side-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: start; }
+.side-panel { min-width: 0; }
+.side-panel h2 { font-size: 18px; overflow-wrap: anywhere; }
+.side-panel-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.side-panel-url, .side-panel-secrets { overflow-wrap: anywhere; }
+.side-panel-form { display: grid; gap: 12px; }
+.side-panel-form > label { display: grid; gap: 6px; }
+.side-panel-form > label:has([type="checkbox"]) { display: flex; align-items: center; }
+.side-panel-secrets { padding: 12px; border-radius: 12px; background: var(--surface-2); }
+
+.side-panel-secrets code { white-space: pre-wrap; }

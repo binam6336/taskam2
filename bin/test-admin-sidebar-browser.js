@@ -1,0 +1,77 @@
+// بررسی رابط و کنترل دسترسی واقعی مدیر؛ فقط روی دیتابیس آزمایشی.
+const {chromium}=require('playwright'),{execFileSync}=require('child_process'),assert=require('assert'),path=require('path');
+const base=process.env.ADMIN_TEST_URL||'http://127.0.0.1:8082',php=process.env.PHP_BIN||'php',driver=path.join(__dirname,'../tests/admin/side-panels-driver.php');
+const run=(data)=>JSON.parse(execFileSync(php,[driver,JSON.stringify(data)]).toString());
+const fixture=run({action:'fixture'}),panels=[];assert(fixture.testDatabase.endsWith('_test'));
+(async()=>{let browser;try{
+ browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
+ const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1365,height:950}}),p=await ctx.newPage(),errors=[];
+ p.on('pageerror',e=>errors.push(e.message));
+ const login=async(page,mobile,password)=>{await page.goto(base+'/login');await page.locator('[name=mobile]').first().fill(mobile);await page.locator('[name=password]').first().fill(password);await page.locator('form[action$="/login"] button[type=submit]').click();await page.waitForURL(u=>!u.pathname.endsWith('/login'));};
+ await login(p,process.env.KARLIX_TEST_ADMIN_MOBILE,process.env.KARLIX_TEST_ADMIN_PASSWORD);
+ await p.goto(base+'/admin/side-panels');assert.equal(await p.locator('h1').textContent(),'پنل‌های جانبی');
+ assert.equal(await p.locator('#sidebar .sb-lbl').filter({hasText:'وب سرویس'}).count(),0);
+ await p.locator('[aria-controls="sb-pop-content"]').click();
+ await p.locator('#sb-pop-content summary').click();assert.equal(await p.locator('#sb-pop-content a:visible').count(),5);
+ await p.locator('#sb-pop-content a[href$="/admin/content/tour"]').click();await p.waitForURL('**/admin/content/tour');
+ await p.locator('[aria-controls="sb-pop-content"]').click();assert(await p.locator('#sb-pop-content details').getAttribute('open')!==null);
+ assert(await p.locator('[aria-controls="sb-pop-content"]').evaluate(el=>el.classList.contains('is-current-group')));
+ await p.keyboard.press('Escape');
+ await p.locator('[aria-controls="sb-pop-settings"]').click();
+ assert.deepEqual(await p.locator('#sb-pop-settings summary').allTextContents(),['ادمین','امنیت','مدیریت مصرف']);
+ for(const label of ['ادمین','امنیت','مدیریت مصرف'])await p.locator('#sb-pop-settings summary').filter({hasText:label}).click();
+ assert.equal(await p.locator('#sb-pop-settings a:visible').count(),7);
+ await p.screenshot({path:'/tmp/kx-admin-sidebar-desktop.png',fullPage:false});
+ await p.locator('#sb-pop-settings a[href$="/admin/side-panels"]').click();await p.waitForURL('**/admin/side-panels');
+ console.log('PASS nested admin menu, active paths, removed web service and all content links');
+ const secret='  Synthetic#pass$\\  ',title='پنل تست <img src=x onerror=alert(1)>';
+ const create=p.locator('#side-panel-create');await create.locator('summary').click();
+ await create.locator('[name=title]').fill(title);await create.locator('[name=url]').fill('https://example.com/admin');
+ await create.locator('[name=description]').fill('توضیحات فارسی\nخط دوم');await create.locator('[name=username]').fill('test-admin');await create.locator('[name=password]').fill(secret);
+ await create.locator('[type=submit]').click();await p.locator('article[data-panel]').filter({hasText:title}).waitFor();
+ let card=p.locator('article[data-panel]').filter({hasText:title});const id=await card.getAttribute('data-panel');panels.push(id);
+ assert.equal(await card.locator('h2 img').count(),0);
+ const html=await (await p.request.get(base+'/admin/side-panels')).text();assert(!html.includes(secret));assert(!html.includes('test-admin'));
+ assert.equal(await card.locator('a[target=_blank]').getAttribute('rel'),'noopener noreferrer');
+ const revealResponse=p.waitForResponse(r=>r.url().endsWith('/credentials'));await card.locator('[data-panel-reveal]').click();
+ assert((await revealResponse).headers()['cache-control'].includes('no-store'));
+ await card.locator('.side-panel-secrets:not([hidden])').waitFor();assert.equal(await card.locator('.side-panel-secrets code').nth(1).textContent(),secret);
+ await card.locator('[data-panel-reveal]').click();assert.equal(await card.locator('.side-panel-secrets').textContent(),'');
+ console.log('PASS create encrypted panel, optional credentials reveal/hide and HTML escaping');
+ await card.locator('details summary').click();await card.locator('[name=title]').fill('پنل ویرایش‌شده');await card.locator('form[action$="/save"] [type=submit]').click();
+ card=p.locator('article[data-panel="'+id+'"]');await card.locator('h2').filter({hasText:'پنل ویرایش‌شده'}).waitFor();
+ await card.locator('[data-panel-reveal]').click();await card.locator('.side-panel-secrets:not([hidden])').waitFor();assert.equal(await card.locator('.side-panel-secrets code').nth(1).textContent(),secret);
+ await card.locator('[data-panel-reveal]').click();
+ await p.clock.install();await card.locator('[data-panel-reveal]').click();await card.locator('.side-panel-secrets:not([hidden])').waitFor();
+ await p.clock.fastForward(31000);assert(await card.locator('.side-panel-secrets').isHidden());assert.equal(await card.locator('.side-panel-secrets').textContent(),'');
+ await p.clock.resume();console.log('PASS automatic credential clearing after thirty seconds');
+ await p.screenshot({path:'/tmp/kx-admin-side-panels.png',fullPage:false});
+ const csrf=await p.evaluate(()=>TK.csrf),post=async(url,data={})=>p.request.post(base+url,{headers:{'X-CSRF-Token':csrf,'X-Requested-With':'XMLHttpRequest',Accept:'application/json'},form:data});
+ const noCsrf=await p.request.post(base+'/admin/side-panels/'+id+'/credentials',{headers:{Accept:'application/json'}});assert.equal(noCsrf.status(),419);
+ for(const url of ['javascript:alert(1)','https://name:secret@example.com'])assert.equal((await post('/admin/side-panels',{title:'bad',url})).status(),422);
+ console.log('PASS editing preserves password; CSRF and unsafe URLs rejected');
+ await card.locator('details summary').click();await card.locator('[name=clear_username]').check();await card.locator('[name=clear_password]').check();await card.locator('form[action$="/save"] [type=submit]').click();
+ await p.waitForFunction(id=>!document.querySelector('[data-panel="'+id+'"] [data-panel-reveal]'),id);
+ console.log('PASS explicit deletion of optional username and password');
+ for(const theme of ['violet-light','violet-dark','green-light','green-dark']){
+  await ctx.addCookies([{name:'kx_theme',value:theme,url:base}]);await p.reload();await p.setViewportSize({width:390,height:844});
+  await p.locator('[data-sidebar]').click();await p.locator('[aria-controls="sb-pop-settings"]').click();
+  for(const label of ['ادمین','امنیت','مدیریت مصرف'])await p.locator('#sb-pop-settings summary').filter({hasText:label}).click();
+  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  const rect=await p.locator('#sb-pop-settings').boundingBox();assert(rect.x>=0&&rect.x+rect.width<=390&&rect.y>=0&&rect.y+rect.height<=845);
+  await p.screenshot({path:'/tmp/kx-admin-sidebar-'+theme+'.png',fullPage:false});await p.keyboard.press('Escape');
+ }
+ console.log('PASS mobile bounds in four light/dark themes');
+ const restricted=await browser.newContext({serviceWorkers:'block'}),rp=await restricted.newPage();await login(rp,fixture.mobile,fixture.password);
+ await rp.goto(base+'/admin/content/tour');assert.equal(await rp.locator('#sb-pop-content a').count(),1);assert.equal(await rp.locator('#sb-pop-settings a[href$="/admin/access"],#sb-pop-settings a[href$="/admin/side-panels"]').count(),0);
+ const rcsrf=await rp.evaluate(()=>TK.csrf);
+ for(const [method,url] of [['GET','/admin/side-panels'],['POST','/admin/side-panels'],['POST','/admin/side-panels/'+id+'/save'],['POST','/admin/side-panels/'+id+'/credentials'],['POST','/admin/side-panels/'+id+'/delete']]){
+  const response=await rp.request.fetch(base+url,{method,headers:{'X-CSRF-Token':rcsrf,Accept:'application/json'}});assert.equal(response.status(),403);
+ }
+ assert.equal(await rp.locator('#sb-pop-support a[href$="/admin/support"]').count(),1);
+ console.log('PASS restricted admin cannot list, create, edit, reveal or delete; ticket menu retained');
+ await p.goto(base+'/admin/side-panels');card=p.locator('article[data-panel="'+id+'"]');
+ await card.locator('form[action$="/delete"] [type=submit]').click();await p.locator('#tk-confirm.open').waitFor();await p.locator('#tk-confirm [data-ok]').click();
+ await card.waitFor({state:'detached'});console.log('PASS delete panel through confirmation flow');
+ assert.deepEqual(errors,[]);
+}finally{await browser?.close();run({action:'cleanup',user:fixture.id,panels});}})().catch(e=>{console.error(e);process.exitCode=1;});

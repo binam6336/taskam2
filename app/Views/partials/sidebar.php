@@ -25,6 +25,15 @@ $badge = static function (string $key) use ($badges, $badgeAs, $cnt): string {
     return '<span class="sb-badge' . $alert . ($n > 0 ? '' : ' zero') . '" data-badge=""' . e($badgeAs[$key] ?? $key) . '" aria-hidden="true">' . e(fa_num($n)) . '</span><span class="sr-only sb-sr">' . e($cnt($n)) . '</span>';
 };
 $pops = [];
+// کلیدهای زیرگروه‌ها برای نمایش بخش فعال و شمارنده، بدون تغییر منوی کاربر.
+$sidebarKeys = static function (array $items) use (&$sidebarKeys): array {
+    $keys = [];
+    foreach ($items as $child) {
+        if (isset($child['items'])) { $keys = array_merge($keys, $sidebarKeys($child['items'])); }
+        elseif (isset($child[0])) { $keys[] = $child[0]; }
+    }
+    return $keys;
+};
 ?>
 <a class="skip-link" href="#main-content">پرش به محتوای اصلی</a>
 <aside class="sidebar" id="sidebar">
@@ -44,7 +53,7 @@ $pops = [];
 <?php elseif (!isset($item['group'])): [$key, $path, $icon, $label] = $item; $on = $active === $key; ?>
             <li><a class="sb-it<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?><?= $key === 'board' ? ' data-board-pick' : '' ?>><span class="sb-ic"><i class="fa-solid <?= e($icon) ?>" aria-hidden="true"></i></span><span class="sb-lbl"><?= e($label) ?></span><?= $badge($key) ?></a></li>
 <?php else:
-    $keys = array_column(array_filter($item['items'], static fn($c) => isset($c[0])), 0);
+    $keys = $sidebarKeys($item['items']);
     $sumKeys = array_values(array_filter($keys, static fn($k) => array_key_exists($k, $badges)));
     $sumInit = array_sum(array_map(static fn($k) => (int) $badges[$k], $sumKeys));
     $sum = array_map(static fn($k) => $badgeAs[$k] ?? $k, $sumKeys);
@@ -94,15 +103,7 @@ $pops = [];
             <button type="button" class="sb-pop-x" aria-label="بستن <?= e($item['label']) ?>"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
         <ul class="sb-pop-ul">
-        <?php foreach ($item['items'] as $c):
-            if (isset($c['link'])): ?>
-            <li><a class="sb-pop-a" href="<?= e($c['link']) ?>" target="_blank" rel="noopener noreferrer"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small><?= e(($c['desc'] ?? '') !== '' ? $c['desc'] : 'لینک خارجی (تب جدید)') ?></small></span><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
-            <?php elseif (isset($c['soon'])): ?>
-            <li><span class="sb-pop-a is-soon" aria-disabled="true"><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($c['icon']) ?>"></i></span><span class="sb-pop-t"><b><?= e($c['label']) ?></b><small>به‌زودی<?= ($c['desc'] ?? '') !== '' ? ' · ' . e($c['desc']) : '' ?></small></span></span></li>
-            <?php else: [$key, $path, $icon, $label] = $c; $on = $active === $key; $cd = $c['desc'] ?? ($desc[$key] ?? ''); ?>
-            <li><a class="sb-pop-a<?= $on ? ' active' : '' ?>" href="<?= e(url($path)) ?>"<?= $on ? ' aria-current="page"' : '' ?><?= $key === 'board' ? ' data-board-pick' : '' ?>><span class="sb-pop-ic" aria-hidden="true"><i class="fa-solid <?= e($icon) ?>"></i></span><span class="sb-pop-t"><b><?= e($label) ?><?php if ($on): ?> <em class="sb-pop-now">صفحه فعلی</em><?php endif; ?></b><?php if ($cd !== ''): ?><small><?= e($cd) ?></small><?php endif; ?></span><?= $badge($key) ?><i class="fa-solid fa-arrow-left sb-pop-go" aria-hidden="true"></i></a></li>
-            <?php endif; ?>
-        <?php endforeach; ?>
+        <?php $sidebarChildren = $item['items']; require __DIR__ . '/sidebar_children.php'; ?>
         </ul>
     </div>
 <?php endforeach; ?>

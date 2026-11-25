@@ -765,6 +765,53 @@ final class AdminController extends Controller
         $this->respond(true, 'سقف فضای پروژه ذخیره شد.', '/admin/storage/projects/' . pid('projects', (int) $project));
     }
 
+    /** پنل‌های جانبی حاوی اطلاعات ورودند؛ همان مرز مدیر کلِ تنظیمات دسترسی اعمال می‌شود. */
+    private function needSidePanels(): void
+    {
+        if (!Auth::isSuperAdmin()) { $this->fail('فقط مدیر کل به پنل‌های جانبی دسترسی دارد.', 403); }
+        $this->denyImpersonation('/admin');
+    }
+
+    public function sidePanels()
+    {
+        $this->needSidePanels();
+        $this->view('admin/side_panels', ['panels' => \App\Services\SidePanels::listing(), 'cryptoReady' => \App\Core\ContentCipher::enabled(),
+            'supportUnread' => SupportModel::unreadForAdmin()], ['title' => 'پنل‌های جانبی', 'page' => 'admin-side-panels'], 'admin');
+    }
+
+    public function sidePanelSave(string $panel = '')
+    {
+        $this->needSidePanels();
+        $this->rateLimit('admin_side_panels_write', 30);
+        $data = [];
+        foreach (['title', 'url', 'description', 'username', 'password'] as $field) {
+            $data[$field] = $this->request->input($field, '');
+        }
+        foreach (['username', 'password'] as $field) { $data['clear_' . $field] = $this->request->input('clear_' . $field) === '1'; }
+        $id = \App\Services\SidePanels::save($panel === '' ? null : $panel, $data, $this->uid());
+        Audit::log($this->uid(), 'side_panel_saved', ['panel' => $id]);
+        $this->respond(true, 'پنل جانبی ذخیره شد.', '/admin/side-panels');
+    }
+
+    public function sidePanelCredentials(string $panel)
+    {
+        $this->needSidePanels();
+        $this->rateLimit('admin_side_panels_reveal', 20);
+        $credentials = \App\Services\SidePanels::credentials($panel);
+        Audit::log($this->uid(), 'side_panel_revealed', ['panel' => $panel]);
+        header('Cache-Control: no-store, private');
+        \App\Core\Response::json(['status' => 'success', 'data' => $credentials]);
+    }
+
+    public function sidePanelDelete(string $panel)
+    {
+        $this->needSidePanels();
+        $this->rateLimit('admin_side_panels_write', 30);
+        \App\Services\SidePanels::delete($panel);
+        Audit::log($this->uid(), 'side_panel_deleted', ['panel' => $panel]);
+        $this->respond(true, 'پنل جانبی حذف شد.', '/admin/side-panels');
+    }
+
     public function security()
     {
         $this->need('view_security');

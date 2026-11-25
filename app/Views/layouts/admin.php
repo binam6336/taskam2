@@ -13,23 +13,28 @@ $menu = [
         ['admin-users', '/admin', 'fa-users-gear', 'لیست کاربران'],
     ]],
     ['group' => 'content', 'icon' => 'fa-pen-to-square', 'label' => 'محتوا', 'items' => [
-        ['admin-content-sidebar', '/admin/content/sidebar', 'fa-bars-staggered', 'سایدبار'],
-        ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
-        ['admin-content-board', '/admin/content/board', 'fa-table-columns', 'بورد'],
-        ['admin-content-ph', '/admin/content/placeholders', 'fa-i-cursor', 'Placeholder'],
-        ['admin-content-errors', '/admin/content/errors', 'fa-triangle-exclamation', 'خطاها'],
-    ]],
-    ['group' => 'api', 'icon' => 'fa-code', 'label' => 'وب سرویس', 'items' => [
-        ['docs', '/docs', 'fa-book', 'مستندات API'],
+        ['section' => 'user-panel', 'icon' => 'fa-user', 'label' => 'پنل کاربری', 'items' => [
+            ['admin-content-sidebar', '/admin/content/sidebar', 'fa-bars-staggered', 'سایدبار'],
+            ['admin-content-tour', '/admin/content/tour', 'fa-route', 'تور آموزشی'],
+            ['admin-content-board', '/admin/content/board', 'fa-table-columns', 'بورد'],
+            ['admin-content-ph', '/admin/content/placeholders', 'fa-i-cursor', 'Placeholder'],
+            ['admin-content-errors', '/admin/content/errors', 'fa-triangle-exclamation', 'خطاها'],
+        ]],
     ]],
     ['group' => 'settings', 'icon' => 'fa-gear', 'label' => 'تنظیمات', 'items' => [
-        ['profile', '/profile', 'fa-user-gear', 'پروفایل من'],
-        ['admin-install', '/install', 'fa-download', 'نصب'],
-        ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'مستندات پنل'],
-        ['admin-security', '/admin/security', 'fa-shield-halved', 'امنیت'],
-        ['admin-ai-usage', '/admin/ai-usage', 'fa-chart-pie', 'میزان مصرف'],
-        ['admin-storage', '/admin/storage', 'fa-hard-drive', 'فضای ذخیره‌سازی'],
-        ['admin-access', '/admin/access', 'fa-user-lock', 'دسترسی'],
+        ['section' => 'admin', 'icon' => 'fa-user-gear', 'label' => 'ادمین', 'items' => [
+            ['profile', '/profile', 'fa-user-gear', 'پروفایل'],
+        ]],
+        ['section' => 'security', 'icon' => 'fa-shield-halved', 'label' => 'امنیت', 'items' => [
+            ['admin-security', '/admin/security', 'fa-shield-halved', 'ورودها', 'desc' => 'گزارش ورود به حساب کاربران و تغییرات'],
+            ['admin-access', '/admin/access', 'fa-user-lock', 'دسترسی'],
+        ]],
+        ['section' => 'usage', 'icon' => 'fa-chart-pie', 'label' => 'مدیریت مصرف', 'items' => [
+            ['admin-ai-usage', '/admin/ai-usage', 'fa-chart-pie', 'مصرف هوش مصنوعی'],
+            ['admin-storage', '/admin/storage', 'fa-hard-drive', 'فضای ذخیره‌سازی'],
+        ]],
+        ['admin-panel-docs', '/admin/docs', 'fa-book-open', 'درباره کارلیکس', 'desc' => 'مستندات و قواعد پنل'],
+        ['admin-side-panels', '/admin/side-panels', 'fa-table-columns', 'پنل‌های جانبی'],
     ]],
     ['group' => 'support', 'icon' => 'fa-life-ring', 'label' => 'پشتیبانی', 'items' => [
         ['admin-support', '/admin/support', 'fa-headset', 'تیکت‌ها'],
@@ -39,14 +44,21 @@ $menu = [
 $need = ['admin-analysis' => 'view_analysis', 'admin-users' => 'view_users', 'admin-content-sidebar' => 'edit_sidebar', 'admin-content-tour' => 'edit_tour',
     'admin-content-board' => 'edit_board', 'admin-content-ph' => 'edit_placeholders', 'admin-content-errors' => 'edit_errors', 'admin-panel-docs' => 'view_panel_docs',
     'admin-security' => 'view_security', 'admin-support' => 'support_view', 'admin-ai-usage' => 'manage_ai_usage', 'admin-storage' => 'manage_storage'];
-$okItem = static fn(array $i) => !isset($i[0]) || ($i[0] === 'admin-access' ? \App\Core\Auth::isSuperAdmin() : (!isset($need[$i[0]]) || \App\Core\Auth::adminCan($need[$i[0]])));
-$menu = array_values(array_filter(array_map(static function ($m) use ($okItem) {
-    if (isset($m['group'])) {
-        $m['items'] = array_values(array_filter($m['items'], $okItem));
-        return $m['items'] ? $m : null;
+$filterItems = static function (array $items) use (&$filterItems, $need): array {
+    $out = [];
+    foreach ($items as $i) {
+        if (isset($i['items'])) {
+            $i['items'] = $filterItems($i['items']);
+            if ($i['items']) { $out[] = $i; }
+        } elseif (in_array($i[0] ?? '', ['admin-access', 'admin-side-panels'], true)
+            ? \App\Core\Auth::isSuperAdmin()
+            : (!isset($need[$i[0] ?? '']) || \App\Core\Auth::adminCan($need[$i[0]]))) {
+            $out[] = $i;
+        }
     }
-    return $okItem($m) ? $m : null;
-}, $menu)));
+    return $out;
+};
+$menu = $filterItems($menu);
 $badges = ['admin-support' => (int) ($supportUnread ?? 0)];
 $badgeAs = ['admin-support' => 'support'];
 ?>

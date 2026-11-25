@@ -264,6 +264,11 @@ $router->group(['admin'], function ($r) {
     $r->get('/admin/list/projects/{project}', [AdminController::class, 'projectInfo']);
     $r->get('/admin/list/projects/{project}/{part}', [AdminController::class, 'projectPart']);
     $r->get('/admin/docs', [AdminController::class, 'panelDocs']);
+    $r->get('/admin/side-panels', [AdminController::class, 'sidePanels']);
+    $r->post('/admin/side-panels', [AdminController::class, 'sidePanelSave']);
+    $r->post('/admin/side-panels/{panel}/save', [AdminController::class, 'sidePanelSave']);
+    $r->post('/admin/side-panels/{panel}/credentials', [AdminController::class, 'sidePanelCredentials']);
+    $r->post('/admin/side-panels/{panel}/delete', [AdminController::class, 'sidePanelDelete']);
     $r->get('/admin/security', [AdminController::class, 'security']);
     $r->get('/admin/ai-usage', [AdminController::class, 'aiUsage']);                     // v7.21 سهمیه‌ی مصرف هوش مصنوعی
     $r->post('/admin/ai-usage/defaults', [AdminController::class, 'aiDefaults']);

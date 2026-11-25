@@ -56,6 +56,7 @@ CREATE TABLE `users` (
   KEY `idx_users_status_role` (`status`, `role`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- نسخه ۹.۲: کلیدهای admin.side_panel.* دفتر رمزگذاری‌شده پنل‌های جانبی‌اند؛ ساختار جدول تغییر نکرده است.
 CREATE TABLE `content_texts` (
   `key`        VARCHAR(80) NOT NULL                COMMENT 'مثل tour.step_5',
   `body`       TEXT NOT NULL                       COMMENT 'متن ویرایش‌شده توسط ادمین (پیش‌فرض‌ها در config)',
