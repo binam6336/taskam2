@@ -8,6 +8,15 @@ declare(strict_types=1);
 return [
     'common' => [
         // پوشش پاسخ (envelope)
+        'room_name' => 'نام تصادفی داخلی Room؛ اطلاعات شخصی در آن نیست.',
+        'is_host' => 'آیا این کاربر میزبان مجاز همین جلسه است.',
+        'sources' => 'منبع‌های مجاز رسانه: microphone، camera، screen_share و screen_share_audio.',
+        'invite_state' => 'invited، accepted، declined یا removed.',
+        'raised_hand' => 'درخواست صحبت عضو.',
+        'activation_request' => 'درخواست فعال‌سازی فقط برای خود عضو؛ خودکار دستگاه را روشن نمی‌کند.',
+        'request_ref' => 'شناسهٔ یک‌بارمصرف درخواست رضایت خود کاربر.',
+        'sync_pending' => 'پاک‌سازی Cloud هنوز کامل نشده؛ ورود تازه پس از پایان مجاز نیست.',
+        'client_ref' => 'شناسهٔ پایدار همان ارسال برای جلوگیری از پیام تکراری.',
         'success' => 'نتیجه‌ی کلی درخواست؛ true یعنی موفق و false یعنی خطا.',
         'status' => 'وضعیت متنی درخواست: «success» یا «error».',
         'message' => 'پیام قابل‌نمایش برای کاربر (فارسی). در برخی پاسخ‌ها وجود ندارد.',

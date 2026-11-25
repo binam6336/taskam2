@@ -158,6 +158,32 @@ $fake = static function (string $kind, int $v): string {
 };
 $isId = static fn(string $k): bool => $k === 'id' || $k === 'row_id' || (bool) preg_match('/_id$|_ids$|^(approved_by|delivered_by|blocked_by|forwarded_from)$/', $k);
 $kindOf = static fn(string $k): string => (preg_match('/^(user_id|assignee_id|creator_id|sender_id|receiver_id|approved_by|delivered_by|blocked_by|forwarded_from|.*_user_id|.*_user_ids|user_ids|view_user_ids|board_view_user_ids|my_board_view_user_ids)$/', $k) ? 'users' : $k);
+// قراردادهای جلسه مستقیماً از همان فهرست Route خوانده می‌شوند.
+$meetingExamples = ['id' => 'm7k2x9qa4rtd', 'project_id' => 'p7k2x9qa4rtd', 'host_id' => 'u7k2x9qa4rtd', 'mode' => 'audio', 'status' => 'waiting', 'is_host' => true, 'members' => [], 'sync_pending' => false];
+$meetingParams = [
+    'create' => [$b('mode', 'string', 'audio یا video؛ ساخت نیازمند edit_project همان پروژه است.', true)],
+    'invite' => [$b('invitees', 'array', 'شناسه‌های عمومی اعضای همین پروژه؛ فقط میزبان.', true)],
+    'respondInvite' => [$b('action', 'string', 'accept یا decline', true)],
+    'moderate' => [$b('user_id', 'string', 'عضو همین جلسه', true), $b('action', 'string', 'speaker | listener | mute | stop_camera | stop_screen | allow_microphone | allow_camera | allow_screen | request_microphone | request_camera | remove', true)],
+    'consent' => [$b('ref', 'string', 'request_ref درخواست فعال‌سازی خود کاربر؛ یک‌بارمصرف.', true), $b('accept', 'string', '1 پذیرش، 0 رد', true)],
+    'hand' => [$b('raised', 'string', '1 بالا بردن دست، 0 لغو', true)],
+    'messages' => [$q('before', 'string', 'شناسهٔ عمومی پیام همین جلسه برای پیام‌های قدیمی‌تر؛ حداکثر ۱۰۰ پیام.'), $q('after', 'string', 'شناسهٔ پیام برای دریافت پیام‌های تازه؛ حداکثر ۱۰۰ پیام.')],
+    'send' => [$b('body', 'string', 'متن ۱ تا ۴۰۰۰ نویسه؛ با رمزگذاری فعلی ذخیره می‌شود.', true), $b('client_ref', 'string', '۱۶ تا ۶۴ نویسه از حروف، ارقام، _ و -؛ برای تکرار همان ارسال ثابت بماند.', true)],
+];
+$meetingTitles = ['projectList'=>'فهرست ۳۰ جلسهٔ اخیر پروژه', 'create'=>'ایجاد یا دریافت جلسهٔ باز پروژه', 'invitations'=>'دعوت‌های منتظر پاسخ خود کاربر', 'state'=>'وضعیت جلسه و اعضا', 'join'=>'صدور توکن کوتاه‌عمر و ورود؛ عضو تازه شنونده است', 'heartbeat'=>'همگام‌سازی حضور و لغو دسترسی با Cloud', 'invite'=>'دعوت چند عضو همین پروژه توسط میزبان', 'respondInvite'=>'پذیرش یا رد دعوت خود کاربر', 'members'=>'فهرست اعضای قابل دعوت؛ فقط میزبان', 'moderate'=>'مدیریت مجوز رسانه یا اخراج؛ فقط میزبان', 'consent'=>'رضایت صریح خود کاربر به فعال‌سازی رسانه', 'hand'=>'ثبت یا لغو درخواست صحبت', 'leave'=>'خروج از جلسه و ابطال توکن اتصال قبلی', 'end'=>'پایان برای همه و صف پاک‌سازی در خطای شبکه؛ فقط میزبان', 'messages'=>'تاریخچهٔ ماندگار گفتگو؛ فقط عضو پذیرفته‌شده', 'send'=>'ذخیرهٔ پیام بدون تکرار با client_ref'];
+$meetingEndpoints = [];
+foreach (require BASE_PATH . '/laravel/routes/meetings.php' as $mr) {
+    if (!str_starts_with($mr['path'], '/api/v1/')) { continue; }
+    $action = $mr['handler'][1]; $params = [];
+    preg_match_all('/\{(\w+)\}/', $mr['path'], $names);
+    foreach ($names[1] as $name) { $params[] = ['name'=>$name,'in'=>'path','type'=>'string','required'=>true,'desc'=>'شناسهٔ عمومی ۱۲ نویسه‌ای ' . ($name === 'project' ? 'پروژه' : 'جلسه')]; }
+    $meetingEndpoints[] = ['method'=>$mr['method'],'path'=>substr($mr['path'],7),'summary'=>$meetingTitles[$action],'params'=>array_merge($params,$meetingParams[$action]??[]), 'example'=>match($action) {
+        'join'=>['url'=>'wss://your-project.livekit.cloud','token'=>'JWT کوتاه‌عمر؛ ذخیره یا لاگ نشود','identity'=>'شناسهٔ تصادفی رسانه','state'=>$meetingExamples],
+        'projectList'=>['configured'=>true,'can_create'=>true,'meetings'=>[$meetingExamples]],
+        'messages','members','invitations'=>[], 'send'=>['id'=>'x7k2x9qa4rtd','duplicate'=>false], 'leave'=>[], default=>$meetingExamples,
+    }];
+}
+$spec['groups'][] = ['id'=>'meetings','title'=>'جلسه‌های آنلاین پروژه','icon'=>'fa-video','desc'=>'LiveKit Cloud؛ عضویت و مجوز هر پروژه مستقل بررسی می‌شود. توکن read فقط GET دارد و اجازهٔ ورود رسانه ندارد. مدیریت فقط با میزبان؛ مجوز جدیدی به نقش‌های قبلی اضافه نشده است. جزئیات و تنظیمات در docs/LIVEKIT.md.','endpoints'=>$meetingEndpoints];
 $walk = static function ($v, string $ctx = '') use (&$walk, $fake, $isId, $kindOf) {
     if (!is_array($v)) {
         return $v;

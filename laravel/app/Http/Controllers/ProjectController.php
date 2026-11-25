@@ -22,9 +22,15 @@ final class ProjectController extends Controller
             $p['pending_ids'] = $p['is_creator'] || in_array('add_member', $p['perms'], true) ? ProjectModel::pendingUserIds((int) $p['id']) : [];
         }
         unset($p);
+        $meetingSummary = [];
+        if ($projects && \KarlixLaravel\Services\Meetings\MeetingService::schemaReady()) {
+            foreach (DB::all("SELECT project_id, mode, status FROM project_meetings WHERE active_project_id IN (" . DB::in(array_column($projects, 'id')) . ')', array_column($projects, 'id')) as $row) {
+                $meetingSummary[(int) $row['project_id']] = $row;
+            }
+        }
         $colleagues = array_map(static fn($c) => ['id' => pid('users', $c['user_id']), 'name' => full_name($c), 'mobile' => $c['mobile'], 'avatar' => avatar_url($c['avatar'])], ColleagueService::listFor($uid));
         $this->view('projects/index', [
-            'projects' => $projects, 'colleagues' => $colleagues, 'requests' => ProjectModel::pendingRequestsFor($uid),
+            'projects' => $projects, 'meetingSummary' => $meetingSummary, 'colleagues' => $colleagues, 'requests' => ProjectModel::pendingRequestsFor($uid),
             'history' => ProjectModel::leaveHistory($uid), 'blockedCount' => \KarlixLaravel\Services\BlockService::list('project', $uid, 1)['total'], 'permDefs' => Access::PROJECT_PERMS, 'taskPermDefs' => Access::TASK_PERMS, 'boardPermDefs' => Access::BOARD_PERMS, 'roles' => Access::ROLES + ['custom' => Access::ROLE_CUSTOM],
         ], ['title' => 'پروژه‌ها', 'page' => 'projects']);
     }

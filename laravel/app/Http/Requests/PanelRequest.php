@@ -9,7 +9,7 @@ final class PanelRequest extends \Illuminate\Foundation\Http\FormRequest
     public function rules(): array
     {
         $rules=[];
-        foreach(['title','description','note','content','mobile','email','password','project_title','project_description','message','q','due_date','due_time','repeat_kind'] as $name) { $rules[$name]=['sometimes','nullable','string']; }
+        foreach(['title','description','note','content','mobile','email','password','project_title','project_description','message','q','due_date','due_time','repeat_kind','body','mode','client_ref','action','ref'] as $name) { $rules[$name]=['sometimes','nullable','string']; }
         return $rules;
     }
     public function messages(): array { return ['string'=>'فیلد «:attribute» باید متن باشد.']; }

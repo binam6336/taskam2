@@ -155,6 +155,7 @@ for (const r of routes) {
               close,
           )
           .replace(/[a-f0-9]{64}/g, "CSRF")
+          .replace(/("clock":\{"now":)\d+/g, '$1CLOCK')
           .replace(
             /(<h3><i class="fa-solid fa-shield-halved"><\/i> رویدادهای امنیتی اخیر<\/h3>[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
             "$1AUDIT_ROWS$2",

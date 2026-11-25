@@ -13,7 +13,7 @@ import json, os, re, sys, urllib.parse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = json.load(open(os.path.join(ROOT, 'bin/icons/source.json'), encoding='utf-8'))
-SCAN = ['app', 'config', 'public/assets/js']
+SCAN = ['app', 'laravel/app', 'laravel/resources/views', 'config', 'public/assets/js']
 SKIP = {'fa-solid', 'fa-regular', 'fa-brands', 'fa-spin', 'fa-fw', 'fa-lg', 'fa-xs', 'fa-sm', 'fa-2x', 'fa-spin-reverse', 'fa-pulse'}
 
 used = set()

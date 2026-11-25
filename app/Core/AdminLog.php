@@ -16,6 +16,7 @@ final class AdminLog
 {
     /** جدول ← [نام فارسی، ستون عنوان] */
     public const TRACK = [
+        'project_meetings' => ['جلسهٔ پروژه', null], 'meeting_members' => ['عضو جلسه', null], 'meeting_messages' => ['پیام جلسه', null],
         'tasks' => ['تسک', 'title'], 'task_recurrences' => ['تکرار تسک', 'kind'], 'projects' => ['پروژه', 'title'], 'subjects' => ['لیبل', 'title'],
         'task_notes' => ['یادداشت تسک', null], 'task_attachments' => ['پیوست تسک', 'file_name'], 'note_attachments' => ['پیوست یادداشت', 'file_name'],
         'project_members' => ['عضویت پروژه', null], 'project_join_requests' => ['دعوت به پروژه', null], 'project_blocks' => ['مسدودی دعوت پروژه', null],
@@ -31,7 +32,7 @@ final class AdminLog
     ];
 
     /** ستون‌های فنی یا محرمانه که در لاگ نمی‌آیند */
-    private const SKIP = ['id', 'pid', 'updated_at', 'created_at', 'last_active_at', 'last_seen', 'notified_at', 'share_token', 'token_hash', 'password_hash',
+    private const SKIP = ['body', 'identity', 'request_ref', 'room_name', 'id', 'pid', 'updated_at', 'created_at', 'last_active_at', 'last_seen', 'notified_at', 'share_token', 'token_hash', 'password_hash',
         'file_path', 'file_mime', 'attachment', 'message', 'attachment_name', 'board_moved_at', 'last_reply_at', 'is_read_by_user', 'is_read_by_admin', 'quick_links',
         'progress', 'pending_ref', 'client_ref'];
 
@@ -298,6 +299,12 @@ final class AdminLog
 
     /** نام فارسی ستون‌ها */
     private const LABELS = [
+        'meeting_id' => 'جلسه', 'host_id' => 'میزبان جلسه', 'active_project_id' => 'پروژهٔ جلسهٔ باز', 'mode' => 'نوع جلسه',
+        'invite_state' => 'وضعیت دعوت', 'can_microphone' => 'مجوز میکروفن', 'can_camera' => 'مجوز دوربین', 'can_screen' => 'مجوز اشتراک صفحه',
+        'raised_hand' => 'درخواست صحبت', 'activation_request' => 'درخواست فعال‌سازی', 'present' => 'حضور در جلسه', 'sync_needed' => 'همگام‌سازی مجوز',
+        'cleanup_pending' => 'پاک‌سازی باقی‌ماندهٔ جلسه', 'sync_at' => 'آخرین همگام‌سازی جلسه', 'last_event_at' => 'آخرین رویداد حضور',
+        'room_sid' => 'شناسهٔ ابری اتاق',
+
         'storage_limit_mb' => 'سقف فضای پروژه (مگابایت)', 'storage_custom' => 'سقف فضای اختصاصی', 'directory' => 'بخش فایل', 'bytes' => 'حجم فایل',
         'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
         'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'recurrence_id' => 'سری تکرار', 'recurrence_previous_id' => 'نوبت قبلی', 'current_task_id' => 'نوبت جاری', 'enabled' => 'فعال', 'kind' => 'نوع تکرار', 'interval_days' => 'فاصله روزها', 'anchor_day' => 'روز اصلی ماه', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',

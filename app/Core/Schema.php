@@ -10,7 +10,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '058';
+    public const VERSION = '059';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
@@ -170,6 +170,10 @@ final class Schema
 
     /** جدول‌های جدید: [نام، فایل migration] (همه‌ی DDL زمان اجرا فقط همین‌جاست و با SCHEMA_AUTO=false خاموش می‌شود) */
     private const TABLES = [
+        ['project_meetings', '059_project_meetings.sql'],
+        ['meeting_members', '059_project_meetings.sql'],
+        ['meeting_messages', '059_project_meetings.sql'],
+        ['meeting_webhook_events', '059_project_meetings.sql'],
         ['storage_files', '056_storage_quota.sql'],
         ['task_recurrences', '055_recurring_tasks.sql'],
         ['chat_history_clears', '006_chat_forward_and_clear.sql'],

@@ -476,4 +476,15 @@ final class Access
         }
         return $cache[$k];
     }
+    /** جلسه: مجوز جدیدی به نقش‌های قبلی افزوده نمی‌شود؛ ساخت با ویرایش پروژه، ورود با عضویت فعال. */
+    public static function canJoinMeeting(int $projectId, int $uid): bool
+    {
+        return self::isProjectMember($projectId, $uid)
+            && (bool) DB::value("SELECT 1 FROM projects p JOIN users u ON u.id = ? WHERE p.id = ? AND p.blocked_at IS NULL AND u.status = 'active' AND u.is_bot = 0", [$uid, $projectId]);
+    }
+    public static function canCreateMeeting(int $projectId, int $uid): bool
+    {
+        return self::canJoinMeeting($projectId, $uid) && self::projectCan($projectId, $uid, 'edit_project');
+    }
+
 }

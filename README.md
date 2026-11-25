@@ -114,3 +114,5 @@ mysql -u root -p taskam < database/migrations/013_task_archive.sql              
 - فایل‌ها خارج از webroot با بررسی MIME واقعی و دسترسی؛ پوشه‌های app/config/database/storage/bin با .htaccess بسته‌اند.
 - هدرها: CSP سخت‌گیرانه (بدون اسکریپت inline)، HSTS روی HTTPS، X-Frame-Options، CORP/COOP و no-store برای صفحه‌های کاربر.
 - در محیط واقعی: `APP_DEBUG=false`، `APP_URL` را تنظیم کنید و `API_CORS_ORIGIN` را فقط به دامنه‌های خودتان محدود کنید (صفحه‌ی عیب‌یابی `public/check.php` از v3.25 حذف شده است؛ اگر روی سرور مانده، پاکش کنید).
+
+جلسه‌های صوتی و تصویری پروژه با LiveKit Cloud: راه‌اندازی حساب، متغیرهای محیطی و webhook در [راهنمای جلسه‌ها](docs/LIVEKIT.md).

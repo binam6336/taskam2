@@ -176,6 +176,7 @@ final class ProjectService
                 }
             }
         }
+        \KarlixLaravel\Services\Meetings\MeetingService::projectAccessChanged($projectId);
         return [true, 'پروژه به‌روزرسانی شد.'];
     }
 
@@ -229,8 +230,7 @@ final class ProjectService
             return [false, 'فقط اعضایی را می‌توانید مدیریت کنید که دسترسی کمتری از شما دارند.'];
         }
         $n = DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $memberId]);
-        if ($n > 0) {
-        }
+        if ($n > 0) { \KarlixLaravel\Services\Meetings\MeetingService::projectAccessChanged($projectId); }
         return $n > 0 ? [true, 'کاربر از پروژه حذف شد.'] : [false, 'کاربر عضو پروژه نیست.'];
     }
 
@@ -261,6 +261,7 @@ final class ProjectService
             $clean = array_values(array_unique(array_merge(array_diff($old, $grantable), array_intersect($clean, $grantable))));
         }
         DB::run('UPDATE project_members SET permissions = ? WHERE project_id = ? AND user_id = ?', [json_encode($clean), $projectId, $memberId]);
+        \KarlixLaravel\Services\Meetings\MeetingService::projectAccessChanged($projectId);
         return [true, 'مجوزها ذخیره شد.'];
     }
 
@@ -468,6 +469,7 @@ final class ProjectService
             DB::run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
             DB::run('DELETE FROM project_blocks WHERE project_id = ? AND user_id = ?', [$projectId, $uid]);
         });
+        \KarlixLaravel\Services\Meetings\MeetingService::projectAccessChanged($projectId);
         return [true, 'از پروژه خارج شدید.'];
     }
 

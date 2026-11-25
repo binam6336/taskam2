@@ -5,9 +5,18 @@ namespace App\Core;
 /** محتوای آزاد؛ کلید مستقل از کلید قدیمی چت تا پیام‌های قبلی خراب نشوند. */
 final class ContentCipher
 {
-    public const FIELDS = ['tasks' => ['title','description'], 'projects' => ['description'], 'texts' => ['title','content'], 'task_notes' => ['note'], 'support_messages' => ['message']];
+    public const FIELDS = ['tasks' => ['title','description'], 'projects' => ['description'], 'texts' => ['title','content'], 'task_notes' => ['note'], 'support_messages' => ['message'], 'meeting_messages' => ['body']];
     public const PREFIX = 'data:v1:';
     private static bool $verified = false;
+    /** نصب بدون migration جلسه نباید نوشتن یا رمزگذاری اطلاعات قبلی را متوقف کند. */
+    private static function fields(): array
+    {
+        static $fields = null;
+        if ($fields !== null) { return $fields; }
+        $fields = self::FIELDS;
+        if (!(int) DB::pdo()->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'meeting_messages'")->fetchColumn()) { unset($fields['meeting_messages']); }
+        return $fields;
+    }
     public static function key(): string
     {
         $key = (string) env('decode_key', '');
@@ -37,7 +46,7 @@ final class ContentCipher
     {
         if (!self::enabled()) { throw new \RuntimeException('decode_key must contain at least 12 bytes and OpenSSL must be available'); }
         if (!self::$verified) {
-            foreach (self::FIELDS as $table => $cols) {
+            foreach (self::fields() as $table => $cols) {
                 foreach ($cols as $col) {
                     $v = DB::pdo()->query("SELECT `$col` FROM `$table` WHERE `$col` LIKE 'data:v1:%' LIMIT 1")->fetchColumn();
                     if ($v !== false) { self::open($v); break 2; }
@@ -67,7 +76,9 @@ final class ContentCipher
     public static function matches(string $token): array
     {
         $out = [];
-        foreach (self::FIELDS as $table => $cols) {
+        foreach (self::fields() as $table => $cols) {
+            // گفتگوهای جلسه جستجوی سراسری ندارند؛ آن‌ها را بی‌دلیل برای جستجوی تسک‌ها رمزگشایی نکنیم.
+            if ($table === 'meeting_messages') { continue; }
             foreach ($cols as $col) {
                 $st = DB::pdo()->query("SELECT DISTINCT `$col` FROM `$table` WHERE `$col` LIKE 'data:v1:%'");
                 while (($v = $st->fetchColumn()) !== false) {
@@ -80,14 +91,14 @@ final class ContentCipher
     public static function pending(): int
     {
         $n = 0;
-        foreach (self::FIELDS as $table => $cols) { foreach ($cols as $col) { $n += (int) DB::value("SELECT COUNT(*) FROM `$table` WHERE `$col` IS NOT NULL AND `$col` <> '' AND `$col` NOT LIKE 'data:v1:%'"); } }
+        foreach (self::fields() as $table => $cols) { foreach ($cols as $col) { $n += (int) DB::value("SELECT COUNT(*) FROM `$table` WHERE `$col` IS NOT NULL AND `$col` <> '' AND `$col` NOT LIKE 'data:v1:%'"); } }
         return $n;
     }
     public static function batch(int $limit = 100): int
     {
         if (!self::enabled()) { throw new \RuntimeException('decode_key is not configured'); }
         $done = 0;
-        foreach (self::FIELDS as $table => $cols) { foreach ($cols as $col) {
+        foreach (self::fields() as $table => $cols) { foreach ($cols as $col) {
             $st = DB::pdo()->query("SELECT id, `$col` FROM `$table` WHERE `$col` IS NOT NULL AND `$col` <> '' AND `$col` NOT LIKE 'data:v1:%' LIMIT " . max(1,$limit-$done));
             foreach ($st->fetchAll() as $row) {
                 // مقایسه با مقدار قبلی مانع بازنویسی ویرایش هم‌زمان می‌شود.

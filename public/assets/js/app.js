@@ -1376,9 +1376,11 @@
   };
   let coreTK = null;
 
-  const SKIP = /^\/(?:files|api|logout|tour|docs|install|push|service-worker|manifest|offline|assets)(?:\/|$)|\.(?:pdf|zip|rar|7z|png|jpe?g|gif|webp|svg|csv|xlsx?|docx?|txt)$/i;
+  const SKIP = /^\/(?:files|api|meetings|logout|tour|docs|install|push|service-worker|manifest|offline|assets)(?:\/|$)|\.(?:pdf|zip|rar|7z|png|jpe?g|gif|webp|svg|csv|xlsx?|docx?|txt)$/i;
   const basePath = new URL(TK.base || '/', location.origin).pathname.replace(/\/$/, '');
   const navUrl = (href) => {
+    // خروج از سند جلسه باید دستگاه‌ها را متوقف و هدرهای محدود صفحهٔ مقصد را دوباره دریافت کند.
+    if (document.getElementById('meeting-room')) return null;
     let u;
     try { u = new URL(href, location.href); } catch { return null; }
     if (u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return null;

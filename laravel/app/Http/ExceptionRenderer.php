@@ -12,7 +12,10 @@ final class ExceptionRenderer
         }
         if ($error instanceof \Illuminate\Auth\Access\AuthorizationException || $error instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) { $error = new \App\Core\HttpException(403,'دسترسی به این بخش مجاز نیست.','FORBIDDEN'); }
         $status=$error instanceof \App\Core\HttpException?$error->status:500;
-        $message=$status<500?$error->getMessage():'خطای داخلی سرور. لطفاً دوباره تلاش کنید.';
+        // فقط پیام‌های ثابت و امن سرویس جلسه در خطای ۵۰۳ به کاربر نمایش داده می‌شوند.
+        $meetingUnavailable = $error instanceof \App\Core\HttpException && $status === 503
+            && in_array($error->errorCode, ['MEETING_NOT_CONFIGURED','MEETING_SCHEMA_MISSING','MEETING_PROVIDER_ERROR'], true);
+        $message=($status<500 || $meetingUnavailable)?$error->getMessage():'خطای داخلی سرور. لطفاً دوباره تلاش کنید.';
         $code=$error instanceof \App\Core\HttpException?$error->errorCode:'SERVER_ERROR';
         if($status>=500)\App\Core\Log::error($error);
         $message=\App\Core\ErrorText::apply($message);

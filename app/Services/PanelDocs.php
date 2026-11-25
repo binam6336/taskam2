@@ -43,6 +43,14 @@ final class PanelDocs
         $ext = static fn(array $types) => implode('، ', array_keys($types));
 
         return [
+            ['meetings', 'fa-video', 'جلسه‌های آنلاین', 'انتقال صدا و تصویر روی LiveKit Cloud؛ ایجاد با دسترسی ویرایش همان پروژه، ورود با عضویت فعال، مدیریت فقط میزبان و روشن‌شدن دستگاه با رضایت خود کاربر.', [
+                ['وضعیت اتصال', \App\Core\LiveKitConfig::configured() ? 'تنظیم شده' : 'تنظیم نشده', 'نشانی پروژهٔ Cloud و کلیدهای محرمانه فقط در بک‌اند؛ HTTPS سایت و دسترسی خروجی HTTPS هاست لازم است.', 'LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET'],
+                ['سقف هر جلسه', fa_num(\App\Core\LiveKitConfig::maxParticipants()) . ' نفر', 'شامل میزبان، اعضای پذیرفته‌شده و دعوت‌های باز؛ هر پروژه فقط یک جلسهٔ باز دارد.', 'LIVEKIT_MAX_PARTICIPANTS'],
+                ['اعتبار توکن ورود', fa_num(\App\Core\LiveKitConfig::TOKEN_SECONDS) . ' ثانیه', 'توکن فقط مختص Room و منابع رسانهٔ مجاز است؛ مدیریت Cloud در مرورگر مجاز نیست.', null],
+                ['نرخ عملیات جلسه', fa_num(\App\Core\LiveKitConfig::WRITE_PER_MINUTE) . ' در دقیقه', 'برای هر کاربر؛ خواندن/همگام‌سازی ۱۵۰ در دقیقه، علاوه بر محدودیت‌های عمومی پنل و API.', null],
+                ['گفتگوی جلسه', fa_num(\App\Core\LiveKitConfig::CHAT_MAX) . ' نویسه', 'با رمزگذاری فعلی در دیتابیس؛ client_ref مانع ارسال تکراری است؛ فقط اعضای پذیرفته‌شده و دارای دسترسی فعلی می‌خوانند.', null],
+                ['همگام‌سازی دسترسی', fa_num(\App\Core\LiveKitConfig::SYNC_SECONDS) . ' ثانیه', 'با heartbeat، webhook امضاشده و کران اختیاری هر دقیقه: php bin/meeting-sync.php. در اختلال شبکه، محدودیت محلی باقی می‌ماند و پاک‌سازی Cloud دوباره تلاش می‌شود.', null],
+            ]],
             ['login', 'fa-right-to-bracket', 'ورود و قفل حساب', 'محدودیت تلاش‌های ناموفق ورود؛ ثبت تلاش قبل از بررسی رمز انجام می‌شود تا درخواست‌های هم‌زمان سقف را دور نزنند.', [
                 ['تلاش ناموفق با یک شماره از یک IP', fa_num($max) . ' بار در ' . fa_num($win) . ' دقیقه', 'بعد از آن «تعداد تلاش‌های ناموفق زیاد است» تا پایان بازه.', 'LOGIN_MAX_ATTEMPTS / LOGIN_WINDOW_MINUTES'],
                 ['تلاش از یک IP (همه‌ی شماره‌ها)', fa_num($max * 5) . ' بار در ' . fa_num($win) . ' دقیقه', 'ورود موفق از سهمیه‌ی IP کم نمی‌کند (مناسب دفترهای با IP مشترک).', null],

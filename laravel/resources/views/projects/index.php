@@ -66,6 +66,12 @@ $this->scripts[] = 'projects';
         <div class="pc-head">
             <span class="proj-ic lg pc-ic" title="<?= e($p['title']) ?>"><?php if ($p['profile_image']): ?><img loading="lazy" decoding="async" src="<?= e(project_image_url($p['profile_image'])) ?>" alt="" loading="lazy"><?php else: ?><?= e(initial($p['title'])) ?><?php endif; ?></span>
             <div class="pc-ttl"><div class="pc-name"><?= e($p['title']) ?></div>
+                <div class="meeting-project-actions" data-meeting-project="<?= e(pid('projects', $p)) ?>">
+                    <?php foreach (['video' => ['تصویری', 'fa-video'], 'audio' => ['صوتی', 'fa-phone']] as $mode => [$label, $icon]): ?>
+                    <button type="button" class="btn btn-icon btn-sm" data-meeting-start="<?= e($mode) ?>" aria-label="جلسهٔ <?= e($label) ?> پروژه" title="جلسهٔ <?= e($label) ?>"><i class="fa-solid <?= e($icon) ?>" aria-hidden="true"></i></button>
+                    <?php endforeach; ?>
+                    <button type="button" class="btn btn-ghost btn-xs" data-meeting-history>جلسه‌ها <span data-meeting-active><?= isset($meetingSummary[$p['id']]) ? ($meetingSummary[$p['id']]['status'] === 'waiting' ? '● منتظر شروع' : '● فعال') : '' ?></span></button>
+                </div>
                 <div class="pc-badges"><?php if ($p['is_creator']): ?><span class="badge green"><i class="fa-solid fa-star"></i> سازنده</span><?php else: $rl = $roles[$p['my_role']] ?? $roles['custom']; ?><span class="badge role-badge <?= e($rl['tone']) ?>" title="نقش شما در این پروژه: <?= e($rl['desc']) ?>"><i class="fa-solid <?= e($rl['icon']) ?>"></i> <?= e($rl['label']) ?></span><?php endif; ?>
                     <?php if ((int) $p['is_blocked_by_me'] > 0): ?><span class="badge red">مسدود</span><?php endif; ?></div></div>
             <div class="dropdown proj-menu"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-toggle title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر پروژه"><i class="fa-solid fa-ellipsis-vertical"></i></button>

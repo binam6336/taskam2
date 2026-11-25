@@ -43,7 +43,13 @@ final class App
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: DENY');
         header('Referrer-Policy: strict-origin-when-cross-origin');
-        header('Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()');
+        // مجوز رسانه فقط روی سند کامل جلسه؛ ناوبری به این صفحه بارگذاری کامل دارد.
+        $meetingPage = (bool) preg_match('~^/meetings/[2-9a-hjkmnp-z]{12}$~D', Request::capture()->path());
+        $meetingMedia = $meetingPage && LiveKitConfig::configured();
+        header($meetingMedia ? 'Permissions-Policy: geolocation=(), camera=(self), microphone=(self), display-capture=(self), payment=()'
+            : 'Permissions-Policy: geolocation=(), camera=(), microphone=(), display-capture=(), payment=()');
+        $meetingConnect = $meetingMedia ? ' https://*.livekit.cloud wss://*.livekit.cloud' : '';
+        $meetingBlob = $meetingMedia ? ' blob:' : '';
         header('Cross-Origin-Opener-Policy: same-origin');
         header('Cross-Origin-Resource-Policy: same-origin');
         header('X-Permitted-Cross-Domain-Policies: none');
@@ -52,7 +58,7 @@ final class App
             // استایل‌های پویا با data-css و CSSOM (TK.applyCss در app.js، فقط ویژگی‌های مجاز و بدون url())
             . "style-src 'self'; "
             . "font-src 'self'; "
-            . "img-src 'self' data: blob:; connect-src 'self'; media-src 'self'; object-src 'none'; "
+            . "img-src 'self' data: blob:; connect-src 'self'" . $meetingConnect . "; media-src 'self'" . $meetingBlob . "; object-src 'none'; "
             . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'");
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (\App\Core\Request::fromTrustedProxy() && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
         if ($https) {

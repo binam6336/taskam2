@@ -24,3 +24,5 @@
 <link rel="stylesheet" href="<?= e(asset('css/kx-icons.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('css/kx.css')) ?>">
+
+<link rel="stylesheet" href="<?= e(asset('css/meetings.css')) ?>">
