@@ -22,6 +22,16 @@ final class Notifier
         }
     }
 
+    /** همان پیام ربات هم در پیوی، هم زنگ اعلان و هم Web Push مسیر ورود مستقیم دارد. */
+    public static function meetingInvitation(array $meeting, int $actorId, int $toUserId): void
+    {
+        if (Access::isBlockedBetween($actorId, $toUserId)) { return; }
+        $actor = UserModel::find($actorId);
+        $project = (string) \KarlixLaravel\Database\DB::value('SELECT title FROM projects WHERE id = ?', [$meeting['project_id']]);
+        self::send($toUserId, '📞 دعوت به جلسهٔ ' . ($meeting['mode'] === 'audio' ? 'صوتی' : 'تصویری') . "\n\nپروژه: " . $project
+            . "\nمیزبان: " . ($actor ? full_name($actor) : 'عضو پروژه') . "\nبرای ورود، دکمهٔ پیوستن به جلسه را بزنید.\n\n[[meeting:" . pid('project_meetings', $meeting) . ']]');
+    }
+
     /** اعلان ناشی از کار یک کاربر: اگر بین دو طرف مسدودی باشد ارسال نمی‌شود (مسیر مزاحمت بعد از مسدودسازی بسته بماند). */
     private static function sendFrom(int $actorId, int $toUserId, string $text): void
     {

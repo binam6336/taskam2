@@ -202,7 +202,7 @@
   $('invite').addEventListener('click', async () => {
     try {
       const members = await call('members');
-      $('invite-members').innerHTML = members.filter((m) => m.user_id !== state.me).map((m) => `<label class="check"><input type="checkbox" value="${E(m.user_id)}"><span>${E(m.name)}</span></label>`).join('') || '<p>عضو دیگری در پروژه نیست.</p>';
+      $('invite-members').innerHTML = members.filter((m) => m.user_id !== state.me).map((m) => `<label class="check meeting-invite-member"><input type="checkbox" value="${E(m.user_id)}"><span class="avatar">${m.avatar ? `<img src="${E(m.avatar)}" alt="">` : E(T.initial(m.name))}</span><span class="meeting-invite-member-name"><b>${E(m.name)}</b><small>عضو همین پروژه</small></span></label>`).join('') || '<p>عضو دیگری در پروژه نیست.</p>';
       T.modal.open('m-meeting-invite');
     } catch (err) { failure(err); }
   });

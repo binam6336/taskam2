@@ -21,6 +21,7 @@ final class DashboardController extends Controller
         $wait = BoardService::waiting($uid);
         $wait['review'] = BoardService::reviewQueue($uid, 500);
         $this->view('tasks/dashboard', [
+            'meetingInvitations' => Auth::isImpersonating() ? [] : (new \KarlixLaravel\Services\Meetings\MeetingService())->invitations($uid),
             'd' => TaskModel::dashboard($uid),
             'me' => Auth::user() ?? [],
             // باکس مهم: تسک‌های امروز و عقب‌افتاده

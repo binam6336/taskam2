@@ -19,6 +19,8 @@ if (!in_array($tour, ['skip', 'done'], true) && !Auth::isImpersonating()) {
     $this->boot['tour'] = ['state' => $tour, 'page' => $active, 'texts' => \KarlixLaravel\Repositories\ContentModel::tour()];
     $this->scripts[] = 'tour';
 }
+$meetingInvitations = $meetingInvitations ?? (Auth::isImpersonating() ? [] : (new \KarlixLaravel\Services\Meetings\MeetingService())->invitations((int) $u['id']));
+$this->boot['meetingInvitations'] = $meetingInvitations;
 $this->scripts[] = 'meeting_invites';
 $this->scripts[] = 'quicktask';                       // «ثبت سریع تسک» (دکمه‌ی صاعقه، همه‌ی صفحه‌ها)
 $this->scripts[] = 'blocked';                         // پنجره‌ی «مسدودشده‌ها» (مسدود کردن به‌جای حذف)
@@ -82,6 +84,7 @@ $badges['notifs'] = $tbNotifs;
     <ul class="nt-list" data-nt-list aria-live="polite" aria-busy="true"></ul>
     <div class="nt-foot"><button type="button" class="btn btn-ghost btn-sm" data-nt-more hidden>اعلان‌های قدیمی‌تر</button><a class="btn btn-ghost btn-sm" data-nt-chat href="<?= e(url('/chat')) ?>">همه در گفتگوی ربات</a><button type="button" class="btn btn-ghost btn-sm" id="notif-btn" aria-label="اعلان مرورگر"><i class="fa-regular fa-bell" aria-hidden="true"></i> <span>اعلان مرورگر</span></button></div>
 </div>
+<div class="modal meeting-invite-modal" id="m-meeting-incoming" role="dialog" aria-modal="true" aria-labelledby="meeting-incoming-title"><div class="modal-box"><div class="modal-head"><h3 id="meeting-incoming-title">به جلسه دعوت شده‌اید</h3><button type="button" class="btn btn-ghost btn-icon" data-close aria-label="بستن">×</button></div><div class="modal-body" data-meeting-incoming-body></div></div></div>
 <div id="meeting-invitations" class="meeting-invitations" aria-live="polite" hidden></div>
 <div class="qa">
     <button type="button" class="btn btn-primary qa-fab" aria-label="ثبت سریع تسک" title="ثبت سریع تسک" data-quick-task><i class="fa-solid fa-bolt"></i></button>

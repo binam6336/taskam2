@@ -67,6 +67,11 @@ $tabOn = $nToday ? 'today' : ($nLate ? 'late' : 'today');
     <div class="ph-actions"><button type="button" class="btn btn-primary" id="btn-new-task" data-create-default><i class="fa-solid fa-plus" aria-hidden="true"></i> تسک جدید</button></div>
 </div>
 
+<section data-live="dash-meetings" id="dashboard-meeting-invites" aria-label="دعوت‌های جلسه">
+<?php foreach ($meetingInvitations ?? [] as $invitation): ?>
+    <article class="card meeting-invite-card" data-meeting-invite="<?= e($invitation['id']) ?>"><span class="avatar lg"><?php if ($invitation['host_avatar']): ?><img src="<?= e($invitation['host_avatar']) ?>" alt=""><?php else: ?><?= e(initial($invitation['host_name'])) ?><?php endif; ?></span><div class="grow"><span class="meeting-invite-kicker">دعوت به جلسهٔ <?= $invitation['mode'] === 'audio' ? 'صوتی' : 'تصویری' ?></span><h3><?= e($invitation['project_title']) ?></h3><p><?= e($invitation['host_name']) ?> شما را به جلسه دعوت کرده است.</p></div><div class="meeting-invite-buttons"><button type="button" class="btn btn-primary" data-meeting-accept="<?= e($invitation['id']) ?>"><i class="fa-solid fa-phone" aria-hidden="true"></i> پیوستن به جلسه</button><button type="button" class="btn btn-ghost" data-meeting-decline="<?= e($invitation['id']) ?>">رد دعوت</button></div></article>
+<?php endforeach; ?>
+</section>
 <div data-live="dash-stats" class="grid grid-4 dash-stats">
     <a class="card stat" href="<?= e(url('/tasks?when=today')) ?>"><span class="st-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i>تسک‌های امروز</span><span class="st-value"><?= e(fa_num($nToday)) ?></span><span class="st-meta"><?= $todayPast ? e(fa_num($todayPast)) . ' مورد ساعتش گذشته' : 'برنامه‌ی امروز' ?></span></a>
     <a class="card stat" href="<?= e(url('/tasks?when=overdue')) ?>"><span class="st-label"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>عقب‌افتاده</span><span class="st-value<?= $nLate ? ' is-danger' : '' ?>"><?= e(fa_num($nLate)) ?></span><span class="st-meta"><?= $oldest ? 'قدیمی‌ترین: ' . e(fa_num($oldest)) . ' روز' : 'هیچ تسکی عقب نیفتاده' ?></span></a>

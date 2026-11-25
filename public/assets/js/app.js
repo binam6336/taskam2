@@ -1111,7 +1111,7 @@
   });
   /* ───── نوار بالا v7.15: زنگ اعلان‌ها (NotificationCenter = پیام‌های ربات)، منوی «ایجاد»، تغییر روشن/تیره ─────
      همه با delegation (نوار بالا با هر جابه‌جایی نرم دوباره ساخته می‌شود). متن اعلان‌ها فقط با textContent درج می‌شود. */
-  const NT_IC = { mention: 'fa-at', rework: 'fa-rotate-left', review: 'fa-hourglass-half', reassign: 'fa-arrow-right-arrow-left', assign: 'fa-list-check', note: 'fa-comment-dots', security: 'fa-shield-halved', info: 'fa-bell' };
+  const NT_IC = { meeting: 'fa-phone', mention: 'fa-at', rework: 'fa-rotate-left', review: 'fa-hourglass-half', reassign: 'fa-arrow-right-arrow-left', assign: 'fa-list-check', note: 'fa-comment-dots', security: 'fa-shield-halved', info: 'fa-bell' };
   const nt = { open: false, items: [], more: false, bot: '', busy: false, seq: 0, back: null };
   const ntEl = (sel) => TK.qs('#nt-panel ' + (sel || '')) || (sel ? null : TK.qs('#nt-panel'));
   const ntCount = (n) => {
@@ -1125,11 +1125,13 @@
     const li = document.createElement('li'); li.className = 'nt-it' + (x.is_read ? '' : ' unread');
     const a = document.createElement('a'); a.className = 'nt-a'; a.href = x.url || TK.url('/chat?user=' + encodeURIComponent(nt.bot)); a.dataset.ntId = x.id;
     if (x.task_id) a.dataset.ntTask = x.task_id;
+    if (x.meeting_id) a.setAttribute('data-no-nav', '');
     const ic = document.createElement('span'); ic.className = 'nt-ic nt-' + x.kind; ic.setAttribute('aria-hidden', 'true');
     const i = document.createElement('i'); i.className = 'fa-solid ' + (NT_IC[x.kind] || NT_IC.info); ic.appendChild(i);
     const tx = document.createElement('span'); tx.className = 'nt-tx';
     const b = document.createElement('b'); b.textContent = x.title; tx.appendChild(b);
     if (x.body) { const p = document.createElement('span'); p.className = 'nt-body'; p.textContent = x.body; tx.appendChild(p); }
+    if (x.action_label) { const action = document.createElement('strong'); action.className = 'nt-meeting-action'; action.textContent = x.action_label; tx.appendChild(action); }
     const w = document.createElement('small'); w.textContent = x.when; tx.appendChild(w);
     a.append(ic, tx);
     if (!x.is_read) { const s = document.createElement('span'); s.className = 'sr-only'; s.textContent = '(خوانده‌نشده)'; a.appendChild(s); }

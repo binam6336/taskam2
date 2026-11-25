@@ -76,7 +76,7 @@ final class BoardService
      */
     private static function limitError(array $t, string $status): ?string
     {
-        if (empty($t['project_id'])) {
+        if (empty($t['project_id']) || !TaskModel::boardEligible($t)) {
             return null;
         }
         $owner = (int) ($t['assignee_id'] ?: $t['user_id']);
@@ -84,7 +84,7 @@ final class BoardService
         if ($limit === null) {
             return null;
         }
-        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND board_status = ? AND archived_at IS NULL AND blocked_at IS NULL AND id <> ?',
+        $n = (int) DB::value('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND board_status = ? AND recurrence_id IS NULL AND archived_at IS NULL AND blocked_at IS NULL AND id <> ?',
             [(int) $t['project_id'], $owner, $status, (int) $t['id']]);
         if ($n < $limit) {
             return null;
@@ -109,7 +109,7 @@ final class BoardService
         foreach (DB::all($sql, $params) as $m) {
             $pid = (int) $m['id'];
             $counts = [];
-            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND archived_at IS NULL AND blocked_at IS NULL GROUP BY board_status', [$pid, $uid]) as $r) {
+            foreach (DB::all('SELECT board_status s, COUNT(*) n FROM tasks WHERE project_id = ? AND COALESCE(assignee_id, user_id) = ? AND recurrence_id IS NULL AND archived_at IS NULL AND blocked_at IS NULL GROUP BY board_status', [$pid, $uid]) as $r) {
                 $counts[$r['s']] = (int) $r['n'];
             }
             foreach (BoardConfig::limited($pid) as $st) {
@@ -144,6 +144,7 @@ final class BoardService
     private static function where(int $uid, array $f): array
     {
         $where = '(t.user_id = ? OR t.assignee_id = ? OR t.project_id IN (SELECT id FROM projects WHERE user_id = ?) OR t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?))';
+        $where .= ' AND ' . TaskModel::BOARD_NON_RECURRING;
         $params = [$uid, $uid, $uid, $uid, $uid];
         if (!empty($f['project'])) {
             $where .= ' AND t.project_id = ?';
@@ -426,7 +427,7 @@ final class BoardService
     /** آیا تسک در برد کاربر دیده می‌شود؟ (برای آیکون «نمایش در برد» در جزئیات تسک) */
     public static function canSee(array $t, int $uid): bool
     {
-        return Access::canBoardView($t, $uid);
+        return TaskModel::boardEligible($t) && Access::canBoardView($t, $uid);
     }
 
     /**

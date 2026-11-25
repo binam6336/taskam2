@@ -89,10 +89,8 @@ final class TaskHistory
         }
         $hasDone = false;
         foreach ($events as $e) {
-            if (strpos((string) $e['type'], 'group') === 0) {
-                continue;                                  // رویدادهای قابلیت حذف‌شده‌ی «دپارتمان / گروه» (تا v6.1)
-            }
-            $data = json_decode((string) $e['data'], true) ?: [];
+            $decoded = json_decode((string) $e['data'], true);
+            $data = is_array($decoded) ? $decoded : (!empty($e['data']) ? ['text' => (string) $e['data']] : []);
             $hasDone = $hasDone || $e['type'] === 'completed' || ($e['type'] === 'board' && ($data['to'] ?? '') === 'done');
             $add((string) $e['type'], $e['user_id'] !== null ? (int) $e['user_id'] : null, (string) $e['created_at'], $data);
         }
@@ -124,6 +122,7 @@ final class TaskHistory
                 $uids[] = $i['data']['from'] ?? null;
                 $uids[] = $i['data']['to'] ?? null;
             }
+            if ($i['type'] === 'note_edited') { $uids[] = $i['data']['author'] ?? null; }
             if ($i['type'] === 'created') {
                 $uids[] = $i['data']['assignee'] ?? null;
             }
@@ -156,12 +155,18 @@ final class TaskHistory
             }
             if ($i['type'] === 'created') {
                 $d['assignee_user'] = $who($d['assignee'] ?? null);
+                unset($d['assignee']);
+            }
+            if ($i['type'] === 'note_edited') { $d['author_user'] = $who($d['author'] ?? null); unset($d['author']); }
+            if (str_starts_with($i['type'], 'group')) {
+                // شناسهٔ عددی گروه حذف‌شده قابل انتشار نیست؛ متن و بقیهٔ جزئیات قدیمی حفظ می‌شوند.
+                foreach ($d as $key => $value) { if (is_numeric($value) && in_array($key, ['from','to','id','group','group_id'], true)) { $d[$key] = 'گروه قدیمی'; } }
             }
             if ($i['type'] === 'board') {
                 $d['from'] = $labels[$d['from'] ?? ''] ?? '';
                 $d['to'] = $labels[$d['to'] ?? ''] ?? '';
             }
-            return ['type' => $i['type'], 'actor' => $who($i['uid']), 'at' => jdate($i['at']), 'data' => $d];
+            return ['type' => $i['type'], 'actor' => $who($i['uid']), 'at' => jdate($i['at'], false) . ' - ' . fa_num(date('H:i:s', strtotime($i['at']))), 'at_iso' => $i['at'], 'data' => $d];
         }, $items);
     }
 }

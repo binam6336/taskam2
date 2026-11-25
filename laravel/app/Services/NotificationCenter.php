@@ -56,7 +56,17 @@ final class NotificationCenter
                 }
                 $it['url'] = url('/tasks?task=' . $it['task']);
             }
-            unset($it['task']);
+            if ($it['meeting'] !== null && \KarlixLaravel\Services\Meetings\MeetingService::schemaReady()) {
+                $id = Pid::id('project_meetings', $it['meeting']);
+                if ($id) {
+                    try {
+                        $state = (new \KarlixLaravel\Services\Meetings\MeetingService())->state($id, $uid);
+                        $it['meeting_id'] = $it['meeting']; $it['url'] = url('/meetings/' . $it['meeting']);
+                        $it['action_label'] = $state['status'] === 'ended' ? 'مشاهدهٔ جلسه' : 'پیوستن به جلسه';
+                    } catch (\App\Core\HttpException $e) { /* پیوند جلسهٔ غیرمجاز نمایش داده نمی‌شود. */ }
+                }
+            }
+            unset($it['task'], $it['meeting']);
         }
         unset($it);
         return [
@@ -90,7 +100,8 @@ final class NotificationCenter
     {
         $plain = (string) ChatModel::open($r['message'], (int) $r['sender_id'], (int) $r['receiver_id']);
         $task = preg_match('/\[\[task:([a-f0-9]+)\]\]/i', $plain, $m) ? strtolower($m[1]) : null;
-        $text = trim((string) preg_replace('/\[\[(?:task|call):[a-z0-9]+\]\]/i', '', $plain));
+        $meeting = preg_match('/\[\[meeting:([2-9a-hjkmnp-z]{12})\]\]/', $plain, $mm) ? $mm[1] : null;
+        $text = trim((string) preg_replace('/\[\[(?:task|call|meeting):[a-z0-9]+\]\]/i', '', $plain));
         $lines = preg_split('/\R/u', $text) ?: [];
         $title = trim((string) array_shift($lines));
         // ایموجی ابتدای پیام‌های ربات → آیکون (متن بدون ایموجی نمایش داده می‌شود)
@@ -104,7 +115,7 @@ final class NotificationCenter
             'kind'    => self::kind($title),   // فقط خط اول (متن پیام بررسی هم «برای اصلاح» دارد)
             'title'   => $title !== '' ? $title : 'اعلان',
             'body'    => $body,
-            'task'    => $task,
+            'task'    => $task, 'meeting' => $meeting,
             'is_read' => (int) $r['is_read'] === 1,
             'ts'      => (int) strtotime((string) $r['created_at']),
             'when'    => jdate((string) $r['created_at']),
@@ -114,7 +125,7 @@ final class NotificationCenter
     /** نوع اعلان برای آیکون (بر اساس عنوان ثابت پیام‌های Notifier) */
     private static function kind(string $t): string
     {
-        $map = ['منشن' => 'mention', 'برای اصلاح' => 'rework', 'بررسی سرپرست' => 'review', 'واگذار شد' => 'reassign',
+        $map = ['دعوت به جلسه' => 'meeting', 'منشن' => 'mention', 'برای اصلاح' => 'rework', 'بررسی سرپرست' => 'review', 'واگذار شد' => 'reassign',
                 'وظیفه جدیدی' => 'assign', 'یادداشت جدید' => 'note', 'مدیر سیستم' => 'security'];
         foreach ($map as $needle => $kind) {
             if (mb_strpos($t, $needle, 0, 'UTF-8') !== false) {

@@ -531,6 +531,7 @@ document.addEventListener('tk:ready', () => {
           ${t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : ''}
           ${t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : ''}</div>
         <div class="td-tools">
+          <button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
           ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
           ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
           <button class="btn btn-ghost btn-icon btn-sm" data-detail-share title="کپی لینک تسک" aria-label="کپی لینک تسک"><i class="fa-solid fa-link"></i></button>
@@ -616,19 +617,31 @@ document.addEventListener('tk:ready', () => {
     recurrence: ['fa-rotate', 'info', (i) => `${who(i.actor)} تکرار خودکار را ${i.data.enabled ? 'روی ' + q(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(i.data.days) + ' روز'})[i.data.kind] || 'فعال') + ' تنظیم کرد' : 'غیرفعال کرد'}.`],
     recurrence_next: ['fa-rotate', 'info', (i) => `نوبت بعدی تسک با سررسید ${q(i.data.due_fa || i.data.due)} ساخته شد.`],
     recurrence_created: ['fa-rotate', 'info', () => 'این تسک به‌عنوان نوبت بعدی تکرار خودکار ساخته شد.'],
+    confidential_on: ['fa-user-secret', 'warn', (i) => `${who(i.actor)} تسک را محرمانه کرد.`],
+    confidential_off: ['fa-lock-open', 'info', (i) => `${who(i.actor)} محرمانگی تسک را برداشت.`],
     file_deleted: ['fa-file-circle-xmark', 'danger', (i) => `${who(i.actor)} فایل ${q(i.data.name)} را از ${i.data.note ? 'یک یادداشت' : 'پیوست‌های تسک'} حذف کرد.`],
+  };
+  const historyFields = (data) => {
+    const labels = {from:'مقدار قبلی',to:'مقدار جدید',from_user:'مسئول قبلی',to_user:'مسئول جدید',assignee_user:'مسئول اولیه',author_user:'نویسنده',reason:'دلیل',text:'متن',files:'فایل‌ها',name:'نام فایل',enabled:'تکرار فعال',kind:'نوع تکرار',days:'فاصلهٔ روزها',due:'تاریخ ثبت‌شده',due_fa:'سررسید',count:'تعداد',source:'منبع تغییر',edited:'ویرایش‌شده',legacy:'ثبت قدیمی',categories:'دسته‌بندی‌ها',note:'یادداشت'};
+    const values = {daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'بازهٔ دلخواه',karlix:'دستیار کارلیکس',suggestion:'پیشنهاد بار کاری',drag:'جابه‌جایی دستی',undo:'بازگردانی'};
+    const value = (v) => v === null ? '—' : typeof v === 'boolean' ? (v ? 'بله' : 'خیر') : Array.isArray(v) ? v.map(value).join('، ') : typeof v === 'object' ? (v.name ? E(v.name) : historyFields(v)) : E(values[v] || String(v));
+    return `<dl class="hist-fields">${Object.entries(data).filter(([k,v]) => !(['assignee','author'].includes(k) && typeof v !== 'object')).map(([k,v]) => `<div><dt>${E(labels[k] || k)}</dt><dd>${value(v)}</dd></div>`).join('')}</dl>`;
   };
   const openHistory = async () => {
     const body = TK.qs('#history-body');
     body.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
     TK.modal.open('m-history');
-    const r = await TK.get('/tasks/' + currentId + '/history' + (current?.share_token ? '?token=' + encodeURIComponent(current.share_token) : ''));
+    const historyId = currentId;
+    const r = await TK.get('/tasks/' + historyId + '/history' + (current?.share_token ? '?token=' + encodeURIComponent(current.share_token) : ''));
+    if (currentId !== historyId) return;
     if (!TK.ok(r)) { TK.modal.close('m-history'); return TK.toast(r.message || 'خطا', 'error'); }
+    TK.qs('#history-task-title').textContent = current?.title || '';
     const items = (r.items || []).slice().reverse();          // جدیدترین بالا
     body.innerHTML = items.length ? items.map((i) => {
-      const [icon, tone, line, extra] = HIST[i.type] || ['fa-circle', 'muted', () => E(i.type)];
+      const [icon, tone, line, extra] = HIST[i.type] || ['fa-circle', 'muted', () => `${who(i.actor)} یک تغییر ثبت کرده است: ${E(i.type)}`];
+      const details = i.data && Object.keys(i.data).length ? `<details class="hist-details"><summary>تمام جزئیات ثبت‌شده</summary>${historyFields(i.data)}</details>` : '';
       return `<div class="hist-item"><span class="hist-dot ${tone}"><i class="fa-solid ${icon}"></i></span>
-        <div class="hist-main"><div class="hist-line">${line(i)}</div>${extra ? extra(i) : ''}<div class="hist-at"><i class="fa-regular fa-clock"></i> ${E(i.at)}</div></div></div>`;
+        <div class="hist-main"><div class="hist-line">${line(i)}</div>${extra ? extra(i) : ''}${details}<div class="hist-at"><i class="fa-regular fa-clock"></i> ${E(i.at)}</div></div></div>`;
     }).join('') : '<div class="faint small">تاریخچه‌ای ثبت نشده است.</div>';
   };
 

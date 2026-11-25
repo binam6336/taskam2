@@ -265,7 +265,8 @@ final class Push
         if (preg_match('/\[\[(task|call):([a-f0-9]{16,64})\]\]/i', $text, $m)) {
             $link = $m[1] === 'task' ? 'tasks?task=' . $m[2] : null;      // درخواست تماس از v6.0 حذف شد
         }
-        $clean = trim((string) preg_replace('/\[\[(?:task|call):[a-f0-9]+\]\]/i', '', $text));
+        if (preg_match('/\[\[meeting:([2-9a-hjkmnp-z]{12})\]\]/', $text, $meeting)) { $link = 'meetings/' . $meeting[1]; }
+        $clean = trim((string) preg_replace('/\[\[(?:task|call|meeting):[a-z0-9]+\]\]/i', '', $text));
         if ($senderIsBot) {
             // اعلان سیستمی: خط اول عنوان، بقیه متن
             $lines = array_values(array_filter(array_map('trim', explode("\n", $clean)), static fn($l) => $l !== ''));

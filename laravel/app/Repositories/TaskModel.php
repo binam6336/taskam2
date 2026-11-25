@@ -7,6 +7,10 @@ use KarlixLaravel\Database\DB;
 
 final class TaskModel
 {
+    /** تکرارها در فهرست و تقویم باقی می‌مانند؛ هیچ نوبتی کارت بورد پروژه نیست. */
+    public const BOARD_NON_RECURRING = 't.recurrence_id IS NULL';
+    public static function boardEligible(array $task): bool { return empty($task['recurrence_id']); }
+
     private const SELECT = "SELECT t.*, s.title AS subject_title, s.color AS subject_color,
             p.title AS project_title, p.profile_image AS project_image, p.priority_type AS project_priority_type,
             ua.first_name AS assignee_first_name, ua.last_name AS assignee_last_name, ua.mobile AS assignee_mobile, ua.avatar AS assignee_avatar,
@@ -228,13 +232,13 @@ final class TaskModel
     /** کارت‌های بورد پروژه: WHERE آماده با پارامترهایش (اولین پارامتر = بیننده برای دسترسی تسک). */
     public static function board(string $where, array $params, int $limit = 600): array
     {
-        return DB::all(self::base() . ' WHERE (' . $where . ') AND t.blocked_at IS NULL' . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT " . max(1, $limit), $params);
+        return DB::all(self::base() . ' WHERE (' . $where . ') AND ' . self::BOARD_NON_RECURRING . ' AND t.blocked_at IS NULL' . " ORDER BY t.board_status = 'done', CASE WHEN t.board_status = 'done' THEN COALESCE(t.completed_at, t.board_moved_at) END DESC, COALESCE(t.priority_percent, 50) DESC, t.due_date IS NULL, t.due_date, t.due_time, t.id DESC LIMIT " . max(1, $limit), $params);
     }
 
     /** تسک‌های آرشیوشده‌ی برد (جدیدترین آرشیو اول). */
     public static function archived(string $where, array $params): array
     {
-        return DB::all(self::base() . ' WHERE ' . $where . ' AND t.archived_at IS NOT NULL AND t.blocked_at IS NULL ORDER BY t.archived_at DESC, t.id DESC LIMIT 2000', $params);
+        return DB::all(self::base() . ' WHERE ' . $where . ' AND ' . self::BOARD_NON_RECURRING . ' AND t.archived_at IS NOT NULL AND t.blocked_at IS NULL ORDER BY t.archived_at DESC, t.id DESC LIMIT 2000', $params);
     }
 
     public static function ensureShareToken(int $id): string

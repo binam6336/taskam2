@@ -183,7 +183,7 @@ foreach (require BASE_PATH . '/laravel/routes/meetings.php' as $mr) {
         'messages','members','invitations'=>[], 'send'=>['id'=>'x7k2x9qa4rtd','duplicate'=>false], 'leave'=>[], default=>$meetingExamples,
     }];
 }
-$spec['groups'][] = ['id'=>'meetings','title'=>'جلسه‌های آنلاین پروژه','icon'=>'fa-video','desc'=>'LiveKit Cloud؛ عضویت و مجوز هر پروژه مستقل بررسی می‌شود. توکن read فقط GET دارد و اجازهٔ ورود رسانه ندارد. مدیریت فقط با میزبان؛ مجوز جدیدی به نقش‌های قبلی اضافه نشده است. جزئیات و تنظیمات در docs/LIVEKIT.md.','endpoints'=>$meetingEndpoints];
+$spec['groups'][] = ['id'=>'meetings','title'=>'جلسه‌های آنلاین پروژه','icon'=>'fa-video','desc'=>'دعوت در پیشخوان، پیام ربات و اعلان‌ها پیوند پیوستن دارد؛ LiveKit Cloud؛ عضویت و مجوز هر پروژه مستقل بررسی می‌شود. توکن read فقط GET دارد و اجازهٔ ورود رسانه ندارد. مدیریت فقط با میزبان؛ مجوز جدیدی به نقش‌های قبلی اضافه نشده است. جزئیات و تنظیمات در docs/LIVEKIT.md.','endpoints'=>$meetingEndpoints];
 $walk = static function ($v, string $ctx = '') use (&$walk, $fake, $isId, $kindOf) {
     if (!is_array($v)) {
         return $v;

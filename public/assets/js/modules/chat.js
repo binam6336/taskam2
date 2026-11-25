@@ -16,6 +16,7 @@ document.addEventListener('tk:ready', () => {
     // [[call:…]] قدیمی (درخواست تماس از v6.0 حذف شد) بدون دکمه پاک می‌شود
     t = t.replace(/\[\[call:[a-f0-9]{16,64}\]\]/gi, '');
     t = t.replace(/\[\[task:([a-f0-9]{16,64})\]\]/gi, (_, tok) => { links.push(`<a class="btn btn-sm btn-primary msg-link" href="${TK.url('/tasks?task=' + tok)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> مشاهده‌ی تسک</a>`); return ''; });
+    t = t.replace(/\[\[meeting:([2-9a-hjkmnp-z]{12})\]\]/g, (_, id) => { links.push(`<a class="btn btn-sm btn-primary msg-link" data-no-nav href="${TK.url('/meetings/' + id)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> پیوستن به جلسه</a>`); return ''; });
     // آدرس‌های http/https قابل کلیک (روی متن escape‌شده؛ علامت‌های پایان جمله جزو لینک نیستند)
     t = t.replace(/https?:\/\/[^\s<"']+/gi, (u) => {
       const tail = (u.match(/[.,!?؛،:)\]]+$/) || [''])[0], href = tail ? u.slice(0, -tail.length) : u;

@@ -27,11 +27,17 @@ try{
   foreach(['میزبان جلسه','عضو جلسه','بیگانه جلسه'] as $name){$mobile='099'.random_int(10000000,99999999);$id=DB::insert('users',['mobile'=>$mobile,'first_name'=>$name,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'status'=>'active','tour'=>'done']);$u[]=['id'=>$id,'pid'=>pid('users',$id),'mobile'=>$mobile,'password'=>$pass];}
   $p=DB::insert('projects',['user_id'=>$u[0]['id'],'title'=>'آزمون تماس زنده']);
   DB::insert('project_members',['project_id'=>$p,'user_id'=>$u[1]['id'],'permissions'=>'[]']);
+  $task=DB::insert('tasks',['user_id'=>$u[0]['id'],'assignee_id'=>$u[0]['id'],'project_id'=>$p,'title'=>'تسک تاریخچهٔ مرورگر','due_date'=>date('Y-m-d')]);
+  \KarlixLaravel\Services\TaskHistory::log($task,$u[0]['id'],'title',['from'=>'عنوان قبل از تغییر','to'=>'تسک تاریخچهٔ مرورگر']);
+  \KarlixLaravel\Services\TaskHistory::log($task,$u[0]['id'],'confidential_off',['count'=>0]);
+  $repeat=DB::insert('tasks',['user_id'=>$u[0]['id'],'assignee_id'=>$u[0]['id'],'project_id'=>$p,'title'=>'نوبت تکراری مخفی در بورد','due_date'=>date('Y-m-d')]);
+  $series=DB::insert('task_recurrences',['current_task_id'=>$repeat,'anchor_day'=>(int)date('j'),'enabled'=>0]);
+  DB::update('tasks',['recurrence_id'=>$series],'id=?',[$repeat]);
   $m=$s->create($p,$u[0]['id'],'video');$mid=Pid::id('project_meetings',$m['id']);
   $s->invite($mid,$u[0]['id'],[$u[1]['pid']]);
   $readToken=bin2hex(random_bytes(24));
   DB::insert('api_tokens',['user_id'=>$u[0]['id'],'name'=>'آزمون فقط خواندن جلسه','token_hash'=>hash('sha256',$readToken),'token_prefix'=>substr($readToken,0,8),'scope'=>'read']);
-  echo json_encode(['readToken'=>$readToken,'users'=>$u,'project'=>pid('projects',$p),'meeting'=>$m['id'],'testDatabase'=>env('DB_NAME')],JSON_UNESCAPED_UNICODE);exit;
+  echo json_encode(['task'=>pid('tasks',$task),'repeat_task'=>pid('tasks',$repeat),'readToken'=>$readToken,'users'=>$u,'project'=>pid('projects',$p),'meeting'=>$m['id'],'testDatabase'=>env('DB_NAME')],JSON_UNESCAPED_UNICODE);exit;
  }
  $id=Pid::id('project_meetings',$args['meeting']??'');$uid=Pid::id('users',$args['uid']??'');$data=$args['data']??[];
  $r=match($args['action']){
@@ -43,7 +49,7 @@ try{
   'create'=>$s->create(Pid::id('projects',$data['project']),$uid,$data['mode']),
   'invitations'=>$s->invitations($uid),
   'projectList'=>$s->projectList(Pid::id('projects',$data['project']),$uid),
-  'cleanup'=>(function() use($args){ foreach($args['users'] as $user) DB::run('DELETE FROM users WHERE pid = ?',[$user['pid']]); return []; })(),
+  'cleanup'=>(function() use($args){ foreach($args['users'] as $user) { $id=Pid::id('users',$user['pid']); if($id) { $series=DB::column('SELECT DISTINCT recurrence_id FROM tasks WHERE user_id = ? AND recurrence_id IS NOT NULL',[$id]); foreach($series as $sid) DB::run('DELETE FROM task_recurrences WHERE id=?',[$sid]); DB::run('DELETE FROM users WHERE id = ?',[$id]); } } return []; })(),
   default=>throw new RuntimeException('unknown action'),
  };
  echo json_encode(['success'=>true,'status'=>'success','data'=>$r],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);

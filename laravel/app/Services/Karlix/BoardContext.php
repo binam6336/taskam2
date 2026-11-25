@@ -141,7 +141,7 @@ final class BoardContext
                 (SELECT MAX(n.created_at) FROM task_notes n WHERE n.task_id = t.id) AS last_note_at,
                 (SELECT MAX(e.created_at) FROM task_events e WHERE e.task_id = t.id) AS last_event_at
             FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id
-            WHERE t.project_id = ? AND t.blocked_at IS NULL AND ' . TaskModel::confidentialSql($this->uid) . '
+            WHERE t.project_id = ? AND t.blocked_at IS NULL AND ' . TaskModel::BOARD_NON_RECURRING . ' AND ' . TaskModel::confidentialSql($this->uid) . '
             ORDER BY t.id DESC LIMIT 5000', [$this->projectId]);
         $today = Common::today()->format('Y-m-d');
         $out = [];

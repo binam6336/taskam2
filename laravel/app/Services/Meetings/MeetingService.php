@@ -127,15 +127,17 @@ final class MeetingService
     {
         $m = $this->meeting($id, $uid);
         $people = DB::all('SELECT mm.*, u.first_name, u.last_name, u.avatar FROM meeting_members mm JOIN users u ON u.id = mm.user_id WHERE mm.meeting_id = ? ORDER BY mm.id', [$id]);
-        $out = [];
+        $out = []; $invitationRef = null;
         foreach ($people as $u) {
+            if ((int) $u['user_id'] === $uid) { $invitationRef = $u['identity']; }
             if (!self::memberAllowed((int) $m['project_id'], (int) $u['user_id']) || Access::isBlockedBetween((int) $m['host_id'], (int) $u['user_id'])) { continue; }
             $out[] = ['user_id' => pid('users', $u['user_id']), 'name' => full_name($u), 'avatar' => avatar_url($u['avatar']), 'identity' => $u['identity'],
                 'role' => $u['role'], 'invite_state' => $u['invite_state'], 'present' => (bool) $u['present'], 'sources' => self::sources($m, $u),
                 'raised_hand' => (bool) $u['raised_hand'], 'activation_request' => (int) $u['user_id'] === $uid ? $u['activation_request'] : null,
                 'request_ref' => (int) $u['user_id'] === $uid ? $u['request_ref'] : null];
         }
-        return ['id' => pid('project_meetings', $m), 'project_id' => pid('projects', $m['project_id']), 'project_title' => DB::value('SELECT title FROM projects WHERE id = ?', [$m['project_id']]),
+        $context = DB::one('SELECT p.title, p.profile_image, u.first_name, u.last_name, u.avatar FROM projects p JOIN users u ON u.id = ? WHERE p.id = ?', [$m['host_id'], $m['project_id']]);
+        return ['invitation_ref' => $invitationRef, 'host_name' => full_name($context ?? []), 'host_avatar' => avatar_url($context['avatar'] ?? null), 'project_avatar' => project_image_url($context['profile_image'] ?? null), 'id' => pid('project_meetings', $m), 'project_id' => pid('projects', $m['project_id']), 'project_title' => DB::value('SELECT title FROM projects WHERE id = ?', [$m['project_id']]),
             'host_id' => pid('users', $m['host_id']), 'mode' => $m['mode'], 'status' => $m['status'], 'created_at' => $m['created_at'], 'ended_at' => $m['ended_at'],
             'is_host' => (int) $m['host_id'] === $uid && self::canCreate((int) $m['project_id'], $uid), 'me' => pid('users', $uid), 'members' => $out, 'sync_pending' => (bool) $m['cleanup_pending']];
     }
@@ -171,7 +173,7 @@ final class MeetingService
                     DB::run('DELETE FROM meeting_members WHERE id = ?', [$old['id']]);
                 }
                 $this->addMember($id, $target, 'listener', 'invited');
-                Notifier::send($target, 'دعوت به جلسهٔ ' . ($m['mode'] === 'audio' ? 'صوتی' : 'تصویری') . ' پروژه؛ برای پذیرش یا رد، بخش دعوت‌های جلسه در پیشخوان را باز کنید.');
+                Notifier::meetingInvitation($m, $uid, $target);
             }
             return $this->state($id, $uid);
         });

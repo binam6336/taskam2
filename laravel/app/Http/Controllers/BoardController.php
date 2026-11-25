@@ -67,7 +67,7 @@ final class BoardController extends Controller
     private function pickList(int $uid, array $projects): array
     {
         $ids = array_map(static fn($p) => (int) $p['id'], $projects);
-        $open = $ids ? array_column(\KarlixLaravel\Database\DB::all('SELECT project_id, COUNT(*) n FROM tasks WHERE project_id IN (' . \KarlixLaravel\Database\DB::in($ids) . ') AND is_completed = 0 AND blocked_at IS NULL AND archived_at IS NULL GROUP BY project_id', $ids), 'n', 'project_id') : [];
+        $open = $ids ? array_column(\KarlixLaravel\Database\DB::all('SELECT project_id, COUNT(*) n FROM tasks WHERE project_id IN (' . \KarlixLaravel\Database\DB::in($ids) . ') AND recurrence_id IS NULL AND is_completed = 0 AND blocked_at IS NULL AND archived_at IS NULL GROUP BY project_id', $ids), 'n', 'project_id') : [];
         return array_map(static fn($p) => ['id' => pid('projects', $p), 'title' => (string) $p['title'], 'image' => project_image_url($p['profile_image'] ?? null),
             'open' => (int) ($open[(int) $p['id']] ?? 0), 'url' => url('/board?project=' . pid('projects', $p))], $projects);
     }

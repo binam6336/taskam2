@@ -919,3 +919,7 @@ CREATE TABLE `meeting_webhook_events` (
   PRIMARY KEY (`event_id`),
   KEY `idx_meeting_webhook_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- v9.1.1: نوبت‌های دارای tasks.recurrence_id در بورد/آرشیو/ظرفیت بورد نمایش داده نمی‌شوند؛ داده و تقویم آن‌ها حفظ می‌شود.
+-- task_events: تاریخچهٔ همهٔ نوع‌های ذخیره‌شده با ساعت دقیق و جزئیات، بدون انتشار شناسهٔ داخلی کاربران/گروه‌های حذف‌شده.
+-- meeting_members دعوت‌های باز منبع باکس پیشخوان‌اند؛ پیام ربات و Web Push پیوند عمومی همان جلسه را دارند.
