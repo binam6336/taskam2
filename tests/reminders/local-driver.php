@@ -12,7 +12,16 @@ if (($args['action']??'')==='fixture') {
  DB::insert('project_members',['project_id'=>$project,'user_id'=>Pid::id('users',$users[1]['pid']),'permissions'=>'["view"]','task_permissions'=>'["view"]']);
  $task=DB::insert('tasks',['user_id'=>$uid,'assignee_id'=>$uid,'project_id'=>$project,'title'=>'تسک تکرار اعلان مرورگر','due_date'=>date('Y-m-d',strtotime('-1 day')),'due_time'=>'09:00','reminder_every'=>2,'reminder_unit'=>'minute','notified_at'=>date('Y-m-d H:i:s')]);
  $token=bin2hex(random_bytes(24));DB::insert('api_tokens',['user_id'=>$uid,'name'=>'آزمون یادآوری','token_hash'=>hash('sha256',$token),'token_prefix'=>substr($token,0,8),'scope'=>'write']);
- echo json_encode(['users'=>$users,'task'=>pid('tasks',$task),'project'=>pid('projects',$project),'token'=>$token,'testDatabase'=>env('DB_NAME')]);
+ $extra=[];
+ if (!empty($args['extra'])) {
+  $member=Pid::id('users',$users[1]['pid']);
+  DB::insert('colleagues',['user_id'=>$uid,'colleague_user_id'=>$member]); DB::insert('colleagues',['user_id'=>$member,'colleague_user_id'=>$uid]);
+  $other=DB::insert('projects',['user_id'=>$uid,'title'=>'پروژه اولویت درصدی','priority_type'=>'percent']);
+  DB::insert('project_members',['project_id'=>$other,'user_id'=>$member,'permissions'=>'["view"]','task_permissions'=>'["view"]']);
+  $label=DB::insert('subjects',['user_id'=>$uid,'project_id'=>$project,'title'=>'لیبل آزمون']);
+  $extra=['otherProject'=>pid('projects',$other),'label'=>pid('subjects',$label)];
+ }
+ echo json_encode($extra+['users'=>$users,'task'=>pid('tasks',$task),'project'=>pid('projects',$project),'token'=>$token,'testDatabase'=>env('DB_NAME')]);
 } elseif (($args['action']??'')==='age') {
  $id=Pid::id('tasks',$args['task']);DB::run('UPDATE tasks SET notified_at=NOW()-INTERVAL 3 MINUTE WHERE id=?',[$id]);echo '{}';
 } elseif (($args['action']??'')==='cleanup') {

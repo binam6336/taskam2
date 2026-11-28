@@ -7,6 +7,78 @@ document.addEventListener('tk:ready', () => {
   if (!modal) return;
   let currentId = null, current = null;
 
+  const taskWrites = new Map(), activeSavers = new Set();
+  const writeTask = (id, data) => {
+    const request = (taskWrites.get(id) || Promise.resolve()).catch(() => {}).then(() => TK.post('/tasks/' + id + '/update', data));
+    taskWrites.set(id, request);
+    request.finally(() => { if (taskWrites.get(id) === request) taskWrites.delete(id); }).catch(() => {});
+    return request;
+  };
+
+  /* ذخیره‌های یک تسک به ترتیب اجرا می‌شوند؛ مقدار جدید هر گروه جای پیش‌نویس قبلی همان گروه را می‌گیرد. */
+  const taskSaver = (id, host, onSaved = () => {}) => {
+    const pending = new Map(), saved = new Map(), token = Symbol('task-save');
+    host._saveToken = token;
+    const owns = () => host.isConnected && host._saveToken === token;
+    let timer, running = null, sending = new Map(), error = '';
+    const status = (text, state) => {
+      if (!owns()) return;
+      const box = host.querySelector('[data-save-state]');
+      if (box) { box.dataset.state = state; box.querySelector('[data-save-text]').textContent = ['error', 'invalid'].includes(state) ? TK.errText(text) : text; box.querySelector('[data-save-retry]').hidden = state !== 'error'; }
+    };
+    const flush = async () => {
+      clearTimeout(timer);
+      if (running) { await running; return error ? false : flush(); }
+      if (!pending.size) return !error;
+      sending = new Map(pending); pending.clear(); error = '';
+      const data = Object.assign({}, ...sending.values());
+      status('در حال ذخیره…', 'saving');
+      running = (async () => {
+        const result = await writeTask(id, data);
+        if (TK.ok(result)) {
+          for (const [key, value] of sending) saved.set(key, JSON.stringify(value));
+          onSaved(data);
+        } else {
+          error = result.message || 'ذخیره انجام نشد؛ دوباره تلاش کنید.';
+          for (const [key, value] of sending) if (!pending.has(key)) pending.set(key, value);
+          status(error, 'error');
+          if (!owns()) TK.toast(error, 'error', 9000, { action: { label: 'تلاش دوباره', onClick: () => flush() } });
+        }
+      })();
+      try { await running; } finally { running = null; sending = new Map(); }
+      if (error) return false;
+      if (pending.size) return flush();
+      activeSavers.delete(api);
+      status('همهٔ تغییرها ذخیره شد', 'saved');
+      if (owns()) host.dispatchEvent(new CustomEvent('task:saved'));
+      return true;
+    };
+    const retry = host.querySelector('[data-save-retry]'); if (retry) retry.onclick = () => flush();
+    const api = {
+      hasGroup(key) { return pending.has(key) || sending.has(key); },
+      matches(key, data) { return saved.get(key) === JSON.stringify(data); },
+      pause(key) { pending.delete(key); if (!pending.size && !running) activeSavers.delete(api); },
+      seed(key, data) { saved.set(key, JSON.stringify(data)); },
+      queue(key, data, delay = 450) {
+        if (saved.get(key) === JSON.stringify(data) && !sending.has(key) && !error) pending.delete(key);
+        else { pending.delete(key); pending.set(key, data); }
+        clearTimeout(timer);
+        if (pending.size) { activeSavers.add(api); status('در انتظار ذخیره…', 'waiting'); timer = setTimeout(flush, delay); }
+        else if (!running) { activeSavers.delete(api); status('همهٔ تغییرها ذخیره شد', 'saved'); }
+      },
+      discard() { clearTimeout(timer); pending.clear(); error = ''; activeSavers.delete(api); },
+      finish: () => error ? Promise.resolve(false) : flush(),
+      flush, status,
+      get dirty() { return !!running || pending.size > 0; },
+    };
+    return api;
+  };
+  const previousLeaveGuard = TK.leaveGuard;
+  const hasTaskDraft = () => [...activeSavers].some(saver => saver.dirty) || (modal.classList.contains('open') && modal._snap !== undefined && TK.modal.snap(modal) !== modal._snap);
+  window.addEventListener('beforeunload', e => { if (hasTaskDraft()) { e.preventDefault(); e.returnValue = ''; } });
+  TK.leaveGuard = () => !!previousLeaveGuard?.() || hasTaskDraft();
+  const saveStateHtml = '<div class="task-save-state" role="status" aria-live="polite" data-save-state data-state="idle"><i class="fa-solid fa-check" aria-hidden="true"></i><span data-save-text>تغییرها خودکار ذخیره می‌شوند</span><button type="button" class="btn btn-xs" data-save-retry hidden>تلاش دوباره</button></div>';
+
   /* ───── رنگ و نشان اولویت ───── */
   const prioColor = (p) => { p = Math.max(0, Math.min(100, p)); const h = p <= 50 ? 142 - (p / 50) * 97 : 45 - ((p - 50) / 50) * 45; return `hsl(${Math.round(h)}, 85%, 60%)`; };
   const prioBadge = (t) => {
@@ -47,7 +119,8 @@ document.addEventListener('tk:ready', () => {
   /* ───── اولویت: دسته‌بندی یا درصدی (بر اساس نوع اولویت پروژه) ───── */
   const range = form.priority_percent, rangeVal = TK.qs('#prio-pct-val');
   const paintRange = () => { const v = +range.value; rangeVal.textContent = F(v) + '٪'; rangeVal.style.color = prioColor(v); range.style.setProperty('--pos', v + '%'); };
-  range.addEventListener('input', paintRange);
+  range.addEventListener('input', () => { paintRange(); form.priority.value = +range.value < 38 ? 'low' : (+range.value < 63 ? 'medium' : 'high'); });
+  form.priority.addEventListener('change', () => { range.value = PCT[form.priority.value] ?? 50; paintRange(); });
   /* «مسئول انجام» بر اساس پروژه: «اعضای این پروژه» و «همکاران غیرعضو» (با گزینه‌ی افزودن به پروژه و واگذاری) */
   const projOf = (id) => (cfg.projects || []).find((p) => String(p.id) === String(id)) || null;
   const assigneeOpts = (pid) => {
@@ -100,7 +173,7 @@ document.addEventListener('tk:ready', () => {
     TK.busy(btn, false);
     if (!TK.ok(r) || !r.id) return TK.toast(r.message || 'خطا در ایجاد لیبل', 'error');
     (cfg.subjects = cfg.subjects || []).push({ id: r.id, title, color: r.color, project_id: project });
-    renderSubj(project, r.id); subjMode(false);
+    renderSubj(project, r.id); subjMode(false); subjSel.dispatchEvent(new Event('change', { bubbles: true }));
     TK.toast('لیبل «' + title + '» اضافه شد.', 'success');
   };
   TK.qs('[data-subj-save]', subjNew).addEventListener('click', saveSubject);
@@ -175,7 +248,7 @@ document.addEventListener('tk:ready', () => {
         ta.value = v.slice(0, target.start) + rep + v.slice(target.end);
         ta.selectionStart = ta.selectionEnd = target.start + rep.length;
       }
-      close(); ta.focus(); check(true);
+      close(); ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus(); check(true);
     };
     pop.querySelector('[data-lp-ok]').addEventListener('click', apply);
     pop.querySelector('[data-lp-skip]').addEventListener('click', () => { skipped.add(target.url + '@' + target.start); close(); ta.focus(); });
@@ -199,7 +272,16 @@ document.addEventListener('tk:ready', () => {
   form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.matches?.('#f-note textarea')) { e.preventDefault(); e.target.form.requestSubmit(); } });
   moreBtn.addEventListener('click', () => setMore(moreBox.hidden));
+  let editSaver = null, editingId = null;
+  const footer = form.querySelector('.tf-foot');
+  footer.insertAdjacentHTML('beforeend', saveStateHtml);
   const setupForm = (title, action, files) => {
+    editSaver?.flush(); editSaver = null; editingId = null;
+    footer.querySelector('[type=submit]').hidden = !files;
+    footer.querySelector('[data-close]').textContent = files ? 'انصراف' : 'بستن';
+    footer.querySelector('.tf-kbd').hidden = !files;
+    footer.querySelector('[data-save-state]').hidden = files;
+    modal.classList.toggle('task-auto-edit', !files);
     TK.qs('#task-modal-title').textContent = title;
     form.setAttribute('action', TK.url(action));
     TK.qs('#task-files-field').classList.toggle('hidden', !files);
@@ -255,7 +337,7 @@ document.addEventListener('tk:ready', () => {
     rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); renderSubj(d.project_id ?? '', d.subject_id ?? '');
     rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
-    if (projType(d.project_id) === 'percent') { range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange(); }
+    range.value = d.priority_percent ?? PCT[d.priority] ?? 50; paintRange();
     const c = d._can || {};
     // هر گروه فیلد با دسترسی خودش: اطلاعات (عنوان/توضیحات)، زمان انجام، اولویت/لیبل (فقط سازنده)
     if (!c.edit_info) lock(['title', 'description'], true);
@@ -263,12 +345,66 @@ document.addEventListener('tk:ready', () => {
     if (!c.edit_meta) lock(['priority', 'subject_id'], true);
     if (!c.reassign) lock(['assignee_id'], true);
     if (!c.change_project) lock(['project_id'], true);
+    editingId = d._id;
+    let committedProject = String(d.project_id || '');
+    const saver = taskSaver(editingId, form, data => {
+      if (editSaver !== saver || data.project_id === undefined || String(data.project_id) !== String(rs.project_id.get()) || String(data.project_id) === committedProject) return;
+      committedProject = String(data.project_id);
+      const groups = editGroups();
+      if (!saver.hasGroup('subject') && subjNew.classList.contains('hidden')) saver.seed('subject', groups.subject);
+      if (!saver.hasGroup('priority')) saver.seed('priority', groups.priority);
+    });
+    editSaver = saver;
+    Object.entries(editGroups()).forEach(([key, value]) => editSaver.seed(key, value));
+    editSaver.status('تغییرها خودکار ذخیره می‌شوند', 'idle');
     TK.modal.open(modal);
   };
   TK.on('click', '[data-edit-task]', (e, t) => openEdit(JSON.parse(t.dataset.editTask)));
 
+  const scheduleData = picker => {
+    const r = picker.recurrence.get();
+    return { due_date: picker.date.get(), due_time: picker.time.get(), repeat_enabled: r.enabled ? 1 : 0, repeat_kind: r.kind, repeat_days: r.days, ...picker.reminders.get() };
+  };
+  const editGroups = () => ({
+    title: { title: form.title.value }, description: { description: form.description.value },
+    priority: range.disabled ? { priority: form.priority.value } : { priority_percent: range.value },
+    subject: { subject_id: form.subject_id.value },
+    assignment: { project_id: rs.project_id.get(), assignee_id: rs.assignee_id.get() },
+    schedule: scheduleData(due),
+  });
+  const editField = e => {
+    if (!editSaver || e.target.disabled) return;
+    const name = e.target.name;
+    const key = ({ title: 'title', description: 'description', priority: 'priority', priority_percent: 'priority', subject_id: 'subject', project_id: 'assignment', assignee_id: 'assignment', due_date: 'schedule', due_time: 'schedule', reminder_every: 'schedule', reminder_unit: 'schedule' })[name];
+    if (!key) return;
+    if (key === 'title' && !form.title.value.trim()) { editSaver.pause(key); return editSaver.status('عنوان تسک نمی‌تواند خالی باشد.', 'invalid'); }
+    if (key === 'subject' && !subjNew.classList.contains('hidden')) return;
+    if (key === 'schedule' && (!due.reminders.valid() || !due.recurrence.valid() || !due.time.valid())) { editSaver.pause(key); return editSaver.status('عدد و بازهٔ یادآوری یا تکرار را کامل کنید.', 'invalid'); }
+    if (key === 'assignment') {
+      const option = rs.assignee_id.option(rs.assignee_id.get());
+      if (option?.addTo && !option.added) return editSaver.status('این مسئول هنوز عضو پروژه نیست؛ ابتدا او را به پروژه اضافه کنید.', 'invalid');
+    }
+    editSaver.queue(key, editGroups()[key], e.type === 'input' ? 600 : 150);
+  };
+  form.addEventListener('picker:invalid', () => { if (editSaver) { editSaver.pause('schedule'); editSaver.status('ساعت باید بین ۰ تا ۲۳ و دقیقه بین ۰ تا ۵۹ باشد.', 'invalid'); } });
+  form.addEventListener('input', editField);
+  form.addEventListener('change', editField);
+  form.addEventListener('task:saved', () => {
+    if (editSaver && !editSaver.dirty) {
+      if (subjNew.classList.contains('hidden') && Object.entries(editGroups()).every(([key, value]) => editSaver.matches(key, value))) modal._snap = TK.modal.snap(modal);
+      else editSaver.status('بعضی فیلدها هنوز ذخیره نشده‌اند؛ مقدار آن‌ها را بررسی کنید.', 'invalid');
+    }
+  });
+  modal._beforeClose = async () => { if (editSaver) await editSaver.finish(); return true; };
+  modal.addEventListener('tk:discard', () => editSaver?.discard());
+  modal.addEventListener('tk:close', () => {
+    const id = editingId;
+    editSaver?.finish().then(() => { if (currentId === id && TK.qs('#m-detail').classList.contains('open')) refreshSummary(id); TK.reload(); });
+  });
+
   /* اعتبارسنجی سمت کاربر: پروژه اجباری است، لیبل اختیاری (قبل از ارسال AJAX) */
   form.addEventListener('submit', async (e) => {
+    if (editSaver) { e.preventDefault(); e.stopImmediatePropagation(); await editSaver.flush(); return; }
     // همکار غیرعضو انتخاب شده: اول به پروژه اضافه شود (همان‌جا)، بعد فرم ارسال شود
     const ao = rs.assignee_id.option(rs.assignee_id.get());
     if (ao?.addTo && String(ao.addTo) === String(rs.project_id.get()) && !ao.added) {
@@ -404,10 +540,10 @@ document.addEventListener('tk:ready', () => {
   };
 
   let qePop = null;
-  const qeClose = () => { qePop?.remove(); qePop = null; TK.qsa('.qe-chip.on', detail).forEach((x) => x.classList.remove('on')); };
+  const qeClose = () => { qePop?._saver?.flush(); qePop?._observer?.disconnect(); qePop?.remove(); qePop = null; TK.qsa('.qe-chip.on', detail).forEach((x) => x.classList.remove('on')); };
   const qeSave = async (url, data, btn) => {
     TK.busy(btn, true);
-    const r = await TK.post(url, data);
+    const r = url.endsWith('/update') ? await writeTask(currentId, data) : await TK.post(url, data);
     TK.busy(btn, false);
     TK.toast(r.message || (TK.ok(r) ? 'ذخیره شد.' : 'خطا'), TK.ok(r) ? 'success' : 'error');
     if (TK.ok(r)) { qeClose(); Promise.all([refresh(), TK.reload()]); }
@@ -426,8 +562,7 @@ document.addEventListener('tk:ready', () => {
     if (key === 'priority') {
       if (t.priority_type === 'percent') {
         const p = t.priority_percent ?? PCT[t.priority] ?? 50;
-        body = `<div class="qe-h">اولویت <b data-qe-pv>${F(p)}٪</b></div><input type="range" class="prio-range" min="0" max="100" step="5" value="${p}" data-qe-range>
-          <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-pct>ذخیره</button></div>`;
+        body = `<div class="qe-h">اولویت <b data-qe-pv>${F(p)}٪</b></div><input type="range" class="prio-range" min="0" max="100" step="5" value="${p}" data-qe-range>${saveStateHtml}`;
       } else {
         body = '<div class="qe-h">اولویت</div>' + Object.entries(PR).map(([k, [l, cl]]) => opt(`data-qe-prio="${k}"`, `<span class="badge ${cl}">${l}</span>`, t.priority === k)).join('');
       }
@@ -440,45 +575,57 @@ document.addEventListener('tk:ready', () => {
     } else if (key === 'project') {
       body = '<div class="qe-h">پروژه</div><div class="qe-list">' + (cfg.projects || []).map((x) => opt(`data-qe-project="${x.id}"`, `<span class="avatar xs sq">${x.image ? `<img loading="lazy" decoding="async" src="${E(x.image)}" alt="">` : E(TK.initial(x.title))}</span> ${E(x.title)}`, String(t.project_id) === String(x.id))).join('') + '</div>';
     } else if (key === 'due') {
-      body = `<div class="qe-h">تاریخ و ساعت سررسید</div><div class="qe-due"><div data-qe-due></div></div>
-        <div class="qe-foot"><button type="button" class="btn btn-sm btn-primary" data-qe-save-due>ذخیره</button>${t.due_date ? '<button type="button" class="btn btn-sm" data-qe-clear-due>حذف سررسید</button>' : ''}</div>`;
+      qePop.classList.add('qe-schedule');
+      body = `<div class="qe-schedule-head"><span class="schedule-mark"><i class="fa-regular fa-calendar-check"></i></span><div><b>زمان‌بندی تسک</b><small>روز، ساعت و یادآوری در یک نگاه</small></div><button type="button" class="btn btn-ghost btn-icon" data-qe-close aria-label="بستن زمان‌بندی"><i class="fa-solid fa-xmark"></i></button></div><div class="qe-due"><div data-qe-due></div></div>${saveStateHtml}`;
     }
     qePop.innerHTML = body;
-    row.appendChild(qePop);
-    // زیر همان نشان (راست‌چین)، بدون بیرون زدن از ردیف
-    const rw = row.clientWidth, pw = Math.min(qePop.offsetWidth, rw);
-    const right = Math.max(0, Math.min(rw - (chip.offsetLeft + chip.offsetWidth), rw - pw));
-    qePop.style.top = (chip.offsetTop + chip.offsetHeight + 6) + 'px';
-    qePop.style.right = right + 'px';
+    TK.qs('#m-detail').appendChild(qePop);
+    const panelRoot = qePop;
+    const placeQuick = () => {
+      if (!panelRoot.isConnected || (key === 'due' && innerWidth <= 600)) return;
+      const rect = chip.getBoundingClientRect();
+      panelRoot.style.left = Math.max(12, Math.min(innerWidth - panelRoot.offsetWidth - 12, rect.right - panelRoot.offsetWidth)) + 'px';
+      panelRoot.style.top = Math.max(12, Math.min(innerHeight - panelRoot.offsetHeight - 12, rect.bottom + 8)) + 'px';
+    };
+    const observer = new ResizeObserver(placeQuick); observer.observe(panelRoot); panelRoot._observer = observer; placeQuick();
     if (key === 'due') {
-      const picker = TK.duepicker(TK.qs('[data-qe-due]', qePop), { dateName: 'qe_due_date', timeName: 'qe_due_time', recurrence: true, reminders: true });
+      const picker = TK.duepicker(TK.qs('[data-qe-due]', qePop), { dateName: 'qe_due_date', timeName: 'qe_due_time', recurrence: true, reminders: true, inline: true });
       picker.date.set(t.due_date || ''); picker.time.set(t.due_time || ''); picker.recurrence.set(t.recurrence); picker.reminders.set(t);
       qePop.dataset.ready = '1';
-      qePop._pick = picker;
+      qePop._pick = picker; picker.recurrence.open();
+      const panel = qePop, id = currentId;
+      const saver = panel._saver = taskSaver(id, panel, () => { panel.dataset.updated = '1'; });
+      saver.seed('schedule', scheduleData(picker));
+      const changed = e => {
+        if (!['qe_due_date', 'qe_due_time', 'reminder_every', 'reminder_unit'].includes(e.target.name)) return;
+        if (!picker.reminders.valid() || !picker.recurrence.valid() || !picker.time.valid()) { saver.pause('schedule'); return saver.status('عدد و بازهٔ یادآوری یا تکرار را کامل کنید.', 'invalid'); }
+        saver.queue('schedule', scheduleData(picker), e.type === 'input' ? 600 : 150);
+      };
+      panel.addEventListener('input', changed); panel.addEventListener('change', changed);
+      panel.addEventListener('picker:invalid', () => { saver.pause('schedule'); saver.status('ساعت باید بین ۰ تا ۲۳ و دقیقه بین ۰ تا ۵۹ باشد.', 'invalid'); });
+      panel.addEventListener('task:saved', async () => {
+        await refreshSummary(id);
+        TK.live?.refresh();
+      });
     }
     if (key === 'priority' && t.priority_type === 'percent') {
       const rg = TK.qs('[data-qe-range]', qePop), pv = TK.qs('[data-qe-pv]', qePop);
       const paint = () => { pv.textContent = F(rg.value) + '٪'; rg.style.setProperty('--pc', prioColor(Number(rg.value))); };
-      rg.addEventListener('input', paint); paint();
+      const saver = qePop._saver = taskSaver(currentId, qePop);
+      saver.seed('priority', { priority_percent: rg.value });
+      rg.addEventListener('input', () => { paint(); saver.queue('priority', { priority_percent: rg.value }); });
+      qePop.addEventListener('task:saved', async () => { await refreshSummary(t.id); TK.live?.refresh(); }); paint();
     }
   };
-  detail.addEventListener('click', (e) => {
+  TK.qs('#m-detail').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-qe]');
     if (chip) { e.stopPropagation(); return qeOpen(chip); }
     const p = e.target.closest('.qe-pop'); if (!p) return;
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.qePrio) return qeUpdate({ priority: b.dataset.qePrio }, b);
-    if (b.hasAttribute('data-qe-save-pct')) return qeUpdate({ priority_percent: TK.qs('[data-qe-range]', p).value }, b);
+    if (b.hasAttribute('data-qe-close')) return qeClose();
     if (b.dataset.qeLabel !== undefined) return qeUpdate({ subject_id: b.dataset.qeLabel }, b);
     if (b.dataset.qeProject) return qeUpdate({ project_id: b.dataset.qeProject }, b);
-    if (b.hasAttribute('data-qe-save-due')) {
-      const picker = p._pick, dv = picker.date.get(), hv = picker.time.get(), repeat = picker.recurrence.get();
-      if (!picker.reminders.valid()) return TK.toast('بازه یادآوری تأخیر باید عدد صحیح ۱ تا ۱۰۰۰ و واحد معتبر باشد.', 'warning');
-      if (!picker.recurrence.valid()) return TK.toast('تاریخ و فاصله تکرار خودکار را درست وارد کنید.', 'warning');
-      if (hv && !dv) return TK.toast('اول تاریخ را انتخاب کنید.', 'warning');
-      return qeUpdate({ due_date: dv, due_time: dv ? hv : '', repeat_enabled: repeat.enabled ? 1 : 0, repeat_kind: repeat.kind, repeat_days: repeat.days, ...picker.reminders.get() }, b);
-    }
-    if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '', repeat_enabled: 0 }, b);
     if (b.dataset.qeStatus) {
       if (b.dataset.qeStatus === 'rework') {
         const r = TK.qs('.qe-reason', p); r.hidden = false; r.dataset.st = b.dataset.qeStatus;
@@ -503,6 +650,23 @@ document.addEventListener('tk:ready', () => {
     const secret = t.confidential?.can_edit ? `<button type="button" data-detail-secret><i class="fa-solid fa-user-secret"></i> ${t.confidential.on ? 'محرمانه (ویرایش بیننده‌ها)' : 'محرمانه'}</button>` : '';
     return `<div class="dropdown detail-more"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-more title="گزینه‌های بیشتر" aria-label="گزینه‌های بیشتر" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
       <div class="dropdown-menu" role="menu">${secret}${item}${hint}</div></div>`;
+  };
+  let summarySeq = 0;
+  const refreshSummary = async id => {
+    const seq = ++summarySeq, fresh = await TK.get('/tasks/' + id);
+    if (seq === summarySeq && currentId === id && TK.ok(fresh)) { current = fresh.task; updateTaskSummary(fresh.task); }
+  };
+  const updateTaskSummary = t => {
+    const props = detail.querySelector('.td-props');
+    if (!props) return;
+    const dueChip = props.querySelector('[data-qe="due"]');
+    if (dueChip) dueChip.innerHTML = `<span class="chip-s${t.is_overdue ? ' is-danger' : ''}"><i class="fa-regular fa-calendar"></i> ${E(t.due_fa || 'بدون سررسید')}</span><i class="fa-solid fa-pen qe-ic"></i>`;
+    const prioChip = props.querySelector('[data-qe="priority"]');
+    if (prioChip) prioChip.innerHTML = prioBadge(t) + '<i class="fa-solid fa-pen qe-ic"></i>';
+    const repeat = props.querySelector('[data-task-recurrence]');
+    if (repeat) { repeat.hidden = !t.recurrence?.enabled; repeat.querySelector('.td-pv').textContent = ({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(t.recurrence?.days) + ' روز'})[t.recurrence?.kind] || ''; }
+    const reminder = props.querySelector('[data-task-reminder]');
+    if (reminder) { reminder.hidden = !t.reminder_every; reminder.querySelector('.td-pv').textContent = 'هر ' + F(t.reminder_every || '') + ' ' + (({minute:'دقیقه',hour:'ساعت',day:'روز',week:'هفته',month:'ماه'})[t.reminder_unit] || ''); }
   };
   const render = (t) => {
     qeClose();
@@ -566,13 +730,13 @@ document.addEventListener('tk:ready', () => {
           <div class="td-st">${b ? `<i class="fa-solid ${E(b.icon)}" aria-hidden="true"></i> ${E(b.label)}` : (t.is_completed ? 'انجام‌شده' : 'در جریان')}</div>
           <div class="td-acts">${acts}</div>
         </section>
-        <section class="td-card td-props qe-row">
+        <section class="td-card td-props qe-row"><div class="td-props-head"><b>جزئیات تسک</b><small>برای ویرایش روی هر مورد بزنید</small></div>
           ${prop('fa-layer-group', 'وضعیت', stProp)}
           ${prop('fa-user', 'مسئول', t.assignee_name ? `<span class="td-who">${av(t.assignee_name, t.assignee_avatar)}${E(t.assignee_name)}</span>` : '—')}
           ${prop('fa-flag', 'اولویت', qe('priority', c.edit_meta, prioBadge(t), 'اولویت'))}
           ${prop('fa-calendar', 'سررسید', qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید'))}
-          ${t.reminder_every ? prop('fa-bell', 'یادآوری تأخیر', 'هر ' + F(t.reminder_every) + ' ' + E(({minute:'دقیقه',hour:'ساعت',day:'روز',week:'هفته',month:'ماه'})[t.reminder_unit] || '')) : ''}
-          ${t.recurrence?.enabled ? prop('fa-rotate', 'تکرار خودکار', E(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(t.recurrence.days) + ' روز'})[t.recurrence.kind] || 'فعال')) : ''}
+          <div data-task-reminder${t.reminder_every ? '' : ' hidden'}>${prop('fa-bell', 'یادآوری تأخیر', 'هر ' + F(t.reminder_every || '') + ' ' + E(({minute:'دقیقه',hour:'ساعت',day:'روز',week:'هفته',month:'ماه'})[t.reminder_unit] || ''))}</div>
+          <div data-task-recurrence${t.recurrence?.enabled ? '' : ' hidden'}>${prop('fa-rotate', 'تکرار خودکار', E(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(t.recurrence?.days) + ' روز'})[t.recurrence?.kind] || 'فعال'))}</div>
           ${prop('fa-tag', 'لیبل', qe('label', c.edit_meta, lbl, 'لیبل'))}
           ${prop('fa-folder', 'پروژه', qe('project', c.change_project, prj, 'پروژه'))}
         </section>

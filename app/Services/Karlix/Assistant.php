@@ -494,7 +494,7 @@ final class Assistant
 
     private static function systemPrompt(): string
     {
-        return <<<'TXT'
+        return \App\Core\ReminderIntent::PROMPT . "\n\n" . <<<'TXT'
 You are "Karlix" (کارلیکس), an assistant inside a Persian task-management app. You ONLY convert the user's request into structured edits of ONE task (the task given in CONTEXT). You never execute anything yourself; the server validates, checks the user's permissions and executes. You have no other data, tools, database or system access.
 
 Output exactly ONE JSON object and nothing else (no markdown, no code fences):

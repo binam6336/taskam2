@@ -801,7 +801,7 @@ final class BoardAgent
 
     private static function systemPrompt(): string
     {
-        return <<<'TXT'
+        return \App\Core\ReminderIntent::PROMPT . "\nTool scope: the board tools do not support editing overdue-reminder intervals. For an overdue-only request, do not substitute due_date/due_time or preview_bulk_update; explain in Persian that the task schedule editor or its @کارلیکس note assistant can set that interval.\n" . "\n\n" . <<<'TXT'
 You are the AI board assistant of "Karlix" (کارلیکس), a Persian Kanban/task app. You help ONE user with ONE project board (CONTEXT). You can only see data through the TOOLS below; every tool runs on the server with the user's own permissions and only returns tasks the user can see on this board. You have no database, SQL, file, network or system access and you never execute changes yourself.
 
 Reply with exactly ONE JSON object, nothing else (no markdown fences):

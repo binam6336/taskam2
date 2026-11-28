@@ -15,14 +15,15 @@ const run=data=>JSON.parse(execFileSync(php,[driver,JSON.stringify(data)]).toStr
  assert(id);let detail=await (await p.request.get(base+'/tasks/'+id)).json();detail=detail.task;assert.equal(detail.reminder_every,15);assert.equal(detail.reminder_unit,'minute');
  console.log('PASS field appears below selected date and create persists number plus unit');
  await p.evaluate(id=>TK.tasks.open(id),id);await p.locator('#m-detail [data-detail-edit]').click();await form.locator('[name=reminder_every]').waitFor();assert.equal(await form.locator('[name=reminder_every]').inputValue(),'15');
+ const updated=p.waitForResponse(r=>r.url().endsWith('/tasks/'+id+'/update'));
  await form.locator('[name=reminder_every]').fill('3');await form.locator('[name=reminder_unit]').selectOption('week');
  await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await form.locator('.dp-overdue-reminder').scrollIntoViewIfNeeded();await p.waitForTimeout(250);await p.screenshot({path:'/tmp/kx-reminder-form-mobile.png'});
  for(const theme of ['violet-light','violet-dark','green-light','green-dark']){await p.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.documentElement.dataset.mode=theme.endsWith('dark')?'dark':'light';},theme);await p.screenshot({path:'/tmp/kx-reminder-'+theme+'.png'});}
- const updated=p.waitForResponse(r=>r.url().endsWith('/tasks/'+id+'/update'));await form.locator('[type=submit]').click();assert.equal((await (await updated).json()).status,'success');
+ assert(await form.locator('[type=submit]').isHidden());assert.equal((await (await updated).json()).status,'success');await form.locator('[data-save-state][data-state=saved]').waitFor();await form.locator('.tf-foot [data-close]').click();
  detail=await (await p.request.get(base+'/tasks/'+id)).json();detail=detail.task;assert.equal(detail.reminder_every,3);assert.equal(detail.reminder_unit,'week');
  console.log('PASS edit restores and changes interval; mobile form fits');
  await p.goto(base+'/tasks?project='+f.project);await p.waitForFunction(()=>!!TK.tasks);await p.evaluate(id=>TK.tasks.open(id),id);await p.locator('[data-qe="due"]').click();
- const quick=p.locator('.qe-pop');await quick.locator('[name=reminder_every]').fill('1');await quick.locator('[name=reminder_unit]').selectOption('month');await quick.locator('[data-qe-save-due]').click();
+ const quick=p.locator('.qe-pop');await quick.locator('[name=reminder_every]').fill('1');await quick.locator('[name=reminder_unit]').selectOption('month');await quick.locator('[data-save-state][data-state=saved]').waitFor();
  await p.waitForFunction(()=>document.querySelector('#detail-body')?.textContent.includes('هر ۱ ماه'));
  console.log('PASS quick due-date editor also saves reminder interval');
  await p.goto(base+'/tasks?project='+f.project);await p.waitForFunction(()=>!!TK.live);await p.evaluate(()=>{window.capturedDue=[];TK.notify=async n=>capturedDue.push(n);localStorage.setItem('tk_due_old','1');});

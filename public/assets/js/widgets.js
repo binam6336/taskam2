@@ -1,4 +1,4 @@
-/* Karlix — ویجت‌های مشترک: تقویم شمسی، ساعت آنالوگ (AM/PM)، فیلد موبایل. فضای نام TK (بعد از app.js). */
+/* Karlix — ویجت‌های مشترک: تقویم شمسی، انتخاب ساعت ۲۴ ساعته، فیلد موبایل. فضای نام TK (بعد از app.js). */
 (() => {
   'use strict';
   const TK = window.TK;
@@ -55,7 +55,7 @@
   const p2 = (n) => String(n).padStart(2, '0');
 
   /* ═════════════ تقویم شمسی ═════════════ */
-  TK.datepicker = (host, { name, placeholder = 'انتخاب تاریخ', defaultToday = false } = {}) => {
+  TK.datepicker = (host, { name, placeholder = 'انتخاب تاریخ', defaultToday = false, inline = false } = {}) => {
     host.classList.add('picker');
     host.innerHTML = `<input type="hidden" name="${E(name)}" value=""><button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar"></i></button><div class="picker-pop jcal" hidden></div>`;
     const inp = host.querySelector('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
@@ -65,10 +65,10 @@
       const g = J.parseIso(iso);
       sel = g ? J.g2j(...g) : null;
       inp.value = g ? iso : '';
-      paintVal();
+      paintVal(); if (inline && sel) { view = { y: sel[0], m: sel[1], mode: 'days' }; draw(); }
     };
-    const commit = (jy, jm, jd) => { sel = [jy, jm, jd]; const [gy, gm, gd] = J.j2g(jy, jm, jd); inp.value = J.iso(gy, gm, gd); paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); };
-    const close = () => { host.classList.remove('open'); pop.hidden = true; };
+    const commit = (jy, jm, jd) => { sel = [jy, jm, jd]; const [gy, gm, gd] = J.j2g(jy, jm, jd); inp.value = J.iso(gy, gm, gd); paintVal(); if (inline) draw(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); };
+    const close = () => { if (!inline) { host.classList.remove('open'); pop.hidden = true; } };
     const draw = () => {
       const t = J.today();
       let head = '', body = '';
@@ -108,81 +108,49 @@
       if (b.dataset.m) { view.m = +b.dataset.m; view.mode = 'days'; return draw(); }
       if (b.dataset.y) { view.y = +b.dataset.y; view.mode = 'months'; return draw(); }
       if (b.hasAttribute('data-today')) { const t = J.today(); return commit(...t); }
-      if (b.hasAttribute('data-clear')) { sel = null; inp.value = ''; paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+      if (b.hasAttribute('data-clear')) { sel = null; inp.value = ''; paintVal(); if (inline) draw(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); }
     });
     document.addEventListener('click', (e) => { if (!host.contains(e.target)) close(); });
     paintVal();
     if (defaultToday) { const t = J.today(); const [gy, gm, gd] = J.j2g(...t); set(J.iso(gy, gm, gd)); }
+    if (inline) { host.classList.add('picker-inline'); btn.hidden = true; openPop(); }
     return { input: inp, host, set, get: () => inp.value, today: () => { const [gy, gm, gd] = J.j2g(...J.today()); return J.iso(gy, gm, gd); }, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; } };
   };
 
-  /* ═════════════ ساعت آنالوگ با AM/PM ═════════════ */
-  TK.timepicker = (host, { name, placeholder = 'انتخاب ساعت' } = {}) => {
-    host.classList.add('picker');
-    host.innerHTML = `<input type="hidden" name="${E(name)}" value=""><button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-clock"></i></button><div class="picker-pop jclock" hidden></div>`;
-    const inp = host.querySelector('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
-    let cur = null;                 // {h:1..12, m:0..59, pm:bool}
-    let draft = null, mode = 'h';
-    const to24 = (c) => (c.h % 12) + (c.pm ? 12 : 0);
-    const from24 = (h24, m) => ({ h: h24 % 12 === 0 ? 12 : h24 % 12, m, pm: h24 >= 12 });
-    const paintVal = () => { val.innerHTML = cur ? `<span class="ltr">${FA(`${p2(cur.h)}:${p2(cur.m)}`)}</span> <b class="dc-13fd80 xs">${cur.pm ? 'PM' : 'AM'}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
-    const set = (hhmm) => {
-      const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
-      if (m) { cur = from24(+m[1], +m[2]); inp.value = `${p2(to24(cur))}:${p2(cur.m)}`; } else { cur = null; inp.value = ''; }
-      paintVal();
-    };
-    const close = () => { host.classList.remove('open'); pop.hidden = true; };
-    const R = 88, C = 110;
-    const pos = (i, r) => { const a = (i * 30 - 90) * Math.PI / 180; return [C + r * Math.cos(a), C + r * Math.sin(a)]; };
+  /* ═════════════ ساعت ۲۴ ساعته؛ انتخاب مستقیم، بدون مرحله تأیید ═════════════ */
+  TK.timepicker = (host, { name, placeholder = 'انتخاب ساعت', inline = false } = {}) => {
+    host.classList.add('picker', 'timepick');
+    host.innerHTML = `<input type="hidden" name="${E(name)}"><button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-clock"></i></button><div class="picker-pop jclock" hidden></div>`;
+    const inp = host.querySelector('input'), btn = host.querySelector('button'), val = host.querySelector('.picker-val'), pop = host.querySelector('.jclock');
+    let hour = J.now().getHours(), minute = 0, mode = 'h';
+    const paint = () => { val.innerHTML = inp.value ? `<b class="ltr">${FA(inp.value)}</b>` : `<span class="faint">${E(placeholder)}</span>`; };
     const draw = () => {
-      const val = mode === 'h' ? draft.h : draft.m;
-      const ang = mode === 'h' ? (draft.h % 12) * 30 : draft.m * 6;
-      const [hx, hy] = (() => { const a = (ang - 90) * Math.PI / 180; return [C + (R - 8) * Math.cos(a), C + (R - 8) * Math.sin(a)]; })();
-      const nums = mode === 'h' ? Array.from({ length: 12 }, (_, i) => [i + 1, i + 1]) : Array.from({ length: 12 }, (_, i) => [i * 5, i * 5]);
-      const dial = nums.map(([label, v]) => {
-        const idx = mode === 'h' ? label % 12 : label / 5; const [x, y] = pos(idx, R);
-        const on = mode === 'h' ? draft.h === label : draft.m === v;
-        return `<g class="jc-n${on ? ' on' : ''}"><circle cx="${x}" cy="${y}" r="17"/><text x="${x}" y="${y + 4}" text-anchor="middle">${mode === 'h' ? FA(label) : FA(p2(label))}</text></g>`;
-      }).join('');
-      const extra = mode === 'm' && draft.m % 5 !== 0 ? `<circle cx="${hx}" cy="${hy}" r="17" class="jc-fine"/>` : '';
-      pop.innerHTML = `
-        <div class="jc-top ltr">
-          <button type="button" class="jc-seg${mode === 'h' ? ' on' : ''}" data-mode="h">${FA(p2(draft.h))}</button><span>:</span><button type="button" class="jc-seg${mode === 'm' ? ' on' : ''}" data-mode="m">${FA(p2(draft.m))}</button>
-          <div class="jc-ampm"><button type="button" class="${!draft.pm ? 'on' : ''}" data-ap="am">AM</button><button type="button" class="${draft.pm ? 'on' : ''}" data-ap="pm">PM</button></div>
-        </div>
-        <svg class="jc-dial" viewBox="0 0 220 220" data-dial><circle cx="${C}" cy="${C}" r="104" class="jc-face"/><line x1="${C}" y1="${C}" x2="${hx}" y2="${hy}" class="jc-hand"/><circle cx="${C}" cy="${C}" r="4" class="jc-pin"/>${extra}${dial}</svg>
-        <div class="jc-hint xs faint">${mode === 'h' ? 'ساعت را روی صفحه انتخاب کنید' : 'دقیقه را انتخاب کنید (برای دقت بیشتر، کشیدن/کلیک روی هر نقطه)'}</div>
-        <div class="jcal-foot"><button type="button" class="btn btn-xs" data-now>اکنون</button><button type="button" class="btn btn-xs" data-clear>پاک کردن</button><button type="button" class="btn btn-xs btn-primary" data-ok>تأیید</button></div>`;
+      pop.innerHTML = `<div class="clock-display"><span class="clock-caption"><i class="fa-regular fa-clock"></i> ${inp.value ? 'ساعت انجام' : 'بدون ساعت مشخص'}</span><div class="clock-digits" dir="ltr"><label><span class="sr-only">ساعت</span><input type="number" min="0" max="23" inputmode="numeric" aria-label="ساعت" data-clock-hour value="${p2(hour)}"></label><span>:</span><label><span class="sr-only">دقیقه</span><input type="number" min="0" max="59" inputmode="numeric" aria-label="دقیقه" data-clock-minute value="${p2(minute)}"></label></div><small>۲۴ ساعته · انتخاب مستقیم</small></div>`
+        + `<div class="clock-tabs"><button type="button" data-clock-mode="h" aria-pressed="${mode === 'h'}">ساعت</button><button type="button" data-clock-mode="m" aria-pressed="${mode === 'm'}">دقیقه</button></div>`
+        + `<div class="clock-grid" aria-label="${mode === 'h' ? 'انتخاب ساعت' : 'انتخاب دقیقه'}">${Array.from({ length: mode === 'h' ? 24 : 12 }, (_, i) => mode === 'h' ? i : i * 5).map(n => `<button type="button" data-clock-value="${n}" aria-pressed="${!!inp.value && n === (mode === 'h' ? hour : minute)}">${FA(p2(n))}</button>`).join('')}</div>`
+        + '<div class="jcal-foot"><button type="button" class="btn btn-xs" data-clock-now>اکنون</button><button type="button" class="btn btn-xs" data-clock-clear>بدون ساعت</button></div>';
     };
-    const fromPointer = (e, svg) => {
-      const r = svg.getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
-      const a = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
-      if (mode === 'h') { let h = Math.round(a / 30) % 12; draft.h = h === 0 ? 12 : h; }
-      else { let m = Math.round(a / 6) % 60; const near = Math.round(m / 5) * 5; if (Math.abs(near - m) <= 1) m = near % 60; draft.m = m; }
-    };
-    let dragging = false;
-    pop.addEventListener('pointerdown', (e) => { const svg = e.target.closest('[data-dial]'); if (!svg) return; dragging = true; fromPointer(e, svg); draw(); });
-    pop.addEventListener('pointermove', (e) => { if (!dragging) return; const svg = pop.querySelector('[data-dial]'); if (svg) { fromPointer(e, svg); draw(); } });
-    document.addEventListener('pointerup', () => { if (dragging) { dragging = false; if (mode === 'h') { mode = 'm'; draw(); } } });
-    pop.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.mode) { mode = b.dataset.mode; return draw(); }
-      if (b.dataset.ap) { draft.pm = b.dataset.ap === 'pm'; return draw(); }
-      if (b.hasAttribute('data-now')) { const n = J.now(); draft = from24(n.getHours(), n.getMinutes()); return draw(); }
-      if (b.hasAttribute('data-clear')) { cur = null; inp.value = ''; paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); return; }
-      if (b.hasAttribute('data-ok')) { cur = { ...draft }; inp.value = `${p2(to24(cur))}:${p2(cur.m)}`; paintVal(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+    const commit = () => { inp.value = `${p2(hour)}:${p2(minute)}`; paint(); const caption = pop.querySelector('.clock-caption'); if (caption) caption.innerHTML = '<i class="fa-regular fa-clock"></i> ساعت انجام'; inp.dispatchEvent(new Event('change', { bubbles: true })); };
+    const close = () => { if (!inline) { host.classList.remove('open'); pop.hidden = true; } };
+    const set = (time) => { const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(time || ''); inp.value = m && +m[1] < 24 && +m[2] < 60 ? `${p2(+m[1])}:${m[2]}` : ''; if (inp.value) { hour = +m[1]; minute = +m[2]; } paint(); if (inline) draw(); };
+    pop.addEventListener('click', e => {
+      e.stopPropagation(); const b = e.target.closest('button'); if (!b || btn.disabled) return;
+      if (b.dataset.clockMode) { mode = b.dataset.clockMode; draw(); }
+      if (b.dataset.clockValue !== undefined) { if (mode === 'h') { hour = +b.dataset.clockValue; mode = 'm'; } else minute = +b.dataset.clockValue; commit(); draw(); }
+      if (b.hasAttribute('data-clock-now')) { const n = J.now(); hour = n.getHours(); minute = n.getMinutes(); commit(); draw(); }
+      if (b.hasAttribute('data-clock-clear')) { inp.value = ''; paint(); draw(); close(); inp.dispatchEvent(new Event('change', { bubbles: true })); }
     });
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation(); if (btn.disabled) return;
-      if (host.classList.contains('open')) return close();
-      const n = J.now(); draft = cur ? { ...cur } : from24(n.getHours(), n.getMinutes()); mode = 'h'; draw();
-      TK.qsa('.picker.open').forEach((x) => x !== host && x.classList.remove('open'));
-      host.classList.add('open'); pop.hidden = false;
+    pop.addEventListener('input', e => {
+      const input = e.target; if (!input.matches('[data-clock-hour], [data-clock-minute]') || btn.disabled) return;
+      if (!input.value || !input.checkValidity() || !/^\d+$/.test(input.value)) { host.dispatchEvent(new CustomEvent('picker:invalid', { bubbles: true })); return; }
+      if (input.hasAttribute('data-clock-hour')) hour = +input.value; else minute = +input.value;
+      commit();
     });
-    document.addEventListener('click', (e) => { if (!host.contains(e.target)) close(); });
-    paintVal();
-    return { input: inp, host, set, get: () => inp.value, disable(off) { host.classList.toggle('disabled', !!off); btn.disabled = !!off; inp.disabled = !!off; } };
+    btn.addEventListener('click', e => { e.stopPropagation(); if (btn.disabled) return; if (!pop.hidden) return close(); draw(); pop.hidden = false; host.classList.add('open'); });
+    document.addEventListener('click', e => { if (!host.contains(e.target)) close(); });
+    if (inline) { host.classList.add('picker-inline'); btn.hidden = true; pop.hidden = false; draw(); }
+    paint();
+    return { input: inp, host, set, get: () => inp.value, valid: () => [...pop.querySelectorAll('[data-clock-hour], [data-clock-minute]')].every(el => el.value !== '' && el.checkValidity()), disable(off) { btn.disabled = !!off; inp.disabled = !!off; host.classList.toggle('disabled', !!off); pop.querySelectorAll('button, input').forEach(el => { el.disabled = !!off; }); } };
   };
 
   /* ═════════════ فیلدهای رمز: دکمه‌ی نمایش/مخفی، قدرت رمز (data-pw-meter) و بررسی زنده‌ی تکرار رمز ═════════════ */
@@ -223,14 +191,14 @@
      دو ورودی مخفی due_date (میلادی) و due_time (HH:MM) را پر می‌کند؛ خروجی: date و time با همان رابط datepicker/timepicker. */
   const WD_FULL = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
   const TIMES = ['09:00', '12:00', '15:00', '18:00', '21:00'];
-  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام', recurrence = false, reminders = false } = {}) => {
+  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام', recurrence = false, reminders = false, inline = false } = {}) => {
     host.classList.add('picker', 'duepick');
     host.innerHTML = `<input type="hidden" name="${E(dateName)}" value=""><input type="hidden" name="${E(timeName)}" value="">`
       + '<button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar-check"></i></button><div class="picker-pop dp-pop" hidden></div>';
     const [dIn, tIn] = host.querySelectorAll('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
     const reminderBox = document.createElement('section'); reminderBox.className = 'dp-overdue-reminder'; reminderBox.hidden = true;
     if (reminders) {
-      reminderBox.innerHTML = '<div class="small">در صورت تأخیر، یادآوری هر</div><div class="dp-overdue-fields"><label><span class="sr-only">عدد فاصله یادآوری</span><input class="input ltr" type="number" name="reminder_every" min="1" max="1000" step="1" inputmode="numeric" placeholder="' + E(TK.ph('task_reminder_every', 'بدون تکرار')) + '" aria-label="عدد فاصله یادآوری"></label><label><span class="sr-only">واحد فاصله یادآوری</span><select class="input" name="reminder_unit" aria-label="واحد فاصله یادآوری">'
+      reminderBox.innerHTML = '<div class="dp-reminder-title"><span class="dp-reminder-icon"><i class="fa-regular fa-bell" aria-hidden="true"></i></span><div><b>اگر از موعد گذشت…</b><small>یادآوری را تکرار کن، هر</small></div></div><div class="dp-overdue-fields"><label><span class="sr-only">عدد فاصله یادآوری</span><input class="input ltr" type="number" name="reminder_every" min="1" max="1000" step="1" inputmode="numeric" placeholder="' + E(TK.ph('task_reminder_every', 'بدون تکرار')) + '" aria-label="عدد فاصله یادآوری"></label><label><span class="sr-only">واحد فاصله یادآوری</span><select class="input" name="reminder_unit" aria-label="واحد فاصله یادآوری">'
         + [['minute','دقیقه'],['hour','ساعت'],['day','روز'],['week','هفته'],['month','ماه']].map(([key,label]) => `<option value="${key}">${label}</option>`).join('')
         + '</select></label></div><p class="xs faint">خالی بگذارید تا تکرار نشود. بدون ساعت، تأخیر پس از پایان روز شروع می‌شود. ماه، ماه تقویمی میلادی است.</p>';
       host.appendChild(reminderBox);
@@ -251,7 +219,7 @@
     const repeatHtml = () => !recurrence ? '' : `<section class="dp-repeat"><label class="dp-repeat-toggle"><input type="checkbox" data-repeat-toggle ${repeat.enabled ? 'checked' : ''}> تکرار خودکار</label>`
       + (repeat.enabled ? `<div class="dp-repeat-fields"><label>بازه تکرار<select class="input" data-repeat-kind aria-label="بازه تکرار">${[['daily','روزانه'],['weekly','هفتگی'],['monthly','ماهانه'],['custom','شخصی‌سازی']].map(([key,label]) => `<option value="${key}" ${repeat.kind === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`
         + (repeat.kind === 'custom' ? `<label>هر چند روز؟<input class="input ltr" type="number" min="1" step="1" data-repeat-days aria-label="فاصله تکرار به روز" value="${E(repeat.days)}"></label>` : '')
-        + '<p class="xs faint">نوبت بعد فقط پس از تأیید نهایی ساخته می‌شود؛ تنظیمات برای کل سری است. تکرار ماهانه بر اساس ماه میلادی است.</p></div>' : '') + '</section>';
+        + '<p class="xs faint">هر نوبت مستقل است؛ حتی اگر نوبت قبلی انجام نشده باشد. تنظیمات برای کل سری است. تکرار ماهانه بر اساس ماه میلادی است.</p></div>' : '') + '</section>';
     syncRepeat();
     const isoOf = (offset) => { const n = J.now(); n.setDate(n.getDate() + offset); return J.iso(n.getFullYear(), n.getMonth() + 1, n.getDate()); };
     const DAYS = [['today', 0, 'امروز', 'fa-sun'], ['tomorrow', 1, 'فردا', 'fa-cloud-sun'], ['after', 2, 'پس‌فردا', 'fa-calendar-day']];
@@ -268,7 +236,7 @@
     };
     const fire = () => { dIn.dispatchEvent(new Event('change', { bubbles: true })); };
     const setBoth = (d, t) => { dIn.value = d || ''; tIn.value = d ? (t || '') : ''; if (!d && recurrence) { repeat.enabled = false; syncRepeat(); } paint(); };
-    const close = () => { host.classList.remove('open'); pop.hidden = true; if (recurrence) pop.innerHTML = ''; };
+    const close = () => { if (!inline) { host.classList.remove('open'); pop.hidden = true; if (recurrence) pop.innerHTML = ''; } };
     const nowMin = () => { const n = J.now(); return n.getHours() * 60 + n.getMinutes(); };
     const mins = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
     // پیش‌فرض ساعت با کلیک روی خود روز: ساعت فعلیِ انتخاب‌شده، وگرنه برای امروز ساعت کامل بعدی و برای بقیه ۰۹:۰۰
@@ -298,13 +266,19 @@
     };
     let sub = null;
     const customView = () => {
-      pop.innerHTML = '<div class="dp-head"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-back aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button><b>انتخاب تاریخ و زمان</b></div>'
-        + '<div class="dp-sub"><div data-sub-date></div><div data-sub-time></div></div>' + repeatHtml() + '<div class="dp-foot"><button type="button" class="btn btn-sm" data-back>انصراف</button><button type="button" class="btn btn-sm btn-primary" data-ok>تأیید</button></div>';
-      sub = { d: TK.datepicker(pop.querySelector('[data-sub-date]'), { name: '', placeholder: 'تاریخ' }), t: TK.timepicker(pop.querySelector('[data-sub-time]'), { name: '', placeholder: 'ساعت (اختیاری)' }) };
-      sub.d.set(dIn.value || sub.d.today()); sub.t.set(tIn.value);
+      pop.innerHTML = '<div class="dp-head"><button type="button" class="btn btn-ghost btn-icon btn-sm" data-back aria-label="بازگشت"><i class="fa-solid fa-arrow-right"></i></button><div><b>روز و ساعت دلخواه</b><small>با انتخاب، زمان ثبت می‌شود</small></div></div>'
+        + '<div class="dp-sub"><section class="schedule-calendar"><div data-sub-date></div></section><section class="schedule-clock"><div data-sub-time></div></section></div>' + repeatHtml();
+      sub = { d: TK.datepicker(pop.querySelector('[data-sub-date]'), { name: '', placeholder: 'تاریخ', inline: true }), t: TK.timepicker(pop.querySelector('[data-sub-time]'), { name: '', placeholder: 'ساعت (اختیاری)', inline: true }) };
+      sub.d.set(dIn.value); sub.t.set(tIn.value);
+      [sub.d.input, sub.t.input].forEach(input => input.addEventListener('change', e => {
+        e.stopPropagation();
+        const d = input === sub.t.input && sub.t.get() && !sub.d.get() ? sub.d.today() : sub.d.get();
+        if (d && !sub.d.get()) sub.d.set(d);
+        setBoth(d, sub.t.get()); if (!d) sub.t.set(''); fire(); place();
+      }));
     };
     const place = () => {
-      if (pop.hidden) return;
+      if (pop.hidden || inline) return;
       const viewport = window.visualViewport;
       const width = viewport?.width || innerWidth;
       const height = viewport?.height || innerHeight;
@@ -319,7 +293,7 @@
       const f = frame?.getBoundingClientRect();
       const topEdge = Math.max(8, f?.top || 8);
       const bottomEdge = Math.min(height - 8, f?.bottom || height - 8);
-      const panelWidth = Math.min(330, width - 16);
+      const panelWidth = Math.min(pop.scrollWidth || 440, width - 16);
       const left = Math.max(8, Math.min(width - panelWidth - 8, r.right - panelWidth));
       const below = bottomEdge - r.bottom - 8;
       const above = r.top - topEdge - 8;
@@ -338,32 +312,30 @@
       e.stopPropagation();
       const b = e.target.closest('button'); if (!b || !pop.contains(b)) return;
       if (b.closest('[data-sub-date], [data-sub-time]')) return;
-      if (b.dataset.time !== undefined) { setBoth(isoOf(+b.dataset.day), b.dataset.time); close(); return fire(); }
+      if (b.dataset.time !== undefined) { setBoth(isoOf(+b.dataset.day), b.dataset.time); if (inline) quick(); else close(); return fire(); }
       if (b.dataset.row) { openRow = openRow === b.dataset.row ? null : b.dataset.row; quick(); place(); return; }
-      if (b.dataset.day !== undefined) { const off = +b.dataset.day; setBoth(isoOf(off), defTime(off)); close(); return fire(); }
+      if (b.dataset.day !== undefined) { const off = +b.dataset.day; setBoth(isoOf(off), defTime(off)); if (inline) quick(); else close(); return fire(); }
       if (b.hasAttribute('data-custom')) { customView(); place(); return; }
-      if (b.hasAttribute('data-back')) return quick();
-      if (b.hasAttribute('data-clear')) { setBoth('', ''); close(); return fire(); }
-      if (b.hasAttribute('data-ok')) {
-        if (!sub.d.get()) return TK.toast('تاریخ را انتخاب کنید.', 'warning');
-        setBoth(sub.d.get(), sub.t.get()); close(); return fire();
-      }
+      if (b.hasAttribute('data-back')) { quick(); return place(); }
+      if (b.hasAttribute('data-clear')) { setBoth('', ''); if (inline) quick(); else close(); return fire(); }
+
     });
     pop.addEventListener('change', (e) => {
       if (e.target.matches('[data-repeat-toggle]')) repeat.enabled = e.target.checked;
       else if (e.target.matches('[data-repeat-kind]')) { repeat.kind = e.target.value; if (repeat.kind === 'custom' && !repeat.days) repeat.days = '1'; }
       else return;
-      syncRepeat(); pop.querySelector('.dp-repeat').outerHTML = repeatHtml(); paint(); place();
+      syncRepeat(); pop.querySelector('.dp-repeat').outerHTML = repeatHtml(); paint(); place(); fire();
     });
     pop.addEventListener('input', (e) => {
-      if (e.target.matches('[data-repeat-days]')) { repeat.days = e.target.value; syncRepeat(); }
+      if (e.target.matches('[data-repeat-days]')) { repeat.days = e.target.value; syncRepeat(); fire(); }
     });
     document.addEventListener('click', (e) => { if (document.contains(e.target) && !host.contains(e.target)) close(); });
     paint();
+    if (inline) { host.classList.add('duepick-inline'); btn.hidden = true; openPop(); }
     let off = false;
     const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; if (reminders) { reminderEvery.disabled = off; reminderUnit.disabled = off; } Object.values(repeatInputs).forEach((input) => { input.disabled = off; }); if (off) close(); };
     const date = { input: dIn, host, get: () => dIn.value, set: (iso) => { dIn.value = J.parseIso(iso) ? iso : ''; if (!dIn.value) tIn.value = ''; paint(); }, today: () => isoOf(0), disable };
-    const time = { input: tIn, host, get: () => tIn.value, set: (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); tIn.value = m ? `${p2(+m[1])}:${m[2]}` : ''; paint(); }, disable };
+    const time = { input: tIn, host, valid: () => !sub || !pop.contains(sub.t.host) || sub.t.valid(), get: () => tIn.value, set: (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); tIn.value = m ? `${p2(+m[1])}:${m[2]}` : ''; paint(); }, disable };
     return { date, time, set: setBoth, disable, close, reminders: {
       get: () => ({ reminder_every: reminderEvery?.value || '', reminder_unit: reminderUnit?.value || 'minute' }),
       set: (value) => { if (reminders) { reminderEvery.value = value?.reminder_every ?? ''; reminderUnit.value = value?.reminder_unit || 'minute'; paint(); } },

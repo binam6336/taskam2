@@ -157,8 +157,11 @@
     snap(m) { const p = []; TK.qsa('form', m).forEach((f) => { for (const [k, v] of new FormData(f)) p.push(k + '=' + (v instanceof File ? v.name : v)); }); return p.join('&'); },
     /** بستن به‌دست کاربر (Esc، کلیک بیرون، انصراف): پنجره‌ی data-guard با تغییر ذخیره‌نشده اول تأیید می‌گیرد */
     async tryClose(m) {
-      if (m.hasAttribute('data-guard') && m._snap !== undefined && TK.modal.snap(m) !== m._snap
-        && !(await TK.confirm('تغییرات ذخیره نشده‌اند؛ پنجره بسته شود؟', { okText: 'بستن بدون ذخیره' }))) return;
+      if (m._beforeClose && await m._beforeClose() === false) return;
+      if (m.hasAttribute('data-guard') && m._snap !== undefined && TK.modal.snap(m) !== m._snap) {
+        if (!(await TK.confirm('تغییرات ذخیره نشده‌اند؛ پنجره بسته شود؟', { okText: 'بستن بدون ذخیره' }))) return;
+        m.dispatchEvent(new CustomEvent('tk:discard'));
+      }
       TK.modal.close(m);
     },
     close(id) { const m = typeof id === 'string' ? document.getElementById(id) : id; if (!m) return; m.classList.remove('open'); if (!TK.qs('.modal.open')) document.body.style.overflow = ''; m.dispatchEvent(new CustomEvent('tk:close')); },

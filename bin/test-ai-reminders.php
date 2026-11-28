@@ -17,7 +17,7 @@ final class ReminderModelFixture
     public static function chat(array $messages, int $maxTokens = 700, array $meta = []): array
     {
         if (!str_contains($messages[0]['content'], 'update_overdue_reminder') || !str_contains($messages[0]['content'], 'clear_overdue_reminder')
-            || !str_contains($messages[0]['content'], 'هر 10 دقیقه') || !str_contains($messages[0]['content'], 'هر ۲ ساعت')) {
+            || !str_contains($messages[0]['content'], 'هر 10 دقیقه') || !str_contains($messages[0]['content'], 'هر ۲ ساعت') || !str_contains($messages[0]['content'], \App\Core\ReminderIntent::PROMPT)) {
             throw new RuntimeException('پرامپت تنظیم یادآوری را به مدل معرفی نکرده است');
         }
         preg_match('/CONTEXT:\n(.*?)\n\nREQUEST/s', $messages[1]['content'], $m);
@@ -101,6 +101,15 @@ try {
     $row = $tasks::raw($task);
     aiReminderCheck($state === 'done' && $row['due_date'] === $date && $row['due_time'] === '15:00:00' && (int) $row['reminder_every'] === 10, 'موعد و بازه در یک پیام با ترتیب درست اجرا می‌شوند');
     aiReminderCheck((int) $db::value("SELECT COUNT(*) FROM task_events WHERE task_id=? AND type='reminder'", [$task]) >= 7, 'تاریخچه واقعی تغییر تنظیمات یادآوری ثبت می‌شود');
+    $mainDate = date('Y-m-d', strtotime('+1 day'));
+    [$state] = $execute('یادآوری رو بذار فردا ساعت ۱۰', $plan([['type' => 'update_due_date', 'date' => $mainDate, 'time' => '10:00']]), $owner);
+    $row = $tasks::raw($task);
+    aiReminderCheck($state === 'done' && $row['due_date'] === $mainDate && $row['due_time'] === '10:00:00' && (int) $row['reminder_every'] === 10 && $row['reminder_unit'] === 'minute', 'یادآوری معمولی فقط موعد اصلی را تغییر می‌دهد و بازه تأخیر حفظ می‌شود');
+    [$state] = $execute('یادآوری بعد از گذشت زمان هر ۲ ساعت', $plan([['type' => 'update_overdue_reminder', 'every' => 2, 'unit' => 'hour']]), $owner);
+    $row = $tasks::raw($task);
+    aiReminderCheck($state === 'done' && $row['due_date'] === $mainDate && $row['due_time'] === '10:00:00' && (int) $row['reminder_every'] === 2 && $row['reminder_unit'] === 'hour', 'یادآوری با اشاره به تأخیر فقط بازه بعد از موعد را تغییر می‌دهد');
+    $board = new ReflectionMethod($prefix . 'BoardAgent', 'systemPrompt');
+    aiReminderCheck(str_contains($board->invoke(null), \App\Core\ReminderIntent::PROMPT) && str_contains($board->invoke(null), 'do not substitute due_date/due_time'), 'پرامپت بورد هم واژگان مشترک و منع جایگزینی تاریخ به‌جای تأخیر را دارد');
     echo "OK $checks checks (" . ($native ? 'Laravel' : 'legacy') . "); local model fixture, no external AI call\n";
 } finally {
     if ($db::pdo()->inTransaction()) { $db::pdo()->rollBack(); }
