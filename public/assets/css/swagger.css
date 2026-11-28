@@ -32,3 +32,5 @@ html, body { margin: 0; background: var(--sw-bg); color: var(--sw-ink); font-fam
 #swagger .swagger-ui .opblock-tag small, #swagger .swagger-ui .opblock .opblock-summary-description, #swagger .swagger-ui .markdown p, #swagger .swagger-ui .renderedMarkdown p { direction: rtl; text-align: right; unicode-bidi: plaintext; }
 #swagger .swagger-ui .scheme-container { box-shadow: none; border-radius: 12px; }
 @media (max-width: 640px) { .sw-top { padding: 10px 14px; } .sw-auth, #swagger { padding: 0 12px; } }
+/* لوگوی انگلیسی ثابت و مستقل از تم */
+.sw-brand .brand-wordmark { display: block; width: 144px; height: auto; max-width: 32vw; }

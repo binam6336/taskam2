@@ -8,7 +8,7 @@
 <title><?= $imp ? '👤 ' . e(full_name($imp['target'])) . ' — ' : '' ?><?= e($this->title) ?> • <?= e(app_name()) ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(favicon_uri($th)) ?>">
 <link rel="manifest" href="<?= e(app_base() . '/manifest') ?>" crossorigin="use-credentials">
-<link rel="apple-touch-icon" href="<?= e(app_base() . '/assets/img/apple-touch-icon' . icon_suffix($th) . '.png') ?>">
+<link rel="apple-touch-icon" href="<?= e(brand_icon_url('apple-touch-icon.png')) ?>">
 <meta name="application-name" content="<?= e(app_name()) ?>">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">

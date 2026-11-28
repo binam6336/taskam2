@@ -28,10 +28,9 @@ final class PwaController extends Controller
     {
         $name = (string) app_name();
         $s = self::scope();
-        // آیکن‌ها و رنگ‌ها مطابق تم کاربر (manifest با crossorigin="use-credentials" درخواست می‌شود تا نشست همراهش باشد)
+        // رنگ رابط مطابق تم است؛ لوگو و نشانی آیکن در تمام تم‌ها ثابت می‌ماند.
         $th = user_theme(Auth::user());
-        $sx = icon_suffix($th);
-        $icon = static fn(string $f, string $size, string $purpose = 'any') => ['src' => $s . 'assets/img/' . $f . $sx . '.png', 'sizes' => $size, 'type' => 'image/png', 'purpose' => $purpose];
+        $icon = static fn(string $f, string $size, string $purpose = 'any') => ['src' => brand_icon_url($f . '.png'), 'sizes' => $size, 'type' => 'image/png', 'purpose' => $purpose];
         $theme = themes()[$th]['meta'];
         $m = [
             'id' => $s,
@@ -68,7 +67,7 @@ final class PwaController extends Controller
     public function serviceWorker()
     {
         $js = (string) file_get_contents(APP_PATH . '/Views/pwa/sw.js');
-        $js = str_replace('__VERSION__', self::version(), $js);
+        $js = str_replace(['__VERSION__', '__BRAND__'], [self::version(), brand_version()], $js);
         header('Content-Type: application/javascript; charset=utf-8');
         header('Service-Worker-Allowed: ' . self::scope());
         header('Cache-Control: no-cache, no-store, must-revalidate');

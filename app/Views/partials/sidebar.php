@@ -38,7 +38,7 @@ $sidebarKeys = static function (array $items) use (&$sidebarKeys): array {
 <a class="skip-link" href="#main-content">پرش به محتوای اصلی</a>
 <aside class="sidebar" id="sidebar">
     <div class="sb-top">
-        <a class="brand" href="<?= e($sb['home']) ?>" aria-label="<?= e($sb['title']) ?> — صفحه اصلی"><span class="logo" aria-hidden="true"><?= logo_svg() ?></span><span class="sb-brand-t"><?= e($sb['title']) ?><small><?= e($sb['sub']) ?></small></span></a>
+        <a class="brand" href="<?= e($sb['home']) ?>" aria-label="<?= e($sb['title']) ?> — صفحه اصلی"><span class="sb-brand-wordmark"><?= brand_lockup_svg('fa', $sb['title']) ?></span></a>
         <button type="button" class="sb-icon-btn sb-rail-btn" aria-pressed="false" aria-label="جمع کردن منو"><i class="fa-solid fa-kx-panel" aria-hidden="true"></i></button>
     </div>
 

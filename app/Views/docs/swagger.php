@@ -19,7 +19,7 @@
 </head>
 <body>
 <header class="sw-top">
-    <a class="sw-brand" href="<?= e(url('/docs')) ?>"><span class="sw-logo"><?= logo_svg('', THEME_DEFAULT) ?></span><b>تست API</b><span class="sw-tag">Swagger</span></a>
+    <a class="sw-brand" href="<?= e(url('/docs')) ?>"><?= brand_lockup_svg('en') ?><b>تست API</b><span class="sw-tag">Swagger</span></a>
     <a class="sw-back" href="<?= e(url('/docs')) ?>">بازگشت به مستندات ←</a>
 </header>
 <section class="sw-auth" id="sw-auth" data-openapi="<?= e(url('/docs/openapi.json')) ?>" data-token-url="<?= e(url('/docs/swagger/token')) ?>" data-captcha-url="<?= e($captcha ? url('/captcha') : '') ?>">

@@ -241,14 +241,30 @@ function duration_fa(float $hours): string
     return fa_num($d) . ' روز' . ($h > 0 ? ' و ' . fa_num($h) . ' ساعت' : '');
 }
 
-/**
- * رنگ‌های لوگوی کارلیکس برای هر تم (v7.5): [a = رنگ روشن‌تر گرادیان/خط‌ها، b = رنگ پررنگ تیک، base = زمینه‌ی کاشی، inner = داخل نقطه، glass = رنگ براقی، glass_o = شدت براقی]
- * منبع: کلید logo در config/themes.php — همین رنگ‌ها در app.css به‌صورت --logo-* برای هر تم تکرار شده‌اند (لوگوی داخل صفحه با تغییر تم فوراً عوض می‌شود).
- */
+/** رنگ‌های ثابت نشان؛ پارامتر تم فقط برای سازگاری فراخوان‌های قدیمی پذیرفته می‌شود. */
 function logo_palette(string $theme): array
 {
-    $t = themes()[theme_key($theme)];
-    return $t['logo'] + [5 => 1];
+    return ['#A78BFA', '#6D4AFF', '#120E1E', '#120E1E', '#FCFBFF', 1];
+}
+
+/** نسخه محتوایی برند؛ مستقل از تم و زمان کپی فایل‌ها روی هاست. */
+function brand_version(): string
+{
+    static $version = null;
+    if ($version === null) {
+        $body = '';
+        foreach (['karlix-favicon.svg', 'karlix-fa.svg', 'karlix-en.svg'] as $file) {
+            $body .= (string) file_get_contents(BASE_PATH . '/public/assets/img/brand/' . $file);
+        }
+        $version = substr(hash('sha256', $body), 0, 16);
+    }
+    return $version;
+}
+
+/** نشانی نسخه‌دار آیکن ثابت بر پایه مسیر نصب و بدون وابستگی به دامنه یا تم. */
+function brand_icon_url(string $file): string
+{
+    return (app_base() . '/assets/img/' . $file) . '?brand=' . brand_version();
 }
 
 /** نام برنامه (v7.5: کارلیکس). مقدار قدیمی APP_NAME («تسکام») نادیده گرفته می‌شود. */
@@ -258,74 +274,37 @@ function app_name(): string
     return $n === '' || preg_match('/^(تسکام|taskam)$/iu', $n) ? 'کارلیکس' : $n;
 }
 
-/**
- * بدنه‌ی نشان کارلیکس در مختصات 0..100 (کاشی 14..86): کاشی شیشه‌ای + کمان + خطوط سرعت + تیک.
- * $theme = null: رنگ از کلاس‌های .lg-* (متغیرهای --logo-* تم فعلی صفحه)؛ وگرنه رنگ ثابت همان تم.
- */
-function logo_mark(string $u, ?string $theme, bool $bleed = false): string
-{
-    $c = $theme !== null ? logo_palette($theme) : null;
-    // ویژگی رنگ: ثابت (تم مشخص) یا کلاس (بدون style به‌خاطر CSP)
-    $at = static fn(string $cls, string $prop, int $i) => $c !== null ? $prop . '="' . $c[$i] . '"' : 'class="' . $cls . '"';
-    $tile = $bleed ? 'x="14" y="14" width="72" height="72"' : 'x="14" y="14" width="72" height="72" rx="22"';
-    return '<defs>'
-        . '<linearGradient id="' . $u . 'k" gradientUnits="userSpaceOnUse" x1="30" y1="29" x2="71" y2="71"><stop offset="0" ' . $at('lg-a', 'stop-color', 0) . '/><stop offset="1" ' . $at('lg-b', 'stop-color', 1) . '/></linearGradient>'
-        . '<linearGradient id="' . $u . 'g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".32"/><stop offset="1" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".12"/></linearGradient>'
-        . '<linearGradient id="' . $u . 'e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" ' . $at('lg-a', 'stop-color', 0) . ' stop-opacity=".35"/><stop offset=".55" ' . $at('lg-a', 'stop-color', 0) . ' stop-opacity=".12"/><stop offset="1" ' . $at('lg-gl', 'stop-color', 4) . ' stop-opacity=".8"/></linearGradient>'
-        . '</defs>'
-        . '<rect ' . $tile . ' ' . $at('lg-base', 'fill', 2) . '/>'
-        . '<rect ' . $tile . ' ' . $at('lg-tint', 'fill', 0) . ' fill-opacity=".10"/>'
-        . '<rect ' . $tile . ' fill="url(#' . $u . 'g)" ' . ($c !== null ? 'opacity="' . $c[5] . '"' : 'class="lg-glass"') . '/>'
-        . ($bleed ? '<g transform="translate(9 9) scale(.82)">' : '<rect x="14.6" y="14.6" width="70.8" height="70.8" rx="21.4" fill="none" stroke="url(#' . $u . 'e)" stroke-width="1.2"/>')
-        . '<path d="M33.1 38.5 A21 21 0 1 1 33.1 61.5" fill="none" stroke="url(#' . $u . 'k)" stroke-width="3.2" stroke-linecap="round"/>'
-        . '<path d="M22 44.5 H29 M18 50 H31 M22 55.5 H29" ' . $at('lg-ln', 'stroke', 0) . ' stroke-width="3.2" stroke-linecap="round" opacity=".6"/>'
-        . '<path d="M43 45 L50 52 L62 39" fill="none" ' . $at('lg-ck', 'stroke', 1) . ' stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>'
-        . '<circle cx="50" cy="52" r="2.4" ' . ($c !== null ? 'fill="' . $c[3] . '" stroke="' . $c[1] . '"' : 'class="lg-dot"') . ' stroke-width="1.6"/>'
-        . ($bleed ? '</g>' : '');
-}
-
-/**
- * لوگوی کارلیکس (SVG، فقط نشان).
- * $theme = null: رنگ از متغیرهای CSS تم فعلی صفحه (--logo-*)؛ وگرنه رنگ ثابت همان تم (فاوآیکن، آیکن PWA).
- * $bleed: نسخه‌ی تمام‌صفحه (maskable / apple-touch): زمینه بدون گوشه‌ی گرد و طرح در ناحیه‌ی امن.
- */
+/** نشان ثابت SVG از فاوآیکن پیوست‌شده؛ تم رنگ آن را تغییر نمی‌دهد. */
 function logo_svg(string $uid = '', ?string $theme = null, bool $bleed = false): string
 {
-    static $n = 0;
-    $u = $uid !== '' ? $uid : 'lg' . (++$n);
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 14 72 72" width="100%" height="100%" aria-hidden="true" focusable="false">'
-        . logo_mark($u, $theme, $bleed) . '</svg>';
+    static $body = null;
+    if ($body === null) {
+        $raw = (string) file_get_contents(BASE_PATH . '/public/assets/img/brand/karlix-favicon.svg');
+        $body = preg_replace('~^.*?<svg\b[^>]*>|</svg>\s*$~s', '', $raw);
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%" aria-hidden="true" focusable="false">'
+        . ($bleed ? '<rect width="32" height="32" fill="#120E1E"/><g transform="translate(3.2 3.2) scale(.8)">' : '')
+        . $body . ($bleed ? '</g>' : '') . '</svg>';
 }
 
-/**
- * لوگوی کامل (نشان + نوشته‌ی «کارلیکس» یا «Karlix») از فایل‌های public/assets/img/brand؛ رنگ نشان از تم، رنگ نوشته .lg-word.
- */
+/** لوگوی فارسی یا انگلیسی با همان رنگ‌ها و نسبت ابعاد فایل اصلی. */
 function brand_lockup_svg(string $lang = 'fa', string $label = ''): string
 {
-    static $paths = [], $n = 0;
     $lang = $lang === 'en' ? 'en' : 'fa';
-    if (!isset($paths[$lang])) {
-        $raw = (string) @file_get_contents(BASE_PATH . '/public/assets/img/brand/karlix-' . $lang . '.svg');
-        $paths[$lang] = preg_match('~<path transform="([^"]+)" fill="[^"]*" d="([^"]+)"~', $raw, $m) ? [$m[1], $m[2]] : ['', ''];
-    }
-    [$tr, $d] = $paths[$lang];
-    $label = $label !== '' ? $label : ($lang === 'en' ? 'Karlix' : 'کارلیکس');
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 146" width="100%" height="100%" role="img" aria-label="' . e($label) . '" focusable="false">'
-        . '<g transform="translate(40 2)">' . logo_mark('bl' . (++$n), null) . '</g>'
-        . ($d !== '' ? '<path transform="' . e($tr) . '" class="lg-word" d="' . e($d) . '"/>' : '')
-        . '</svg>';
+    return '<img class="brand-wordmark" src="' . e(asset('img/brand/karlix-' . $lang . '.svg') . '&brand=' . brand_version())
+        . '" width="520" height="176" alt="' . e($label !== '' ? $label : ($lang === 'en' ? 'Karlix' : 'کارلیکس')) . '">';
 }
 
-/** فاو‌آیکن تم به‌صورت data URI (بدون درخواست جداگانه به سرور). */
+/** فاوآیکن واحد در تمام تم‌ها. */
 function favicon_uri(string $theme = THEME_DEFAULT): string
 {
-    return 'data:image/svg+xml,' . rawurlencode(str_replace(' aria-hidden="true" focusable="false"', '', logo_svg('fav', $theme)));
+    return app_base() . '/assets/img/brand/karlix-favicon.svg?brand=' . brand_version();
 }
 
-/** پسوند فایل آیکن‌های PNG تم (v7.5: هر تم آیکن خودش را دارد، مثل -violet-dark؛ bin/build-brand-icons.js). */
+/** آیکن‌ها دیگر پسوند تم ندارند؛ فراخوان قدیمی با همان امضا حفظ می‌شود. */
 function icon_suffix(string $theme): string
 {
-    return '-' . theme_key($theme);
+    return '';
 }
 
 /** رنگ اولویت درصدی: سبز (کم) ← زرد (متوسط) ← قرمز (زیاد) */
@@ -356,7 +335,7 @@ function themes(): array
 }
 
 /** تم پیش‌فرض و نام کوکی تم (v7.0: تم روی هر دستگاه جدا، در کوکی؛ دیگر در دیتابیس ذخیره نمی‌شود) */
-const THEME_DEFAULT = 'violet-light';      // v7.6: تم پیش‌فرض همه = Midnight Violet روشن (رنگ برند کارلیکس)
+const THEME_DEFAULT = 'violet-dark';       // پیش‌فرض دستگاهی که هنوز تم انتخاب نکرده است
 // v7.6: نام تازه‌ی کوکی تا همه‌ی دستگاه‌ها یک بار با تم پیش‌فرض شروع کنند (کوکی قبلی tk_theme دیگر خوانده نمی‌شود)
 const THEME_COOKIE = 'kx_theme';
 
@@ -380,7 +359,7 @@ function theme_attrs(?array $u = null): string
     return 'data-theme="' . e($t) . '" data-mode="' . e(theme_mode($t)) . '"';
 }
 
-/** تم این دستگاه از کوکی؛ بدون کوکی = THEME_DEFAULT (بنفش روشن). users.theme از v7.3 اصلاً خوانده نمی‌شود. */
+/** تم این دستگاه از کوکی؛ بدون کوکی = THEME_DEFAULT (بنفش تیره). users.theme از v7.3 اصلاً خوانده نمی‌شود. */
 function user_theme(?array $u = null): string
 {
     return theme_key(isset($_COOKIE[THEME_COOKIE]) ? (string) $_COOKIE[THEME_COOKIE] : null);

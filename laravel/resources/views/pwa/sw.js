@@ -7,8 +7,10 @@ const VERSION = '__VERSION__';
 const STATIC = 'tk-static-' + VERSION;
 const SCOPE = self.registration.scope;                 // مثل https://example.com/taskam2/
 const abs = (p) => new URL(p || '', SCOPE).href;
+const BRAND = '__BRAND__';
+const brandIcon = name => abs('assets/img/' + name + '?brand=' + BRAND);
 const OFFLINE = abs('offline');
-const PRECACHE = [OFFLINE, abs('assets/css/offline.css'), abs('assets/vendor/noto-sans-arabic/noto-sans-arabic.css'), abs('assets/vendor/noto-sans-arabic/fonts/NotoSansArabic-arabic.woff2'), abs('assets/vendor/noto-sans-arabic/fonts/NotoSansArabic-latin.woff2'), abs('assets/img/icon-192.png'), abs('assets/img/badge-96.png')];
+const PRECACHE = [OFFLINE, abs('assets/css/offline.css'), abs('assets/vendor/noto-sans-arabic/noto-sans-arabic.css'), abs('assets/vendor/noto-sans-arabic/fonts/NotoSansArabic-arabic.woff2'), abs('assets/vendor/noto-sans-arabic/fonts/NotoSansArabic-latin.woff2'), brandIcon('icon-192.png'), brandIcon('badge-96.png'), abs('assets/img/brand/karlix-favicon.svg?brand=' + BRAND)];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(STATIC).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -39,7 +41,7 @@ self.addEventListener('fetch', (e) => {
   }
   // v7.3 سرعت: فایل‌های نسخه‌دار (?v=… یا نام هش‌دار) و تصویرهای پروفایل/پروژه (نام تصادفی و تغییرناپذیر)
   // cache-first: بدون درخواست دوباره به شبکه؛ نسخه‌ی تازه آدرس تازه دارد
-  const immutable = (url.pathname.includes('/assets/') && (url.searchParams.has('v') || /\.[0-9a-f]{10}\.woff2$/.test(url.pathname)))
+  const immutable = (url.pathname.includes('/assets/') && (url.searchParams.has('v') || url.searchParams.has('brand') || /\.[0-9a-f]{10}\.woff2$/.test(url.pathname)))
     || /\/files\/(avatars|projects)\//.test(url.pathname);
   if (immutable) {
     e.respondWith((async () => {
@@ -78,8 +80,8 @@ self.addEventListener('push', (e) => {
     const kind = d.kind || 'info';
     await self.registration.showNotification(d.title || 'کارلیکس', {
       body: d.body || '',
-      icon: abs(d.icon || 'assets/img/icon-192.png'),
-      badge: abs(d.badge || 'assets/img/badge-96.png'),       // آیکن تک‌رنگ نوار وضعیت اندروید
+      icon: d.icon ? abs(d.icon) : brandIcon('icon-192.png'),
+      badge: d.badge ? abs(d.badge) : brandIcon('badge-96.png'),       // آیکن تک‌رنگ نوار وضعیت اندروید
       tag: d.tag || undefined,
       renotify: !!d.tag,                                       // پیام جدید در همان گفتگو دوباره صدا/لرزش دارد
       requireInteraction: kind === 'due',                      // یادآوری تا وقتی کاربر نبیند می‌ماند

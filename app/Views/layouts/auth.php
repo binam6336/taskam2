@@ -12,7 +12,7 @@ $authDark = (themes()[user_theme($currentUser ?? null)]['mode'] ?? 'light') === 
 <main class="auth" id="main-content">
     <section class="auth-brand" aria-hidden="true">
         <div class="ab-inner">
-            <div class="ab-head"><span class="logo ab-logo"><?= logo_svg() ?></span><span class="ab-name"><?= e(app_name()) ?></span></div>
+            <div class="ab-head"><?= brand_lockup_svg('fa') ?></div>
             <h2 class="ab-title">کارها را مرتب ببینید،<br>تیم را هماهنگ نگه دارید.</h2>
             <ul class="ab-points">
                 <li><i class="fa-solid fa-circle-check"></i>بورد اختصاصی هر پروژه با گردش کار تأیید سرپرست</li>
@@ -24,7 +24,7 @@ $authDark = (themes()[user_theme($currentUser ?? null)]['mode'] ?? 'light') === 
     <section class="auth-form">
         <div class="auth-card">
             <div class="auth-top">
-                <span class="auth-mini"><span class="logo"><?= logo_svg() ?></span><b><?= e(app_name()) ?></b></span>
+                <span class="auth-mini"><?= brand_lockup_svg('fa') ?></span>
                 <button type="button" class="tb-ib" data-theme-toggle aria-label="<?= $authDark ? 'حالت روشن' : 'حالت تیره' ?>" title="<?= $authDark ? 'حالت روشن' : 'حالت تیره' ?>"><i class="fa-solid <?= $authDark ? 'fa-sun' : 'fa-moon' ?>" aria-hidden="true"></i></button>
             </div>
             <?= $content ?>

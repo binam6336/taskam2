@@ -207,8 +207,8 @@ final class Push
             'url' => (string) ($n['url'] ?? 'dashboard'),
             'tag' => (string) ($n['tag'] ?? ''),
             'kind' => (string) ($n['kind'] ?? 'info'),
-            'icon' => 'assets/img/icon-192.png',
-            'badge' => 'assets/img/badge-96.png',
+            'icon' => 'assets/img/icon-192.png?brand=' . brand_version(),
+            'badge' => 'assets/img/badge-96.png?brand=' . brand_version(),
             'unread' => $unread,
             'ts' => time() * 1000,
         ];

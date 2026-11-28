@@ -957,7 +957,7 @@
     const go = () => { window.focus(); if (url) location.href = url; };
     if ('Notification' in window && Notification.permission === 'granted') {
       const reg = await TK.pwa.ready();
-      const opts = { body, tag: tag || undefined, renotify: !!tag, icon: TK.url('assets/img/icon-192.png'), badge: TK.url('assets/img/badge-96.png'), dir: 'rtl', lang: 'fa', vibrate: [120, 60, 120], data: { url: url ? new URL(url, location.href).href : location.href } };
+      const opts = { body, tag: tag || undefined, renotify: !!tag, icon: TK.boot().brand?.icon || TK.url('assets/img/icon-192.png'), badge: TK.boot().brand?.badge || TK.url('assets/img/badge-96.png'), dir: 'rtl', lang: 'fa', vibrate: [120, 60, 120], data: { url: url ? new URL(url, location.href).href : location.href } };
       try {
         if (reg) { await reg.showNotification(title, opts); return; }
         const n = new Notification(title, opts);
@@ -1262,7 +1262,7 @@
 
   // تغییر روشن ↔ تیره‌ی همان پالت (کوکی دستگاه kx_theme از مسیر پروفایل، بدون بارگذاری دوباره)
   TK.on('click', '[data-theme-toggle]', async (e, b) => {
-    const html = document.documentElement, cur = html.dataset.theme || 'violet-light';
+    const html = document.documentElement, cur = html.dataset.theme || 'violet-dark';
     const next = /-dark$/.test(cur) ? cur.replace(/-dark$/, '-light') : cur.replace(/-light$/, '-dark');
     if (document.body.dataset.layout) {                     // پنل: کوکی دستگاه از مسیر پروفایل
       const r = await TK.post('/profile/appearance', { theme: next });
