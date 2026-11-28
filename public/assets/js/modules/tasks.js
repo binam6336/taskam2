@@ -6,6 +6,8 @@ document.addEventListener('tk:ready', () => {
   const modal = TK.qs('#m-task'), form = TK.qs('#f-task'), detail = TK.qs('#detail-body');
   if (!modal) return;
   let currentId = null, current = null;
+  const historyButton = TK.qs('#m-detail [data-detail-history]');
+  TK.qs('#m-detail').addEventListener('tk:close', () => { historyButton.hidden = true; });
 
   const taskWrites = new Map(), activeSavers = new Set();
   const writeTask = (id, data) => {
@@ -670,7 +672,7 @@ document.addEventListener('tk:ready', () => {
   };
   const render = (t) => {
     qeClose();
-    currentId = t.id; current = t;
+    currentId = t.id; current = t; historyButton.hidden = false;
     const canEdit = t.can.edit;
     // چیدمان v7.2 (مثل نمونه‌ی «جزئیات تسک»): سربرگ با آیکون و ابزارها، ستون اصلی (برچسب‌ها، شرح، پیوست‌ها، یادداشت‌ها) و ستون کناری (وضعیت، جزئیات)
     const av = (name, img) => `<span class="avatar xs">${img ? `<img loading="lazy" decoding="async" src="${E(img)}" alt="">` : E(TK.initial(name || '؟'))}</span>`;
@@ -691,7 +693,6 @@ document.addEventListener('tk:ready', () => {
     const prj = t.project_title ? `<span class="tr-proj"><span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span>${E(t.project_title)}</span>` : '<span class="faint">بدون پروژه</span>';
     const prop = (ic, name, val) => `<div class="td-prop"><span class="td-pl"><i class="fa-solid ${ic}" aria-hidden="true"></i>${name}</span><div class="td-pv">${val}</div></div>`;
     detail.innerHTML = `
-      <button type="button" class="td-history-fab" data-detail-history title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک" aria-haspopup="dialog" aria-controls="m-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
       <div class="td-head">
         <div class="td-crumb">${t.project_title ? `<span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span><span class="truncate">${E(t.project_title)}</span><span aria-hidden="true">·</span>` : ''}<span class="nowrap">ثبت ${E(t.created_fa)}</span>
           ${t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : ''}
@@ -795,6 +796,8 @@ document.addEventListener('tk:ready', () => {
     return `<dl class="hist-fields">${Object.entries(data).filter(([k,v]) => !(['assignee','author'].includes(k) && typeof v !== 'object')).map(([k,v]) => `<div><dt>${E(labels[k] || k)}</dt><dd>${value(v)}</dd></div>`).join('')}</dl>`;
   };
   const openHistory = async () => {
+    if (!currentId) return;
+    TK.qs('#history-task-title').textContent = current?.title || '';
     const body = TK.qs('#history-body');
     body.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
     TK.modal.open('m-history');
@@ -812,7 +815,10 @@ document.addEventListener('tk:ready', () => {
     }).join('') : '<div class="faint small">تاریخچه‌ای ثبت نشده است.</div>';
   };
 
+  historyButton.addEventListener('click', openHistory);
+
   const open = async (id) => {
+    historyButton.hidden = true;
     detail.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
     TK.modal.open('m-detail');
     const r = await TK.get('/tasks/' + id);
@@ -1019,7 +1025,6 @@ document.addEventListener('tk:ready', () => {
   detail.addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-close')) return TK.modal.close('m-detail');
-    if (b.hasAttribute('data-detail-history')) return openHistory();
     if (b.dataset.fileDel) {
       if (!(await TK.confirm(`پیوست «${b.dataset.fileName}» برای همیشه حذف شود؟`, { okText: 'حذف پیوست' }))) return;
       b.disabled = true;

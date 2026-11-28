@@ -71,7 +71,9 @@ $this->scripts[] = 'tasks';
 </div>
 
 <!-- جزئیات -->
-<div class="modal" id="m-detail"><div class="modal-box lg td-box"><div class="modal-body" id="detail-body"><div class="center muted">در حال بارگذاری…</div></div></div></div>
+<div class="modal" id="m-detail"><div class="modal-box lg td-box"><div class="modal-body" id="detail-body"><div class="center muted">در حال بارگذاری…</div></div></div>
+    <button type="button" class="td-history-fab" data-detail-history hidden title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک" aria-haspopup="dialog" aria-controls="m-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>تاریخچه تغییرات</span></button>
+</div>
 
 <!-- تاریخچه‌ی تغییرات -->
 <div class="modal task-history-modal" id="m-history" role="dialog" aria-modal="true" aria-labelledby="history-heading"><div class="modal-box"><div class="modal-head"><h3 id="history-heading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> تاریخچهٔ تغییرات تسک <span id="history-task-title" class="small muted"></span></h3><button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="بستن"><i class="fa-solid fa-xmark"></i></button></div>

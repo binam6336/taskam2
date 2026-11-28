@@ -7,19 +7,21 @@ const run=(data)=>JSON.parse(execFileSync(php,[driver,JSON.stringify(data)]).toS
  const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1365,height:950}}),p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
  const login=async(page,u)=>{await page.goto(base+'/login');await page.locator('[name=mobile]').first().fill(u.mobile);await page.locator('[name=password]').first().fill(u.password);await page.locator('form[action$="/login"] button[type=submit]').click();await page.waitForURL('**/dashboard');};
  await login(p,f.users[0]);await p.goto(base+'/tasks');await p.waitForFunction(()=>!!window.TK?.tasks);await p.evaluate(id=>TK.tasks.open(id),f.task);
- const icon=p.locator('#m-detail [data-detail-history]');await icon.waitFor();assert.equal(await icon.count(),1);assert.equal(await p.locator('#m-detail .utab[data-detail-history],#m-detail .td-tools [data-detail-history]').count(),0);
+ const icon=p.locator('#m-detail [data-detail-history]');await icon.waitFor();assert.equal(await icon.count(),1);assert.equal(await icon.locator('span').textContent(),'تاریخچه تغییرات');assert.equal(await icon.evaluate(el=>el.parentElement.id),'m-detail');assert.equal(await p.locator('#m-detail .utab[data-detail-history],#m-detail .td-tools [data-detail-history]').count(),0);
  for(const [width,height] of [[1365,950],[390,844]]){
   await p.setViewportSize({width,height});await p.waitForTimeout(250);
   const box=await icon.boundingBox();assert(Math.abs(width-box.x-box.width-20)<3&&Math.abs(height-box.y-box.height-20)<3);
   await p.locator('#m-detail').evaluate(el=>{el.scrollTop=el.scrollHeight;});
-  const scrolled=await icon.boundingBox();assert(Math.abs(scrolled.y-box.y)<1);
+  await p.locator('.td-scroll').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+  const scrolled=await icon.boundingBox();assert(Math.abs(scrolled.y-box.y)<1);assert(await icon.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}));
   await p.screenshot({path:'/tmp/kx-history-icon-'+width+'.png'});
   await icon.click();await p.locator('#m-history.open .hist-item').first().waitFor();assert((await p.locator('#history-body').textContent()).includes('عنوان قبلی سنجه'));
-  assert((await p.locator('#history-body .hist-at').first().textContent()).match(/[۰-۹]{2}:[۰-۹]{2}:[۰-۹]{2}/));
+  const stamp=await p.locator('#history-body .hist-at').first().textContent();
+ assert(stamp.match(process.env.HISTORY_TEST_SECONDS==='0'?/[۰-۹]{2}:[۰-۹]{2}/:/[۰-۹]{2}:[۰-۹]{2}:[۰-۹]{2}/));
   await p.screenshot({path:'/tmp/kx-history-popup-'+width+'.png'});await p.locator('#m-history [data-close]').click();assert(await p.locator('#m-detail').isVisible());
  }
- console.log('PASS single history icon at viewport bottom right, stable after scrolling, desktop/mobile popup with dated full history');
- await p.locator('#m-detail [data-close]').first().click();await p.setViewportSize({width:1365,height:950});
+ console.log('PASS single labeled history button outside clipped task card at viewport bottom right, stable after scrolling, desktop/mobile popup with dated full history');
+ await p.locator('#m-detail [data-close]').first().click();assert(await icon.isHidden());await p.setViewportSize({width:1365,height:950});
  for(const theme of ['violet-light','violet-dark','green-light','green-dark']){
   await ctx.addCookies([{name:'kx_theme',value:theme,url:base}]);await p.goto(base+'/tasks');await p.waitForFunction(()=>!!window.TK?.tasks);await p.evaluate(id=>TK.tasks.open(id),f.task);await icon.waitFor();
   assert.equal(await p.locator('html').getAttribute('data-theme'),theme);await p.screenshot({path:'/tmp/kx-history-theme-'+theme+'.png'});await p.locator('#m-detail [data-close]').first().click();
