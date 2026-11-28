@@ -265,6 +265,8 @@ CREATE TABLE `tasks` (
   `blocked_by`   INT UNSIGNED NULL DEFAULT NULL,
   `due_date`     DATE NULL DEFAULT NULL,
   `due_time`     TIME NULL DEFAULT NULL,
+  `reminder_every` SMALLINT UNSIGNED NULL DEFAULT NULL COMMENT 'فاصله تکرار یادآوری تأخیر؛ NULL بدون تکرار',
+  `reminder_unit` VARCHAR(8) NULL DEFAULT NULL COMMENT 'minute/hour/day/week/month',
   `notified_at`  DATETIME NULL DEFAULT NULL          COMMENT 'زمان ارسال اعلان سررسید',
   `share_token`  VARCHAR(64) NULL DEFAULT NULL,
   `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

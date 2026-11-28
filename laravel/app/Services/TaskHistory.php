@@ -58,6 +58,10 @@ final class TaskHistory
                 self::log($id, $actor, 'due', ['from' => $from, 'to' => $to] + $src);
             }
         }
+        if (array_key_exists('reminder_every', $set) || array_key_exists('reminder_unit', $set)) {
+            self::log($id, $actor, 'reminder', ['from' => \App\Core\ReminderSchedule::label($old),
+                'to' => \App\Core\ReminderSchedule::label(array_replace($old, $set))] + $src);
+        }
         if (array_key_exists('subject_id', $set)) {
             $t = static fn($sid) => $sid ? (string) DB::value('SELECT title FROM subjects WHERE id = ?', [(int) $sid]) : '';
             self::log($id, $actor, 'label', ['from' => $t($old['subject_id']), 'to' => $t($set['subject_id'])] + $src);

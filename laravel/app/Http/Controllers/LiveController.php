@@ -83,6 +83,7 @@ final class LiveController extends Controller
             $desc = self::clip(trim((string) $t['description']), 160);
             $due[] = [
                 'id'    => pid('tasks', $t),
+                'reminder_ref' => $t['reminder_ref'],
                 'title' => 'یادآوری وظیفه – ' . $t['title'],
                 'body'  => $desc !== '' ? $desc : 'زمان انجام این وظیفه فرا رسیده است.',
                 'url'   => url('/tasks?task=' . $tok),
@@ -142,7 +143,7 @@ final class LiveController extends Controller
         switch ($scope) {
             case 'tasks':
             case 'subjects':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR " . \KarlixLaravel\Repositories\TaskModel::mine($uid, 'tasks'), [$uid, $uid]);
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, description, priority, is_completed, due_date, due_time, reminder_every, reminder_unit, assignee_id, subject_id, project_id, blocked_at))), 0) h FROM tasks WHERE user_id = ? OR " . \KarlixLaravel\Repositories\TaskModel::mine($uid, 'tasks'), [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(MAX(id), 0) m, COALESCE(SUM(CRC32(note)), 0) h FROM task_notes WHERE task_id IN ($mine)", [$uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c FROM task_attachments WHERE task_id IN ($mine)", [$uid, $uid]);
                 // لیبل‌های پروژه‌های کاربر (v7.12) + لیبل‌های شخصی قدیمی خودش
@@ -150,7 +151,7 @@ final class LiveController extends Controller
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', p.id, p.title, p.profile_image, p.blocked_at))), 0) h FROM projects p WHERE p.user_id = ? OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid]);
                 break;
             case 'board':
-                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, blocked_at, is_completed, priority_percent, due_date, due_time, assignee_id, project_id))), 0) h FROM tasks
+                $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', id, title, board_status, blocked_reason, archived_at, blocked_at, is_completed, priority_percent, due_date, due_time, reminder_every, reminder_unit, assignee_id, project_id))), 0) h FROM tasks
                     WHERE user_id = ? OR " . \KarlixLaravel\Repositories\TaskModel::mine($uid, 'tasks') . " OR project_id IN (SELECT id FROM projects WHERE user_id = ?) OR project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid, $uid, $uid, $uid]);
                 $p[] = $agg("SELECT COUNT(*) c, COALESCE(SUM(CRC32(CONCAT_WS('|', pm.user_id, pm.task_permissions, pm.board_permissions, pm.board_view_users, pm.board_limits))), 0) h FROM project_members pm WHERE pm.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)", [$uid]);
                 break;

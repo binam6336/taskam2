@@ -1,0 +1,42 @@
+// ثبت و ویرایش واقعی و رقابت دو تب؛ اعلان دستگاه برای تست درون مرورگر ضبط می‌شود.
+const {chromium}=require('playwright'),{execFileSync}=require('child_process'),assert=require('assert'),path=require('path');
+const base=process.env.LARAVEL_TEST_URL||'http://127.0.0.1:8082',driver=path.join(__dirname,'../tests/reminders/local-driver.php'),php=process.env.PHP_BIN||'php';
+const run=data=>JSON.parse(execFileSync(php,[driver,JSON.stringify(data)]).toString()),f=run({action:'fixture'});assert(f.testDatabase.endsWith('_test'));
+(async()=>{let browser;try{
+ browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
+ const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1365,height:950}}),p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
+ const login=async(page,u)=>{await page.goto(base+'/login');await page.locator('[name=mobile]').first().fill(u.mobile);await page.locator('[name=password]').first().fill(u.password);await page.locator('form[action$="/login"] button[type=submit]').click();await page.waitForURL('**/dashboard');};
+ await login(p,f.users[0]);await p.goto(base+'/tasks?project='+f.project);await p.waitForFunction(()=>!!TK.tasks);await p.evaluate(()=>TK.tasks.openNew());
+ const form=p.locator('#f-task');await form.locator('[name=title]').fill('ثبت فاصله یادآوری');await form.locator('[data-more-toggle]').click();
+ assert(await form.locator('.dp-overdue-reminder').isHidden());await form.locator('[data-jdue] .picker-btn').click();await form.locator('[data-jdue] .dp-day[data-day="1"]').click();
+ await form.locator('.dp-overdue-reminder').waitFor();assert.equal(await form.locator('[name=reminder_unit] option').count(),5);
+ await form.locator('[name=reminder_every]').fill('15');await form.locator('[name=reminder_unit]').selectOption('minute');
+ const createdResponse=p.waitForResponse(r=>r.url()===base+'/tasks'&&r.request().method()==='POST');await form.locator('[type=submit]').click();const created=await (await createdResponse).json();assert.equal(created.status,'success');const id=created.id;
+ assert(id);let detail=await (await p.request.get(base+'/tasks/'+id)).json();detail=detail.task;assert.equal(detail.reminder_every,15);assert.equal(detail.reminder_unit,'minute');
+ console.log('PASS field appears below selected date and create persists number plus unit');
+ await p.evaluate(id=>TK.tasks.open(id),id);await p.locator('#m-detail [data-detail-edit]').click();await form.locator('[name=reminder_every]').waitFor();assert.equal(await form.locator('[name=reminder_every]').inputValue(),'15');
+ await form.locator('[name=reminder_every]').fill('3');await form.locator('[name=reminder_unit]').selectOption('week');
+ await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await form.locator('.dp-overdue-reminder').scrollIntoViewIfNeeded();await p.waitForTimeout(250);await p.screenshot({path:'/tmp/kx-reminder-form-mobile.png'});
+ for(const theme of ['violet-light','violet-dark','green-light','green-dark']){await p.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.documentElement.dataset.mode=theme.endsWith('dark')?'dark':'light';},theme);await p.screenshot({path:'/tmp/kx-reminder-'+theme+'.png'});}
+ const updated=p.waitForResponse(r=>r.url().endsWith('/tasks/'+id+'/update'));await form.locator('[type=submit]').click();assert.equal((await (await updated).json()).status,'success');
+ detail=await (await p.request.get(base+'/tasks/'+id)).json();detail=detail.task;assert.equal(detail.reminder_every,3);assert.equal(detail.reminder_unit,'week');
+ console.log('PASS edit restores and changes interval; mobile form fits');
+ await p.goto(base+'/tasks?project='+f.project);await p.waitForFunction(()=>!!TK.tasks);await p.evaluate(id=>TK.tasks.open(id),id);await p.locator('[data-qe="due"]').click();
+ const quick=p.locator('.qe-pop');await quick.locator('[name=reminder_every]').fill('1');await quick.locator('[name=reminder_unit]').selectOption('month');await quick.locator('[data-qe-save-due]').click();
+ await p.waitForFunction(()=>document.querySelector('#detail-body')?.textContent.includes('هر ۱ ماه'));
+ console.log('PASS quick due-date editor also saves reminder interval');
+ await p.goto(base+'/tasks?project='+f.project);await p.waitForFunction(()=>!!TK.live);await p.evaluate(()=>{window.capturedDue=[];TK.notify=async n=>capturedDue.push(n);localStorage.setItem('tk_due_old','1');});
+ const other=await ctx.newPage();await other.goto(base+'/tasks?project='+f.project);await other.waitForFunction(()=>!!TK.live);await other.evaluate(id=>{window.capturedDue=[];TK.notify=async n=>capturedDue.push(n);localStorage.setItem('tk_due_'+id,'1');},f.task);
+ run({action:'age',task:f.task});await Promise.all([p.evaluate(()=>TK.live.poll()),other.evaluate(()=>TK.live.poll())]);
+ let counts=await Promise.all([p.evaluate(()=>capturedDue.length),other.evaluate(()=>capturedDue.length)]);assert.equal(counts[0]+counts[1],1);
+ await Promise.all([p.evaluate(()=>TK.live.poll()),other.evaluate(()=>TK.live.poll())]);counts=await Promise.all([p.evaluate(()=>capturedDue.length),other.evaluate(()=>capturedDue.length)]);assert.equal(counts[0]+counts[1],1);
+ run({action:'age',task:f.task});await Promise.all([p.evaluate(()=>TK.live.poll()),other.evaluate(()=>TK.live.poll())]);counts=await Promise.all([p.evaluate(()=>capturedDue.length),other.evaluate(()=>capturedDue.length)]);assert.equal(counts[0]+counts[1],2);
+ console.log('PASS two tabs deliver once per cycle; same task alerts again after interval despite legacy localStorage marker');
+ const headers={Authorization:'Bearer '+f.token};const api=await p.request.post(base+'/api/v1/tasks/update',{headers,data:{id,reminder_every:2,reminder_unit:'day'}});assert.equal(api.status(),200);
+ const apiDetail=await p.request.get(base+'/api/v1/tasks/show?id='+id,{headers});const apiTask=(await apiDetail.json()).data;assert.equal(apiTask.reminder_every,2);assert.equal(apiTask.reminder_unit,'day');
+ console.log('PASS API update and show expose the same settings');
+ const member=await browser.newContext({serviceWorkers:'block'}),mp=await member.newPage();await login(mp,f.users[1]);await mp.goto(base+'/tasks?project='+f.project);await mp.waitForFunction(()=>!!TK.tasks);await mp.evaluate(id=>TK.tasks.open(id),id);
+ const csrf=await mp.evaluate(()=>TK.csrf);const forbidden=await mp.request.post(base+'/tasks/'+id+'/update',{headers:{'X-CSRF-Token':csrf,'X-Requested-With':'XMLHttpRequest'},form:{reminder_every:'1',reminder_unit:'minute'}});assert.equal(forbidden.status(),422);assert((await forbidden.json()).message.includes('اجازه'));
+ const unchanged=(await (await p.request.get(base+'/api/v1/tasks/show?id='+id,{headers})).json()).data;assert.equal(unchanged.reminder_every,2);assert.equal(unchanged.reminder_unit,'day');
+ console.log('PASS member without edit_due cannot change reminder settings');assert.deepEqual(errors,[]);
+}finally{await browser?.close();run({action:'cleanup',users:f.users});}})().catch(e=>{console.error(e);process.exitCode=1;});

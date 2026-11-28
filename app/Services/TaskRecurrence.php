@@ -168,7 +168,7 @@ final class TaskRecurrence
             if ($next === null || ($horizon !== null && $next > $horizon) || Limits::create('task', $owner) !== null) {
                 return null;
             }
-            $copy = array_intersect_key($t, array_flip(['user_id', 'assignee_id', 'project_id', 'subject_id', 'title', 'description', 'priority', 'priority_percent', 'due_time', 'is_confidential']));
+            $copy = array_intersect_key($t, array_flip(['user_id', 'assignee_id', 'project_id', 'subject_id', 'title', 'description', 'priority', 'priority_percent', 'due_time', 'reminder_every', 'reminder_unit', 'is_confidential']));
             $nextId = TaskModel::create($copy + ['due_date' => $next, 'recurrence_id' => (int) $r['id'], 'recurrence_previous_id' => $taskId]);
             if (!empty($t['is_confidential'])) {
                 foreach (DB::column('SELECT user_id FROM task_viewers WHERE task_id = ?', [$taskId]) as $viewer) {

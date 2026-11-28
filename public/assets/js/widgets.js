@@ -223,11 +223,19 @@
      دو ورودی مخفی due_date (میلادی) و due_time (HH:MM) را پر می‌کند؛ خروجی: date و time با همان رابط datepicker/timepicker. */
   const WD_FULL = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
   const TIMES = ['09:00', '12:00', '15:00', '18:00', '21:00'];
-  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام', recurrence = false } = {}) => {
+  TK.duepicker = (host, { dateName = 'due_date', timeName = 'due_time', placeholder = 'تعیین زمان انجام', recurrence = false, reminders = false } = {}) => {
     host.classList.add('picker', 'duepick');
     host.innerHTML = `<input type="hidden" name="${E(dateName)}" value=""><input type="hidden" name="${E(timeName)}" value="">`
       + '<button type="button" class="input picker-btn"><span class="picker-val"></span><i class="fa-regular fa-calendar-check"></i></button><div class="picker-pop dp-pop" hidden></div>';
     const [dIn, tIn] = host.querySelectorAll('input'), btn = host.querySelector('.picker-btn'), val = host.querySelector('.picker-val'), pop = host.querySelector('.picker-pop');
+    const reminderBox = document.createElement('section'); reminderBox.className = 'dp-overdue-reminder'; reminderBox.hidden = true;
+    if (reminders) {
+      reminderBox.innerHTML = '<div class="small">در صورت تأخیر، یادآوری هر</div><div class="dp-overdue-fields"><label><span class="sr-only">عدد فاصله یادآوری</span><input class="input ltr" type="number" name="reminder_every" min="1" max="1000" step="1" inputmode="numeric" placeholder="' + E(TK.ph('task_reminder_every', 'بدون تکرار')) + '" aria-label="عدد فاصله یادآوری"></label><label><span class="sr-only">واحد فاصله یادآوری</span><select class="input" name="reminder_unit" aria-label="واحد فاصله یادآوری">'
+        + [['minute','دقیقه'],['hour','ساعت'],['day','روز'],['week','هفته'],['month','ماه']].map(([key,label]) => `<option value="${key}">${label}</option>`).join('')
+        + '</select></label></div><p class="xs faint">خالی بگذارید تا تکرار نشود. بدون ساعت، تأخیر پس از پایان روز شروع می‌شود. ماه، ماه تقویمی میلادی است.</p>';
+      host.appendChild(reminderBox);
+    }
+    const reminderEvery = reminderBox.querySelector('[name="reminder_every"]'), reminderUnit = reminderBox.querySelector('[name="reminder_unit"]');
     let repeat = { enabled: false, kind: 'daily', days: '' };
     const repeatInputs = {};
     if (recurrence) {
@@ -252,6 +260,7 @@
     const fT = (t) => FA(t || '');
     const paint = () => {
       const d = dIn.value, t = tIn.value;
+      if (reminders) { reminderBox.hidden = !d; if (!d) { reminderEvery.value = ''; reminderUnit.value = 'minute'; } }
       val.innerHTML = d ? `<span>${E(rel(d) ? rel(d) + '، ' + jLabel(d).split(' ').slice(1).join(' ') : jLabel(d))}</span>${t ? `<span class="dp-time ltr">${fT(t)}</span>` : '<span class="faint xs">بدون ساعت</span>'}`
         : `<span class="faint">${E(placeholder)}</span>`;
       if (recurrence && repeat.enabled) val.innerHTML += '<span class="dp-repeat-badge"><i class="fa-solid fa-rotate" aria-hidden="true"></i> تکرار</span>';
@@ -352,10 +361,14 @@
     document.addEventListener('click', (e) => { if (document.contains(e.target) && !host.contains(e.target)) close(); });
     paint();
     let off = false;
-    const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; Object.values(repeatInputs).forEach((input) => { input.disabled = off; }); if (off) close(); };
+    const disable = (v) => { off = !!v; host.classList.toggle('disabled', off); btn.disabled = off; dIn.disabled = off; tIn.disabled = off; if (reminders) { reminderEvery.disabled = off; reminderUnit.disabled = off; } Object.values(repeatInputs).forEach((input) => { input.disabled = off; }); if (off) close(); };
     const date = { input: dIn, host, get: () => dIn.value, set: (iso) => { dIn.value = J.parseIso(iso) ? iso : ''; if (!dIn.value) tIn.value = ''; paint(); }, today: () => isoOf(0), disable };
     const time = { input: tIn, host, get: () => tIn.value, set: (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); tIn.value = m ? `${p2(+m[1])}:${m[2]}` : ''; paint(); }, disable };
-    return { date, time, set: setBoth, disable, close, recurrence: {
+    return { date, time, set: setBoth, disable, close, reminders: {
+      get: () => ({ reminder_every: reminderEvery?.value || '', reminder_unit: reminderUnit?.value || 'minute' }),
+      set: (value) => { if (reminders) { reminderEvery.value = value?.reminder_every ?? ''; reminderUnit.value = value?.reminder_unit || 'minute'; paint(); } },
+      valid: () => !reminders || reminderEvery.value === '' || (!!dIn.value && /^[0-9]+$/.test(reminderEvery.value) && +reminderEvery.value >= 1 && +reminderEvery.value <= 1000),
+    }, recurrence: {
       get: () => ({ ...repeat }),
       set: (value) => { repeat = { enabled: !!value?.enabled, kind: value?.kind || 'daily', days: value?.days == null ? '' : String(value.days) }; syncRepeat(); paint(); },
       valid: () => !repeat.enabled || (!!dIn.value && (repeat.kind !== 'custom' || (/^[0-9]+$/.test(repeat.days) && Number.isSafeInteger(Number(repeat.days)) && Number(repeat.days) > 0))),

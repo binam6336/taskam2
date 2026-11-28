@@ -1061,10 +1061,15 @@
         if (TK.state.chatUser === m.sender && document.hasFocus() && !document.hidden) return;   // همین گفتگو باز است
         TK.notify({ title: m.title, body: m.body, url: m.url, tag: 'msg-' + m.sender });
       });
-      // یادآوری‌ها: نمایش و بعد ثبت «نمایش داده شد» با POST (poll خودش فقط می‌خواند)؛ تب‌های هم‌زمان با localStorage تکرار نمی‌کنند
-      const dueNew = (r.due || []).filter((t) => { const k = 'tk_due_' + t.id; if (ls.get(k)) return false; ls.set(k, '1'); return true; });
-      dueNew.forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
-      if (dueNew.length) TK.post('/notifications/ack', { ids: dueNew.map((t) => t.id) });
+      // هر نوبت ابتدا در سرور اتمیک گرفته می‌شود؛ تب دیگر یا Push همان نوبت را دوباره نمی‌فرستد.
+      const dueNew = (r.due || []).filter((t) => t.reminder_ref);
+      if (dueNew.length) {
+        const ack = await TK.post('/notifications/ack', { ids: dueNew.map((t) => t.id), refs: JSON.stringify(Object.fromEntries(dueNew.map((t) => [t.id, t.reminder_ref]))) });
+        if (TK.ok(ack)) {
+          const claimed = new Set((ack.claimed || []).map(String));
+          dueNew.filter((t) => claimed.has(String(t.id))).forEach((t) => TK.notify({ title: t.title, body: t.body, url: t.url, tag: 'task-' + t.id }));
+        }
+      }
       // v7.23: تلاش مجدد خودکار کارلیکس وقتی صفحه‌ی تسک باز نیست (نتیجه در یادداشت‌های تسک و در صورت خطای نهایی پیام کارلیکس در گفتگو)
       (r.karlix || []).forEach((k) => { if (!TK.karlixBusy?.has(String(k.note))) TK.post('/tasks/' + k.task + '/notes/' + k.note + '/karlix', {}); });
       if (r.sig) {

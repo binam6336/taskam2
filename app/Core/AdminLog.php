@@ -306,7 +306,7 @@ final class AdminLog
         'room_sid' => 'شناسهٔ ابری اتاق',
 
         'storage_limit_mb' => 'سقف فضای پروژه (مگابایت)', 'storage_custom' => 'سقف فضای اختصاصی', 'directory' => 'بخش فایل', 'bytes' => 'حجم فایل',
-        'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'due_time' => 'ساعت انجام',
+        'title' => 'عنوان', 'description' => 'توضیحات', 'priority' => 'اولویت', 'priority_percent' => 'درصد اولویت', 'due_date' => 'تاریخ انجام', 'reminder_every' => 'فاصله یادآوری تأخیر', 'reminder_unit' => 'واحد یادآوری تأخیر', 'due_time' => 'ساعت انجام',
         'assignee_id' => 'مسئول', 'project_id' => 'پروژه', 'subject_id' => 'لیبل', 'recurrence_id' => 'سری تکرار', 'recurrence_previous_id' => 'نوبت قبلی', 'current_task_id' => 'نوبت جاری', 'enabled' => 'فعال', 'kind' => 'نوع تکرار', 'interval_days' => 'فاصله روزها', 'anchor_day' => 'روز اصلی ماه', 'board_status' => 'وضعیت بورد', 'is_completed' => 'انجام‌شده', 'completed_at' => 'زمان انجام',
         'delivered_at' => 'زمان تحویل برای بررسی', 'delivered_by' => 'تحویل‌دهنده', 'approved_by' => 'تأییدکننده', 'blocked_at' => 'زمان مسدود شدن', 'blocked_by' => 'مسدودکننده',
         'blocked_reason' => 'دلیل برگشت برای اصلاح', 'archived_at' => 'زمان آرشیو', 'is_quick' => 'ثبت سریع', 'note' => 'متن یادداشت', 'color' => 'رنگ',

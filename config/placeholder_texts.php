@@ -5,6 +5,7 @@
  * در PHP با ph('id') و در JS با TK.ph('id', 'پیش‌فرض') خوانده می‌شود؛ فقط متن‌های ویرایش‌شده در content_texts (کلید ph.<id>) ذخیره می‌شوند.
  */
 return [
+    'task_reminder_every' => ['tasks', 'فرم تسک ← زمان انجام ← یادآوری تأخیر', '/tasks', 'بدون تکرار'],
     'meeting_message' => ['projects', 'جلسهٔ پروژه ← گفتگو', '/projects', 'پیام شما…'],
     'login_mobile'      => ['auth', 'ورود ← شماره موبایل', '/login', '09123456789'],
     'login_captcha'     => ['auth', 'ورود ← کد امنیتی', '/login', 'کد امنیتی را وارد کنید'],

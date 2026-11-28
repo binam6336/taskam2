@@ -171,6 +171,7 @@ final class TaskController extends Controller
             'assistant' => Assistant::info($t, $uid, (bool) ($can['notes'] ?? false)),
             'recurrence' => \App\Services\TaskRecurrence::present($t),
             'is_completed' => (int) $t['is_completed'] === 1, 'is_quick' => (int) ($t['is_quick'] ?? 0) === 1, 'due_date' => $t['due_date'], 'due_time' => $t['due_time'] ? substr((string) $t['due_time'], 0, 5) : null,
+            'reminder_every' => $t['reminder_every'] === null ? null : (int) $t['reminder_every'], 'reminder_unit' => $t['reminder_unit'],
             'due_fa' => $t['due_date'] ? jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' - ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') : null,
             'subject_id' => $t['subject_id'] !== null ? (int) $t['subject_id'] : null, 'subject_title' => $t['subject_title'], 'subject_color' => $t['subject_color'] ?? null,
             'project_id' => $t['project_id'] !== null ? (int) $t['project_id'] : null, 'project_title' => $t['project_title'],
@@ -437,8 +438,14 @@ final class TaskController extends Controller
     /** یادآوری‌هایی که مرورگر نمایش داد: ثبت notified_at (POST + CSRF) */
     public function dueAck()
     {
-        $n = TaskModel::markNotified($this->uid(), Pid::ids('tasks', $this->request->arr('ids')));
-        $this->json(['status' => 'success', 'marked' => $n]);
+        $refs = null;
+        if ($this->request->has('refs')) {
+            $refs = json_decode($this->request->str('refs', 10000), true);
+            if (!is_array($refs)) { $this->fail('شناسه نوبت یادآوری نامعتبر است.'); }
+        }
+        $claimed = TaskModel::claimNotifications($this->uid(), Pid::ids('tasks', $this->request->arr('ids')), $refs);
+        $this->json(['status' => 'success', 'marked' => count($claimed),
+            'claimed' => array_map(static fn($id) => pid('tasks', $id), $claimed)]);
     }
 
     public function due()
@@ -447,7 +454,7 @@ final class TaskController extends Controller
         $out = [];
         foreach ($rows as $r) {
             $tok = $r['share_token'] ?: TaskModel::ensureShareToken((int) $r['id']);
-            $out[] = ['id' => Pid::row('tasks', $r), 'title' => $r['title'], 'project_title' => $r['project_title'], 'url' => url('tasks?task=' . $tok), 'due_time' => substr((string) $r['due_time'], 0, 5)];
+            $out[] = ['id' => Pid::row('tasks', $r), 'title' => $r['title'], 'project_title' => $r['project_title'], 'reminder_ref' => $r['reminder_ref'], 'url' => url('tasks?task=' . $tok), 'due_time' => substr((string) $r['due_time'], 0, 5)];
         }
         $this->json(['status' => 'success', 'tasks' => $out]);
     }

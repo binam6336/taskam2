@@ -40,7 +40,7 @@ document.addEventListener('tk:ready', () => {
     project_id: mk('project_id', (cfg.projects || []).map((p) => ({ value: p.id, label: p.title, img: p.image })), TK.ph('task_project', 'انتخاب پروژه'), true),
   };
   // تاریخ و ساعت سررسید در یک فیلد (امروز/فردا/پس‌فردا با ساعت‌های آماده + انتخاب دلخواه)
-  const due = TK.duepicker(TK.qs('[data-jdue]', form), { placeholder: TK.ph('task_due', 'تعیین زمان انجام (اختیاری)'), recurrence: true });
+  const due = TK.duepicker(TK.qs('[data-jdue]', form), { placeholder: TK.ph('task_due', 'تعیین زمان انجام (اختیاری)'), recurrence: true, reminders: true });
   const dp = due.date, tp = due.time;
   const canCreate = (cfg.projects || []).length > 0;
 
@@ -236,7 +236,7 @@ document.addEventListener('tk:ready', () => {
     const fp = new URLSearchParams(location.search).get('project'), ps = cfg.projects || [];
     const pid = ps.some((p) => String(p.id) === fp) ? fp : ps.length === 1 ? String(ps[0].id) : '';
     rs.project_id.set(pid); rs.assignee_id.setOptions(assigneeOpts(pid)); rs.assignee_id.set(cfg.me); renderSubj(pid, '');
-    dp.set(opts.date || ''); tp.set(''); due.recurrence.set(null);     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
+    dp.set(opts.date || ''); tp.set(''); due.recurrence.set(null); due.reminders.set(null);     // پیش‌فرض: بدون تاریخ (در تقویم: روز انتخاب‌شده)
     setupForm('تسک جدید', '/tasks', true); setMore(false);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(pid));
     TK.modal.open(modal);
@@ -251,7 +251,7 @@ document.addEventListener('tk:ready', () => {
     TK.resetForm(form);
     setupForm('ویرایش تسک', '/tasks/' + d._id + '/update', false); setMore(true);
     TK.fillForm(form, { title: d.title, description: d.description, priority: d.priority, subject_id: d.subject_id ?? '' });
-    dp.set(d.due_date || ''); tp.set(d.due_time || ''); due.recurrence.set(d.recurrence);
+    dp.set(d.due_date || ''); tp.set(d.due_time || ''); due.recurrence.set(d.recurrence); due.reminders.set(d);
     rs.project_id.set(d.project_id ?? ''); rs.assignee_id.setOptions(assigneeOpts(d.project_id ?? '')); renderSubj(d.project_id ?? '', d.subject_id ?? '');
     rs.assignee_id.set(d.assignee_id ?? cfg.me);
     TK.qs('#prio-pct').classList.add('hidden'); setPrioMode(projType(d.project_id));
@@ -348,7 +348,7 @@ document.addEventListener('tk:ready', () => {
       </div>
     </div>`;
 
-  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, recurrence: t.recurrence, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
+  const editPayload = (t) => ({ title: t.title, description: t.description, priority: t.priority, priority_percent: t.priority_percent, due_date: t.due_date, due_time: t.due_time, recurrence: t.recurrence, reminder_every: t.reminder_every, reminder_unit: t.reminder_unit, subject_id: t.subject_id, project_id: t.project_id, assignee_id: t.assignee_id,
     _id: t.id, _can: t.can });
 
   // «انتقال به مرحله‌ی بعد» در بورد (مرحله‌ی «انجام‌شده» همان دکمه‌ی «انجام شد» است)
@@ -451,8 +451,8 @@ document.addEventListener('tk:ready', () => {
     qePop.style.top = (chip.offsetTop + chip.offsetHeight + 6) + 'px';
     qePop.style.right = right + 'px';
     if (key === 'due') {
-      const picker = TK.duepicker(TK.qs('[data-qe-due]', qePop), { dateName: 'qe_due_date', timeName: 'qe_due_time', recurrence: true });
-      picker.date.set(t.due_date || ''); picker.time.set(t.due_time || ''); picker.recurrence.set(t.recurrence);
+      const picker = TK.duepicker(TK.qs('[data-qe-due]', qePop), { dateName: 'qe_due_date', timeName: 'qe_due_time', recurrence: true, reminders: true });
+      picker.date.set(t.due_date || ''); picker.time.set(t.due_time || ''); picker.recurrence.set(t.recurrence); picker.reminders.set(t);
       qePop.dataset.ready = '1';
       qePop._pick = picker;
     }
@@ -473,9 +473,10 @@ document.addEventListener('tk:ready', () => {
     if (b.dataset.qeProject) return qeUpdate({ project_id: b.dataset.qeProject }, b);
     if (b.hasAttribute('data-qe-save-due')) {
       const picker = p._pick, dv = picker.date.get(), hv = picker.time.get(), repeat = picker.recurrence.get();
+      if (!picker.reminders.valid()) return TK.toast('بازه یادآوری تأخیر باید عدد صحیح ۱ تا ۱۰۰۰ و واحد معتبر باشد.', 'warning');
       if (!picker.recurrence.valid()) return TK.toast('تاریخ و فاصله تکرار خودکار را درست وارد کنید.', 'warning');
       if (hv && !dv) return TK.toast('اول تاریخ را انتخاب کنید.', 'warning');
-      return qeUpdate({ due_date: dv, due_time: dv ? hv : '', repeat_enabled: repeat.enabled ? 1 : 0, repeat_kind: repeat.kind, repeat_days: repeat.days }, b);
+      return qeUpdate({ due_date: dv, due_time: dv ? hv : '', repeat_enabled: repeat.enabled ? 1 : 0, repeat_kind: repeat.kind, repeat_days: repeat.days, ...picker.reminders.get() }, b);
     }
     if (b.hasAttribute('data-qe-clear-due')) return qeUpdate({ due_date: '', due_time: '', repeat_enabled: 0 }, b);
     if (b.dataset.qeStatus) {
@@ -570,6 +571,7 @@ document.addEventListener('tk:ready', () => {
           ${prop('fa-user', 'مسئول', t.assignee_name ? `<span class="td-who">${av(t.assignee_name, t.assignee_avatar)}${E(t.assignee_name)}</span>` : '—')}
           ${prop('fa-flag', 'اولویت', qe('priority', c.edit_meta, prioBadge(t), 'اولویت'))}
           ${prop('fa-calendar', 'سررسید', qe('due', c.edit_due, due, 'تاریخ و ساعت سررسید'))}
+          ${t.reminder_every ? prop('fa-bell', 'یادآوری تأخیر', 'هر ' + F(t.reminder_every) + ' ' + E(({minute:'دقیقه',hour:'ساعت',day:'روز',week:'هفته',month:'ماه'})[t.reminder_unit] || '')) : ''}
           ${t.recurrence?.enabled ? prop('fa-rotate', 'تکرار خودکار', E(({daily:'روزانه',weekly:'هفتگی',monthly:'ماهانه',custom:'هر ' + F(t.recurrence.days) + ' روز'})[t.recurrence.kind] || 'فعال')) : ''}
           ${prop('fa-tag', 'لیبل', qe('label', c.edit_meta, lbl, 'لیبل'))}
           ${prop('fa-folder', 'پروژه', qe('project', c.change_project, prj, 'پروژه'))}
@@ -599,6 +601,7 @@ document.addEventListener('tk:ready', () => {
     title: ['fa-heading', 'info', (i) => `${who(i.actor)} عنوان را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     description: ['fa-align-right', 'info', (i) => `${who(i.actor)} توضیحات را ویرایش کرد${wlSrc(i)}.`, (i) => i.data.to ? `<div class="hist-box note-body">${rich(i.data.to)}</div>` : '<div class="hist-box muted">توضیحات پاک شد.</div>'],
     priority: ['fa-signal', 'warn', (i) => `${who(i.actor)} اولویت را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
+    reminder: ['fa-bell', 'warn', (i) => `${who(i.actor)} یادآوری تأخیر را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     due: ['fa-calendar-days', 'warn', (i) => `${who(i.actor)} سررسید را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     label: ['fa-tag', 'info', (i) => `${who(i.actor)} لیبل را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد${wlSrc(i)}.`],
     project: ['fa-diagram-project', 'info', (i) => `${who(i.actor)} پروژه را از ${q(i.data.from)} به ${q(i.data.to)} تغییر داد.`],

@@ -88,6 +88,9 @@ final class TaskService
             $time = null;
         }
 
+        $reminder = \App\Core\ReminderSchedule::validate($in, null, $due);
+        if (is_string($reminder)) { return self::err($reminder, 'REMINDER_INVALID'); }
+
         $repeat = TaskRecurrence::validate($in, null, $due);
         if (is_string($repeat)) {
             return self::err($repeat, 'RECURRENCE_INVALID');
@@ -120,13 +123,13 @@ final class TaskService
             return self::err('امکان واگذاری تسک به این کاربر وجود ندارد (مسئول تسک پروژه باید عضو همان پروژه باشد).', 'ASSIGNEE_INVALID', 403);
         }
 
-        $id = DB::transaction(static function () use ($actor, $assignee, $subjectId, $projectId, $title, $desc, $priority, $percent, $due, $time, $quick, $repeat): int {
+        $id = DB::transaction(static function () use ($actor, $assignee, $subjectId, $projectId, $title, $desc, $priority, $percent, $due, $time, $quick, $repeat, $reminder): int {
             $id = TaskModel::create([
                 'user_id' => $actor, 'assignee_id' => $assignee,
                 'subject_id' => $subjectId, 'project_id' => $projectId,
                 'title' => $title, 'description' => $desc !== '' ? $desc : null, 'priority' => $priority, 'priority_percent' => $percent,
                 'due_date' => $due, 'due_time' => $time,
-            ] + ($quick ? ['is_quick' => 1] : []));
+            ] + $reminder + ($quick ? ['is_quick' => 1] : []));
             if ($repeat['enabled']) {
                 TaskRecurrence::configure(TaskModel::raw($id), $repeat, $actor);
             }
@@ -284,6 +287,15 @@ final class TaskService
                 $set['notified_at'] = null;
                 $needDue = true;
             }
+        }
+        $effectiveDue = array_key_exists('due_date', $set) ? $set['due_date'] : $t['due_date'];
+        $reminderInput = $in;
+        if ($effectiveDue === null && !$has('reminder_every')) { $reminderInput['reminder_every'] = ''; }
+        $reminder = \App\Core\ReminderSchedule::validate($reminderInput, $t, $effectiveDue);
+        if (is_string($reminder)) { return self::err($reminder, 'REMINDER_INVALID'); }
+        foreach ($reminder as $field => $value) {
+            $old = $field === 'reminder_every' && $t[$field] !== null ? (int) $t[$field] : $t[$field];
+            if ($old !== $value) { $set[$field] = $value; $needDue = true; }
         }
         if ($has('subject_id')) {
             $sid = (int) $in['subject_id'] ?: null;      // خالی = حذف لیبل

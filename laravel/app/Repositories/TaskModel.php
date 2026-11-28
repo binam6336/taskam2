@@ -266,27 +266,42 @@ final class TaskModel
         return ['id' => $id, 'is_completed' => !$done];
     }
 
-    /** تسک‌های سررسیدشده‌ی اخیر که هنوز اعلان نشده‌اند (فقط خواندن؛ علامت‌گذاری با markNotified بعد از نمایش، از مسیر POST) */
+    /** خواندن نوبت آماده؛ ارسال فقط پس از گرفتن اتمیک همان نوبت انجام می‌شود. */
     public static function dueNotifications(int $uid): array
     {
-        $rows = DB::all("SELECT t.id, t.title, t.description, t.due_date, t.due_time, t.share_token, p.title AS project_title
-              FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE " . self::mine($uid) . " AND t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL
-               AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
-               AND TIMESTAMP(t.due_date, t.due_time) <= NOW()
-               AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)", [$uid]);
+        $rows = DB::all("SELECT t.id, t.pid, t.title, t.description, t.due_date, t.due_time, t.share_token,
+                t.assignee_id, t.reminder_every, t.reminder_unit, t.notified_at, p.title AS project_title
+            FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+            WHERE " . self::mine($uid) . ' AND ' . \App\Core\ReminderSchedule::eligible() . "
+            ORDER BY COALESCE(t.notified_at, TIMESTAMP(t.due_date, COALESCE(t.due_time, '00:00:00'))), t.id LIMIT 50", [$uid]);
+        foreach ($rows as &$row) { $row['reminder_ref'] = \App\Core\ReminderSchedule::ref($row); }
         return $rows;
     }
 
-    /** «یادآوری نمایش داده شد» (POST /notifications/ack) — فقط تسک‌هایی که مسئولشان همین کاربر است */
+    /** هم‌زمانی تب‌ها و کانال Push: فقط یک درخواست می‌تواند هر نوبت را بگیرد. */
+    public static function claimNotifications(int $uid, array $ids, ?array $refs = null): array
+    {
+        $claimed = [];
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $ids), static fn($id) => $id > 0))), 0, 50);
+        foreach ($ids as $id) {
+            $row = DB::one('SELECT t.id, t.pid, t.assignee_id, t.due_date, t.due_time, t.reminder_every, t.reminder_unit, t.notified_at
+                FROM tasks t WHERE t.id = ? AND t.assignee_id = ?', [$id, $uid]);
+            if (!$row || ($refs !== null && (!is_string($refs[pid('tasks', $row)] ?? null)
+                || !hash_equals(\App\Core\ReminderSchedule::ref($row), $refs[pid('tasks', $row)])))) { continue; }
+            $same = []; $params = [$id, $uid];
+            foreach (['due_date', 'due_time', 'reminder_every', 'reminder_unit', 'notified_at'] as $field) {
+                $same[] = 't.' . $field . ' <=> ?'; $params[] = $row[$field];
+            }
+            if (DB::run('UPDATE tasks t SET t.notified_at = NOW() WHERE t.id = ? AND t.assignee_id = ? AND '
+                . implode(' AND ', $same) . ' AND ' . \App\Core\ReminderSchedule::eligible(), $params)) { $claimed[] = $id; }
+        }
+        return $claimed;
+    }
+
+    /** سازگاری با تأیید نسخه قدیمی؛ مشتری جدید همراه هر شناسه، ref همان نوبت را می‌فرستد. */
     public static function markNotified(int $uid, array $ids): int
     {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($v) => $v > 0)));
-        if (!$ids) {
-            return 0;
-        }
-        $ids = array_slice($ids, 0, 50);
-        return DB::run('UPDATE tasks t SET t.notified_at = NOW() WHERE ' . self::mine($uid) . ' AND t.notified_at IS NULL AND id IN (' . DB::in($ids) . ')', array_merge([$uid], $ids));
+        return count(self::claimNotifications($uid, $ids));
     }
 
     // ───── آمار داشبورد ─────

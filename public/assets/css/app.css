@@ -3248,3 +3248,10 @@ a.col-phone:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outl
 .td-history-fab:focus-visible { outline: 3px solid var(--main-ink); outline-offset: 3px; }
 .td-notes-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 15px; }
 @media (max-width: 760px) { .td-box .td-grid { padding-bottom: 82px; } }
+
+/* فاصله یادآوری پس از تأخیر، زیر تاریخ انجام */
+.dp-overdue-reminder { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.dp-overdue-reminder[hidden] { display: none; }
+.dp-overdue-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.dp-overdue-fields > label { min-width: 0; }
+.dp-overdue-reminder p { margin-bottom: 0; line-height: 1.8; }

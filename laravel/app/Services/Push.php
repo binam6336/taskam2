@@ -299,18 +299,20 @@ final class Push
         if (!self::enabled()) {
             return 0;
         }
-        $rows = DB::all("SELECT t.id, t.title, t.description, t.assignee_id, t.share_token, t.due_time, p.title AS project_title
-              FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
-             WHERE t.is_completed = 0 AND t.notified_at IS NULL AND t.blocked_at IS NULL AND t.due_date IS NOT NULL AND t.due_time IS NOT NULL
-               AND TIMESTAMP(t.due_date, t.due_time) <= NOW() AND TIMESTAMP(t.due_date, t.due_time) >= (NOW() - INTERVAL 120 MINUTE)
-               AND t.assignee_id IN (SELECT user_id FROM push_subscriptions)
-             LIMIT 200");
+        $rows = DB::all("SELECT t.id, t.pid, t.title, t.description, t.assignee_id, t.share_token, t.due_date, t.due_time,
+                t.reminder_every, t.reminder_unit, t.notified_at, p.title AS project_title FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+            WHERE " . \App\Core\ReminderSchedule::eligible() . " AND t.assignee_id IN (SELECT ps.user_id FROM push_subscriptions ps
+                INNER JOIN users ru ON ru.id = ps.user_id WHERE ru.status = 'active')
+            ORDER BY COALESCE(t.notified_at, TIMESTAMP(t.due_date, COALESCE(t.due_time, '00:00:00'))), t.id LIMIT 200");
+        $sent = 0;
         foreach ($rows as $t) {
-            DB::run('UPDATE tasks SET notified_at = NOW() WHERE id = ? AND notified_at IS NULL', [(int) $t['id']]);
+            $refs = [pid('tasks', $t) => \App\Core\ReminderSchedule::ref($t)];
+            if (!\KarlixLaravel\Repositories\TaskModel::claimNotifications((int) $t['assignee_id'], [(int) $t['id']], $refs)) { continue; }
+            $sent++;
             $tok = $t['share_token'] ?: \KarlixLaravel\Repositories\TaskModel::ensureShareToken((int) $t['id']);
-            $body = trim(($t['project_title'] ? 'پروژه: ' . $t['project_title'] . ' • ' : '') . 'مهلت: ' . fa_num(substr((string) $t['due_time'], 0, 5)) . ($t['description'] ? ' • ' . mb_substr(trim((string) $t['description']), 0, 120) : ''));
+            $body = trim(($t['project_title'] ? 'پروژه: ' . $t['project_title'] . ' • ' : '') . 'مهلت: ' . jdate($t['due_date'] . ' 00:00:00', false) . ($t['due_time'] ? ' ساعت ' . fa_num(substr((string) $t['due_time'], 0, 5)) : '') . ($t['description'] ? ' • ' . mb_substr(trim((string) $t['description']), 0, 120) : ''));
             self::toUser((int) $t['assignee_id'], ['title' => '⏰ یادآوری وظیفه – ' . $t['title'], 'body' => $body, 'url' => 'tasks?task=' . $tok, 'tag' => 'task' . pid('tasks', $t['id']), 'kind' => 'due']);
         }
-        return count($rows);
+        return $sent;
     }
 }

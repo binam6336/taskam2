@@ -10,10 +10,12 @@ namespace App\Core;
  */
 final class Schema
 {
-    public const VERSION = '059';
+    public const VERSION = '060';
 
     /** [جدول، ستون، DDL افزودن، کوئری پس از افزودن (اختیاری)] */
     private const COLUMNS = [
+        ['tasks', 'reminder_every', 'ADD COLUMN `reminder_every` SMALLINT UNSIGNED NULL DEFAULT NULL AFTER `due_time`', null],
+        ['tasks', 'reminder_unit', 'ADD COLUMN `reminder_unit` VARCHAR(8) NULL DEFAULT NULL AFTER `reminder_every`', null],
         ['projects', 'storage_limit_mb', 'ADD COLUMN `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL', null],
         ['storage_files', 'project_id', 'ADD COLUMN `project_id` INT UNSIGNED NULL DEFAULT NULL, ADD KEY `idx_storage_project` (`project_id`), ADD CONSTRAINT `fk_storage_project` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE SET NULL', null],
         ['users', 'storage_limit_mb', 'ADD COLUMN `storage_limit_mb` INT UNSIGNED NULL DEFAULT NULL', null],
