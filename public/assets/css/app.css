@@ -3227,15 +3227,13 @@ a.col-phone:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outl
 
 .side-panel-secrets code { white-space: pre-wrap; }
 
-/* تاریخچه تسک فقط هنگام مشاهده جزئیات، در پایین راست صفحه */
-.td-history-fab { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 25; width: auto; max-width: calc(100vw - 40px); min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; border: 1px solid var(--border-2); border-radius: 16px; background: var(--btn-grad); color: #fff; box-shadow: var(--shadow); cursor: pointer; font: inherit; font-weight: 700; }
-.td-history-fab[hidden] { display: none; }
-.td-history-fab > i { font-size: 20px; }
-.td-history-fab > span { font-size: .82rem; }
-.td-history-fab:hover { filter: brightness(1.08); }
-.td-history-fab:focus-visible { outline: 3px solid var(--main-ink); outline-offset: 3px; }
+/* تاریخچه داخل صفحه مشاهده تسک، بالای محتوای قابل اسکرول */
+.td-history-bar { display: flex; align-items: center; padding: 8px 20px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex: none; }
+.td-history-bar .td-history-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding-inline: 14px; color: var(--main-ink); background: var(--tint); border-color: var(--border-2); font-weight: 700; }
+.td-history-button > i { font-size: 18px; }
+.td-history-button:focus-visible { outline: 3px solid var(--main-ink); outline-offset: 2px; }
 .td-notes-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 15px; }
-@media (max-width: 760px) { .td-box .td-grid { padding-bottom: 82px; } }
+@media (max-width: 600px) { .td-history-bar { padding: 8px 16px; } }
 
 /* فاصله یادآوری پس از تأخیر، زیر تاریخ انجام */
 .dp-overdue-reminder { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }

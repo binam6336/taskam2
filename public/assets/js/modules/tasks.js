@@ -6,8 +6,6 @@ document.addEventListener('tk:ready', () => {
   const modal = TK.qs('#m-task'), form = TK.qs('#f-task'), detail = TK.qs('#detail-body');
   if (!modal) return;
   let currentId = null, current = null;
-  const historyButton = TK.qs('#m-detail [data-detail-history]');
-  TK.qs('#m-detail').addEventListener('tk:close', () => { historyButton.hidden = true; });
 
   const taskWrites = new Map(), activeSavers = new Set();
   const writeTask = (id, data) => {
@@ -672,7 +670,7 @@ document.addEventListener('tk:ready', () => {
   };
   const render = (t) => {
     qeClose();
-    currentId = t.id; current = t; historyButton.hidden = false;
+    currentId = t.id; current = t;
     const canEdit = t.can.edit;
     // چیدمان v7.2 (مثل نمونه‌ی «جزئیات تسک»): سربرگ با آیکون و ابزارها، ستون اصلی (برچسب‌ها، شرح، پیوست‌ها، یادداشت‌ها) و ستون کناری (وضعیت، جزئیات)
     const av = (name, img) => `<span class="avatar xs">${img ? `<img loading="lazy" decoding="async" src="${E(img)}" alt="">` : E(TK.initial(name || '؟'))}</span>`;
@@ -705,6 +703,7 @@ document.addEventListener('tk:ready', () => {
           <button class="btn btn-ghost btn-icon btn-sm" data-close title="بستن" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
+      <div class="td-history-bar"><button type="button" class="btn btn-sm td-history-button" data-detail-history aria-label="تاریخچهٔ تغییرات تسک" aria-haspopup="dialog" aria-controls="m-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>تاریخچه تغییرات</span></button></div>
       <div class="td-scroll">
       <h2 class="td-title" id="td-title">${E(t.title)}</h2>
       ${t.is_blocked ? `<div class="alert error blk-alert td-banner"><i class="fa-solid fa-ban"></i> این تسک مسدود شده است${t.blocked_by_name ? ' (توسط ' + E(t.blocked_by_name) + ')' : ''} — ${E(t.blocked_fa || '')}. تا مسدودی برداشته نشود فقط قابل مشاهده است.</div>` : ''}
@@ -815,10 +814,7 @@ document.addEventListener('tk:ready', () => {
     }).join('') : '<div class="faint small">تاریخچه‌ای ثبت نشده است.</div>';
   };
 
-  historyButton.addEventListener('click', openHistory);
-
   const open = async (id) => {
-    historyButton.hidden = true;
     detail.innerHTML = '<div class="center muted">در حال بارگذاری…</div>';
     TK.modal.open('m-detail');
     const r = await TK.get('/tasks/' + id);
@@ -1025,6 +1021,7 @@ document.addEventListener('tk:ready', () => {
   detail.addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-close')) return TK.modal.close('m-detail');
+    if (b.hasAttribute('data-detail-history')) return openHistory();
     if (b.dataset.fileDel) {
       if (!(await TK.confirm(`پیوست «${b.dataset.fileName}» برای همیشه حذف شود؟`, { okText: 'حذف پیوست' }))) return;
       b.disabled = true;

@@ -5,5 +5,5 @@
 <script src="<?= e(asset('js/widgets.js')) ?>"></script>
 <?php if (in_array('meeting', $this->scripts, true)): ?><script src="<?= e(asset('vendor/livekit/livekit-client-2.25.0.umd.js')) ?>"></script><?php endif; ?>
 <?php foreach ($this->scripts as $s): ?>
-<script src="<?= e(asset('js/modules/' . $s . '.js')) ?>"></script>
+<script src="<?= e(asset('js/modules/' . $s . '.js') . ($s === 'tasks' ? '&release=' . rawurlencode(trim((string) @file_get_contents(BASE_PATH . '/VERSION')) ?: '0') : '')) ?>"></script>
 <?php endforeach; ?>

@@ -16,12 +16,13 @@ if (($args['action'] ?? '') === 'fixture') {
         $users[] = ['pid' => pid('users', $id), 'mobile' => $mobile, 'password' => $password];
     }
     $uid = Pid::id('users', $users[0]['pid']);
-    $task = DB::insert('tasks', ['user_id' => $uid, 'assignee_id' => $uid, 'title' => 'سنجهواجهة تاریخچه', 'description' => str_repeat("شرح طولانی تسک\n", 160)]);
+    $project = DB::insert('projects', ['user_id' => $uid, 'title' => 'پروژه سنجه تاریخچه']);
+    $task = DB::insert('tasks', ['project_id' => $project, 'due_date' => date('Y-m-d'), 'user_id' => $uid, 'assignee_id' => $uid, 'title' => 'سنجهواجهة تاریخچه', 'description' => str_repeat("شرح طولانی تسک\n", 160)]);
     TaskHistory::log($task, $uid, 'title', ['from' => 'عنوان قبلی سنجه', 'to' => 'سنجهواجهة تاریخچه']);
     TaskHistory::log($task, $uid, 'confidential_off', ['count' => 0]);
     $token = bin2hex(random_bytes(24));
     DB::insert('api_tokens', ['user_id' => $uid, 'name' => 'جستجوی آزمایشی', 'token_hash' => hash('sha256', $token), 'token_prefix' => substr($token,0,8), 'scope' => 'read']);
-    echo json_encode(['users' => $users, 'task' => pid('tasks', $task), 'token' => $token, 'testDatabase' => env('DB_NAME')]);
+    echo json_encode(['users' => $users, 'task' => pid('tasks', $task), 'token' => $token, 'testDatabase' => env('DB_NAME'), 'project' => pid('projects', $project), 'share' => \KarlixLaravel\Repositories\TaskModel::ensureShareToken($task)]);
 } elseif (($args['action'] ?? '') === 'cleanup') {
     foreach (($args['users'] ?? []) as $user) { $uid = Pid::id('users', $user['pid']); if ($uid) { DB::run('DELETE FROM users WHERE id = ?', [$uid]); } }
     echo '{}';

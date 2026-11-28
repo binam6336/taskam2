@@ -4,5 +4,5 @@
 <script src="<?= e(asset('js/app.js')) ?>"></script>
 <script src="<?= e(asset('js/widgets.js')) ?>"></script>
 <?php foreach ($this->scripts as $s): ?>
-<script src="<?= e(asset('js/modules/' . $s . '.js')) ?>"></script>
+<script src="<?= e(asset('js/modules/' . $s . '.js') . ($s === 'tasks' ? '&release=' . rawurlencode(trim((string) @file_get_contents(BASE_PATH . '/VERSION')) ?: '0') : '')) ?>"></script>
 <?php endforeach; ?>

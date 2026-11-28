@@ -72,7 +72,6 @@ $this->scripts[] = 'tasks';
 
 <!-- جزئیات -->
 <div class="modal" id="m-detail"><div class="modal-box lg td-box"><div class="modal-body" id="detail-body"><div class="center muted">در حال بارگذاری…</div></div></div>
-    <button type="button" class="td-history-fab" data-detail-history hidden title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک" aria-haspopup="dialog" aria-controls="m-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>تاریخچه تغییرات</span></button>
 </div>
 
 <!-- تاریخچه‌ی تغییرات -->
