@@ -5,6 +5,7 @@ namespace KarlixLaravel\Services\Karlix;
 
 use KarlixLaravel\Database\DB;
 use App\Core\Validate;
+use App\Core\ReminderSchedule;
 use KarlixLaravel\Repositories\TaskModel;
 use KarlixLaravel\Services\BoardConfig;
 use KarlixLaravel\Services\BoardService;
@@ -28,11 +29,13 @@ final class Actions
         'remove_label'       => 'حذف لیبل',
         'update_due_date'    => 'سررسید',
         'clear_due_date'     => 'حذف سررسید',
+        'update_overdue_reminder' => 'یادآوری تأخیر',
+        'clear_overdue_reminder'  => 'خاموش‌کردن تکرار یادآوری',
         'assign_user'        => 'مسئول',
         'change_status'      => 'وضعیت',
     ];
 
-    public const MAX = 9;
+    public const MAX = 11;
 
     private const PRIO = ['low' => 'کم', 'medium' => 'متوسط', 'high' => 'زیاد'];
 
@@ -115,6 +118,22 @@ final class Actions
                         $ok[$type] = ['type' => $type];
                     }
                     break;
+                case 'update_overdue_reminder':
+                    // شکل ورودی با همان قواعد فرم؛ وجود سررسید هنگام اجرا از ردیف تازه بررسی می‌شود.
+                    $schedule = ReminderSchedule::validate(['reminder_every' => $a['every'] ?? 0,
+                        'reminder_unit' => $a['unit'] ?? ''], null, '2000-01-01');
+                    if (is_string($schedule) || $schedule['reminder_every'] === null) {
+                        $err(is_string($schedule) ? $schedule : 'بازه یادآوری تأخیر نامعتبر است.');
+                    } else {
+                        unset($ok['clear_overdue_reminder']);
+                        $ok[$type] = ['type' => $type] + $schedule;
+                    }
+                    break;
+                case 'clear_overdue_reminder':
+                    if (!isset($ok['update_overdue_reminder'])) {
+                        $ok[$type] = ['type' => $type];
+                    }
+                    break;
                 case 'assign_user':
                     $ref = is_string($a['user'] ?? null) ? trim($a['user']) : '';
                     $hit = $ctx['members'][$ref] ?? self::byName($ctx['members'], $ref);
@@ -130,6 +149,11 @@ final class Actions
                         : $err('وضعیت درخواستی در بورد این تسک وجود ندارد.');
                     break;
             }
+        }
+        if (isset($ok['clear_due_date'], $ok['update_overdue_reminder'])) {
+            unset($ok['clear_due_date'], $ok['update_overdue_reminder']);
+            $bad[] = ['type' => 'update_overdue_reminder', 'label' => self::TYPES['update_overdue_reminder'],
+                'message' => 'حذف تاریخ انجام و فعال‌کردن یادآوری تأخیر هم‌زمان ممکن نیست.'];
         }
         // ترتیب ثابت اجرا
         $sorted = [];
@@ -190,6 +214,13 @@ final class Actions
             case 'clear_due_date':
                 $r = $upd(['due_date' => '']);
                 return $r['ok'] ? self::done('سررسید تسک برداشته شد.', ['due_date' => null]) : self::fail($r['message']);
+            case 'update_overdue_reminder':
+                $in = array_intersect_key($a, array_flip(ReminderSchedule::FIELDS));
+                $r = $upd($in);
+                return $r['ok'] ? self::done('یادآوری پس از گذشت موعد روی ' . ReminderSchedule::label($in) . ' تنظیم شد.', $in) : self::fail($r['message']);
+            case 'clear_overdue_reminder':
+                $r = $upd(['reminder_every' => '']);
+                return $r['ok'] ? self::done('تکرار یادآوری پس از گذشت موعد خاموش شد.', ['reminder_every' => null, 'reminder_unit' => null]) : self::fail($r['message']);
             case 'assign_user':
                 $r = $upd(['assignee_id' => $a['id']]);
                 return $r['ok'] ? self::done('تسک به ' . $a['name'] . ' واگذار شد.', ['assignee_id' => $a['id']]) : self::fail($r['message']);
