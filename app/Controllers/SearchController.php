@@ -15,6 +15,9 @@ final class SearchController extends Controller
     public function global()
     {
         $this->rateLimit('global_search', self::RATE, 60);
-        Response::json(['success' => true, 'data' => GlobalSearch::run($this->uid(), $this->request->str('q', GlobalSearch::MAX_LEN))]);
+        $uid = $this->uid();
+        // جستجو نشست را تغییر نمی‌دهد؛ درخواست بعدی کاربر پشت رمزگشایی منتظر نماند.
+        \App\Core\Session::release();
+        Response::json(['success' => true, 'data' => GlobalSearch::run($uid, $this->request->str('q', GlobalSearch::MAX_LEN))]);
     }
 }

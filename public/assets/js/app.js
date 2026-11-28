@@ -46,9 +46,9 @@
   TK.initial = (n) => (String(n || '').trim()[0] || '؟');
 
   /* ───── HTTP ───── */
-  TK.http = async (url, { method = 'GET', data = null, form = null } = {}) => {
+  TK.http = async (url, { method = 'GET', data = null, form = null, signal = undefined } = {}) => {
     const headers = { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-CSRF-Token': TK.csrf };
-    const opt = { method, headers, credentials: 'same-origin' };
+    const opt = { method, headers, credentials: 'same-origin', signal };
     if (form) opt.body = form;
     else if (data && method !== 'GET') {
       const fd = new FormData();
@@ -66,7 +66,7 @@
       res = up;
     } else {
       try { res = await fetch(full, opt); }
-      catch { return { status: 'error', message: 'ارتباط با سرور برقرار نشد.' }; }
+      catch { return signal?.aborted ? { status: 'aborted', aborted: true } : { status: 'error', message: 'ارتباط با سرور برقرار نشد.' }; }
     }
     let json = null;
     try { json = await res.json(); } catch { json = { status: 'error', message: 'پاسخ نامعتبر از سرور (' + res.status + ')' }; }
@@ -107,7 +107,7 @@
     box.querySelector('.up-pop-x').addEventListener('click', () => xhr.abort());
     xhr.send(opt.body);
   });
-  TK.get = (url, params = {}) => { const q = new URLSearchParams(params).toString(); return TK.http(url + (q ? (url.includes('?') ? '&' : '?') + q : '')); };
+  TK.get = (url, params = {}, options = {}) => { const q = new URLSearchParams(params).toString(); return TK.http(url + (q ? (url.includes('?') ? '&' : '?') + q : ''), options); };
   TK.post = (url, data) => TK.http(url, { method: 'POST', data });
   TK.ok = (r) => r && (r.status === 'success' || r.success === true);
 
@@ -574,7 +574,8 @@
     return out;
   };
   // پنل کاربر (v7.13): پالت = جستجوی سراسری محتوا از سرور (GET /search، GlobalSearch)؛ پنل مدیر: همان پرش به صفحه‌ها
-  let gsTimer = 0, gsSeq = 0, gsData = null, gsQ = '', gsDoneOpen = false;
+  let gsTimer = 0, gsSeq = 0, gsData = null, gsQ = '', gsDoneOpen = false, gsCtl = null;
+  const gsCancel = () => { clearTimeout(gsTimer); gsTimer = 0; ++gsSeq; gsCtl?.abort(); gsCtl = null; };
   const gsDialog = () => TK.qs('.sb-palette.sb-gsearch');
   const gsActions = () => sbPalItems().filter((x) => x.run);          // خالی بودن جستجو: فقط عملیات (ثبت تسک، جمع کردن منو)
   const gsRender = () => {
@@ -610,12 +611,14 @@
   };
   const gsFetch = () => {
     const d = gsDialog(), q = TK.qs('.sb-pal-q', d).value.trim();
-    clearTimeout(gsTimer); gsTimer = 0; ++gsSeq; gsData = null; gsDoneOpen = false;
+    gsCancel(); gsData = null; gsDoneOpen = false;
     if (q.length < 2) { gsData = null; gsQ = ''; sbPalSel = 0; gsRender(); return; }
     gsTimer = setTimeout(async () => {
       gsTimer = 0; const seq = ++gsSeq;
       gsRender();
-      const r = await TK.get(d.dataset.search, { q });
+      const ctl = new AbortController(); gsCtl = ctl;
+      const r = await TK.get(d.dataset.search, { q }, { signal: ctl.signal });
+      if (gsCtl === ctl) gsCtl = null;
       if (seq !== gsSeq || !d.open) return;                       // پاسخ قدیمی (کاربر ادامه‌ی تایپ داده)
       if (!TK.ok(r)) { gsData = { groups: [] }; gsQ = q; gsRender(); if (r.message) TK.toast(r.message, 'error'); return; }
       gsData = r.data || { groups: [] }; gsQ = q; sbPalSel = 0; gsRender();
@@ -658,7 +661,7 @@
   });
   TK.on('click', '.sb-pal-list li[data-i]', (e, li) => sbPalRun(Number(li.dataset.i)));
   TK.on('click', '.sb-palette', (e, d) => { if (e.target === d) sbPalClose(); });   // کلیک روی backdrop
-  document.addEventListener('close', (e) => { if (e.target.matches?.('.sb-palette')) { const b = sbPalBack; sbPalBack = null; if (b && document.contains(b)) b.focus?.(); } }, true);
+  document.addEventListener('close', (e) => { if (e.target.matches?.('.sb-palette')) { gsCancel(); const b = sbPalBack; sbPalBack = null; if (b && document.contains(b)) b.focus?.(); } }, true);
   document.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
     if (e.key !== 'k' && e.key !== 'K' && e.key !== 'ن' && e.code !== 'KeyK') return;
@@ -668,7 +671,7 @@
   });
   const sbKbd = () => { if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) TK.qsa('.sb-kbd').forEach((k) => { k.textContent = '⌘ K'; }); };
 
-  const sbSync = () => { sbPop = null; sbPopBtn = null; sbSide(false); sbBind(); sbKbd(); };
+  const sbSync = () => { gsCancel(); sbPop = null; sbPopBtn = null; sbSide(false); sbBind(); sbKbd(); };
   sbMobile.addEventListener?.('change', () => { sbPopClose(false); sbTipHide(); sbRailSync(); sbFit(); });
   sbSync();
   TK.afterSwap.push(sbSync);

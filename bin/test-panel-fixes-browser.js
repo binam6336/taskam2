@@ -32,8 +32,8 @@ try{
  // ورود مالک در نشست جدا برای تاریخچه و بورد.
  const ownerCtx=await b.newContext({serviceWorkers:'block',viewport:{width:1365,height:950}}),owner=await ownerCtx.newPage();owner.on('pageerror',e=>errors.push(e.message));
  await owner.goto(base+'/login');await owner.locator('[name=mobile]').first().fill(f.users[0].mobile);await owner.locator('[name=password]').first().fill(f.users[0].password);await owner.locator('form[action$="/login"] button[type=submit]').click();await owner.waitForURL('**/dashboard');
- await owner.goto(base+'/tasks');await owner.waitForFunction(()=>!!window.TK?.tasks);await owner.evaluate(id=>TK.tasks.open(id),f.task);await owner.locator('#m-detail.open .td-tools [data-detail-history]').waitFor();
- await owner.locator('#m-detail .td-tools [data-detail-history]').click();await owner.locator('#m-history.open .hist-item').first().waitFor();
+ await owner.goto(base+'/tasks');await owner.waitForFunction(()=>!!window.TK?.tasks);await owner.evaluate(id=>TK.tasks.open(id),f.task);await owner.locator('#m-detail.open .td-history-fab').waitFor();
+ await owner.locator('#m-detail .td-history-fab').click();await owner.locator('#m-history.open .hist-item').first().waitFor();
  assert((await owner.locator('#history-body').textContent()).includes('عنوان قبل از تغییر'));
  assert((await owner.locator('#history-body').textContent()).includes('محرمانگی'));
  assert(await owner.locator('#history-body details').count());

@@ -14,7 +14,7 @@ use KarlixLaravel\Repositories\TaskModel;
  *    بدون مسدودشده‌ها و پروژه‌های مسدود، و تسک محرمانه فقط برای سازنده/مسئول/بیننده‌ی انتخابی (TaskModel::confidentialSql).
  *  - گزارش‌های تسک (یادداشت‌های task_notes) فقط روی همان تسک‌های قابل دیدن.
  *  - یادداشت‌ها، تیکت‌ها و همکاران: فقط مال پنل خود کاربر. پروژه‌ها و لیبل‌ها: پروژه‌هایی که عضوشان است.
- * هر کلمه‌ی جستجو باید در یکی از ستون‌ها باشد (Search::sql)؛ عنوان تسک با غلط تایپی کم هم پیدا می‌شود (Search::fuzzyIds) وقتی جستجوی دقیق چیزی نیابد.
+ * هر کلمه‌ی جستجو باید در یکی از ستون‌ها باشد؛ عنوان تسک با غلط تایپی کم هم پیدا می‌شود (Search::fuzzyIds) وقتی جستجوی دقیق چیزی نیابد.
  */
 final class GlobalSearch
 {
@@ -22,6 +22,8 @@ final class GlobalSearch
     public const MAX_LEN = 100;
     /** حداکثر نتیجه در هر گروه */
     public const PER_GROUP = 6;
+    /** سقف حافظه هر نوبت بررسی؛ داده قابل دسترسی با پیمایش کلیدی خوانده می‌شود. */
+    public const SCAN_BATCH = 128;
 
     public const GROUPS = [
         'tasks'    => ['تسک‌ها', 'fa-list-check'],
@@ -76,6 +78,41 @@ final class GlobalSearch
         return $out;
     }
 
+    /**
+     * نخست مجوز در SQL، سپس تطبیق متن رمزگشایی‌شده؛ بدون اسکن کاربران دیگر یا ساخت IN از ciphertext.
+     * cursor: نام خروجی => ستون SQL؛ تمام ستون‌ها ثابت داخلی و ترتیب نزولی است.
+     * پس از تکمیل نتیجه متوقف می‌شود؛ برای موارد قدیمی، همه صفحه‌های مجاز قابل پیمایش‌اند.
+     */
+    private static function matchingRows(string $select, array $params, array $fields, string $q, array $cursor, int $limit): array
+    {
+        $tokens = Search::tokens($q);
+        $out = []; $last = null;
+        $order = implode(', ', array_map(static fn($column) => $column . ' DESC', array_values($cursor)));
+        do {
+            $where = ''; $pageParams = $params;
+            if ($last !== null) {
+                $alternatives = []; $equal = []; $equalParams = [];
+                foreach ($cursor as $alias => $column) {
+                    $alternatives[] = '(' . implode(' AND ', array_merge($equal, [$column . ' < ?'])) . ')';
+                    $pageParams = array_merge($pageParams, $equalParams, [$last[$alias]]);
+                    $equal[] = $column . ' = ?'; $equalParams[] = $last[$alias];
+                }
+                $where = ' AND (' . implode(' OR ', $alternatives) . ')';
+            }
+            $rows = DB::all($select . $where . ' ORDER BY ' . $order . ' LIMIT ' . self::SCAN_BATCH, $pageParams);
+            foreach ($rows as $row) {
+                $texts = array_map(static fn($field) => Search::norm((string) ($row[$field] ?? '')), $fields);
+                $matches = true;
+                foreach ($tokens as $token) {
+                    if (!array_filter($texts, static fn($text) => mb_strpos($text, $token) !== false)) { $matches = false; break; }
+                }
+                if ($matches) { $out[] = $row; if (count($out) >= $limit) { return $out; } }
+            }
+            $last = $rows ? $rows[count($rows) - 1] : null;
+        } while (count($rows) === self::SCAN_BATCH);
+        return $out;
+    }
+
     private static function taskItem(array $t, string $sub, ?string $snippet = null): array
     {
         $token = $t['share_token'] ?: TaskModel::ensureShareToken((int) $t['id']);
@@ -86,18 +123,17 @@ final class GlobalSearch
     private static function tasks(int $uid, string $q, int $n): array
     {
         [$scope, $sp] = self::taskScope($uid);
-        [$qs, $qp] = Search::sql(['t.title', 't.description'], $q);
         $sel = 'SELECT t.id, t.title, t.description, t.share_token, t.is_completed, t.due_date, p.title AS project_title FROM tasks t LEFT JOIN projects p ON p.id = t.project_id';
         // سقف مستقل برای باز و انجام‌شده؛ تسک‌های باز، نتیجه‌های انجام‌شده را پنهان نمی‌کنند.
         $rows = [];
         foreach ([0, 1] as $done) {
-            $rows = array_merge($rows, DB::all("$sel WHERE $scope AND $qs AND t.is_completed = $done ORDER BY t.id DESC LIMIT " . $n, array_merge($sp, $qp)));
+            $rows = array_merge($rows, self::matchingRows("$sel WHERE $scope AND t.is_completed = $done", $sp, ['title', 'description'], $q, ['id' => 't.id'], $n));
         }
         if (!$rows) {
             // غلط تایپی کم در عنوان (همان قاعده‌ی فهرست تسک‌ها)
             $cand = DB::all("SELECT t.id, t.title FROM tasks t WHERE $scope ORDER BY t.id DESC LIMIT 3000", $sp);
             $ids = Search::fuzzyIds($cand, $q, ['title'], $n * 2);
-            $rows = $ids ? DB::all("$sel WHERE t.id IN (" . DB::in($ids) . ') ORDER BY t.is_completed ASC, t.id DESC', $ids) : [];
+            $rows = $ids ? DB::all("$sel WHERE $scope AND t.id IN (" . DB::in($ids) . ') ORDER BY t.is_completed ASC, t.id DESC', array_merge($sp, $ids)) : [];
             $counts = [0, 0];
             $rows = array_values(array_filter($rows, static function ($t) use (&$counts, $n): bool {
                 return ++$counts[(int) $t['is_completed']] <= $n;
@@ -114,32 +150,35 @@ final class GlobalSearch
     private static function reports(int $uid, string $q, int $n): array
     {
         [$scope, $sp] = self::taskScope($uid);
-        [$qs, $qp] = Search::sql(['n.note'], $q);
-        $rows = DB::all("SELECT n.id AS note_id, n.note, n.created_at, u.first_name, u.last_name, t.id, t.title, t.share_token, t.is_completed
+        $rows = self::matchingRows("SELECT n.id AS note_id, n.note, n.created_at, u.first_name, u.last_name, t.id, t.title, t.share_token, t.is_completed
                 FROM task_notes n INNER JOIN tasks t ON t.id = n.task_id LEFT JOIN users u ON u.id = n.user_id
-                WHERE $scope AND $qs ORDER BY n.id DESC LIMIT " . $n, array_merge($sp, $qp));
+                WHERE $scope", $sp, ['note'], $q, ['note_id' => 'n.id'], $n);
         return array_map(static fn(array $r) => ['type_note' => true] + self::taskItem($r, 'گزارش ' . full_name($r) . '، ' . jdate((string) $r['created_at']), self::snippet((string) $r['note'], $q)), $rows);
     }
 
     private static function projects(int $uid, string $q, int $n): array
     {
+        // جستجوی عنوان پروژه به شمارش تسک‌ها، محاسبه همه مجوزها یا رمزگشایی توضیحات نیاز ندارد.
+        [$qs, $qp] = Search::sql(['p.title'], $q, false);
+        $rows = DB::all("SELECT p.id, p.pid, p.title, p.profile_image, (p.user_id = ?) AS is_creator FROM projects p
+            WHERE " . self::projectsIn('p.id') . " AND $qs ORDER BY p.created_at DESC, p.id DESC LIMIT " . $n, array_merge([$uid, $uid, $uid], $qp));
         return array_map(static fn(array $p) => ['id' => pid('projects', $p), 'title' => (string) $p['title'],
             'sub' => !empty($p['is_creator']) ? 'سازنده‌ی پروژه' : 'عضو پروژه', 'snippet' => null,
             'url' => url('/projects?focus=' . pid('projects', $p)), 'image' => project_image_url($p['profile_image'] ?? null)],
-            \KarlixLaravel\Repositories\ProjectModel::forUser($uid, $q, 'all', $n));
+            $rows);
     }
 
     private static function notes(int $uid, string $q, int $n): array
     {
-        [$qs, $qp] = Search::sql(['title', 'content'], $q);
-        $rows = DB::all("SELECT id, title, content, updated_at FROM texts WHERE user_id = ? AND $qs ORDER BY updated_at DESC LIMIT " . $n, array_merge([$uid], $qp));
+        $rows = self::matchingRows('SELECT id, title, content, updated_at FROM texts WHERE user_id = ?', [$uid],
+            ['title', 'content'], $q, ['updated_at' => 'updated_at', 'id' => 'id'], $n);
         return array_map(static fn(array $r) => ['id' => (string) $r['id'], 'title' => trim((string) $r['title']) !== '' ? (string) $r['title'] : mb_substr(trim((string) $r['content']), 0, 60),
             'sub' => 'یادداشت', 'snippet' => self::snippet((string) $r['content'], $q), 'url' => url('/notes?focus=' . rawurlencode((string) $r['id']))], $rows);
     }
 
     private static function labels(int $uid, string $q, int $n): array
     {
-        [$qs, $qp] = Search::sql(['s.title'], $q);
+        [$qs, $qp] = Search::sql(['s.title'], $q, false);
         $rows = DB::all('SELECT s.id, s.title, s.color, p.title AS project_title FROM subjects s INNER JOIN projects p ON p.id = s.project_id
                 WHERE ' . self::projectsIn('s.project_id') . " AND $qs ORDER BY p.title, s.title LIMIT " . $n, array_merge([$uid, $uid], $qp));
         return array_map(static fn(array $r) => ['id' => pid('subjects', $r['id']), 'title' => (string) $r['title'], 'sub' => 'پروژه: ' . $r['project_title'], 'snippet' => null,
@@ -149,7 +188,7 @@ final class GlobalSearch
     /** همکاران خود کاربر — فقط با نام (موبایل همکار تأییدنشده ماسک است؛ با شماره جستجو نمی‌شود) */
     private static function people(int $uid, string $q, int $n): array
     {
-        [$qs, $qp] = Search::sql(["CONCAT(u.first_name, ' ', u.last_name)"], $q);
+        [$qs, $qp] = Search::sql(["CONCAT(u.first_name, ' ', u.last_name)"], $q, false);
         $rows = DB::all("SELECT u.id, u.first_name, u.last_name, u.avatar FROM colleagues c INNER JOIN users u ON u.id = c.colleague_user_id
                 WHERE c.user_id = ? AND u.status = 'active' AND u.is_bot = 0 AND $qs ORDER BY u.first_name, u.last_name LIMIT " . $n, array_merge([$uid], $qp));
         return array_map(static fn(array $r) => ['id' => pid('users', $r['id']), 'title' => full_name($r), 'sub' => 'همکار', 'snippet' => null,
@@ -158,7 +197,7 @@ final class GlobalSearch
 
     private static function tickets(int $uid, string $q, int $n): array
     {
-        [$qs, $qp] = Search::sql(['subject'], $q);
+        [$qs, $qp] = Search::sql(['subject'], $q, false);
         $st = ['open' => 'باز', 'in_progress' => 'در حال بررسی', 'answered' => 'پاسخ داده شد', 'closed' => 'بسته'];
         $rows = DB::all("SELECT id, subject, status FROM support_tickets WHERE user_id = ? AND $qs ORDER BY id DESC LIMIT " . $n, array_merge([$uid], $qp));
         return array_map(static fn(array $r) => ['id' => pid('support_tickets', $r['id']), 'title' => (string) $r['subject'], 'sub' => 'تیکت ' . ($st[$r['status']] ?? $r['status']),

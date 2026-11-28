@@ -3241,3 +3241,10 @@ a.col-phone:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outl
 .side-panel-secrets { padding: 12px; border-radius: 12px; background: var(--surface-2); }
 
 .side-panel-secrets code { white-space: pre-wrap; }
+
+/* تاریخچه تسک فقط هنگام مشاهده جزئیات، در پایین راست صفحه */
+.td-history-fab { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 5; width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid var(--border-2); border-radius: 16px; background: var(--btn-grad); color: #fff; box-shadow: var(--shadow); cursor: pointer; font-size: 20px; }
+.td-history-fab:hover { filter: brightness(1.08); }
+.td-history-fab:focus-visible { outline: 3px solid var(--main-ink); outline-offset: 3px; }
+.td-notes-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 15px; }
+@media (max-width: 760px) { .td-box .td-grid { padding-bottom: 82px; } }

@@ -526,12 +526,12 @@ document.addEventListener('tk:ready', () => {
     const prj = t.project_title ? `<span class="tr-proj"><span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span>${E(t.project_title)}</span>` : '<span class="faint">بدون پروژه</span>';
     const prop = (ic, name, val) => `<div class="td-prop"><span class="td-pl"><i class="fa-solid ${ic}" aria-hidden="true"></i>${name}</span><div class="td-pv">${val}</div></div>`;
     detail.innerHTML = `
+      <button type="button" class="td-history-fab" data-detail-history title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک" aria-haspopup="dialog" aria-controls="m-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
       <div class="td-head">
         <div class="td-crumb">${t.project_title ? `<span class="proj-ic sm" aria-hidden="true">${E(TK.initial(t.project_title))}</span><span class="truncate">${E(t.project_title)}</span><span aria-hidden="true">·</span>` : ''}<span class="nowrap">ثبت ${E(t.created_fa)}</span>
           ${t.is_quick ? '<span class="qk-badge" tabindex="0" role="img" aria-label="ثبت سریع" data-tip="ثبت سریع"><i class="fa-solid fa-bolt"></i></span>' : ''}
           ${t.confidential?.on ? `<span class="secret-badge" tabindex="0" role="img" aria-label="محرمانه" data-tip="محرمانه: فقط سازنده، مسئول${t.confidential.viewers.length ? ' و ' + TK.fa(t.confidential.viewers.length) + ' نفر انتخاب‌شده' : ''}"><i class="fa-solid fa-user-secret"></i></span>` : ''}</div>
         <div class="td-tools">
-          <button type="button" class="btn btn-ghost btn-icon btn-sm" data-detail-history title="تاریخچهٔ تغییرات تسک" aria-label="تاریخچهٔ تغییرات تسک"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></button>
           ${canEdit ? '<button class="btn btn-ghost btn-icon btn-sm" data-detail-edit title="ویرایش تسک" aria-label="ویرایش تسک"><i class="fa-solid fa-pen"></i></button>' : ''}
           ${t.on_board && cfg.context !== 'board' ? `<a class="btn btn-ghost btn-icon btn-sm" href="${TK.url('/board?task=' + t.id)}" title="نمایش در بورد پروژه" aria-label="نمایش در بورد پروژه"><i class="fa-solid fa-table-columns"></i></a>` : ''}
           <button class="btn btn-ghost btn-icon btn-sm" data-detail-share title="کپی لینک تسک" aria-label="کپی لینک تسک"><i class="fa-solid fa-link"></i></button>
@@ -550,7 +550,7 @@ document.addEventListener('tk:ready', () => {
         ${t.can.edit_info ? `<form id="f-task-upload" class="file-pick-row" enctype="multipart/form-data"><span class="file-pick-names faint small" data-file-names></span><label class="btn btn-ghost btn-sm file-pick" title="افزودن فایل به پیوست‌ها"><i class="fa-solid fa-upload"></i> افزودن فایل<input type="file" name="attachments[]" multiple hidden data-auto-upload></label></form>` : ''}</div>
         <div id="task-files" class="td-files">${t.files.length ? t.files.map((f) => fileChip(f, 'task')).join('') : '<span class="faint small">پیوستی وجود ندارد.</span>'}</div></section>
       <section class="td-sec">
-        <div class="utabs td-tabs"><span class="utab active">یادداشت‌ها و گزارش پیشرفت <span class="cnt">${F(t.notes.length)}</span></span><button type="button" class="utab" data-detail-history>تاریخچه‌ی تغییرات</button></div>
+        <h3 class="td-notes-heading">یادداشت‌ها و گزارش پیشرفت <span class="cnt">${F(t.notes.length)}</span></h3>
       ${t.can.notes ? `<form id="f-note" class="td-compose" enctype="multipart/form-data"><textarea class="input" name="note" rows="3" data-mention-ta placeholder="${E(TK.ph('task_note', 'یادداشت یا گزارش پیشرفت… (برای منشن @ بنویسید یا از دکمه‌ی @ استفاده کنید)'))}"></textarea>
         <div class="td-compose-bar file-pick-row"><button class="btn btn-primary btn-sm">ثبت یادداشت</button>
           <button type="button" class="btn btn-ghost btn-icon btn-sm mention-btn" data-mention title="منشن کردن اعضای پروژه یا کارلیکس" aria-label="منشن" aria-haspopup="listbox"><i class="fa-solid fa-at"></i></button>

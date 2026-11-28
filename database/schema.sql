@@ -242,6 +242,7 @@ CREATE TABLE `task_recurrences` (
   KEY `idx_recurrences_pending` (`enabled`, `current_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- نسخه ۹.۲.۱: جستجوی سراسری متن را پس از فیلتر دسترسی و به‌صورت دسته‌ای می‌خواند؛ بدون تغییر ساختار.
 CREATE TABLE `tasks` (
   `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`          CHAR(12) NULL DEFAULT NULL COMMENT 'شناسه‌ی عمومی تصادفی (بیرون از سرور به‌جای id)',

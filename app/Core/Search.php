@@ -43,8 +43,9 @@ final class Search
     /**
      * شرط SQL: هر کلمه در یکی از ستون‌ها. خروجی [sql, params]؛ عبارت خالی = ['1', []].
      * @param string[] $cols
+     * @param bool $encrypted برای ستون‌های ساختاریِ بدون رمزگذاری، بررسی ciphertext لازم نیست.
      */
-    public static function sql(array $cols, string $q): array
+    public static function sql(array $cols, string $q, bool $encrypted = true): array
     {
         $tokens = self::tokens($q);
         if (!$tokens) {
@@ -53,7 +54,7 @@ final class Search
         $parts = [];
         $params = [];
         foreach ($tokens as $t) {
-            $matches = ContentCipher::matches($t);
+            $matches = $encrypted ? ContentCipher::matches($t) : [];
             $or = [];
             foreach ($cols as $c) {
                 $or[] = '(' . $c . " NOT LIKE 'data:v1:%' AND " . self::col($c) . ' LIKE ?)';
